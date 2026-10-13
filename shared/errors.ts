@@ -1,0 +1,76 @@
+import type { z } from 'zod';
+
+// Stable error codes. The server returns a code, the client translates it
+// (key errors.<code>). Business rule codes match HINT in db.sql.
+export const ERROR_CODES = [
+  // general
+  'internal',
+  'invalid_input',
+  'invalid_data',
+  'not_found',
+  'forbidden',
+  'unauthorized',
+
+  // authentication
+  'invalid_token',
+
+  // employees
+  'email_taken',
+  'invalid_locale',
+  'invalid_time_zone',
+  'manager_cycle',
+
+  // tasks and tags
+  'tag_set_taken',
+  'unknown_tag',
+  'tag_in_use',
+  'immutable_row',
+
+  // observers
+  'owner_cannot_leave',
+  'manager_cannot_leave',
+  'not_observer',
+  'already_observer',
+  'no_pending_request',
+
+  // dependencies and deadlines
+  'dependency_cycle',
+  'hard_dependency_violated',
+
+  // comments
+  'unknown_attachment',
+  'attachment_in_use',
+  'self_mention',
+
+  // timesheet, time entries, scores
+  'shift_overlap',
+  'shift_closed',
+  'shift_in_future',
+  'shift_open',
+  'spent_immutable',
+  'spent_in_future',
+  'day_scored',
+  'score_final',
+  'not_manager',
+  'score_day_not_past',
+  'no_work_for_day',
+] as const;
+
+export type ErrorCode = (typeof ERROR_CODES)[number];
+
+/** Values substituted into the translated message, e.g. { taskId: 12 }. */
+export type ErrorParams = Record<string, string | number | null>;
+
+/** A zod validation issue without the server-side message and input. */
+export type ErrorIssue = Omit<z.core.$ZodIssue, 'message' | 'input'>;
+
+/** Shape of `error.data` that the server adds to every tRPC error. */
+export type ErrorData = {
+  appCode: ErrorCode;
+  params?: ErrorParams;
+  issues?: ErrorIssue[];
+};
+
+export function isErrorCode(value: unknown): value is ErrorCode {
+  return typeof value === 'string' && (ERROR_CODES as readonly string[]).includes(value);
+}

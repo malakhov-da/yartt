@@ -1,0 +1,53 @@
+{
+  "name": "yartt",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "imports": {
+    "#shared/*": "./shared/*",
+    "#client/*": "./client/*"
+  },
+  "scripts": {
+    "dev": "concurrently -n server,client \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "node --watch --env-file-if-exists=.env server/index.ts",
+    "dev:client": "vite client",
+    "build": "vite build client",
+    "start": "node --env-file-if-exists=.env server/index.ts",
+    "typecheck": "tsc -p . && tsc -p client",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@trpc/server": "11.19.0",
+    "cookie": "1.1.1",
+    "express": "5.3.0",
+    "postgres": "3.4.9",
+    "superjson": "2.2.6",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.1",
+    "@mui/icons-material": "7.3.11",
+    "@mui/material": "7.3.11",
+    "@tanstack/react-query": "5.104.2",
+    "@trpc/client": "11.19.0",
+    "@trpc/tanstack-react-query": "11.19.0",
+    "@types/express": "5.0.6",
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "5.2.0",
+    "concurrently": "9.2.5",
+    "i18next": "25.10.10",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-i18next": "15.7.4",
+    "react-router": "7.18.4",
+    "typescript": "5.9.3",
+    "vite": "7.3.7",
+    "vitest": "3.2.7",
+    "zustand": "5.0.15"
+  }
+}

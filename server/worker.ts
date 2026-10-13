@@ -1,0 +1,144 @@
+import { z } from 'zod';
+import type { Sql } from './pg.ts';
+import { sendWebhook } from './webhook.ts';
+
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+
+// Cron jobs from db.sql (CRON section).
+const JOBS: { name: string; every: number; run: (sql: Sql) => Promise<unknown> }[] = [
+  {
+    name: 'send_due_reminds',
+    every: MINUTE,
+    run: (sql) => sql`SELECT send_due_reminds()`,
+  },
+  {
+    name: 'token_cleanup',
+    every: HOUR,
+    run: (sql) => sql`DELETE FROM token WHERE sent_at < NOW() - INTERVAL '1 hour'`,
+  },
+  {
+    name: 'session_cleanup',
+    every: DAY,
+    run: (sql) => sql`DELETE FROM session WHERE last_seen_at < NOW() - INTERVAL '30 days'`,
+  },
+  {
+    name: 'notification_cleanup',
+    every: DAY,
+    run: (sql) => sql`DELETE FROM notification WHERE added_at < NOW() - INTERVAL '1 year'`,
+  },
+  {
+    name: 'attachment_cleanup',
+    every: DAY,
+    run: (sql) => sql`
+      DELETE FROM attachment a
+       WHERE used_at < NOW() - INTERVAL '1 day'
+         AND NOT EXISTS (SELECT 1 FROM comment WHERE attachment_ids @> ARRAY[a.id])
+    `,
+  },
+  {
+    name: 'next_day_cleanup',
+    every: DAY,
+    run: (sql) => sql`UPDATE employee SET next_day = NULL WHERE next_day <= local_today(id)`,
+  },
+];
+
+// A job runs under an advisory lock: with several instances only one runs it at a time.
+async function runJob(sql: Sql, job: (typeof JOBS)[number]): Promise<void> {
+  await sql.begin(async (tx) => {
+    const [lock] = Lock.array().parse(await tx`
+      SELECT pg_try_advisory_xact_lock(hashtext(${'yartt.job.' + job.name})) AS locked
+    `);
+    if (lock?.locked) await job.run(tx as unknown as Sql);
+  });
+}
+
+const Lock = z.object({ locked: z.boolean() });
+
+const PendingNotification = z.object({
+  // BIGSERIAL: the driver returns int8 as a string.
+  id: z.string(),
+  employeeId: z.number(),
+  taskId: z.number().nullable(),
+  payload: z.object({ kind: z.string() }).catchall(z.unknown()),
+  email: z.string().nullable(),
+  fullName: z.string(),
+  locale: z.string(),
+});
+
+const BATCH_SIZE = 20;
+
+// Delivers notifications to the webhook and returns how many were processed.
+// FOR UPDATE SKIP LOCKED: several workers never take the same notification.
+// A webhook error stops the batch: delivered ones are committed, the rest
+// stay in the queue.
+export async function deliverNotifications(sql: Sql): Promise<number> {
+  return sql.begin(async (tx) => {
+    const rows = PendingNotification.array().parse(await tx`
+      SELECT n.id, n.employee_id, n.task_id, n.payload, e.email, e.full_name, e.locale
+        FROM notification n
+        JOIN employee e ON e.id = n.employee_id
+       WHERE n.sent_at IS NULL
+       ORDER BY n.id
+       LIMIT ${BATCH_SIZE}
+         FOR UPDATE OF n SKIP LOCKED
+    `);
+
+    let done = 0;
+    for (const row of rows) {
+      // Dismissed after the notification was created: nobody to deliver to.
+      if (row.email !== null) {
+        const { kind, ...data } = row.payload;
+        try {
+          await sendWebhook({
+            kind,
+            to: { employeeId: row.employeeId, email: row.email, fullName: row.fullName, locale: row.locale },
+            taskId: row.taskId,
+            data,
+          });
+        } catch (error) {
+          console.error(`[worker] notification ${row.id} delivery failed:`, error);
+          break;
+        }
+      }
+      await tx`UPDATE notification SET sent_at = NOW() WHERE id = ${row.id}`;
+      done++;
+    }
+    return done;
+  });
+}
+
+export function startWorker(sql: Sql): () => void {
+  const timers: NodeJS.Timeout[] = [];
+  let stopped = false;
+
+  const guard = (name: string, fn: () => Promise<unknown>) => () => {
+    fn().catch((error) => console.error(`[worker] ${name} failed:`, error));
+  };
+
+  for (const job of JOBS) {
+    const run = guard(job.name, () => runJob(sql, job));
+    run();
+    timers.push(setInterval(run, job.every));
+  }
+
+  // Notification queue: no pause while there is work, otherwise poll every 2 seconds.
+  const loop = async () => {
+    while (!stopped) {
+      let delivered = 0;
+      try {
+        delivered = await deliverNotifications(sql);
+      } catch (error) {
+        console.error('[worker] notification delivery failed:', error);
+      }
+      if (delivered < BATCH_SIZE) await new Promise((r) => setTimeout(r, 2_000));
+    }
+  };
+  void loop();
+
+  return () => {
+    stopped = true;
+    timers.forEach(clearInterval);
+  };
+}
