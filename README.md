@@ -1,7 +1,26 @@
 # yartt
 
-A task tracker without projects, subtasks or assignments. Installed by a
-company on its own server.
+A task tracker where every task has exactly one owner and every manager
+sees what is really going on — without configuring anything. Installed by
+a company on its own server.
+
+No projects, titles, subtasks, assignees, statuses or admins. Tasks are
+named by tags, linked by dependencies and closed by deadlines; access
+follows the org chart.
+
+## Product
+
+- [Vision and positioning](docs/product/vision.md) — the problem, the bet,
+  who it is for, design principles, non-goals.
+- [Personas and roles](docs/product/personas.md) — whom we design for and
+  where rights come from.
+- [Features](docs/product/features.md) — what is in stage one, stage two
+  and never.
+- [Interface](docs/product/interface.md) — the five places of the product
+  and the interaction rules.
+- [Decisions](docs/product/decisions.md) — risky product questions and
+  what we chose.
+- [db.sql](db.sql) — the domain model and every business rule, in comments.
 
 ## Installation
 
@@ -14,10 +33,18 @@ docker build -t yartt .
 docker run -d --name yartt -p 3000:3000 --env-file .env yartt
 ```
 
-Environment variables are listed in [.env.example](.env.example). The
-first start creates the schema and the first employee
-(`FIRST_EMPLOYEE_EMAIL`, `FIRST_EMPLOYEE_NAME`). Everyone else is invited
-from the interface.
+Environment variables are listed in [.env.example](.env.example). Set
+at least:
+
+- `DATABASE_URL`, `PUBLIC_URL`;
+- `SMTP_URL` and `MAIL_FROM` — sign-in links, invites and notifications are
+  sent by email in each employee's language;
+- `FIRST_EMPLOYEE_EMAIL`, `FIRST_EMPLOYEE_NAME` — the first start creates
+  the schema and this employee. Everyone else is invited from the
+  interface.
+
+Note: the SMTP host is resolved through DNS, so use an IP address or a
+real host name rather than `localhost`.
 
 ### Upgrading
 
@@ -36,10 +63,10 @@ A new major version can be reached only from the last minor one: for
 example, 1.2 → 1.4 → 2.0 (upgrade to the latest 1.x first). The schema
 version history is in the `schema_version` table.
 
-### Webhook
+### Webhook (optional)
 
-The system never sends email itself. Every message (sign-in links,
-invites, notifications) is sent as a POST request to `WEBHOOK_URL`:
+For channels other than email, every message (sign-in links, invites,
+notifications) can also be sent as a POST request to `WEBHOOK_URL`:
 
 ```json
 {
@@ -71,8 +98,8 @@ cp .env.example .env   # set DATABASE_URL
 npm run dev            # server :3000 + client :5173
 ```
 
-Without `WEBHOOK_URL` messages are written to the server log — take the
-sign-in link from there.
+Without `SMTP_URL` and `WEBHOOK_URL` messages are written to the server
+log — take the sign-in link from there.
 
 ```sh
 npm run typecheck

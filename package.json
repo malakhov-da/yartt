@@ -22,6 +22,7 @@
     "@trpc/server": "11.19.0",
     "cookie": "1.1.1",
     "express": "5.3.0",
+    "nodemailer": "7.0.13",
     "postgres": "3.4.9",
     "superjson": "2.2.6",
     "zod": "4.6.7"
@@ -36,6 +37,7 @@
     "@trpc/tanstack-react-query": "11.19.0",
     "@types/express": "5.0.6",
     "@types/node": "24.19.2",
+    "@types/nodemailer": "7.0.12",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "5.2.0",

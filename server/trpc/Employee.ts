@@ -28,8 +28,8 @@ export default router({
     .mutation(({ input, ctx }) => Employees.updateProfile(ctx.employeeId, input)),
 
   /**
-   * Sets the signed-in employee's own manager (null — none).
-   * The manager then scores the employee's days and sees their tasks.
+   * Sets the signed-in employee's own manager (null — none). The new manager
+   * is notified, then scores the employee's days and sees their tasks.
    * @throws not_found — the manager is unknown or dismissed.
    * @throws manager_cycle
    */
@@ -39,22 +39,24 @@ export default router({
     .mutation(({ input, ctx }) => Employees.setManager(ctx.employeeId, input.managerId)),
 
   /**
-   * Dismisses an employee: sign-in is blocked, sessions end, tasks and
-   * reports go to the nearest active manager. History is kept.
+   * Dismisses a direct report: sign-in is blocked, sessions end, their tasks
+   * and reports move to the signed-in manager. History is kept.
+   * @throws not_manager — the signed-in employee is not the direct manager.
    * @throws not_found — unknown or already dismissed.
    */
   dismiss: authedProcedure
     .input(z.object({ id: Id }))
     .output(z.void())
-    .mutation(({ input }) => Employees.dismiss(input.id)),
+    .mutation(({ input, ctx }) => Employees.dismiss(input.id, ctx.employeeId)),
 
   /**
-   * Brings a dismissed employee back with the given email.
+   * Brings a dismissed direct report back with the given email.
+   * @throws not_manager — the signed-in employee was not their direct manager.
    * @throws not_found — unknown or not dismissed.
    * @throws email_taken
    */
   restore: authedProcedure
     .input(z.object({ id: Id, email: Email }))
     .output(Employee)
-    .mutation(({ input }) => Employees.restore(input.id, input.email)),
+    .mutation(({ input, ctx }) => Employees.restore(input.id, input.email, ctx.employeeId)),
 });

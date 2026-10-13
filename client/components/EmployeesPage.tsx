@@ -59,21 +59,20 @@ export default function () {
                 <TableCell>{employee.email ?? <Chip size="small" label={t('employees.dismissed')} />}</TableCell>
                 <TableCell>{employee.managerId ? byId.get(employee.managerId)?.fullName : ''}</TableCell>
                 <TableCell align="right">
-                  {employee.email === null ? (
+                  {/* Only the direct manager can dismiss or bring back. */}
+                  {employee.managerId !== me.id ? null : employee.email === null ? (
                     <Button size="small" onClick={() => setRestoring(employee)}>
                       {t('employees.restore')}
                     </Button>
                   ) : (
-                    employee.id !== me.id && (
-                      <Button
-                        size="small"
-                        color="error"
-                        disabled={dismiss.isPending}
-                        onClick={() => confirmDismiss(employee)}
-                      >
-                        {t('employees.dismiss')}
-                      </Button>
-                    )
+                    <Button
+                      size="small"
+                      color="error"
+                      disabled={dismiss.isPending}
+                      onClick={() => confirmDismiss(employee)}
+                    >
+                      {t('employees.dismiss')}
+                    </Button>
                   )}
                 </TableCell>
               </TableRow>

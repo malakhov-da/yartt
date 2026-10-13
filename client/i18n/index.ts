@@ -1,8 +1,7 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { LOCALES, type Locale } from '#shared/employee.ts';
-import { en } from './en.ts';
-import { ru, type Translation } from './ru.ts';
+import { TRANSLATIONS, type Translation } from '#shared/i18n/index.ts';
 
 declare module 'i18next' {
   interface CustomTypeOptions {
@@ -17,10 +16,7 @@ function browserLocale(): Locale {
 }
 
 void i18n.use(initReactI18next).init({
-  resources: {
-    ru: { translation: ru },
-    en: { translation: en },
-  },
+  resources: Object.fromEntries(LOCALES.map((locale) => [locale, { translation: TRANSLATIONS[locale] }])),
   lng: browserLocale(),
   fallbackLng: 'ru',
   interpolation: { escapeValue: false },

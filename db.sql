@@ -98,6 +98,11 @@ Key principles:
   - A task cannot be deleted. A task is closed by setting finished_at in
     the past. The owner can move finished_at (later or earlier) or clear
     it — owners of dependent tasks are notified.
+  - A passed deadline closes the task by itself — on purpose. An owner who
+    did not finish in time has to move the deadline before it passes, or
+    explain why the task is closed but not done. Hard dependencies may
+    forbid the move; then the owner has to negotiate with the owners of
+    the dependent tasks.
   - A task has an owner (owner_id). There is no separate creator role.
   - Ownership can be transferred by the owner or by the owner''s direct
     manager. The previous owner stays an observer. When the owner is
@@ -119,8 +124,11 @@ Key principles:
     agreed.
   - Work quality is scored only per employee per day, never per task.
     The current manager (employee.manager_id) scores any past day with a
-    filled timesheet. A score is final: after it neither the score, nor
+    filled timesheet. Scores are optional: the manager decides which days
+    to score, if any. A score is final: after it neither the score, nor
     the timesheet, nor time entries of that day can change.
+  - The timesheet and time entries are optional too: they are kept when the
+    manager asks for them.
   - Workload comes from the timesheet (work). Quality and workload are
     kept apart. A bonus is the manager''s decision; the system provides
     both metrics.
@@ -131,10 +139,9 @@ Key principles:
     notifications go both to them and to their manager (recursively up
     manager_id until an available manager is found).
   - Notifications are a queue in the database. The worker delivers them
-    through an outgoing webhook (sent_at); the user handles a
-    notification (closed_at). Cleaned up after a year. The system never
-    sends email itself: email, Telegram, Slack, etc. are up to the
-    webhook receiver.
+    by email (SMTP from the configuration) and/or to an outgoing webhook
+    for other channels (sent_at); the user handles a notification
+    (closed_at). Cleaned up after a year.
   - Comments are never edited. The interface protects against accidental
     sending: a sent comment can be pulled back into editing for a few
     seconds and only then goes to the server.
@@ -143,7 +150,12 @@ Key principles:
   - Reminders (remind) are explicit: an employee decides when to be
     reminded about a task. Deleted once sent.
   - Only an employee can create another employee (an invite). The first
-    employee is created by the application on its first start. No roles.
+    employee is created by the application on its first start. No roles:
+    rights come from relationships. Only the direct manager can dismiss an
+    employee or bring them back.
+  - Visits are logged: opening a task and opening "My day". They show the
+    owner who looked at a task and help to suggest when a shift started
+    and ended.
   - One database — one company. No multi-tenancy.
 
 
@@ -300,8 +312,11 @@ the API is implemented.
       -> notify(kind = invite).
     - Edit the profile (full_name, about, next_day, time_zone, locale).
     - Set / change manager_id (the employee themselves).
-    - Dismiss an employee (dismiss_employee).
-    - Bring a dismissed employee back (restore the email).
+    - Dismiss an employee (dismiss_employee: the direct manager).
+    - Bring a dismissed employee back (restore_employee: the direct manager).
+
+  Visits:
+    - Open a task / open "My day" -> log_visit().
 
   Tasks:
     - Create a task (owner = creator, tags, priority).
@@ -399,7 +414,9 @@ ACCESS RULES
     - Invite — any employee.
     - manager_id — the employee themselves (own profile). No confirmation
       from the manager: such a substitution is too noticeable.
-    - Dismiss — any employee (no roles).
+    - Dismiss / bring back — the direct manager only. An employee with no
+      manager cannot be dismissed.
+    - Setting a manager notifies the new manager (new_report).
 
 
 ============================================================================
@@ -485,10 +502,9 @@ WHAT THE APPLICATION DOES ITSELF (not in the database)
     existing id. The file name is stored in the comment
     (attachment_names), not in the attachment.
   - Notification delivery: the worker reads notification WHERE sent_at
-    IS NULL, sends it to the webhook (URL and secret in the config, body
-    signed with HMAC-SHA256) and sets sent_at = NOW(). The body holds the
-    recipient (email, locale), kind and payload; the webhook receiver
-    produces the text.
+    IS NULL, sends an email in the recipient''s language (SMTP from the
+    config) and/or posts it to the webhook (URL and secret in the config,
+    body signed with HMAC-SHA256), then sets sent_at = NOW().
   - The close_delay metric (delay in closing a shift) — on the frontend.
   - Rate limiting of issue_token — if ever needed.
 
@@ -505,6 +521,7 @@ CRON JOBS (outside SQL)
                    WHERE used_at < NOW() - INTERVAL ''1 day''
                      AND NOT EXISTS (SELECT 1 FROM comment
                                       WHERE attachment_ids @> ARRAY[a.id]);
+  - every day:    DELETE FROM visit WHERE at < NOW() - INTERVAL ''1 year'';
   - every day:    UPDATE employee SET next_day = NULL
                    WHERE next_day <= local_today(id);
 ';
@@ -728,7 +745,7 @@ Cron deletes sessions where last_seen_at < NOW() - INTERVAL ''30 days''.';
 
 
 -- ============================================================================
--- 3. tag / user_tag_color
+-- 3. tag / user_tag
 -- ============================================================================
 CREATE TABLE tag (
     id SERIAL PRIMARY KEY,
@@ -737,7 +754,7 @@ CREATE TABLE tag (
 CREATE INDEX idx_tag_name_trgm ON tag USING GIN (name gin_trgm_ops);
 
 COMMENT ON TABLE tag IS
-'A tag. Name only. The color is a personal setting (user_tag_color).
+'A tag. Name only. Color and weight are personal settings (user_tag).
 Tags are stored in task.tag_ids as a sorted array.
 A tag in use cannot be deleted (trigger).';
 
@@ -748,26 +765,31 @@ COMMENT ON COLUMN tag.name IS
 'Unique tag name.';
 
 
-CREATE TABLE user_tag_color (
+CREATE TABLE user_tag (
     employee_id INT NOT NULL REFERENCES employee(id),
     tag_id INT NOT NULL REFERENCES tag(id) ON DELETE CASCADE,
-    value VARCHAR(7) NOT NULL CHECK (value ~ '^#[0-9a-fA-F]{6}$'),
+    color VARCHAR(7) CHECK (color ~ '^#[0-9a-fA-F]{6}$'),
+    weight INT NOT NULL DEFAULT 0,
     PRIMARY KEY (employee_id, tag_id)
 );
 
-COMMENT ON TABLE user_tag_color IS
-'Personal tag color of an employee.
-Lets everyone see tags in their own colors.
-No row — the default color (decided by the frontend).';
+COMMENT ON TABLE user_tag IS
+'Personal tag settings of an employee: color and weight.
+No row — the default color and weight 0.
+The weight orders tags when a task "title" is shown: see ordered_tags().';
 
-COMMENT ON COLUMN user_tag_color.employee_id IS
-'Whose personal color.';
+COMMENT ON COLUMN user_tag.employee_id IS
+'Whose settings.';
 
-COMMENT ON COLUMN user_tag_color.tag_id IS
+COMMENT ON COLUMN user_tag.tag_id IS
 'Which tag.';
 
-COMMENT ON COLUMN user_tag_color.value IS
-'Hex color code (#RRGGBB).';
+COMMENT ON COLUMN user_tag.color IS
+'Hex color code (#RRGGBB). NULL — the default color (decided by the frontend).';
+
+COMMENT ON COLUMN user_tag.weight IS
+'Display weight: a heavier tag is shown earlier in a task "title".
+Ties are broken by how many visible tasks of the employee carry the tag.';
 
 
 -- ============================================================================
@@ -933,6 +955,31 @@ COMMENT ON COLUMN observer.deleted_by IS
 
 COMMENT ON COLUMN observer.deleted_at IS
 'When closed. NULL = access active or request pending.';
+
+
+CREATE OR REPLACE FUNCTION ordered_tags(p_employee_id INT, p_tag_ids INT[])
+RETURNS INT[] AS $$
+    SELECT ARRAY(
+        SELECT t.id
+          FROM unnest(p_tag_ids) AS t(id)
+          LEFT JOIN user_tag u ON u.employee_id = p_employee_id AND u.tag_id = t.id
+         ORDER BY COALESCE(u.weight, 0) DESC,
+                  (SELECT COUNT(*)
+                     FROM observer o JOIN task k ON k.id = o.task_id
+                    WHERE o.value = p_employee_id
+                      AND o.added_at IS NOT NULL
+                      AND o.deleted_at IS NULL
+                      AND k.tag_ids @> ARRAY[t.id]) DESC,
+                  t.id
+    )
+$$ LANGUAGE sql STABLE;
+
+COMMENT ON FUNCTION ordered_tags(INT, INT[]) IS
+'Tags of a task in the order an employee sees them as its "title".
+task.tag_ids stays sorted by id (for UNIQUE); only the display order
+changes: by the employee''s weight (user_tag.weight), heavier first; on a
+tie, the tag carried by more tasks the employee observes goes first; then
+by id.';
 
 
 -- ============================================================================
@@ -1398,6 +1445,7 @@ RULES:
     previous owner too.
   - score -> the scored employee.
   - invite -> the invitee.
+  - a new report (someone set their manager) -> the new manager.
 If the recipient is away, a copy goes to their manager (recursively).
 Dismissed employees get no notifications.
 
@@ -1426,7 +1474,8 @@ COMMENT ON COLUMN notification.closed_at IS
 COMMENT ON COLUMN notification.payload IS
 'JSONB context. Contains kind:
   comment | mention | task_mention | remind | access_request | finished_at_change |
-  owner_change | score | invite.
+  owner_change | score | invite | new_report.
+Payload keys are camelCase (employeeId, dependencyId, ...).
 A copy for an absent employee''s manager has for = the recipient id.';
 
 
@@ -1486,6 +1535,59 @@ COMMENT ON COLUMN score.reason IS
 
 COMMENT ON COLUMN score.added_at IS
 'When the score was given.';
+
+
+-- ============================================================================
+-- 16. visit — who opened what and when
+-- ============================================================================
+CREATE TABLE visit (
+    id BIGSERIAL PRIMARY KEY,
+    employee_id INT NOT NULL REFERENCES employee(id),
+    task_id INT REFERENCES task(id),
+    at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX idx_visit_task ON visit(task_id, at) WHERE task_id IS NOT NULL;
+CREATE INDEX idx_visit_employee ON visit(employee_id, at);
+
+COMMENT ON TABLE visit IS
+'Visits: an employee opened a task (task_id) or "My day" (task_id IS NULL).
+Written by log_visit(), at most once per 5 minutes per (employee, task).
+Used to:
+  - show the owner in "My day" who looked at their task;
+  - suggest when a shift started and ended (first and last activity of
+    the day).
+Cron deletes visits older than a year.';
+
+COMMENT ON COLUMN visit.id IS
+'Visit id.';
+
+COMMENT ON COLUMN visit.employee_id IS
+'Who visited.';
+
+COMMENT ON COLUMN visit.task_id IS
+'Which task. NULL — "My day".';
+
+COMMENT ON COLUMN visit.at IS
+'When.';
+
+
+CREATE OR REPLACE FUNCTION log_visit(p_employee_id INT, p_task_id INT)
+RETURNS VOID AS $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM visit
+         WHERE employee_id = p_employee_id
+           AND task_id IS NOT DISTINCT FROM p_task_id
+           AND at > NOW() - INTERVAL '5 minutes'
+    ) THEN
+        INSERT INTO visit (employee_id, task_id) VALUES (p_employee_id, p_task_id);
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION log_visit(INT, INT) IS
+'Logs a visit unless the same one was logged within the last 5 minutes.
+p_task_id = NULL — "My day".';
 
 
 -- ============================================================================
@@ -1695,6 +1797,9 @@ BEGIN
     LOOP
         PERFORM grant_observer(v_task_id, NEW.manager_id, NULL);
     END LOOP;
+
+    PERFORM notify(NEW.manager_id, NULL, jsonb_build_object(
+        'kind', 'new_report', 'employeeId', NEW.id));
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
@@ -1702,7 +1807,8 @@ $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION trg_employee_manager_observe() IS
 'When manager_id changes, the new manager (and recursively their managers)
 becomes an observer of all the employee''s tasks. The tasks of the
-employee''s reports are already among them — the employee observes them.';
+employee''s reports are already among them — the employee observes them.
+The new manager is notified (new_report).';
 
 CREATE TRIGGER employee_manager_observe
 AFTER UPDATE OF manager_id ON employee
@@ -2300,37 +2406,38 @@ COMMENT ON FUNCTION authenticate(TEXT) IS
 -- ----------------------------------------------------------------------------
 -- dismiss_employee — dismissal
 -- ----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION dismiss_employee(p_employee_id INT)
+CREATE OR REPLACE FUNCTION dismiss_employee(p_employee_id INT, p_actor_id INT)
 RETURNS VOID AS $$
 DECLARE
-    v_heir_id INT;
+    v_email CITEXT;
+    v_manager_id INT;
     v_task_id INT;
 BEGIN
-    WITH RECURSIVE chain AS (
-        SELECT manager_id AS id, 1 AS depth FROM employee WHERE id = p_employee_id
-        UNION ALL
-        SELECT e.manager_id, c.depth + 1 FROM employee e
-        JOIN chain c ON e.id = c.id
-        WHERE e.email IS NULL
-    )
-    SELECT c.id INTO v_heir_id
-      FROM chain c JOIN employee e ON e.id = c.id
-     WHERE e.email IS NOT NULL
-     ORDER BY c.depth
-     LIMIT 1;
+    SELECT email, manager_id INTO v_email, v_manager_id
+      FROM employee WHERE id = p_employee_id
+       FOR UPDATE;
 
+    IF NOT FOUND OR v_email IS NULL THEN
+        RAISE EXCEPTION 'employee % is unknown or already dismissed', p_employee_id
+            USING HINT = 'not_found';
+    END IF;
+    IF v_manager_id IS DISTINCT FROM p_actor_id THEN
+        RAISE EXCEPTION 'only the direct manager can dismiss employee %', p_employee_id
+            USING HINT = 'not_manager',
+                  DETAIL = json_build_object('employeeId', p_employee_id)::text;
+    END IF;
+
+    -- The direct manager is the heir: they are active, they are acting.
     FOR v_task_id IN
-        UPDATE task SET owner_id = v_heir_id
+        UPDATE task SET owner_id = v_manager_id
          WHERE owner_id = p_employee_id
         RETURNING id
     LOOP
-        IF v_heir_id IS NOT NULL THEN
-            PERFORM notify(v_heir_id, v_task_id, jsonb_build_object(
-                'kind', 'owner_change', 'from', p_employee_id));
-        END IF;
+        PERFORM notify(v_manager_id, v_task_id, jsonb_build_object(
+            'kind', 'owner_change', 'from', p_employee_id));
     END LOOP;
 
-    UPDATE employee SET manager_id = v_heir_id WHERE manager_id = p_employee_id;
+    UPDATE employee SET manager_id = v_manager_id WHERE manager_id = p_employee_id;
 
     UPDATE employee SET email = NULL, next_day = NULL WHERE id = p_employee_id;
 
@@ -2340,15 +2447,46 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION dismiss_employee(INT) IS
-'Dismisses an employee.
-  1. The heir is the nearest active manager up the chain.
-  2. All tasks (open and closed — a closed one can be reopened) go to the
-     heir with a notification; without an heir owner_id = NULL.
-  3. Reports move to the heir.
-  4. email = NULL — signing in is impossible.
-  5. Sessions, magic tokens and reminders are deleted.
+COMMENT ON FUNCTION dismiss_employee(INT, INT) IS
+'Dismisses an employee. Only the direct manager (p_actor_id) can do it;
+an employee without a manager cannot be dismissed.
+  1. All tasks (open and closed — a closed one can be reopened) go to the
+     manager with a notification.
+  2. Reports move to the manager (who is notified: new_report).
+  3. email = NULL — signing in is impossible. manager_id is kept, so the
+     same manager can bring the employee back.
+  4. Sessions, magic tokens and reminders are deleted.
 History (scores, time entries, comments) is kept.';
+
+
+CREATE OR REPLACE FUNCTION restore_employee(p_employee_id INT, p_email CITEXT, p_actor_id INT)
+RETURNS VOID AS $$
+DECLARE
+    v_email CITEXT;
+    v_manager_id INT;
+BEGIN
+    SELECT email, manager_id INTO v_email, v_manager_id
+      FROM employee WHERE id = p_employee_id
+       FOR UPDATE;
+
+    IF NOT FOUND OR v_email IS NOT NULL THEN
+        RAISE EXCEPTION 'employee % is unknown or not dismissed', p_employee_id
+            USING HINT = 'not_found';
+    END IF;
+    IF v_manager_id IS DISTINCT FROM p_actor_id THEN
+        RAISE EXCEPTION 'only the direct manager can bring back employee %', p_employee_id
+            USING HINT = 'not_manager',
+                  DETAIL = json_build_object('employeeId', p_employee_id)::text;
+    END IF;
+
+    UPDATE employee SET email = p_email WHERE id = p_employee_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION restore_employee(INT, CITEXT, INT) IS
+'Brings a dismissed employee back with the given email. Only their direct
+manager at the time of dismissal (p_actor_id) can do it. History was kept;
+tasks and reports that were handed over stay with the manager.';
 
 
 -- ----------------------------------------------------------------------------
@@ -2410,7 +2548,7 @@ BEGIN
     SELECT owner_id INTO v_owner_id FROM task WHERE id = p_task_id;
     IF v_owner_id IS NOT NULL THEN
         PERFORM notify(v_owner_id, p_task_id, jsonb_build_object(
-            'kind', 'access_request', 'employee_id', p_employee_id));
+            'kind', 'access_request', 'employeeId', p_employee_id));
     END IF;
 END;
 $$ LANGUAGE plpgsql;
@@ -2504,7 +2642,7 @@ BEGIN
            AND t.owner_id IS DISTINCT FROM v_actor_id
     LOOP
         PERFORM notify(v_owner_id, v_dependent_id, jsonb_build_object(
-            'kind', 'finished_at_change', 'dependency_id', p_task_id));
+            'kind', 'finished_at_change', 'dependencyId', p_task_id));
     END LOOP;
 END;
 $$ LANGUAGE plpgsql;

@@ -1,19 +1,19 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { sql } from '../server/pg.ts';
-import type { WebhookMessage } from '../server/webhook.ts';
+import type { Message } from '../server/delivery.ts';
 import { client, clientBySession, createEmployee } from './helpers.ts';
 
-const sent: WebhookMessage[] = [];
-vi.mock('../server/webhook.ts', () => ({
-  sendWebhook: async (message: WebhookMessage) => { sent.push(message); },
+const sent: Message[] = [];
+vi.mock('../server/delivery.ts', () => ({
+  deliver: async (message: Message) => { sent.push(message); },
 }));
 
 beforeEach(() => { sent.length = 0; });
 
 async function loginLink(email: string): Promise<string> {
   await (await client()).Auth.requestLogin({ email });
-  const message = sent.findLast((m) => m.kind === 'login' && m.to.email.toLowerCase() === email.toLowerCase());
-  const url = String(message?.data.url);
+  const message = sent.findLast((m) => m.payload.kind === 'login' && m.to.email.toLowerCase() === email.toLowerCase());
+  const url = message?.payload.kind === 'login' ? message.payload.url : '';
   return url.slice(url.lastIndexOf('/') + 1);
 }
 
@@ -55,8 +55,9 @@ describe('auth', () => {
   });
 
   test('dismissed employee cannot log in', async () => {
-    const { id, email } = await createEmployee();
-    await sql`SELECT dismiss_employee(${id})`;
+    const boss = await createEmployee();
+    const { id, email } = await createEmployee({ managerId: boss.id });
+    await sql`SELECT dismiss_employee(${id}, ${boss.id})`;
     await (await client()).Auth.requestLogin({ email });
     expect(sent).toHaveLength(0);
   });

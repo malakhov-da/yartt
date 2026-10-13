@@ -58,24 +58,24 @@ async function isActive(id: number): Promise<boolean> {
   return row?.exists ?? false;
 }
 
-/** The employee picks their own manager; cycles are rejected by the database. */
+/**
+ * The employee picks their own manager; cycles are rejected and the new
+ * manager is notified (new_report) by the database.
+ */
 export async function setManager(id: number, managerId: number | null): Promise<void> {
   if (managerId !== null && !(await isActive(managerId))) throw new AppError('not_found');
   await sql`UPDATE employee SET manager_id = ${managerId} WHERE id = ${id}`;
 }
 
-/** See dismiss_employee() in db.sql: tasks and reports go to the nearest active manager. */
-export async function dismiss(id: number): Promise<void> {
-  if (!(await isActive(id))) throw new AppError('not_found');
-  await sql`SELECT dismiss_employee(${id})`;
+/** See dismiss_employee() in db.sql: only the direct manager; tasks and reports go to them. */
+export async function dismiss(id: number, actorId: number): Promise<void> {
+  await sql`SELECT dismiss_employee(${id}, ${actorId})`;
 }
 
-export async function restore(id: number, email: string): Promise<Employee> {
-  const [employee] = Employee.array().parse(await sql`
-    UPDATE employee SET email = ${email}
-     WHERE id = ${id} AND email IS NULL
-    RETURNING ${sql.unsafe(COLUMNS)}
-  `);
+/** See restore_employee() in db.sql: only the direct manager. */
+export async function restore(id: number, email: string, actorId: number): Promise<Employee> {
+  await sql`SELECT restore_employee(${id}, ${email}, ${actorId})`;
+  const employee = await get(id);
   if (!employee) throw new AppError('not_found');
   return employee;
 }

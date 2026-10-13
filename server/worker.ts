@@ -1,6 +1,8 @@
 import { z } from 'zod';
+import { Locale } from '#shared/employee.ts';
+import { NotificationPayload } from '#shared/notification.ts';
+import { deliver } from './delivery.ts';
 import type { Sql } from './pg.ts';
-import { sendWebhook } from './webhook.ts';
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -38,6 +40,11 @@ const JOBS: { name: string; every: number; run: (sql: Sql) => Promise<unknown> }
     `,
   },
   {
+    name: 'visit_cleanup',
+    every: DAY,
+    run: (sql) => sql`DELETE FROM visit WHERE at < NOW() - INTERVAL '1 year'`,
+  },
+  {
     name: 'next_day_cleanup',
     every: DAY,
     run: (sql) => sql`UPDATE employee SET next_day = NULL WHERE next_day <= local_today(id)`,
@@ -61,18 +68,20 @@ const PendingNotification = z.object({
   id: z.string(),
   employeeId: z.number(),
   taskId: z.number().nullable(),
-  payload: z.object({ kind: z.string() }).catchall(z.unknown()),
+  payload: z.unknown(),
   email: z.string().nullable(),
   fullName: z.string(),
-  locale: z.string(),
+  // An unsupported language falls back to the default one.
+  locale: Locale.catch('ru'),
 });
 
 const BATCH_SIZE = 20;
 
-// Delivers notifications to the webhook and returns how many were processed.
-// FOR UPDATE SKIP LOCKED: several workers never take the same notification.
-// A webhook error stops the batch: delivered ones are committed, the rest
-// stay in the queue.
+// Delivers notifications (email and/or webhook) and returns how many were
+// processed. FOR UPDATE SKIP LOCKED: several workers never take the same
+// notification. A delivery error stops the batch: delivered ones are
+// committed, the rest stay in the queue. A payload that does not parse is
+// logged and skipped, so it cannot block the queue.
 export async function deliverNotifications(sql: Sql): Promise<number> {
   return sql.begin(async (tx) => {
     const rows = PendingNotification.array().parse(await tx`
@@ -88,14 +97,15 @@ export async function deliverNotifications(sql: Sql): Promise<number> {
     let done = 0;
     for (const row of rows) {
       // Dismissed after the notification was created: nobody to deliver to.
-      if (row.email !== null) {
-        const { kind, ...data } = row.payload;
+      const payload = NotificationPayload.safeParse(row.payload);
+      if (!payload.success) {
+        console.error(`[worker] notification ${row.id} has an invalid payload, skipped:`, payload.error.issues);
+      } else if (row.email !== null) {
         try {
-          await sendWebhook({
-            kind,
+          await deliver({
             to: { employeeId: row.employeeId, email: row.email, fullName: row.fullName, locale: row.locale },
             taskId: row.taskId,
-            data,
+            payload: payload.data,
           });
         } catch (error) {
           console.error(`[worker] notification ${row.id} delivery failed:`, error);

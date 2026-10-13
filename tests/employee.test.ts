@@ -63,18 +63,52 @@ describe('employee', () => {
     await (await client(dev.id)).Employee.setManager({ managerId: null });
   });
 
-  test('dismiss hands subordinates to the next manager, restore brings email back', async () => {
+  test('only the direct manager dismisses; tasks and reports move to them', async () => {
     const top = await createEmployee();
     const middle = await createEmployee({ managerId: top.id });
     const bottom = await createEmployee({ managerId: middle.id });
-    const api = await client(top.id);
+    const [tag] = await sql<{ id: number }[]>`INSERT INTO tag (name) VALUES (${'t-' + middle.id}) RETURNING id`;
+    const [task] = await sql<{ id: number }[]>`
+      INSERT INTO task (owner_id, tag_ids) VALUES (${middle.id}, ${[tag!.id]}) RETURNING id
+    `;
 
+    // Not the manager (a report, a stranger), and nobody above the top.
+    await expect((await client(bottom.id)).Employee.dismiss({ id: middle.id }))
+      .rejects.toMatchObject({ message: 'not_manager', cause: { params: { employeeId: middle.id } } });
+    await expect((await client(middle.id)).Employee.dismiss({ id: top.id }))
+      .rejects.toMatchObject({ message: 'not_manager' });
+
+    const api = await client(top.id);
     await api.Employee.dismiss({ id: middle.id });
     const list = await api.Employee.list();
     expect(list.find((e) => e.id === middle.id)?.email).toBeNull();
     expect(list.find((e) => e.id === bottom.id)?.managerId).toBe(top.id);
+    const [owner] = await sql<{ ownerId: number }[]>`SELECT owner_id FROM task WHERE id = ${task!.id}`;
+    expect(owner?.ownerId).toBe(top.id);
 
     await expect(api.Employee.dismiss({ id: middle.id })).rejects.toMatchObject({ message: 'not_found' });
-    expect(await api.Employee.restore({ id: middle.id, email: middle.email })).toMatchObject({ email: middle.email });
+  });
+
+  test('only the direct manager brings back', async () => {
+    const boss = await createEmployee();
+    const other = await createEmployee();
+    const dev = await createEmployee({ managerId: boss.id });
+    await (await client(boss.id)).Employee.dismiss({ id: dev.id });
+
+    await expect((await client(other.id)).Employee.restore({ id: dev.id, email: dev.email }))
+      .rejects.toMatchObject({ message: 'not_manager' });
+    expect(await (await client(boss.id)).Employee.restore({ id: dev.id, email: dev.email }))
+      .toMatchObject({ email: dev.email });
+    await expect((await client(boss.id)).Employee.restore({ id: dev.id, email: dev.email }))
+      .rejects.toMatchObject({ message: 'not_found' });
+  });
+
+  test('the new manager is notified', async () => {
+    const boss = await createEmployee();
+    const dev = await createEmployee();
+    await (await client(dev.id)).Employee.setManager({ managerId: boss.id });
+
+    const rows = await sql<{ payload: unknown }[]>`SELECT payload FROM notification WHERE employee_id = ${boss.id}`;
+    expect(rows.map((r) => r.payload)).toEqual([{ kind: 'new_report', employeeId: dev.id }]);
   });
 });

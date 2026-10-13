@@ -1,7 +1,9 @@
-import type { ErrorCode } from '#shared/errors.ts';
+import type { ErrorCode } from '../errors.ts';
 
-// Business error messages. {{name}} are parameters from the server (ErrorParams).
-// Field validation messages come from zod's own locales, see errors.ts.
+// The reference translation: every other locale is typed by it.
+// errors: business error messages, {{name}} are parameters from the server
+// (ErrorParams). Field validation messages come from zod's own locales.
+// mail: email subjects and bodies, rendered by the server.
 
 const errors: Record<ErrorCode, string> = {
   internal: 'Что-то пошло не так. Попробуйте ещё раз.',
@@ -37,7 +39,7 @@ const errors: Record<ErrorCode, string> = {
   spent_in_future: 'Нельзя списать время на будущий день.',
   day_scored: 'День уже оценён — изменения невозможны.',
   score_final: 'Оценку нельзя изменить.',
-  not_manager: 'Оценить день сотрудника #{{employeeId}} может только его текущий руководитель.',
+  not_manager: 'Это может сделать только непосредственный руководитель сотрудника #{{employeeId}}.',
   score_day_not_past: 'Оценить можно только прошедший день.',
   no_work_for_day: 'За этот день нет закрытых смен.',
 };
@@ -71,7 +73,7 @@ export const ru = {
     manager: 'Руководитель',
     dismissed: 'Уволен',
     dismiss: 'Уволить',
-    dismissConfirm: 'Уволить {{name}}? Его задачи и подчинённые перейдут к руководителю.',
+    dismissConfirm: 'Уволить: {{name}}? Задачи и подчинённые перейдут к вам.',
     restore: 'Вернуть',
     restoreTitle: 'Вернуть {{name}}',
     you: 'вы',
@@ -100,6 +102,54 @@ export const ru = {
     en: 'English',
   },
   errors,
+  mail: {
+    awayCopy: 'Копия: {{name}} сейчас отсутствует.',
+    open: 'Открыть: {{url}}',
+    login: {
+      subject: 'Вход в yartt',
+      body: 'Ссылка для входа — одноразовая, действует 10 минут:\n{{url}}',
+    },
+    invite: {
+      subject: 'Приглашение в yartt',
+      body: '{{by}} приглашает вас в yartt. Войдите с этим email: {{url}}',
+    },
+    comment: {
+      subject: 'Комментарий: {{task}}',
+      body: '{{by}} оставляет комментарий к задаче «{{task}}».',
+    },
+    mention: {
+      subject: 'Вас упомянули: {{task}}',
+      body: '{{by}} упоминает вас в комментарии к задаче «{{task}}».',
+    },
+    task_mention: {
+      subject: 'Ссылка на задачу: {{task}}',
+      body: '{{by}} ссылается на вашу задачу «{{task}}».',
+    },
+    remind: {
+      subject: 'Напоминание: {{task}}',
+      body: 'Напоминание по задаче «{{task}}». {{text}}',
+    },
+    access_request: {
+      subject: 'Запрос доступа: {{task}}',
+      body: '{{employee}} просит доступ к задаче «{{task}}».',
+    },
+    finished_at_change: {
+      subject: 'Изменился дедлайн: {{dependency}}',
+      body: 'Изменился дедлайн задачи «{{dependency}}», от которой зависит ваша задача «{{task}}».',
+    },
+    owner_change: {
+      subject: 'Вы владелец: {{task}}',
+      body: 'Теперь вы владелец задачи «{{task}}». Предыдущий владелец: {{from}}.',
+    },
+    score: {
+      subject: 'Оценка за {{day}}',
+      body: 'Руководитель оценил ваш день {{day}}.',
+    },
+    new_report: {
+      subject: 'Новый подчинённый: {{employee}}',
+      body: '{{employee}} указывает вас руководителем в своём профиле.',
+    },
+  },
 };
 
 export type Translation = typeof ru;

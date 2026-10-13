@@ -1,6 +1,7 @@
 # yartt
 
-A task tracker without projects, subtasks or assignments. The whole domain,
+A task tracker without projects, subtasks or assignments. Product docs are
+in `docs/product/` (start with `vision.md`). The whole domain,
 access rules and invariants are described in `db.sql` (COMMENT ON) — it is
 the specification; read it before any work.
 
@@ -8,7 +9,7 @@ the specification; read it before any work.
 
 - Everything is in English: code, comments, `db.sql`, documentation,
   commit messages.
-- The only exception is user-facing translations: `client/i18n/<locale>.ts`.
+- The only exception is user-facing translations: `shared/i18n/<locale>.ts`.
 
 ## Delivery
 
@@ -18,7 +19,8 @@ the specification; read it before any work.
 - Express serves both the API and the built client (static files) — no nginx.
 - On startup: the schema (under an advisory lock), then the first employee
   from `.env` (`FIRST_EMPLOYEE_*`) if `employee` is empty. There are no
-  roles and no admins: the first employee is an ordinary employee.
+  roles and no admins: the first employee is an ordinary employee. Rights
+  come from relationships (owner, observer, direct manager).
 
 ## Stack
 
@@ -40,7 +42,8 @@ the specification; read it before any work.
 - Localization from day one: UI texts go through keys, the server returns
   error codes, never texts. The employee's language is `employee.locale`.
 - Major versions are pinned deliberately: TypeScript 5, Vite 7, MUI 7,
-  React Router 7, Vitest 3. Moving to the next majors is a separate task.
+  React Router 7, Vitest 3, nodemailer 7. Moving to the next majors is a
+  separate task.
 - The server is not built: Node 24 runs TypeScript directly. Hence only
   erasable syntax (`erasableSyntaxOnly`: no enum, namespace, parameter
   properties) and relative imports with the `.ts` extension.
@@ -59,16 +62,20 @@ server/
   trpc/<Entity>.ts  — an entity router: procedure descriptions only
   services/<Entity>.ts — SQL and business logic
   errors.ts         — AppError, Postgres errors -> codes
-  migrate.ts, migrations/, bootstrap.ts, worker.ts, webhook.ts
+  delivery.ts       — every outgoing message: email (mail.ts) and/or webhook (webhook.ts)
+  services/Mail.ts  — renders an email in the recipient's language
+  migrate.ts, migrations/, bootstrap.ts, worker.ts
 shared/
   <entity>.ts       — zod schemas shared by the client and the server
   errors.ts         — error codes and the error.data shape
+  notification.ts   — notification payloads by kind
+  i18n/             — translations (ru.ts is the reference): UI, error messages, emails
   types.ts          — root router type for the client
 client/
   main.tsx          — providers; errors of all queries -> showError
   theme.ts          — MUI theme
   hooks/trpc.ts     — useTRPC(); hooks/store.ts — zustand, showError/showInfo; hooks/me.ts — useMe()
-  i18n/             — translations (ru.ts is the reference), errors.ts — error texts
+  i18n/             — i18next setup, errors.ts — error texts
   components/App.tsx — the `pages` array (header tabs) and the layout
   components/App/   — header, notifications
   components/<Name>Page.tsx, components/<Name>Page/ — pages and their parts
@@ -107,7 +114,7 @@ entry in the `pages` array in `client/components/App.tsx`.
 - Business rules live in the database (triggers, functions). A rule error:
   `RAISE EXCEPTION '<message for logs>' USING HINT = '<code>'
   [, DETAIL = json_build_object(...)::text]`. The code is added to
-  `shared/errors.ts` and to the translations `client/i18n/*.ts`;
+  `shared/errors.ts` and to the translations `shared/i18n/*.ts`;
   DETAIL carries the parameters for the message template.
   Constraint violations map to a code by constraint name in `server/errors.ts`.
 - `postgres` converts columns to camelCase: snake_case in SQL, camelCase
@@ -132,15 +139,19 @@ entry in the `pages` array in `client/components/App.tsx`.
   (`message` and `data.appCode`), parameters (`data.params`) and, for
   validation, zod issues without text (`data.issues`).
 - The message template depends on the locale and is applied on the client:
-  - business errors — `errors.<code>` in `client/i18n/*.ts`, parameters
+  - business errors — `errors.<code>` in `shared/i18n/*.ts`, parameters
     substituted as `{{taskId}}`;
   - field errors — zod's built-in locales (`zod/locales`), `fieldErrors()`.
 - The English text of `RAISE EXCEPTION` is for server logs and psql only;
   users never see it.
 - Errors of all queries are shown in a snackbar automatically; forms
   additionally highlight fields.
-- Translations are TS objects (`client/i18n/ru.ts` is the reference,
-  `en.ts` is typed by it), so a missing key is a compile error.
+- Translations are TS objects in `shared/i18n/` (`ru.ts` is the reference,
+  `en.ts` is typed by it), so a missing key is a compile error. The client
+  feeds them to i18next; the server renders emails from the `mail` section.
+- Notification payloads are camelCase JSON, one zod schema per kind in
+  `shared/notification.ts`; the worker parses them and skips (and logs) a
+  payload that does not parse, so it cannot block the queue.
 
 ## Code style
 
@@ -155,9 +166,13 @@ entry in the `pages` array in `client/components/App.tsx`.
 - The worker: notification delivery and the cron jobs from `db.sql`
   (CRON section). Safe with several instances: the queue uses
   `FOR UPDATE SKIP LOCKED`, every cron job runs under an advisory lock.
-- Every outgoing message (notifications, sign-in links, invites) goes only
-  through the outgoing webhook (URL and secret in `.env`, body signed with
-  HMAC-SHA256). Email, Telegram, etc. are up to the webhook receiver.
+- Every outgoing message (notifications, sign-in links, invites) goes
+  through `deliver()`: an email in the recipient's language (`SMTP_URL`,
+  `MAIL_FROM`) and/or the webhook for other channels (`WEBHOOK_URL`, body
+  signed with HMAC-SHA256). Sign-in links bypass the queue.
+- Visits (a task, "My day") are logged through `Visit.log`, throttled to
+  one per 5 minutes; they feed "who looked at my task" and shift
+  suggestions.
 - UI updates — polling through React Query; WebSocket only if ever needed.
 
 ## Interface
@@ -176,9 +191,9 @@ entry in the `pages` array in `client/components/App.tsx`.
 
 - vitest against a real PostgreSQL: business rules live in triggers, mocks
   would not check them. A run creates its own database and drops it after.
-- Procedures are tested through `createCaller` (`tests/helpers.ts`), the
-  webhook through `vi.mock('../server/webhook.ts')`. The HTTP error format —
-  `tests/errors.test.ts`.
+- Procedures are tested through `createCaller` (`tests/helpers.ts`),
+  outgoing messages through `vi.mock('../server/delivery.ts')`. The HTTP
+  error format — `tests/errors.test.ts`.
 
 ## Scope
 

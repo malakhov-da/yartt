@@ -8,6 +8,10 @@ const EnvSchema = z.object({
   PUBLIC_URL: z.url(),
   PORT: z.coerce.number().int().positive().default(3000),
   ROLE: z.enum(['all', 'api', 'worker']).default('all'),
+  // Email: smtp://user:password@host:587 or smtps://user:password@host:465.
+  SMTP_URL: z.url().optional().or(z.literal('').transform(() => undefined)),
+  MAIL_FROM: z.string().optional(),
+  // Optional extra channel for other messengers.
   WEBHOOK_URL: z.url().optional().or(z.literal('').transform(() => undefined)),
   WEBHOOK_SECRET: z.string().optional(),
   COOKIE_SECURE: z.stringbool().default(true),
@@ -21,6 +25,10 @@ const EnvSchema = z.object({
 const result = EnvSchema.safeParse(process.env);
 if (!result.success) {
   console.error(`Invalid configuration:\n${z.prettifyError(result.error)}`);
+  process.exit(1);
+}
+if (result.data.SMTP_URL && !result.data.MAIL_FROM) {
+  console.error('Invalid configuration: MAIL_FROM is required with SMTP_URL');
   process.exit(1);
 }
 if (result.data.WEBHOOK_URL && !result.data.WEBHOOK_SECRET) {

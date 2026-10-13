@@ -29,7 +29,7 @@ export const en: Translation = {
     manager: 'Manager',
     dismissed: 'Dismissed',
     dismiss: 'Dismiss',
-    dismissConfirm: 'Dismiss {{name}}? Their tasks and reports will go to their manager.',
+    dismissConfirm: 'Dismiss {{name}}? Their tasks and reports will move to you.',
     restore: 'Restore',
     restoreTitle: 'Restore {{name}}',
     you: 'you',
@@ -91,8 +91,56 @@ export const en: Translation = {
     spent_in_future: 'You cannot log time for a future day.',
     day_scored: 'The day is already scored — no changes allowed.',
     score_final: 'A score cannot be changed.',
-    not_manager: 'Only the current manager of employee #{{employeeId}} can score their day.',
+    not_manager: 'Only the direct manager of employee #{{employeeId}} can do this.',
     score_day_not_past: 'Only past days can be scored.',
     no_work_for_day: 'There are no closed shifts for this day.',
+  },
+  mail: {
+    awayCopy: 'A copy: {{name}} is away.',
+    open: 'Open: {{url}}',
+    login: {
+      subject: 'Sign in to yartt',
+      body: 'Your sign-in link — single-use, valid for 10 minutes:\n{{url}}',
+    },
+    invite: {
+      subject: 'Invitation to yartt',
+      body: '{{by}} invites you to yartt. Sign in with this email: {{url}}',
+    },
+    comment: {
+      subject: 'Comment: {{task}}',
+      body: '{{by}} commented on the task "{{task}}".',
+    },
+    mention: {
+      subject: 'You were mentioned: {{task}}',
+      body: '{{by}} mentioned you in a comment on the task "{{task}}".',
+    },
+    task_mention: {
+      subject: 'Your task was referenced: {{task}}',
+      body: '{{by}} referenced your task "{{task}}".',
+    },
+    remind: {
+      subject: 'Reminder: {{task}}',
+      body: 'A reminder about the task "{{task}}". {{text}}',
+    },
+    access_request: {
+      subject: 'Access request: {{task}}',
+      body: '{{employee}} asks for access to the task "{{task}}".',
+    },
+    finished_at_change: {
+      subject: 'Deadline changed: {{dependency}}',
+      body: 'The deadline of "{{dependency}}" changed; your task "{{task}}" depends on it.',
+    },
+    owner_change: {
+      subject: 'You own: {{task}}',
+      body: 'You are now the owner of the task "{{task}}". Previous owner: {{from}}.',
+    },
+    score: {
+      subject: 'Score for {{day}}',
+      body: 'Your manager scored your day {{day}}.',
+    },
+    new_report: {
+      subject: 'New report: {{employee}}',
+      body: '{{employee}} set you as their manager.',
+    },
   },
 };
