@@ -2,3 +2,5 @@
 **/dist
 .env
 .git
+e2e-report
+test-results

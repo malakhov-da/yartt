@@ -1,0 +1,27 @@
+/// <reference lib="dom" />
+import { expect, test, type Page } from '@playwright/test';
+import { employeeId, signIn, taskId } from './helpers.ts';
+
+/** Nothing sticks out to the side: no horizontal scroll at phone width. */
+async function fits(page: Page) {
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+}
+
+test.describe('at phone width', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('My day with the team, a task, an employee page', async ({ page }) => {
+    await signIn(page);
+    await fits(page);
+    await page.goto(`/tasks/${await taskId('сайт', 'редизайн', 'главная')}`);
+    await expect(page.getByText('Новая главная к запуску осенней кампании.')).toBeVisible();
+    await fits(page);
+    await page.goto(`/employees/${await employeeId('marina@example.com')}`);
+    await expect(page.getByRole('heading', { name: 'Показатели' })).toBeVisible();
+    await fits(page);
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Моя команда' })).toBeVisible(); // the table scrolls inside its block
+    await fits(page);
+  });
+});

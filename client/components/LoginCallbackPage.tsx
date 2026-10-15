@@ -15,6 +15,8 @@ export default function () {
 
   const login = useMutation(
     trpc.Auth.login.mutationOptions({
+      // The page itself explains a bad link; no snackbar on top.
+      meta: { quiet: true },
       onSuccess: async () => {
         await queryClient.invalidateQueries();
         void navigate('/', { replace: true });

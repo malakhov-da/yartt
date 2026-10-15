@@ -3,3 +3,5 @@ dist/
 .env
 *.log
 .DS_Store
+e2e-report/
+test-results/

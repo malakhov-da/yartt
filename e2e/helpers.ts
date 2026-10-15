@@ -1,0 +1,52 @@
+import { expect, type Page } from '@playwright/test';
+import postgres from 'postgres';
+import { databaseUrl } from './db.ts';
+
+/** Direct access to the end-to-end database: sign-in tokens and lookups. */
+export const sql = postgres(databaseUrl(), { onnotice: () => {} });
+
+export const FIRST = 'first@example.com';
+
+/** Signs in as the employee with this email through a one-time link, as from an email. */
+export async function signIn(page: Page, email = FIRST): Promise<void> {
+  const [row] = await sql<{ token: string }[]>`SELECT issue_token(${email}) AS token`;
+  await page.goto(`/login/${row!.token}`);
+  await expect(page.getByRole('heading', { name: /Ждёт меня|Waiting for me/ })).toBeVisible();
+}
+
+/** The id of the task with exactly these tags (the seed creates them by name). */
+export async function taskId(...tags: string[]): Promise<number> {
+  const [row] = await sql<{ id: number }[]>`
+    SELECT id FROM task
+     WHERE tag_ids = (SELECT array_agg(id ORDER BY id) FROM tag WHERE name = ANY(${tags}))
+  `;
+  if (!row) throw new Error(`no task with tags ${tags.join(', ')}`);
+  return row.id;
+}
+
+export async function employeeId(email: string): Promise<number> {
+  const [row] = await sql<{ id: number }[]>`SELECT id FROM employee WHERE email = ${email}`;
+  return row!.id;
+}
+
+/** A name nobody used yet, for tags of tasks a test creates. */
+export const unique = (prefix: string) => `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+
+/** The snackbar of the last error, translated. */
+export const errorToast = (page: Page) => page.getByRole('alert').filter({ hasNotText: /^$/ }).last();
+
+/** The rich text editor being typed in (comments shown in the feed are read-only editors too). */
+export const editable = (page: Page) => page.locator('.ProseMirror[contenteditable="true"]').last();
+
+/** Creates a task from the search in the top line and opens it. */
+export async function createTask(page: Page, tags: string[]): Promise<void> {
+  const search = page.getByPlaceholder('Найти или создать');
+  await search.click();
+  for (const tag of tags) {
+    await page.keyboard.type(tag);
+    await page.keyboard.press('Enter');
+  }
+  await page.getByRole('option', { name: new RegExp(`Создать задачу: ${tags.join(' · ')}`) }).click();
+  await expect(page).toHaveURL(/\/tasks\/\d+$/);
+}
+

@@ -19,7 +19,8 @@ const trpcClient = createTRPCClient<AppRouter>({
 // Every failed query and mutation shows a translated snackbar.
 const queryClient = new QueryClient({
   queryCache: new QueryCache({ onError: showError }),
-  mutationCache: new MutationCache({ onError: showError }),
+  // A mutation that shows its error itself says so: meta: { quiet: true }.
+  mutationCache: new MutationCache({ onError: (error, _v, _c, mutation) => { if (!mutation.meta?.quiet) showError(error); } }),
   defaultOptions: {
     queries: { retry: false, refetchOnWindowFocus: true },
     mutations: { retry: false },
