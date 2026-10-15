@@ -3,6 +3,7 @@ import { AppBar, Box, ButtonBase, IconButton, Menu, MenuItem, Toolbar, Tooltip, 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { clearDrafts } from '#client/hooks/drafts.ts';
 import { useMe } from '#client/hooks/me.ts';
 import { showInfo } from '#client/hooks/store.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
@@ -22,7 +23,9 @@ export default function () {
   const [menu, setMenu] = useState<HTMLElement | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const logout = useMutation(trpc.Auth.logout.mutationOptions({ onSuccess: () => queryClient.resetQueries() }));
+  const logout = useMutation(trpc.Auth.logout.mutationOptions({
+    onSuccess: () => { clearDrafts(); void queryClient.resetQueries(); },
+  }));
   // Keeps the employee list warm for the profile and the team screen.
   useQuery(trpc.Employee.list.queryOptions());
 

@@ -32,6 +32,7 @@ persona goal it serves. Status: **now** — stage one, **next** — stage two,
 | Search by tags and by text in tag names, context and comments — in My day, filtering Current tasks | everyone: find a task in seconds | now (done) |
 | Dependencies, hard dependencies tie deadlines; the owner of the task waited for is told | Marina: see what blocks what | now (done) |
 | A new-task form: tags as the title, priority, deadline, context; opened from My tasks or tied to a task as its dependency | everyone: write a task down whole, link it where it belongs | now (done) |
+| Unsaved comments, new tasks and edits are kept as drafts when going to another page | everyone: following a link never costs the typed text | now (done) |
 | Personal tag colors and weights — in the profile | Pavel: scan lists faster | now (done) |
 
 ## Access

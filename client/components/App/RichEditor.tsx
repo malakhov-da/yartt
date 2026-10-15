@@ -27,6 +27,8 @@ export default function (p: {
   onFiles?: (files: File[]) => void;
   /** Ctrl/Cmd+Enter. */
   onSubmit?: () => void;
+  /** Every change, as HTML ('' when empty): for drafts. */
+  onChange?: (html: string) => void;
   autoFocus?: boolean;
 }) {
   const { t } = useTranslation();
@@ -36,6 +38,8 @@ export default function (p: {
   submit.current = p.onSubmit;
   const onFiles = useRef(p.onFiles);
   onFiles.current = p.onFiles;
+  const onChange = useRef(p.onChange);
+  onChange.current = p.onChange;
 
   useImperativeHandle(p.handle, () => ({
     getHtml: () => rte.current?.editor?.getHTML() ?? '',
@@ -67,6 +71,7 @@ export default function (p: {
       content={p.initial}
       autofocus={p.autoFocus ? 'end' : false}
       immediatelyRender
+      onUpdate={({ editor }) => onChange.current?.(editor.isEmpty ? '' : editor.getHTML())}
       editorProps={{
         handlePaste: (_view, event) => takeFiles(Array.from(event.clipboardData?.files ?? [])),
         handleDrop: (view, event) => {

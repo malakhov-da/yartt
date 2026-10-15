@@ -7,6 +7,7 @@ import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PRIORITIES, type Priority, type TaskDetails, type TaskPage } from '#shared/task.ts';
 import { useFormat } from '#client/hooks/format.ts';
+import { useDraft } from '#client/hooks/drafts.ts';
 import { useMe } from '#client/hooks/me.ts';
 import { useEmployees, useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
@@ -28,7 +29,8 @@ function localInput(date: Date): string {
 
 /**
  * Header, "needs the owner", context and dependencies — one sheet. The owner
- * edits in place; everyone else reads (decision 15).
+ * edits in place; everyone else reads (decision 15). Tags and context being
+ * edited are drafts: leaving the page keeps them until Save or Cancel.
  */
 export default function (p: { task: TaskPage & { details: TaskDetails } }) {
   const { t } = useTranslation();
@@ -51,13 +53,14 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
   const markReviewed = useMutation(trpc.Task.markReviewed.mutationOptions({ onSuccess: refresh }));
   const take = useMutation(trpc.Task.take.mutationOptions({ onSuccess: refresh }));
 
-  const [editingTags, setEditingTags] = useState<string[] | null>(null);
-  const [editingContext, setEditingContext] = useState(false);
+  const [editingTags, setEditingTags] = useDraft<string[] | null>(`tags:${task.id}`, null);
+  const [contextDraft, setContextDraft] = useDraft<string | null>(`context:${task.id}`, null);
+  const editingContext = contextDraft !== null;
   const editor = useRef<RichEditorHandle>(null);
 
   const saveContext = () => {
     const html = editor.current?.isEmpty() ? null : (editor.current?.getHtml() ?? null);
-    update.mutate({ id: task.id, context: html }, { onSuccess: () => setEditingContext(false) });
+    update.mutate({ id: task.id, context: html }, { onSuccess: () => setContextDraft(null) });
   };
 
   const names = (ids: number[]) => ids.map((id) => employees.get(id)?.fullName ?? `#${id}`).join(', ');
@@ -192,17 +195,24 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <Typography sx={label}>{t('task.context')}</Typography>
           {isOwner && !editingContext && (
-            <IconButton size="small" aria-label={t('task.edit')} onClick={() => setEditingContext(true)}>
+            <IconButton size="small" aria-label={t('task.edit')} onClick={() => setContextDraft(d.context ?? '')}>
               <Edit fontSize="small" />
             </IconButton>
           )}
         </Stack>
         {editingContext ? (
           <Stack spacing={1}>
-            <RichEditor handle={editor} initial={d.context ?? ''} placeholder={t('task.contextPlaceholder')} onSubmit={saveContext} autoFocus />
+            <RichEditor
+              handle={editor}
+              initial={contextDraft}
+              placeholder={t('task.contextPlaceholder')}
+              onSubmit={saveContext}
+              onChange={setContextDraft}
+              autoFocus
+            />
             <Stack direction="row" spacing={1}>
               <Button variant="contained" disabled={update.isPending} onClick={saveContext}>{t('common.save')}</Button>
-              <Button color="inherit" onClick={() => setEditingContext(false)}>{t('common.cancel')}</Button>
+              <Button color="inherit" onClick={() => setContextDraft(null)}>{t('common.cancel')}</Button>
             </Stack>
           </Stack>
         ) : d.context ? (

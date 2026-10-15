@@ -6,6 +6,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Employee } from '#shared/employee.ts';
+import { useDraft } from '#client/hooks/drafts.ts';
 import { useMe } from '#client/hooks/me.ts';
 import { useEmployees, useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
@@ -23,9 +24,12 @@ type Draft = {
 
 export type ReplyTo = { id: number; authorId: number };
 
+const EMPTY: Draft = { html: '', files: [], mentions: [], taskIds: [] };
+
 /**
  * New comment. After "Send" it waits a few seconds with "Back to editing"
- * and only then goes to the server — comments are never edited.
+ * and only then goes to the server — comments are never edited. Until then
+ * it is a draft of this task: leaving the page and coming back keeps it.
  */
 export default function (p: {
   taskId: number;
@@ -42,15 +46,16 @@ export default function (p: {
   const editor = useRef<RichEditorHandle>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const [files, setFiles] = useState<Draft['files']>([]);
+  const [draft, setDraft, clearDraft] = useDraft<Draft>(`comment:${p.taskId}`, EMPTY);
+  const { files, mentions, taskIds } = draft;
+  const setFiles = (next: (prev: Draft['files']) => Draft['files']) => setDraft((d) => ({ ...d, files: next(d.files) }));
+  const setMentions = (next: Employee[]) => setDraft((d) => ({ ...d, mentions: next }));
+  const setTaskIds = (next: number[]) => setDraft((d) => ({ ...d, taskIds: next }));
   const [uploading, setUploading] = useState(0);
-  const [mentions, setMentions] = useState<Employee[]>([]);
-  const [taskIds, setTaskIds] = useState<number[]>([]);
   const [showMention, setShowMention] = useState(false);
   const [taskInput, setTaskInput] = useState<string | null>(null);
   const [held, setHeld] = useState<(Draft & { replyTo: ReplyTo | null; seconds: number }) | null>(null);
   const [editorKey, setEditorKey] = useState(0);
-  const [initial, setInitial] = useState('');
 
   const create = useMutation(trpc.Comment.create.mutationOptions({ onSuccess: refresh }));
 
@@ -124,19 +129,16 @@ export default function (p: {
     p.onCancelReply();
   };
 
+  // The editor is uncontrolled: a new key makes it take the draft's text.
   const reset = (html: string) => {
-    setFiles([]);
-    setMentions([]);
-    setTaskIds([]);
-    setInitial(html);
+    if (html) setDraft({ ...EMPTY, html });
+    else clearDraft();
     setEditorKey((k) => k + 1);
   };
 
-  const restore = (draft: Draft) => {
-    reset(draft.html);
-    setFiles(draft.files);
-    setMentions(draft.mentions);
-    setTaskIds(draft.taskIds);
+  const restore = (held: Draft) => {
+    setDraft({ html: held.html, files: held.files, mentions: held.mentions, taskIds: held.taskIds });
+    setEditorKey((k) => k + 1);
   };
 
   const plain = (html: string) => new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
@@ -164,7 +166,15 @@ export default function (p: {
             onDelete={p.onCancelReply}
           />
         )}
-        <RichEditor key={editorKey} handle={editor} initial={initial} placeholder={t('task.composer.placeholder')} onFiles={attach} onSubmit={send} />
+        <RichEditor
+          key={editorKey}
+          handle={editor}
+          initial={draft.html}
+          placeholder={t('task.composer.placeholder')}
+          onFiles={attach}
+          onSubmit={send}
+          onChange={(html) => setDraft((d) => ({ ...d, html }))}
+        />
         {(files.length > 0 || mentions.length > 0 || taskIds.length > 0 || uploading > 0) && (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
             {mentions.map((m) => (
@@ -175,7 +185,7 @@ export default function (p: {
               <Chip key={`t${id}`} size="small" variant="outlined" label={`#${id}`} onDelete={() => setTaskIds(taskIds.filter((x) => x !== id))} />
             ))}
             {files.map((f) => (
-              <Chip key={`f${f.id}`} size="small" icon={<AttachFile />} label={f.name} onDelete={() => setFiles(files.filter((x) => x !== f))} />
+              <Chip key={`f${f.id}`} size="small" icon={<AttachFile />} label={f.name} onDelete={() => setFiles((prev) => prev.filter((x) => x.id !== f.id))} />
             ))}
             {uploading > 0 && <Chip size="small" label={t('task.composer.uploading')} />}
           </Box>

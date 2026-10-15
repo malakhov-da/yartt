@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { LOCALES, PRONOUNS, type Locale, type Pronoun, type SettingsInput } from '#shared/employee.ts';
 import { defaultKeyboards, KEYBOARDS } from '#shared/keyboards.ts';
 import { deleteAvatar, uploadAvatar } from '#client/hooks/avatar.ts';
+import { clearDrafts } from '#client/hooks/drafts.ts';
 import { useMe } from '#client/hooks/me.ts';
 import { showInfo } from '#client/hooks/store.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
@@ -56,7 +57,7 @@ export default function (p: { onClose: () => void }) {
   const settings = useMutation(trpc.Employee.updateSettings.mutationOptions({ onSuccess: refresh }));
   const setManager = useMutation(trpc.Employee.setManager.mutationOptions({ onSuccess: refresh }));
   const logoutEverywhere = useMutation(
-    trpc.Auth.logoutEverywhere.mutationOptions({ onSuccess: () => queryClient.resetQueries() }),
+    trpc.Auth.logoutEverywhere.mutationOptions({ onSuccess: () => { clearDrafts(); void queryClient.resetQueries(); } }),
   );
   const errors = fieldErrors(update.error);
   const settingErrors = fieldErrors(settings.error);

@@ -193,6 +193,9 @@ and a `matchPath` in `client/components/App.tsx`.
 - Comments are never edited. After "Send" a comment stays in the
   interface for a few seconds with a "Back to editing" button and only
   then goes to the server.
+- Anything typed and not yet saved (a comment, a form, an edit in place)
+  goes through `useDraft` (`client/hooks/drafts.ts`), so leaving the page
+  does not lose it; it is cleared on save and on cancel.
 
 ## Commands
 

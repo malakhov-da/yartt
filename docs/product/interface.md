@@ -16,7 +16,9 @@ of My day.
 The logo is the way back: there is no "Back" line on a page. My day keeps
 its state while a task or a person is open (its tab, pages, scroll), so the
 logo returns me exactly where I was — the search and its picked tags
-included (3); a task is created in the new-task form (2a).
+included (3); a task is created in the new-task form (2a). Whatever is
+typed and not saved — a comment, a new task, an edit — waits as a draft
+until I come back to it (decision 36).
 
 ## 1. My day — "what needs me?"
 

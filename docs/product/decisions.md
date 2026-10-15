@@ -374,3 +374,19 @@ takes the picked tags. The top line is left with the logo, Invite and
 the avatar.
 
 *Implemented:* `CurrentTasks`, `Task.search` with tabs and counts.
+
+### 36. Typed is kept until saved or cancelled
+
+A task page unmounts when another page opens, and with it went a half
+written comment, a context being edited, a new task being filled in.
+Following a link to check something should not cost the text. What is
+typed and not saved — a comment, the new-task form, the tags, context or
+a dependency being edited — is a draft: it stays when the person goes
+elsewhere and is there when they come back, until it is sent, saved or
+cancelled. Drafts live in the browser tab (they survive a reload, not a
+new tab), under the employee, so a sign-in link for someone else in the
+same tab never shows them; logging out clears them. The server stores
+nothing. My day keeps its own state anyway (the search included): it
+stays mounted under a task.
+
+*Implemented:* `client/hooks/drafts.ts` (`useDraft`).

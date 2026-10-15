@@ -1,11 +1,11 @@
 import { Add, AddTask, Close, Edit } from '@mui/icons-material';
 import { Box, Button, IconButton, MenuItem, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import type { Dependency, TaskDetails, TaskPage } from '#shared/task.ts';
 import { parseMinutes, useFormat } from '#client/hooks/format.ts';
+import { useDraft } from '#client/hooks/drafts.ts';
 import { useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import TaskLine from './TaskLine.tsx';
@@ -28,7 +28,7 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
   const refresh = useTaskRefresh();
   const { task } = p;
   const isOwner = task.access === 'owner';
-  const [draft, setDraft] = useState<Draft | null>(null);
+  const [draft, setDraft] = useDraft<Draft | null>(`dependency:${task.id}`, null);
   const set = useMutation(trpc.Dependency.set.mutationOptions({ onSuccess: () => { refresh(); setDraft(null); } }));
   const remove = useMutation(trpc.Dependency.remove.mutationOptions({ onSuccess: refresh }));
 
