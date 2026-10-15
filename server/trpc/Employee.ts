@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Email, Employee, Id, InviteInput, ProfileInput } from '#shared/employee.ts';
+import { Email, Employee, Id, InviteInput, ProfileInput, SettingsInput } from '#shared/employee.ts';
 import * as Employees from '../services/Employee.ts';
 import { authedProcedure, router } from '../trpc.ts';
 
@@ -18,14 +18,24 @@ export default router({
     .mutation(({ input, ctx }) => Employees.invite(ctx.employeeId, input)),
 
   /**
-   * Updates the signed-in employee's own profile.
-   * While `nextDay` is in the future, notifications are copied to the manager.
-   * @throws invalid_time_zone
+   * Updates the signed-in employee's name, sign-in email and "about".
+   * Current sessions stay; the next sign-in link goes to the new email.
+   * @throws email_taken
    */
   updateProfile: authedProcedure
     .input(ProfileInput)
     .output(Employee)
     .mutation(({ input, ctx }) => Employees.updateProfile(ctx.employeeId, input)),
+
+  /**
+   * Changes the signed-in employee's own settings; fields left out stay.
+   * While `nextDay` is in the future, notifications are copied to the manager.
+   * @throws invalid_time_zone
+   */
+  updateSettings: authedProcedure
+    .input(SettingsInput)
+    .output(Employee)
+    .mutation(({ input, ctx }) => Employees.updateSettings(ctx.employeeId, input)),
 
   /**
    * Sets the signed-in employee's own manager (null — none). The new manager

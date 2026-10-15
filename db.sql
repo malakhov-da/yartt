@@ -87,12 +87,17 @@ Key principles:
     owner directs other employees within the task like a project manager,
     or works alone if nobody else is needed.
   - Access is defined by task visibility (observer).
-  - An employee sees only the tasks where they are an active observer.
-    The owner is always an observer. The manager (recursively up
-    manager_id) is automatically added as an observer to every task of
-    their reports.
-  - All work happens in comments. Task context and priority are visible
-    to everyone, but only the owner can change them.
+  - A task is private while it has active observers: only they see it.
+    The owner of a private task is always an observer. The manager
+    (recursively up manager_id) is automatically added as an observer to
+    every task of their reports.
+  - A task with no active observers is public: every employee sees it.
+    The owner makes a task public (all observers go) and private again.
+  - The header of any task — tags, priority, deadline — is visible to
+    every employee, so a person can tell whether to ask for access. The
+    context, comments and people are visible only to those who see the
+    task. Only the owner changes the header and the context.
+  - All work happens in comments.
   - Comments are never deleted or hidden. If a comment is outdated, reply
     to it (reply_to_id) and say so.
   - A task cannot be deleted. A task is closed by setting finished_at in
@@ -108,12 +113,17 @@ Key principles:
     manager. The previous owner stays an observer. When the owner is
     dismissed, their tasks go to their manager. With no manager the task
     is left without an owner and any observer can take it.
-  - Observers are those who see the task. Any observer can log their own
-    time and set reminders for themselves.
+  - Observers see the task and change only their own things: comments,
+    their time entries, their time left, their reminders, their mentions.
+    Access belongs to the owner: only the owner adds and removes
+    observers, answers requests and makes the task public or private.
+    Anyone who sees a private task can still bring a colleague in by
+    mentioning them — the mention makes them an observer.
   - Access is revoked explicitly: an observer can leave, the owner can
     remove an observer. There is also an access request flow: an employee
     files a request (added_at = NULL), the owner is notified and approves
-    it (added_at = NOW()) or rejects it (deleted_at = NOW()).
+    it (added_at = NOW()) or rejects it (deleted_at = NOW()). Opening and
+    closing someone''s access is notified to them.
   - The deadline (finished_at) lives in an interval table. The current
     value = expired_at IS NULL. Clearing = closing the active row without
     opening a new one.
@@ -310,7 +320,7 @@ the API is implemented.
   Employees:
     - Invite an employee (any employee: email, full_name, locale)
       -> notify(kind = invite).
-    - Edit the profile (full_name, about, next_day, time_zone, locale).
+    - Edit the profile (full_name, email, about, next_day, time_zone, locale).
     - Set / change manager_id (the employee themselves).
     - Dismiss an employee (dismiss_employee: the direct manager).
     - Bring a dismissed employee back (restore_employee: the direct manager).
@@ -321,18 +331,21 @@ the API is implemented.
   Tasks:
     - Create a task (owner = creator, tags, priority).
     - Change tag_ids / priority / context (owner only).
-    - Mark as reviewed (reviewed_at = NOW, owner only).
+    - "No intervention needed" (mark_reviewed: owner only, not while an
+      access request waits).
+    - Make public / private (make_public / make_private: owner only).
     - Transfer ownership (the owner or the owner''s manager).
     - Take an ownerless task (owner_id IS NULL, any observer).
 
   Access:
-    - Add an observer (add_observer: the owner or an observer).
+    - Add an observer or bring one back (add_observer: the owner).
     - Request access (request_access: the employee themselves).
+    - Withdraw one''s own request (withdraw_access).
     - Approve a request (approve_access: the owner).
     - Reject a request (reject_access: the owner).
-    - Remove an observer (the owner).
-    - Leave a task (the observer themselves, except the owner and the
-      manager of an observing report).
+    - Remove an observer (remove_observer: the owner).
+    - Leave a task (leave_task: the observer themselves, except the owner
+      and the manager of an observing report).
 
   Dependencies:
     - Add / change / remove a dependency (owner of task_id only).
@@ -341,11 +354,12 @@ the API is implemented.
     - Set / move finished_at (set_finished_at, owner only).
     - Clear finished_at (clear_finished_at, owner only).
 
-  Time estimates:
-    - Set / change estimate_minutes for oneself (any observer).
+  Time left:
+    - Set / change / clear estimate_minutes for oneself (anyone who sees
+      the task).
 
   Time entries:
-    - Log spent_minutes for oneself (an observer; the owner is always one).
+    - Log spent_minutes for oneself (anyone who sees the task).
     - Delete one''s own time entry.
 
   Timesheet:
@@ -357,13 +371,14 @@ the API is implemented.
 
   Comments:
     - Upload an attachment (deduplicated by hash) -> attachment.id.
-    - Leave a comment (with attachment_ids).
+    - Leave a comment (with attachment_ids and image_ids) — anyone who
+      sees the task.
     - Reply to a comment (reply_to_id).
     - Attach an employee -> mention.
     - Attach a task -> task_mention.
 
   Mentions:
-    - Close a mention (closed_at = NOW, explicitly or by replying).
+    - Close a mention (closed_at = NOW, explicitly, by the mentioned employee).
 
   Reminders:
     - Set a remind (an observer).
@@ -387,25 +402,32 @@ ACCESS RULES
     - finished_at — owner only.
     - dependency — owner of task_id only.
 
+  Seeing a task (can_see):
+    - The header (tag_ids, priority, finished_at, owner) — everyone.
+    - The rest (context, comments, people, time) — the active observers
+      of a private task; everyone for a public task.
+
   Observers:
-    - Any observer can add another observer.
-    - Any employee can request access.
+    - Add, remove, bring back an observer — owner only.
+    - Make the task public / private — owner only.
+    - Any employee can request access to a private task.
     - Approve / reject a request — owner only.
-    - Remove an observer — the owner.
     - Leave a task — the observer themselves. The owner cannot leave.
     - A manager cannot be removed (and cannot leave) while a report of
       theirs (recursively) observes the task.
 
-  Estimates and time entries:
-    - estimate_minutes — any observer, for themselves only.
-    - spent_minutes — any observer, for themselves only (by = them).
-    - remind — any observer, for themselves only.
+  Time left and time entries:
+    - estimate_minutes — anyone who sees the task, for themselves only.
+    - spent_minutes — anyone who sees the task, for themselves only.
+    - remind — anyone who sees the task, for themselves only.
     - work — the employee themselves (their own shift).
 
   Comments:
-    - Leave a comment — any observer.
-    - Attach an employee or a task — any observer.
-    - Only an employee who observes the task can be attached.
+    - Leave a comment — anyone who sees the task.
+    - Attach an employee or a task — anyone who sees the task.
+    - A private task: an attached employee who does not observe it
+      becomes an observer (added_by = the author). A public task: any
+      active employee can be attached.
 
   Scores:
     - score — only the current manager (employee.manager_id).
@@ -427,7 +449,7 @@ INVARIANTS (forbidden; all checked in the database)
     - Empty tag_ids, NULL inside, duplicates, unknown tags.
     - Two tasks with the same set of tags.
     - Deleting a task.
-    - An owner who is not an observer.
+    - The owner of a private task who is not an observer.
 
   Tags:
     - Deleting a tag that is in use.
@@ -447,7 +469,7 @@ INVARIANTS (forbidden; all checked in the database)
 
   Mentions:
     - Self-mention.
-    - Mentioning an employee who does not observe the task.
+    - Mentioning a dismissed employee.
     - A comment attaching its own task.
 
   Hierarchy:
@@ -462,7 +484,8 @@ INVARIANTS (forbidden; all checked in the database)
     - Any timesheet change for a scored day.
 
   Time entries:
-    - An entry by a non-observer, for a future day, for a scored day.
+    - An entry by someone who does not see the task, for a future day,
+      for a scored day.
     - Changing an entry (only delete and create).
 
   Deadlines:
@@ -472,12 +495,13 @@ INVARIANTS (forbidden; all checked in the database)
     - A score not by the current manager.
     - Scoring today or a future day.
     - Scoring a day without closed shifts or with an open shift.
-    - Changing or deleting a score.
+    - A score changed by anyone but the current manager; deleting a score.
 
   Comments:
     - Changing or deleting a comment.
-    - attachment_ids with duplicates or unknown attachments.
-    - Deleting an attachment referenced by a comment.
+    - A comment by someone who does not see the task.
+    - attachment_ids / image_ids with duplicates or unknown attachments.
+    - Deleting an attachment referenced by a comment or a task context.
     - reply_to_id pointing to a missing comment of the same task.
 
   Employees:
@@ -491,6 +515,9 @@ WHAT THE APPLICATION DOES ITSELF (not in the database)
   - Permission checks "owner only" / "manager only" for task operations
     (priority, tag_ids, context, owner_id, finished_at, dependency).
   - The "for oneself" check for estimate_minutes and remind.
+  - Sanitizing the HTML of comment.value and task.context (an allow-list
+    of tags; images only from the application''s own attachments) and
+    filling comment.image_ids / task.context_image_ids from it.
   - A frontend warning "more time logged than in the timesheet".
   - Creating notifications through notify(): comment, mention, task
     attachment, owner change, score. Database functions create the rest.
@@ -519,8 +546,7 @@ CRON JOBS (outside SQL)
   - every day:    DELETE FROM notification WHERE added_at < NOW() - INTERVAL ''1 year'';
   - every day:    DELETE FROM attachment a
                    WHERE used_at < NOW() - INTERVAL ''1 day''
-                     AND NOT EXISTS (SELECT 1 FROM comment
-                                      WHERE attachment_ids @> ARRAY[a.id]);
+                     AND NOT attachment_in_use(a.id);
   - every day:    DELETE FROM visit WHERE at < NOW() - INTERVAL ''1 year'';
   - every day:    UPDATE employee SET next_day = NULL
                    WHERE next_day <= local_today(id);
@@ -588,7 +614,8 @@ Changing the manager is a plain UPDATE (by the employee). The new manager
 is automatically added to all of the employee''s tasks. The old one stays.
 A cycle (A -> B -> A) is forbidden by a trigger.
 
-next_day — when the employee is back at work. While next_day is in the
+next_day — when the employee is back at work after any absence
+(vacation, sick leave, a day off). While next_day is in the
 future, all notifications go both to them and to their manager
 (recursively up manager_id until an available one is found). Cron clears
 past dates.
@@ -602,13 +629,16 @@ COMMENT ON COLUMN employee.id IS
 COMMENT ON COLUMN employee.email IS
 'CITEXT, case-insensitive, UNIQUE. One account per email.
 NULL = dismissed. A dismissed employee cannot sign in.
+The employee may change it in the profile (the next sign-in link goes
+to the new address).
 When the employee comes back, the email is restored and history is kept.';
 
 COMMENT ON COLUMN employee.full_name IS
 'Display name. Filled by the inviter on invite.';
 
 COMMENT ON COLUMN employee.about IS
-'Free text: how to reach me. Filled by the employee.';
+'Free text about the employee: position, how to reach me, anything
+colleagues should know. Filled by the employee.';
 
 COMMENT ON COLUMN employee.manager_id IS
 'The direct manager. One field, no history.
@@ -616,7 +646,7 @@ The current manager scores the day.
 A cycle (A -> B -> A) is forbidden by a trigger.';
 
 COMMENT ON COLUMN employee.next_day IS
-'When the employee is back at work.
+'When the employee is back at work after an absence (vacation, sick leave).
 NULL or a past date = available (cron clears past dates).
 A future date = away: notifications go both to them and to their manager.';
 
@@ -810,16 +840,20 @@ CREATE TABLE task (
     priority priority NOT NULL DEFAULT 'NORMAL',
 
     context TEXT,
+    context_image_ids INT[] NOT NULL DEFAULT '{}',
     reviewed_at TIMESTAMPTZ,
 
     CONSTRAINT chk_task_tag_ids_set
         CHECK (is_int_set(tag_ids)),
+    CONSTRAINT chk_task_context_image_ids
+        CHECK (cardinality(context_image_ids) = 0 OR is_int_set(context_image_ids)),
     CONSTRAINT uq_task_tag_ids
         UNIQUE (tag_ids)
 );
 CREATE INDEX idx_task_owner ON task(owner_id);
 CREATE INDEX idx_task_tag_ids ON task USING GIN (tag_ids);
 CREATE INDEX idx_task_context_trgm ON task USING GIN (context gin_trgm_ops);
+CREATE INDEX idx_task_context_image_ids ON task USING GIN (context_image_ids);
 
 COMMENT ON TABLE task IS
 'A task — only "what this entity is".
@@ -831,13 +865,20 @@ tag_ids — the set of tags, which is also the task "title". Stored sorted
 empty set, duplicates and unknown tags are forbidden.
 
 owner_id — the current owner, responsible for getting it done on time and
-well thought out. Always an observer of the task (trigger). May be NULL —
-an ownerless task (after the owner was dismissed with no manager).
+well thought out. Always an observer of a private task (trigger). May be
+NULL — an ownerless task (after the owner was dismissed with no manager).
 
-priority, context — visible to everyone, changed only by the owner.
+PUBLIC AND PRIVATE: a task with active observers is private, one without
+them is public (see is_public(), can_see()). A new task is private: its
+owner becomes its first observer.
 
-reviewed_at — when the owner last explicitly confirmed the task is still
-relevant. Updated only by an explicit owner action ("Mark as reviewed").
+tag_ids, priority and the deadline are the header, visible to every
+employee. context is visible to those who see the task. All of them are
+changed only by the owner.
+
+reviewed_at — when the owner last confirmed that nothing in the task
+waits for their decision ("No intervention needed", mark_reviewed()).
+Not a read receipt.
 "Needs attention" rule: reviewed_at IS NULL or there is a comment after
 reviewed_at (not counting the owner''s comments).
 Reset to NULL when the owner changes (trigger).
@@ -851,7 +892,8 @@ COMMENT ON COLUMN task.id IS
 'SERIAL PRIMARY KEY. Immutable. All FKs and URLs use it.';
 
 COMMENT ON COLUMN task.owner_id IS
-'The current task owner, responsible for the result. Always an observer.
+'The current task owner, responsible for the result. Always an observer
+of a private task.
 May be NULL: an ownerless task. Then the first observer to take it
 becomes the owner.
 Ownership is transferred by the current owner or the owner''s direct
@@ -863,15 +905,22 @@ COMMENT ON COLUMN task.tag_ids IS
 Changed only by the owner. Non-empty, no duplicates, tags exist.';
 
 COMMENT ON COLUMN task.priority IS
-'Priority. Visible to everyone, changed only by the owner. Default NORMAL.';
+'Priority. Visible to every employee, changed only by the owner. Default NORMAL.';
 
 COMMENT ON COLUMN task.context IS
-'Task description from the owner''s point of view. Visible to everyone,
-changed only by the owner.';
+'Task description from the owner''s point of view: sanitized HTML (see
+WHAT THE APPLICATION DOES ITSELF). Visible to those who see the task,
+changed only by the owner. Keeps no history: why it changed is said in
+the comments.';
+
+COMMENT ON COLUMN task.context_image_ids IS
+'Attachments shown as images inside context. Filled by the application
+from the HTML; keeps them from the attachment cleanup.';
 
 COMMENT ON COLUMN task.reviewed_at IS
-'When the owner last explicitly confirmed the task is still relevant.
-Updated only by the "Mark as reviewed" action.
+'When the owner last confirmed that nothing in the task waits for their
+decision. Updated only by mark_reviewed(), which is refused while an
+access request waits for an answer.
 "Needs attention" rule: reviewed_at IS NULL or a comment after
 reviewed_at (not counting the owner''s comments).
 Reset to NULL when the owner changes.';
@@ -911,23 +960,36 @@ STATES:
   - deleted_at IS NOT NULL — access closed or request rejected.
 At most one open row per (task_id, value).
 
+A task without active rows is public (is_public()).
+
 WHO CREATES A ROW:
-  - The employee requests access: added_by = NULL, added_at = NULL.
-    The owner is notified.
-  - The owner or an observer adds someone: added_by = them, added_at = NOW().
+  - The employee requests access to a private task: added_by = NULL,
+    added_at = NULL. The owner is notified.
+  - The owner adds someone (add_observer): added_by = the owner,
+    added_at = NOW(). The new observer is notified (access_opened).
+  - A mention in a private task adds the mentioned employee:
+    added_by = the comment author. The mention notifies them.
   - The system: added_by = NULL, added_at = NOW(). This is how the owner
-    (on task creation and transfer) and the managers of all active
-    observers, recursively, are added (triggers).
+    (on task creation and transfer, unless the task is public) and the
+    managers of all active observers, recursively, are added (triggers).
 
 WHO APPROVES:
-  - The task owner: approve_access / reject_access.
+  - The task owner: approve_access / reject_access; the requester is
+    notified (access_opened / access_closed). The requester may withdraw
+    the request (withdraw_access).
 
 ACCESS IS REVOKED:
-  - An observer can leave (deleted_by = value).
-  - The owner can remove an observer.
+  - An observer can leave (leave_task, deleted_by = value).
+  - The owner can remove an observer (remove_observer); they are
+    notified (access_closed).
+  - make_public closes every row; make_private brings back the owner and
+    everyone with an open mention, and notifies the others who commented
+    (access_closed).
   - The owner cannot leave.
   - A manager cannot leave or be removed while an active report of theirs
     (recursively) observes the task.
+Rows are never deleted: they are the observation periods shown in the
+task.
 
 When an observer leaves, their current estimate_minutes row is closed
 (expired_at = NOW()) and their reminders (remind) are deleted (trigger).';
@@ -1075,9 +1137,11 @@ CREATE UNIQUE INDEX uq_estimate_minutes_active
 CREATE INDEX idx_estimate_minutes_task ON estimate_minutes(task_id);
 
 COMMENT ON TABLE estimate_minutes IS
-'History of time estimates from each observer.
+'History of each observer''s estimate of the time left: how much more
+they plan to spend, not the total. Spent (spent_minutes) + left is the
+current forecast; the history shows how it changed.
 Current row = expired_at IS NULL.
-Set by any observer — for themselves (by = them).
+Set by anyone who sees the task — for themselves (by = them).
 A change closes the old row and opens a new one.
 When an observer leaves the task, their current row is closed.
 Does not notify the task owner.';
@@ -1086,7 +1150,7 @@ COMMENT ON COLUMN estimate_minutes.by IS
 'Who estimates.';
 
 COMMENT ON COLUMN estimate_minutes.value IS
-'How many minutes they plan to spend. > 0.';
+'How many more minutes they plan to spend. > 0.';
 
 COMMENT ON COLUMN estimate_minutes.entered_at IS
 'When this value became current.';
@@ -1111,8 +1175,8 @@ CREATE INDEX idx_spent_minutes_by_day ON spent_minutes(by, day);
 
 COMMENT ON TABLE spent_minutes IS
 'Time entries.
-by — who logged it. Only for oneself, only an active observer
-(the owner is always one). Checked by a trigger.
+by — who logged it. Only for oneself, only someone who sees the task
+(can_see). Checked by a trigger.
 Time cannot be logged for a future day or a scored day (trigger).
 No updates: delete your own entry and create it again (except for
 scored days).
@@ -1208,6 +1272,7 @@ CREATE TABLE attachment (
     size INT NOT NULL CHECK (size >= 0),
     mime VARCHAR(100) NOT NULL,
     value BYTEA NOT NULL,
+    uploaded_by INT[] NOT NULL DEFAULT '{}',
     added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     used_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -1215,18 +1280,23 @@ CREATE INDEX idx_attachment_hash ON attachment(hash);
 CREATE INDEX idx_attachment_used_at ON attachment(used_at);
 
 COMMENT ON TABLE attachment IS
-'Comment attachments.
+'Attachments: files of comments and images inside comments and task
+contexts.
 Uploaded before the comment is sent; the comment refers to them by the
-array comment.attachment_ids (by id, not by hash — hashes may collide).
+arrays comment.attachment_ids (files) and comment.image_ids (images in
+the text), a context by task.context_image_ids — by id, not by hash
+(hashes may collide).
+Reading an attachment: whoever uploaded it, or whoever sees a task whose
+comment or context refers to it (the application checks).
 There is no file name here: the same file may arrive under different
 names; the name is stored in comment.attachment_names.
 Deduplication: on upload the application looks for a row with the same
 hash and size and compares the bytes; on a match it returns the existing
 id and updates used_at.
-Cron deletes, once a day, attachments no comment refers to that have not
-been used for more than a day (uploaded, but the comment was never sent).
-An attachment referenced by a comment cannot be deleted (trigger) —
-comments live forever.';
+Cron deletes, once a day, attachments nothing refers to
+(attachment_in_use) that have not been used for more than a day
+(uploaded, but the comment was never sent). An attachment in use cannot
+be deleted (trigger) — comments live forever.';
 
 COMMENT ON COLUMN attachment.id IS
 'Id. Referenced by comment.attachment_ids.';
@@ -1242,6 +1312,10 @@ COMMENT ON COLUMN attachment.mime IS
 
 COMMENT ON COLUMN attachment.value IS
 'File content.';
+
+COMMENT ON COLUMN attachment.uploaded_by IS
+'Everyone who uploaded these bytes (deduplication returns the same row).
+They may read it before it is attached anywhere.';
 
 COMMENT ON COLUMN attachment.added_at IS
 'When first uploaded.';
@@ -1260,6 +1334,7 @@ CREATE TABLE comment (
     value TEXT NOT NULL,
     attachment_ids INT[] NOT NULL DEFAULT '{}',
     attachment_names TEXT[] NOT NULL DEFAULT '{}',
+    image_ids INT[] NOT NULL DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     reply_to_id INT,
     PRIMARY KEY (task_id, id),
@@ -1269,10 +1344,13 @@ CREATE TABLE comment (
         CHECK (cardinality(attachment_ids) = 0 OR is_int_set(attachment_ids)),
     CONSTRAINT chk_comment_attachment_names
         CHECK (cardinality(attachment_names) = cardinality(attachment_ids)
-               AND array_position(attachment_names, NULL) IS NULL)
+               AND array_position(attachment_names, NULL) IS NULL),
+    CONSTRAINT chk_comment_image_ids
+        CHECK (cardinality(image_ids) = 0 OR is_int_set(image_ids))
 );
 CREATE INDEX idx_comment_reply_to ON comment(task_id, reply_to_id);
 CREATE INDEX idx_comment_attachment_ids ON comment USING GIN (attachment_ids);
+CREATE INDEX idx_comment_image_ids ON comment USING GIN (image_ids);
 CREATE INDEX idx_comment_value_trgm ON comment USING GIN (value gin_trgm_ops);
 
 COMMENT ON TABLE comment IS
@@ -1283,7 +1361,8 @@ If a comment is outdated, reply to it (reply_to_id) and say so.
 The interface protects against accidental sending: for a few seconds
 after "Send" the comment can be pulled back into editing, and only then
 it goes to the server.
-All communication about a task happens here.
+All communication about a task happens here. Written by anyone who sees
+the task (trigger).
 Employees (mention) and tasks (task_mention) are attached to a comment.
 A comment notifies the task owner (unless the owner wrote it).';
 
@@ -1297,7 +1376,11 @@ COMMENT ON COLUMN comment.created_by IS
 'Comment author.';
 
 COMMENT ON COLUMN comment.value IS
-'Comment text.';
+'Comment text: sanitized HTML (see WHAT THE APPLICATION DOES ITSELF).';
+
+COMMENT ON COLUMN comment.image_ids IS
+'Attachments shown as images inside the text. Filled by the application
+from the HTML. No duplicates, all exist (trigger).';
 
 COMMENT ON COLUMN comment.created_at IS
 'When the comment was created.';
@@ -1330,9 +1413,14 @@ COMMENT ON TABLE mention IS
 'An employee attached to a comment (a mention).
 Attached explicitly, the text is not parsed.
 closed_at IS NULL — the mention is open.
-Closed (a) explicitly as "read", (b) by replying to the source comment.
-Self-mention is forbidden. Only an active observer of the task can be
-mentioned (trigger).
+Closed only explicitly, by the mentioned employee ("Done"): a reply alone
+does not mean the request is handled. An open mention is the only way a
+task the employee merely observes gets into their TODO in My day.
+Self-mention and mentioning a dismissed employee are forbidden. In a
+private task the mentioned employee becomes an observer if they are not
+one (added_by = the author) — a request for help is how anyone who sees
+the task brings a colleague in. A public task gets no observers from a
+mention (trigger).
 The mentioned employee is always notified.';
 
 COMMENT ON COLUMN mention.task_id IS
@@ -1715,6 +1803,81 @@ transactions cannot break the invariant together.';
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
+-- is_public / can_see / is_observer — who sees a task
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION is_observer(p_task_id INT, p_employee_id INT)
+RETURNS BOOLEAN AS $$
+    SELECT EXISTS (
+        SELECT 1 FROM observer
+         WHERE task_id = p_task_id
+           AND value = p_employee_id
+           AND added_at IS NOT NULL
+           AND deleted_at IS NULL
+    )
+$$ LANGUAGE sql STABLE;
+
+COMMENT ON FUNCTION is_observer(INT, INT) IS
+'TRUE if the employee is an active observer of the task.';
+
+
+CREATE OR REPLACE FUNCTION is_public(p_task_id INT)
+RETURNS BOOLEAN AS $$
+    SELECT NOT EXISTS (
+        SELECT 1 FROM observer
+         WHERE task_id = p_task_id
+           AND added_at IS NOT NULL
+           AND deleted_at IS NULL
+    )
+$$ LANGUAGE sql STABLE;
+
+COMMENT ON FUNCTION is_public(INT) IS
+'TRUE if the task has no active observers: every employee sees it.';
+
+
+CREATE OR REPLACE FUNCTION can_see(p_task_id INT, p_employee_id INT)
+RETURNS BOOLEAN AS $$
+    SELECT is_observer(p_task_id, p_employee_id) OR is_public(p_task_id)
+$$ LANGUAGE sql STABLE;
+
+COMMENT ON FUNCTION can_see(INT, INT) IS
+'TRUE if the employee sees the whole task (context, comments, people,
+time): they observe it, or it is public. The header (tags, priority,
+deadline, owner) is visible to everyone regardless.';
+
+
+CREATE OR REPLACE FUNCTION attachment_in_use(p_attachment_id INT)
+RETURNS BOOLEAN AS $$
+    SELECT EXISTS (SELECT 1 FROM comment
+                    WHERE attachment_ids @> ARRAY[p_attachment_id]
+                       OR image_ids @> ARRAY[p_attachment_id])
+        OR EXISTS (SELECT 1 FROM task
+                    WHERE context_image_ids @> ARRAY[p_attachment_id])
+$$ LANGUAGE sql STABLE;
+
+COMMENT ON FUNCTION attachment_in_use(INT) IS
+'TRUE if a comment (file or image) or a task context refers to the attachment.';
+
+
+CREATE OR REPLACE FUNCTION touch_attachments(p_ids INT[])
+RETURNS VOID AS $$
+DECLARE
+    v_found INT;
+BEGIN
+    UPDATE attachment SET used_at = NOW() WHERE id = ANY(p_ids);
+    GET DIAGNOSTICS v_found = ROW_COUNT;
+    IF v_found <> (SELECT COUNT(DISTINCT x) FROM unnest(p_ids) AS x) THEN
+        RAISE EXCEPTION 'attachment ids contain unknown attachments'
+            USING HINT = 'unknown_attachment';
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION touch_attachments(INT[]) IS
+'Checks that all attachments exist and updates their used_at. The UPDATE
+locks the rows, so the cleanup cannot delete them concurrently.';
+
+
+-- ----------------------------------------------------------------------------
 -- no deletion: employee, task, comment
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION trg_forbid_delete()
@@ -1891,19 +2054,44 @@ EXECUTE FUNCTION trg_task_owner_reset_review();
 
 
 -- ----------------------------------------------------------------------------
--- task: the owner is always an observer
+-- task: context images exist, used_at is updated
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION trg_task_context_images()
+RETURNS TRIGGER AS $$
+BEGIN
+    PERFORM touch_attachments(NEW.context_image_ids);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION trg_task_context_images() IS
+'Checks that the images of the context exist and updates their used_at.';
+
+CREATE TRIGGER task_context_images
+BEFORE INSERT OR UPDATE OF context_image_ids ON task
+FOR EACH ROW
+WHEN (cardinality(NEW.context_image_ids) > 0)
+EXECUTE FUNCTION trg_task_context_images();
+
+
+-- ----------------------------------------------------------------------------
+-- task: the owner of a private task is always an observer
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION trg_task_owner_observe()
 RETURNS TRIGGER AS $$
 BEGIN
+    IF TG_OP = 'UPDATE' AND is_public(NEW.id) THEN
+        RETURN NULL;
+    END IF;
     PERFORM grant_observer(NEW.id, NEW.owner_id, NULL);
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION trg_task_owner_observe() IS
-'The creator and every new owner become observers
-(and, through observer_add_manager, their managers too).';
+'The creator and every new owner of a private task become observers
+(and, through observer_add_manager, their managers too). A new owner of a
+public task does not: an observer would make it private.';
 
 CREATE TRIGGER task_owner_observe_insert
 AFTER INSERT ON task
@@ -1956,6 +2144,11 @@ FOR EACH ROW EXECUTE FUNCTION trg_observer_add_manager();
 CREATE OR REPLACE FUNCTION trg_observer_leave()
 RETURNS TRIGGER AS $$
 BEGIN
+    -- make_public() closes every row; everyone still sees the task.
+    IF current_setting('yartt.public_task', TRUE) = NEW.task_id::text THEN
+        RETURN NEW;
+    END IF;
+
     IF NEW.value = (SELECT owner_id FROM task WHERE id = NEW.task_id) THEN
         RAISE EXCEPTION 'owner cannot leave task %', NEW.task_id
             USING HINT = 'owner_cannot_leave',
@@ -1986,7 +2179,8 @@ $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION trg_observer_leave() IS
 'On closing access: keeps the owner and any manager whose report
 (recursively) observes the task; closes the leaver''s estimate_minutes
-and deletes their reminders.';
+and deletes their reminders. Skipped while make_public() closes every
+row: nobody loses sight of the task then.';
 
 CREATE TRIGGER observer_leave
 BEFORE UPDATE OF deleted_at ON observer
@@ -2082,29 +2276,44 @@ FOR EACH ROW EXECUTE FUNCTION trg_comment_local_id();
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION trg_comment_attachments()
 RETURNS TRIGGER AS $$
-DECLARE
-    v_found INT;
 BEGIN
-    UPDATE attachment SET used_at = NOW() WHERE id = ANY(NEW.attachment_ids);
-    GET DIAGNOSTICS v_found = ROW_COUNT;
-    IF v_found <> cardinality(NEW.attachment_ids) THEN
-        RAISE EXCEPTION 'attachment_ids contain unknown attachments'
-            USING HINT = 'unknown_attachment';
-    END IF;
+    PERFORM touch_attachments(NEW.attachment_ids || NEW.image_ids);
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION trg_comment_attachments() IS
-'Checks that all attachment_ids exist and updates their used_at.
-The UPDATE locks the attachment rows, so cron cannot delete them
-concurrently.';
+'Checks that all attachment_ids and image_ids exist and updates their
+used_at (touch_attachments locks them against the cleanup).';
 
 CREATE TRIGGER comment_attachments
 BEFORE INSERT ON comment
 FOR EACH ROW
-WHEN (cardinality(NEW.attachment_ids) > 0)
+WHEN (cardinality(NEW.attachment_ids) + cardinality(NEW.image_ids) > 0)
 EXECUTE FUNCTION trg_comment_attachments();
+
+
+-- ----------------------------------------------------------------------------
+-- comment: only by someone who sees the task
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION trg_comment_author()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NOT can_see(NEW.task_id, NEW.created_by) THEN
+        RAISE EXCEPTION 'employee % does not see task %', NEW.created_by, NEW.task_id
+            USING HINT = 'no_access',
+                  DETAIL = json_build_object('taskId', NEW.task_id)::text;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION trg_comment_author() IS
+'A comment is written only by someone who sees the task (can_see).';
+
+CREATE TRIGGER comment_author
+BEFORE INSERT ON comment
+FOR EACH ROW EXECUTE FUNCTION trg_comment_author();
 
 
 -- ----------------------------------------------------------------------------
@@ -2113,8 +2322,8 @@ EXECUTE FUNCTION trg_comment_attachments();
 CREATE OR REPLACE FUNCTION trg_attachment_in_use()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM comment WHERE attachment_ids @> ARRAY[OLD.id]) THEN
-        RAISE EXCEPTION 'attachment % is used by comments', OLD.id
+    IF attachment_in_use(OLD.id) THEN
+        RAISE EXCEPTION 'attachment % is in use', OLD.id
             USING HINT = 'attachment_in_use',
                   DETAIL = json_build_object('attachmentId', OLD.id)::text;
     END IF;
@@ -2123,7 +2332,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION trg_attachment_in_use() IS
-'Forbids deleting an attachment referenced by a comment.';
+'Forbids deleting an attachment a comment or a task context refers to.';
 
 CREATE TRIGGER attachment_in_use
 BEFORE DELETE ON attachment
@@ -2135,30 +2344,33 @@ FOR EACH ROW EXECUTE FUNCTION trg_attachment_in_use();
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION trg_mention_check()
 RETURNS TRIGGER AS $$
+DECLARE
+    v_author_id INT;
 BEGIN
-    IF NEW.value = (SELECT created_by FROM comment
-                     WHERE task_id = NEW.task_id AND id = NEW.comment_id) THEN
+    SELECT created_by INTO v_author_id FROM comment
+     WHERE task_id = NEW.task_id AND id = NEW.comment_id;
+
+    IF NEW.value = v_author_id THEN
         RAISE EXCEPTION 'self-mention is not allowed'
             USING HINT = 'self_mention';
     END IF;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM observer
-         WHERE task_id = NEW.task_id
-           AND value = NEW.value
-           AND added_at IS NOT NULL
-           AND deleted_at IS NULL
-    ) THEN
-        RAISE EXCEPTION 'employee % is not an observer of task %', NEW.value, NEW.task_id
-            USING HINT = 'not_observer',
-                  DETAIL = json_build_object('employeeId', NEW.value, 'taskId', NEW.task_id)::text;
+    IF NOT EXISTS (SELECT 1 FROM employee WHERE id = NEW.value AND email IS NOT NULL) THEN
+        RAISE EXCEPTION 'employee % is unknown or dismissed', NEW.value
+            USING HINT = 'not_found';
+    END IF;
+
+    IF NOT is_public(NEW.task_id) THEN
+        PERFORM grant_observer(NEW.task_id, NEW.value, v_author_id);
     END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION trg_mention_check() IS
-'Forbids self-mentions and mentioning someone who does not observe the task.';
+'Forbids self-mentions and mentioning a dismissed employee. In a private
+task makes the mentioned employee an observer (added_by = the author);
+a public task stays without observers.';
 
 CREATE TRIGGER mention_check
 BEFORE INSERT ON mention
@@ -2235,16 +2447,10 @@ BEGIN
         RETURN OLD;
     END IF;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM observer
-         WHERE task_id = NEW.task_id
-           AND value = NEW."by"
-           AND added_at IS NOT NULL
-           AND deleted_at IS NULL
-    ) THEN
-        RAISE EXCEPTION 'employee % is not an observer of task %', NEW."by", NEW.task_id
-            USING HINT = 'not_observer',
-                  DETAIL = json_build_object('employeeId', NEW."by", 'taskId', NEW.task_id)::text;
+    IF NOT can_see(NEW.task_id, NEW."by") THEN
+        RAISE EXCEPTION 'employee % does not see task %', NEW."by", NEW.task_id
+            USING HINT = 'no_access',
+                  DETAIL = json_build_object('taskId', NEW.task_id)::text;
     END IF;
 
     IF NEW.day > local_today(NEW."by") THEN
@@ -2261,8 +2467,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION trg_spent_minutes_check() IS
-'Time entries: only by an active observer, not for a future day, not for
-a scored day. UPDATE is forbidden.';
+'Time entries: only by someone who sees the task, not for a future day,
+not for a scored day. UPDATE is forbidden.';
 
 CREATE TRIGGER spent_minutes_check
 BEFORE INSERT OR UPDATE OR DELETE ON spent_minutes
@@ -2492,6 +2698,24 @@ tasks and reports that were handed over stay with the manager.';
 -- ----------------------------------------------------------------------------
 -- task access
 -- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION check_owner(p_task_id INT, p_actor_id INT)
+RETURNS VOID AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM task WHERE id = p_task_id) THEN
+        RAISE EXCEPTION 'task % not found', p_task_id
+            USING HINT = 'not_found';
+    END IF;
+    IF p_actor_id IS DISTINCT FROM (SELECT owner_id FROM task WHERE id = p_task_id) THEN
+        RAISE EXCEPTION 'only the owner of task % can do this', p_task_id
+            USING HINT = 'forbidden';
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION check_owner(INT, INT) IS
+'Raises not_found for an unknown task and forbidden unless p_actor_id owns it.';
+
+
 CREATE OR REPLACE FUNCTION add_observer(
     p_task_id INT,
     p_employee_id INT,
@@ -2499,27 +2723,89 @@ CREATE OR REPLACE FUNCTION add_observer(
 )
 RETURNS VOID AS $$
 BEGIN
-    IF p_actor_id IS DISTINCT FROM (SELECT owner_id FROM task WHERE id = p_task_id)
-       AND NOT EXISTS (
-            SELECT 1 FROM observer
-             WHERE task_id = p_task_id
-               AND value = p_actor_id
-               AND added_at IS NOT NULL
-               AND deleted_at IS NULL
-       ) THEN
-        RAISE EXCEPTION 'employee % cannot add observers to task %',
-            p_actor_id, p_task_id
-            USING HINT = 'forbidden',
-                  DETAIL = json_build_object('employeeId', p_actor_id, 'taskId', p_task_id)::text;
+    PERFORM check_owner(p_task_id, p_actor_id);
+    IF is_public(p_task_id) THEN
+        RAISE EXCEPTION 'task % is public', p_task_id
+            USING HINT = 'task_public',
+                  DETAIL = json_build_object('taskId', p_task_id)::text;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM employee WHERE id = p_employee_id AND email IS NOT NULL) THEN
+        RAISE EXCEPTION 'employee % is unknown or dismissed', p_employee_id
+            USING HINT = 'not_found';
+    END IF;
+    IF is_observer(p_task_id, p_employee_id) THEN
+        RETURN;
     END IF;
 
     PERFORM grant_observer(p_task_id, p_employee_id, p_actor_id);
+    PERFORM notify(p_employee_id, p_task_id, jsonb_build_object(
+        'kind', 'access_opened', 'by', p_actor_id));
 END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION add_observer(INT, INT, INT) IS
-'The owner or an observer adds an observer.
-Access is active at once. A pending request of that employee is approved.';
+'The owner adds an observer to a private task, or brings a former one
+back. Access is active at once, a pending request is approved, and the
+employee is notified (access_opened). A public task has no observers:
+make it private first.';
+
+
+CREATE OR REPLACE FUNCTION remove_observer(
+    p_task_id INT,
+    p_employee_id INT,
+    p_actor_id INT
+)
+RETURNS VOID AS $$
+BEGIN
+    PERFORM check_owner(p_task_id, p_actor_id);
+
+    UPDATE observer
+       SET deleted_at = NOW(),
+           deleted_by = p_actor_id
+     WHERE task_id = p_task_id
+       AND value = p_employee_id
+       AND added_at IS NOT NULL
+       AND deleted_at IS NULL;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'employee % is not an observer of task %', p_employee_id, p_task_id
+            USING HINT = 'not_observer',
+                  DETAIL = json_build_object('employeeId', p_employee_id, 'taskId', p_task_id)::text;
+    END IF;
+
+    PERFORM notify(p_employee_id, p_task_id, jsonb_build_object(
+        'kind', 'access_closed', 'by', p_actor_id));
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION remove_observer(INT, INT, INT) IS
+'The owner removes ("hides") an observer, who is notified (access_closed).
+The owner and a manager of an observing report cannot be removed
+(observer_leave).';
+
+
+CREATE OR REPLACE FUNCTION leave_task(p_task_id INT, p_employee_id INT)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE observer
+       SET deleted_at = NOW(),
+           deleted_by = p_employee_id
+     WHERE task_id = p_task_id
+       AND value = p_employee_id
+       AND added_at IS NOT NULL
+       AND deleted_at IS NULL;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'employee % is not an observer of task %', p_employee_id, p_task_id
+            USING HINT = 'not_observer',
+                  DETAIL = json_build_object('employeeId', p_employee_id, 'taskId', p_task_id)::text;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION leave_task(INT, INT) IS
+'An observer leaves a task. The owner and a manager of an observing report
+cannot (observer_leave). Nobody is notified.';
 
 
 CREATE OR REPLACE FUNCTION request_access(
@@ -2530,6 +2816,15 @@ RETURNS VOID AS $$
 DECLARE
     v_owner_id INT;
 BEGIN
+    IF NOT EXISTS (SELECT 1 FROM task WHERE id = p_task_id) THEN
+        RAISE EXCEPTION 'task % not found', p_task_id
+            USING HINT = 'not_found';
+    END IF;
+    IF is_public(p_task_id) THEN
+        RAISE EXCEPTION 'task % is public', p_task_id
+            USING HINT = 'task_public',
+                  DETAIL = json_build_object('taskId', p_task_id)::text;
+    END IF;
     IF EXISTS (
         SELECT 1 FROM observer
          WHERE task_id = p_task_id
@@ -2554,8 +2849,32 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION request_access(INT, INT) IS
-'An employee requests access to a task: added_by = NULL, added_at = NULL.
-The owner is notified and calls approve_access or reject_access.';
+'An employee requests access to a private task: added_by = NULL,
+added_at = NULL. The owner is notified and calls approve_access or
+reject_access.';
+
+
+CREATE OR REPLACE FUNCTION withdraw_access(p_task_id INT, p_employee_id INT)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE observer
+       SET deleted_at = NOW(),
+           deleted_by = p_employee_id
+     WHERE task_id = p_task_id
+       AND value = p_employee_id
+       AND added_at IS NULL
+       AND deleted_at IS NULL;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'no pending request from % to task %', p_employee_id, p_task_id
+            USING HINT = 'no_pending_request',
+                  DETAIL = json_build_object('employeeId', p_employee_id, 'taskId', p_task_id)::text;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION withdraw_access(INT, INT) IS
+'The requester withdraws their own pending request.';
 
 
 CREATE OR REPLACE FUNCTION approve_access(
@@ -2565,10 +2884,7 @@ CREATE OR REPLACE FUNCTION approve_access(
 )
 RETURNS VOID AS $$
 BEGIN
-    IF p_actor_id IS DISTINCT FROM (SELECT owner_id FROM task WHERE id = p_task_id) THEN
-        RAISE EXCEPTION 'only owner can approve access'
-            USING HINT = 'forbidden';
-    END IF;
+    PERFORM check_owner(p_task_id, p_actor_id);
 
     UPDATE observer
        SET added_at = NOW(),
@@ -2587,7 +2903,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION approve_access(INT, INT, INT) IS
-'The owner approves a request: added_at = NOW(), added_by = the owner.';
+'The owner approves a request: added_at = NOW(), added_by = the owner.
+The requester is notified (access_opened).';
 
 
 CREATE OR REPLACE FUNCTION reject_access(
@@ -2597,10 +2914,7 @@ CREATE OR REPLACE FUNCTION reject_access(
 )
 RETURNS VOID AS $$
 BEGIN
-    IF p_actor_id IS DISTINCT FROM (SELECT owner_id FROM task WHERE id = p_task_id) THEN
-        RAISE EXCEPTION 'only owner can reject access'
-            USING HINT = 'forbidden';
-    END IF;
+    PERFORM check_owner(p_task_id, p_actor_id);
 
     UPDATE observer
        SET deleted_at = NOW(),
@@ -2615,11 +2929,126 @@ BEGIN
             USING HINT = 'no_pending_request',
                   DETAIL = json_build_object('employeeId', p_employee_id, 'taskId', p_task_id)::text;
     END IF;
+
+    PERFORM notify(p_employee_id, p_task_id, jsonb_build_object(
+        'kind', 'access_opened', 'by', p_actor_id));
 END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION reject_access(INT, INT, INT) IS
-'The owner rejects a request: deleted_at = NOW(), deleted_by = the owner.';
+'The owner rejects a request: deleted_at = NOW(), deleted_by = the owner.
+The requester is notified (access_closed).';
+
+
+CREATE OR REPLACE FUNCTION make_public(p_task_id INT, p_actor_id INT)
+RETURNS VOID AS $$
+DECLARE
+    v_employee_id INT;
+BEGIN
+    PERFORM check_owner(p_task_id, p_actor_id);
+
+    PERFORM set_config('yartt.public_task', p_task_id::text, TRUE);
+    UPDATE observer
+       SET deleted_at = NOW(),
+           deleted_by = p_actor_id
+     WHERE task_id = p_task_id
+       AND added_at IS NOT NULL
+       AND deleted_at IS NULL;
+    PERFORM set_config('yartt.public_task', '', TRUE);
+
+    -- Waiting requests are answered: everyone sees the task now.
+    FOR v_employee_id IN
+        UPDATE observer
+           SET deleted_at = NOW(),
+               deleted_by = p_actor_id
+         WHERE task_id = p_task_id
+           AND added_at IS NULL
+           AND deleted_at IS NULL
+        RETURNING value
+    LOOP
+        PERFORM notify(v_employee_id, p_task_id, jsonb_build_object(
+            'kind', 'access_opened', 'by', p_actor_id));
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION make_public(INT, INT) IS
+'The owner makes a task public: every observer row is closed (their time
+left and reminders stay — they still see the task), waiting requesters
+are notified that the task is open (access_opened).';
+
+
+CREATE OR REPLACE FUNCTION make_private(p_task_id INT, p_actor_id INT)
+RETURNS INT[] AS $$
+DECLARE
+    v_employee_id INT;
+    v_left_out INT[] := '{}';
+BEGIN
+    PERFORM check_owner(p_task_id, p_actor_id);
+    IF NOT is_public(p_task_id) THEN
+        RETURN v_left_out;
+    END IF;
+
+    -- The owner first: their managers follow (observer_add_manager).
+    PERFORM grant_observer(p_task_id, p_actor_id, NULL);
+
+    FOR v_employee_id IN
+        SELECT DISTINCT m.value
+          FROM mention m JOIN employee e ON e.id = m.value
+         WHERE m.task_id = p_task_id
+           AND m.closed_at IS NULL
+           AND e.email IS NOT NULL
+    LOOP
+        PERFORM grant_observer(p_task_id, v_employee_id, NULL);
+    END LOOP;
+
+    FOR v_employee_id IN
+        SELECT DISTINCT c.created_by
+          FROM comment c JOIN employee e ON e.id = c.created_by
+         WHERE c.task_id = p_task_id
+           AND e.email IS NOT NULL
+           AND NOT is_observer(p_task_id, c.created_by)
+         ORDER BY c.created_by
+    LOOP
+        v_left_out := v_left_out || v_employee_id;
+        PERFORM notify(v_employee_id, p_task_id, jsonb_build_object(
+            'kind', 'access_closed', 'by', p_actor_id));
+    END LOOP;
+
+    RETURN v_left_out;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION make_private(INT, INT) IS
+'The owner makes a public task private. Stay: the owner, their managers
+and everyone with an open mention (and their managers). Those who
+commented and are not among them are notified (access_closed) and
+returned, so the interface can offer to bring them back
+(add_observer). A private task is left as it is.';
+
+
+CREATE OR REPLACE FUNCTION mark_reviewed(p_task_id INT, p_actor_id INT)
+RETURNS VOID AS $$
+BEGIN
+    PERFORM check_owner(p_task_id, p_actor_id);
+    IF EXISTS (
+        SELECT 1 FROM observer
+         WHERE task_id = p_task_id
+           AND added_at IS NULL
+           AND deleted_at IS NULL
+    ) THEN
+        RAISE EXCEPTION 'task % has access requests waiting for an answer', p_task_id
+            USING HINT = 'pending_requests',
+                  DETAIL = json_build_object('taskId', p_task_id)::text;
+    END IF;
+    UPDATE task SET reviewed_at = NOW() WHERE id = p_task_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION mark_reviewed(INT, INT) IS
+'"No intervention needed": the owner confirms that nothing in the task
+waits for their decision. Refused while an access request waits: that is
+exactly something that needs the owner.';
 
 
 -- ----------------------------------------------------------------------------
@@ -2675,6 +3104,9 @@ BEGIN
     IF FOUND THEN
         PERFORM notify_dependents(p_task_id);
     END IF;
+
+    PERFORM notify(p_employee_id, p_task_id, jsonb_build_object(
+        'kind', 'access_closed', 'by', p_actor_id));
 END;
 $$ LANGUAGE plpgsql;
 

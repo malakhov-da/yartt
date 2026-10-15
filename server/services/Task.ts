@@ -1,0 +1,324 @@
+import { z } from 'zod';
+import {
+  type CreateInput, type Dependency, type SearchInput, type SearchResult, type Tag, type TaskDetails,
+  type TaskHeader, type TaskPage, type UpdateInput, Access, Priority,
+} from '#shared/task.ts';
+import { AppError } from '../errors.ts';
+import { cleanHtml } from '../html.ts';
+import { sql, type Sql } from '../pg.ts';
+
+export const PAGE_SIZE = 20;
+
+const HeaderRow = z.object({
+  id: z.number(),
+  tagIds: z.number().array(),
+  priority: Priority,
+  deadline: z.date().nullable(),
+  ownerId: z.number().nullable(),
+  isPublic: z.boolean(),
+});
+const TagRow = z.object({ id: z.number(), name: z.string(), color: z.string().nullable() });
+const Id = z.object({ id: z.number() });
+const Count = z.object({ n: z.number() });
+const Bool = z.object({ value: z.boolean() });
+
+/**
+ * Headers of the given tasks in the given order, tags in the viewer's own
+ * order. Visible to every employee (decision 19).
+ */
+export async function headers(viewerId: number, ids: number[], db: Sql = sql): Promise<TaskHeader[]> {
+  if (ids.length === 0) return [];
+  const rows = HeaderRow.array().parse(await db`
+    SELECT k.id, ordered_tags(${viewerId}, k.tag_ids) AS tag_ids, k.priority, k.owner_id,
+           f.value AS deadline, is_public(k.id) AS is_public
+      FROM task k
+      LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
+     WHERE k.id = ANY(${ids})
+  `);
+  const tagIds = [...new Set(rows.flatMap((r) => r.tagIds))];
+  const tags = new Map(
+    TagRow.array().parse(await db`
+      SELECT t.id, t.name, u.color FROM tag t
+        LEFT JOIN user_tag u ON u.tag_id = t.id AND u.employee_id = ${viewerId}
+       WHERE t.id = ANY(${tagIds})
+    `).map((t) => [t.id, t]),
+  );
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return ids.flatMap((id) => {
+    const r = byId.get(id);
+    if (!r) return [];
+    const { tagIds: rowTags, ...rest } = r;
+    return [{ ...rest, tags: rowTags.map((t) => tags.get(t)).filter((t): t is Tag => !!t) }];
+  });
+}
+
+export async function canSee(taskId: number, employeeId: number, db: Sql = sql): Promise<boolean> {
+  const [row] = Bool.array().parse(await db`SELECT can_see(${taskId}, ${employeeId}) AS value`);
+  return row?.value ?? false;
+}
+
+/** Throws not_found for an unknown task and no_access unless the employee sees it. */
+export async function assertCanSee(taskId: number, employeeId: number, db: Sql = sql): Promise<void> {
+  const [row] = z.object({ exists: z.boolean(), sees: z.boolean() }).array().parse(await db`
+    SELECT EXISTS (SELECT 1 FROM task WHERE id = ${taskId}) AS exists,
+           can_see(${taskId}, ${employeeId}) AS sees
+  `);
+  if (!row?.exists) throw new AppError('not_found');
+  if (!row.sees) throw new AppError('no_access', { taskId });
+}
+
+async function assertOwner(taskId: number, employeeId: number, db: Sql = sql): Promise<void> {
+  await db`SELECT check_owner(${taskId}, ${employeeId})`;
+}
+
+/** Tag suggestions for the search input: by name, most used first. */
+export async function suggestTags(viewerId: number, query: string): Promise<Tag[]> {
+  return TagRow.array().parse(await sql`
+    SELECT t.id, t.name, u.color
+      FROM tag t
+      LEFT JOIN user_tag u ON u.tag_id = t.id AND u.employee_id = ${viewerId}
+     WHERE t.name ILIKE ${'%' + query.replace(/[\\%_]/g, '\\$&') + '%'}
+     ORDER BY (t.name ILIKE ${query.replace(/[\\%_]/g, '\\$&') + '%'}) DESC,
+              (SELECT count(*) FROM task k WHERE k.tag_ids @> ARRAY[t.id]) DESC,
+              t.name
+     LIMIT 10
+  `);
+}
+
+/**
+ * Tasks carrying all the given tags (any task: tags are visible to everyone),
+ * and matching the text in the context or comments (only tasks the viewer
+ * sees: the text is private). Open tasks first, by deadline.
+ */
+export async function search(viewerId: number, input: SearchInput): Promise<SearchResult> {
+  const like = '%' + input.text.replace(/[\\%_]/g, '\\$&') + '%';
+  const where = sql`
+    k.tag_ids @> ${input.tagIds}::int[]
+    AND (${input.text} = '' OR (can_see(k.id, ${viewerId}) AND (
+      k.context ILIKE ${like}
+      OR EXISTS (SELECT 1 FROM comment c WHERE c.task_id = k.id AND c.value ILIKE ${like}))))
+  `;
+  const [count] = Count.array().parse(await sql`SELECT count(*)::int AS n FROM task k WHERE ${where}`);
+  const ids = Id.array().parse(await sql`
+    SELECT k.id
+      FROM task k
+      LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
+     WHERE ${where}
+     ORDER BY (f.value IS NOT NULL AND f.value <= NOW()), f.value NULLS LAST, k.id DESC
+     LIMIT ${PAGE_SIZE} OFFSET ${(input.page - 1) * PAGE_SIZE}
+  `).map((r) => r.id);
+  const seen = new Set(
+    Id.array().parse(await sql`SELECT id FROM task WHERE id = ANY(${ids}) AND can_see(id, ${viewerId})`).map((r) => r.id),
+  );
+  const items = (await headers(viewerId, ids)).map((h) => ({ ...h, canSee: seen.has(h.id) }));
+  return { items, total: count?.n ?? 0 };
+}
+
+/** Ids of the tags with these names; missing ones are created. */
+async function tagIds(names: string[], db: Sql): Promise<number[]> {
+  const unique = [...new Set(names.map((n) => n.trim()))];
+  await db`INSERT INTO tag (name) SELECT unnest(${unique}::text[]) ON CONFLICT (name) DO NOTHING`;
+  return Id.array().parse(await db`SELECT id FROM tag WHERE name = ANY(${unique})`).map((r) => r.id);
+}
+
+/** A new private task owned by its creator; tags are created as needed. */
+export async function create(ownerId: number, input: CreateInput): Promise<number> {
+  return sql.begin(async (tx) => {
+    const db = tx as unknown as Sql;
+    const ids = await tagIds(input.tags, db);
+    const [row] = Id.array().parse(await db`
+      INSERT INTO task (owner_id, tag_ids) VALUES (${ownerId}, ${ids}) RETURNING id
+    `);
+    return row!.id;
+  });
+}
+
+/** The owner changes tags, priority or context; fields left out stay. */
+export async function update(actorId: number, input: UpdateInput): Promise<void> {
+  await sql.begin(async (tx) => {
+    const db = tx as unknown as Sql;
+    await assertOwner(input.id, actorId, db);
+    if (input.tags) {
+      const ids = await tagIds(input.tags, db);
+      await db`UPDATE task SET tag_ids = ${ids} WHERE id = ${input.id}`;
+    }
+    if (input.priority) {
+      await db`UPDATE task SET priority = ${input.priority} WHERE id = ${input.id}`;
+    }
+    if (input.context !== undefined) {
+      const clean = input.context === null ? { html: null, imageIds: [] } : cleanHtml(input.context);
+      await assertReadable(clean.imageIds, actorId, db);
+      await db`
+        UPDATE task SET context = ${clean.html}, context_image_ids = ${clean.imageIds}
+         WHERE id = ${input.id}
+      `;
+    }
+  });
+}
+
+/**
+ * Attachments can be put into a comment or a context only by someone who
+ * may read them, so an id cannot be used to pull another task's file out.
+ */
+export async function assertReadable(ids: number[], employeeId: number, db: Sql = sql): Promise<void> {
+  if (ids.length === 0) return;
+  const readable = Id.array().parse(await db`
+    SELECT a.id FROM attachment a
+     WHERE a.id = ANY(${ids})
+       AND (a.uploaded_by @> ARRAY[${employeeId}::int]
+            OR EXISTS (SELECT 1 FROM comment c
+                        WHERE (c.attachment_ids @> ARRAY[a.id] OR c.image_ids @> ARRAY[a.id])
+                          AND can_see(c.task_id, ${employeeId}))
+            OR EXISTS (SELECT 1 FROM task k
+                        WHERE k.context_image_ids @> ARRAY[a.id] AND can_see(k.id, ${employeeId})))
+  `);
+  if (readable.length !== new Set(ids).size) throw new AppError('unknown_attachment');
+}
+
+/** Sets or moves the deadline; NULL clears it. Owner only. */
+export async function setDeadline(actorId: number, taskId: number, deadline: Date | null): Promise<void> {
+  await sql.begin(async (tx) => {
+    const db = tx as unknown as Sql;
+    await assertOwner(taskId, actorId, db);
+    if (deadline === null) await db`SELECT clear_finished_at(${taskId})`;
+    else await db`SELECT set_finished_at(${taskId}, ${deadline})`;
+  });
+}
+
+const OwnerRow = z.object({ ownerId: z.number().nullable(), managerId: z.number().nullable() });
+
+/**
+ * Hands the task over. Allowed to the owner and to the owner's direct
+ * manager. The new owner is told; when the manager acts, the previous owner
+ * is told too. The previous owner stays an observer, reviewed_at resets and
+ * a private task gets the new owner as an observer (triggers).
+ */
+export async function transfer(actorId: number, taskId: number, newOwnerId: number): Promise<void> {
+  await sql.begin(async (tx) => {
+    const db = tx as unknown as Sql;
+    const [row] = OwnerRow.array().parse(await db`
+      SELECT k.owner_id, e.manager_id
+        FROM task k LEFT JOIN employee e ON e.id = k.owner_id
+       WHERE k.id = ${taskId}
+         FOR UPDATE OF k
+    `);
+    if (!row) throw new AppError('not_found');
+    if (row.ownerId === null || (actorId !== row.ownerId && actorId !== row.managerId)) throw new AppError('forbidden');
+    if (newOwnerId === row.ownerId) return;
+    const [target] = Bool.array().parse(await db`
+      SELECT EXISTS (SELECT 1 FROM employee WHERE id = ${newOwnerId} AND email IS NOT NULL) AS value
+    `);
+    if (!target?.value) throw new AppError('not_found');
+
+    await db`UPDATE task SET owner_id = ${newOwnerId} WHERE id = ${taskId}`;
+    if (newOwnerId !== actorId) {
+      await db`SELECT notify(${newOwnerId}, ${taskId}, ${db.json({ kind: 'owner_change', from: row.ownerId })})`;
+    }
+    if (actorId !== row.ownerId) {
+      await db`SELECT notify(${row.ownerId}, ${taskId}, ${db.json({ kind: 'owner_handed', by: actorId, employeeId: newOwnerId })})`;
+    }
+  });
+}
+
+/** Takes an ownerless task: anyone who sees it (decision 11). */
+export async function take(actorId: number, taskId: number): Promise<void> {
+  await sql.begin(async (tx) => {
+    const db = tx as unknown as Sql;
+    const [row] = OwnerRow.array().parse(await db`
+      SELECT owner_id, NULL::int AS manager_id FROM task WHERE id = ${taskId} FOR UPDATE
+    `);
+    if (!row) throw new AppError('not_found');
+    if (row.ownerId !== null) throw new AppError('forbidden');
+    await assertCanSee(taskId, actorId, db);
+    await db`UPDATE task SET owner_id = ${actorId} WHERE id = ${taskId}`;
+  });
+}
+
+export async function markReviewed(actorId: number, taskId: number): Promise<void> {
+  await sql`SELECT mark_reviewed(${taskId}, ${actorId})`;
+}
+
+export async function makePublic(actorId: number, taskId: number): Promise<void> {
+  await sql`SELECT make_public(${taskId}, ${actorId})`;
+}
+
+/** Returns those who commented and lost access, to offer bringing them back. */
+export async function makePrivate(actorId: number, taskId: number): Promise<number[]> {
+  const [row] = z.object({ ids: z.number().array() }).array().parse(await sql`
+    SELECT make_private(${taskId}, ${actorId}) AS ids
+  `);
+  return row?.ids ?? [];
+}
+
+const DependencyRow = z.object({ id: z.number(), minMinutesAfter: z.number().nullable() });
+
+async function dependencies(viewerId: number, rows: { id: number; minMinutesAfter: number | null }[]): Promise<Dependency[]> {
+  const byId = new Map(rows.map((r) => [r.id, r.minMinutesAfter]));
+  return (await headers(viewerId, rows.map((r) => r.id))).map((h) => ({ ...h, minMinutesAfter: byId.get(h.id) ?? null }));
+}
+
+const AccessRow = z.object({
+  ownerId: z.number().nullable(),
+  observes: z.boolean(),
+  isPublic: z.boolean(),
+  requested: z.boolean(),
+});
+
+/** The task page: the header for everyone, the rest for whoever sees the task. */
+export async function get(viewerId: number, taskId: number): Promise<TaskPage> {
+  const [header] = await headers(viewerId, [taskId]);
+  if (!header) throw new AppError('not_found');
+
+  const [a] = AccessRow.array().parse(await sql`
+    SELECT k.owner_id,
+           is_observer(k.id, ${viewerId}) AS observes,
+           is_public(k.id) AS is_public,
+           EXISTS (SELECT 1 FROM observer o
+                    WHERE o.task_id = k.id AND o.value = ${viewerId}
+                      AND o.added_at IS NULL AND o.deleted_at IS NULL) AS requested
+      FROM task k WHERE k.id = ${taskId}
+  `);
+  const access: Access =
+    a!.ownerId === viewerId ? 'owner'
+    : a!.observes ? 'observer'
+    : a!.isPublic ? 'public'
+    : a!.requested ? 'requested'
+    : 'none';
+  if (access === 'requested' || access === 'none') return { ...header, access, details: null };
+
+  const [task] = z.object({ context: z.string().nullable(), reviewedAt: z.date().nullable() }).array().parse(await sql`
+    SELECT context, reviewed_at FROM task WHERE id = ${taskId}
+  `);
+  const authors = z.object({ createdBy: z.number(), n: z.number() }).array().parse(await sql`
+    SELECT c.created_by, count(*)::int AS n
+      FROM comment c JOIN task k ON k.id = c.task_id
+     WHERE c.task_id = ${taskId}
+       AND c.created_by IS DISTINCT FROM k.owner_id
+       AND (k.reviewed_at IS NULL OR c.created_at > k.reviewed_at)
+     GROUP BY c.created_by
+     ORDER BY min(c.created_at)
+  `);
+  const [pending] = Count.array().parse(await sql`
+    SELECT count(*)::int AS n FROM observer
+     WHERE task_id = ${taskId} AND added_at IS NULL AND deleted_at IS NULL
+  `);
+  const waitsFor = DependencyRow.array().parse(await sql`
+    SELECT value AS id, min_minutes_after FROM dependency WHERE task_id = ${taskId}
+  `);
+  const waitedOnBy = DependencyRow.array().parse(await sql`
+    SELECT task_id AS id, min_minutes_after FROM dependency WHERE value = ${taskId}
+  `);
+
+  const details: TaskDetails = {
+    context: task!.context,
+    reviewedAt: task!.reviewedAt,
+    newComments: {
+      count: authors.reduce((sum, r) => sum + r.n, 0),
+      authorIds: authors.map((r) => r.createdBy),
+    },
+    pendingRequests: pending?.n ?? 0,
+    waitsFor: await dependencies(viewerId, waitsFor),
+    waitedOnBy: await dependencies(viewerId, waitedOnBy),
+  };
+  return { ...header, access, details };
+}

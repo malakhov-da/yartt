@@ -1,0 +1,240 @@
+import { AlternateEmail, AttachFile, Close, Tag } from '@mui/icons-material';
+import {
+  Alert, Autocomplete, Box, Button, Chip, IconButton, Paper, Stack, TextField, Tooltip, Typography,
+} from '@mui/material';
+import { useMutation } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { Employee } from '#shared/employee.ts';
+import { useMe } from '#client/hooks/me.ts';
+import { useEmployees, useTaskRefresh } from '#client/hooks/task.ts';
+import { useTRPC } from '#client/hooks/trpc.ts';
+import { uploadFile } from '#client/hooks/upload.ts';
+import RichEditor, { type RichEditorHandle } from '../App/RichEditor.tsx';
+
+const HOLD_SECONDS = 5;
+
+type Draft = {
+  html: string;
+  files: { id: number; name: string }[];
+  mentions: Employee[];
+  taskIds: number[];
+};
+
+export type ReplyTo = { id: number; authorId: number };
+
+/**
+ * New comment. After "Send" it waits a few seconds with "Back to editing"
+ * and only then goes to the server — comments are never edited.
+ */
+export default function (p: {
+  taskId: number;
+  replyTo: ReplyTo | null;
+  onCancelReply: () => void;
+  /** "c" anywhere on the page (outside inputs) focuses this composer: the task page has one. */
+  shortcut?: boolean;
+}) {
+  const { t } = useTranslation();
+  const trpc = useTRPC();
+  const me = useMe();
+  const employees = useEmployees();
+  const refresh = useTaskRefresh();
+  const editor = useRef<RichEditorHandle>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  const [files, setFiles] = useState<Draft['files']>([]);
+  const [uploading, setUploading] = useState(0);
+  const [mentions, setMentions] = useState<Employee[]>([]);
+  const [taskIds, setTaskIds] = useState<number[]>([]);
+  const [showMention, setShowMention] = useState(false);
+  const [taskInput, setTaskInput] = useState<string | null>(null);
+  const [held, setHeld] = useState<(Draft & { replyTo: ReplyTo | null; seconds: number }) | null>(null);
+  const [editorKey, setEditorKey] = useState(0);
+  const [initial, setInitial] = useState('');
+
+  const create = useMutation(trpc.Comment.create.mutationOptions({ onSuccess: refresh }));
+
+  // "Reply" far down the feed brings the composer into view, ready to type.
+  const root = useRef<HTMLDivElement>(null);
+  const replyId = p.replyTo?.id;
+  useEffect(() => {
+    if (replyId === undefined) return;
+    root.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    editor.current?.focus();
+  }, [replyId]);
+
+  useEffect(() => {
+    if (!p.shortcut) return;
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (e.key !== 'c' || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
+      e.preventDefault();
+      root.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      editor.current?.focus();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [p.shortcut]);
+
+  // The countdown of a held comment; at zero it goes out.
+  useEffect(() => {
+    if (!held) return;
+    if (held.seconds === 0) {
+      sendNow.current?.(held);
+      setHeld(null);
+      return;
+    }
+    const timer = setTimeout(() => setHeld({ ...held, seconds: held.seconds - 1 }), 1000);
+    return () => clearTimeout(timer);
+  }, [held]);
+
+  // Leaving the page does not lose a held comment: it goes out at once.
+  const heldRef = useRef(held);
+  heldRef.current = held;
+  const sendNow = useRef<(draft: NonNullable<typeof held>) => void>(null);
+  sendNow.current = (draft) => create.mutate({
+    taskId: p.taskId,
+    html: draft.html,
+    replyToId: draft.replyTo?.id ?? null,
+    files: draft.files,
+    mentionIds: draft.mentions.map((m) => m.id),
+    taskIds: draft.taskIds,
+  }, { onError: () => restore(draft) });
+  useEffect(() => () => {
+    if (heldRef.current) sendNow.current?.(heldRef.current);
+  }, []);
+
+  const attach = async (picked: File[]) => {
+    setUploading((n) => n + picked.length);
+    for (const file of picked) {
+      try {
+        const id = await uploadFile(file);
+        setFiles((prev) => [...prev, { id, name: file.name }]);
+      } finally {
+        setUploading((n) => n - 1);
+      }
+    }
+  };
+
+  const send = () => {
+    if (!editor.current || editor.current.isEmpty() || uploading > 0) return;
+    setHeld({ html: editor.current.getHtml(), files, mentions, taskIds, replyTo: p.replyTo, seconds: HOLD_SECONDS });
+    reset('');
+    p.onCancelReply();
+  };
+
+  const reset = (html: string) => {
+    setFiles([]);
+    setMentions([]);
+    setTaskIds([]);
+    setInitial(html);
+    setEditorKey((k) => k + 1);
+  };
+
+  const restore = (draft: Draft) => {
+    reset(draft.html);
+    setFiles(draft.files);
+    setMentions(draft.mentions);
+    setTaskIds(draft.taskIds);
+  };
+
+  const plain = (html: string) => new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
+  const replyAuthor = p.replyTo ? employees.get(p.replyTo.authorId)?.fullName : null;
+  const candidates = [...employees.values()].filter((e) => e.email !== null && e.id !== me.id);
+
+  return (
+    <Stack ref={root} spacing={1.5} sx={{ scrollMarginTop: 16 }}>
+      {held && (
+        <Alert
+          severity="warning"
+          variant="outlined"
+          icon={false}
+          action={<Button color="inherit" onClick={() => { const h = held; setHeld(null); restore(h); }}>{t('task.composer.backToEditing')}</Button>}
+        >
+          {t('task.composer.sending', { text: plain(held.html).slice(0, 80), seconds: held.seconds })}
+        </Alert>
+      )}
+      <Paper variant="outlined" sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {p.replyTo && (
+          <Chip
+            size="small"
+            sx={{ alignSelf: 'flex-start' }}
+            label={t('task.composer.replyTo', { name: replyAuthor ?? `#${p.replyTo.authorId}` })}
+            onDelete={p.onCancelReply}
+          />
+        )}
+        <RichEditor key={editorKey} handle={editor} initial={initial} placeholder={t('task.composer.placeholder')} onFiles={attach} onSubmit={send} />
+        {(files.length > 0 || mentions.length > 0 || taskIds.length > 0 || uploading > 0) && (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+            {mentions.map((m) => (
+              <Chip key={`m${m.id}`} size="small" color="primary" variant="outlined" label={`@${m.fullName}`}
+                onDelete={() => setMentions(mentions.filter((x) => x.id !== m.id))} />
+            ))}
+            {taskIds.map((id) => (
+              <Chip key={`t${id}`} size="small" variant="outlined" label={`#${id}`} onDelete={() => setTaskIds(taskIds.filter((x) => x !== id))} />
+            ))}
+            {files.map((f) => (
+              <Chip key={`f${f.id}`} size="small" icon={<AttachFile />} label={f.name} onDelete={() => setFiles(files.filter((x) => x !== f))} />
+            ))}
+            {uploading > 0 && <Chip size="small" label={t('task.composer.uploading')} />}
+          </Box>
+        )}
+        {showMention && (
+          <Autocomplete
+            options={candidates.filter((e) => !mentions.some((m) => m.id === e.id))}
+            getOptionLabel={(e) => e.fullName}
+            onChange={(_e, value) => { if (value) setMentions([...mentions, value]); setShowMention(false); }}
+            onBlur={() => setShowMention(false)}
+            renderInput={(params) => <TextField {...params} autoFocus placeholder={t('task.composer.mention')} helperText={t('task.composer.mentionHint')} />}
+            openOnFocus
+          />
+        )}
+        {taskInput !== null && (
+          <TextField
+            autoFocus
+            placeholder={t('task.composer.attachTask')}
+            value={taskInput}
+            onChange={(e) => setTaskInput(e.target.value.replace(/\D/g, ''))}
+            onBlur={() => setTaskInput(null)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && taskInput) {
+                e.preventDefault();
+                const id = Number(taskInput);
+                if (id !== p.taskId && !taskIds.includes(id)) setTaskIds([...taskIds, id]);
+                setTaskInput(null);
+              }
+              if (e.key === 'Escape') setTaskInput(null);
+            }}
+            slotProps={{ input: { startAdornment: <Typography sx={{ color: 'text.secondary', pr: 0.5 }}>#</Typography> } }}
+          />
+        )}
+        <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+          <Tooltip title={t('task.composer.mention')}>
+            <IconButton onClick={() => setShowMention(true)}><AlternateEmail /></IconButton>
+          </Tooltip>
+          <Tooltip title={t('task.composer.attachTask')}>
+            <IconButton onClick={() => setTaskInput('')}><Tag /></IconButton>
+          </Tooltip>
+          <Tooltip title={t('task.composer.attachFile')}>
+            <IconButton onClick={() => fileInput.current?.click()}><AttachFile /></IconButton>
+          </Tooltip>
+          <input
+            ref={fileInput}
+            type="file"
+            multiple
+            hidden
+            onChange={(e) => { void attach(Array.from(e.target.files ?? [])); e.target.value = ''; }}
+          />
+          {p.replyTo && (
+            <Tooltip title={t('task.composer.cancelReply')}>
+              <IconButton onClick={p.onCancelReply}><Close /></IconButton>
+            </Tooltip>
+          )}
+          <Box sx={{ flexGrow: 1 }} />
+          <Button variant="contained" disabled={uploading > 0 || create.isPending} onClick={send}>{t('task.composer.send')}</Button>
+        </Stack>
+      </Paper>
+    </Stack>
+  );
+}

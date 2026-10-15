@@ -5,15 +5,15 @@ import { useTranslation } from 'react-i18next';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import { fieldErrors } from '#client/i18n/errors.ts';
 
-export default function (p: { open: boolean; onClose: () => void; onDone: () => void }) {
+export default function (p: { open: boolean; onClose: () => void; onDone: (email: string) => void }) {
   const { t } = useTranslation();
   const trpc = useTRPC();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const invite = useMutation(
     trpc.Employee.invite.mutationOptions({
-      onSuccess: () => {
-        p.onDone();
+      onSuccess: (employee) => {
+        p.onDone(employee.email ?? '');
         setFullName('');
         setEmail('');
         p.onClose();

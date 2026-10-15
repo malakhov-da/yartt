@@ -23,6 +23,9 @@ export const ERROR_CODES = [
   // tasks and tags
   'tag_set_taken',
   'unknown_tag',
+  'no_access',
+  'task_public',
+  'pending_requests',
   'tag_in_use',
   'immutable_row',
 
@@ -41,6 +44,9 @@ export const ERROR_CODES = [
   'unknown_attachment',
   'attachment_in_use',
   'self_mention',
+
+  // reminders
+  'remind_in_past',
 
   // timesheet, time entries, scores
   'shift_overlap',
