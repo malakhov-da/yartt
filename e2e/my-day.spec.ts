@@ -39,7 +39,7 @@ test.describe('My day', () => {
     await expect(page.getByRole('link', { name: /#\d+/ }).first()).toBeVisible();
     // The tab keeps its state when coming back from a task.
     await page.getByRole('link', { name: /#\d+/ }).first().click();
-    await page.getByRole('link', { name: 'яртт' }).click(); // the logo is the way home
+    await page.getByRole('link', { name: 'Мой день', exact: true }).click(); // the logo is the way home
     await expect(page.getByRole('tab', { name: /Остальные/ })).toHaveAttribute('aria-selected', 'true');
   });
 

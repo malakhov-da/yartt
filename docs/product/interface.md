@@ -6,11 +6,13 @@ settings screen and no tabs (decision 31).
 
 ## The top line
 
-A thin line, not a toolbar: the logo (the name in the interface language —
-яртт / yartt), a compact search input, **Invite** (a person with a plus: a
-small dialog with a name and an email) and my avatar (a photo, or the
-initials in a circle). The avatar opens a menu: Profile, Log out. On a
-phone the search takes a line of its own.
+A thin line, not a toolbar: the logo (the mark and the name of the only
+screen in the interface language — Мой день / My day), a compact search
+input, **Invite** (a person with a plus: a small dialog with a name and an
+email) and my avatar (a photo, or the initials in a circle). The avatar
+opens a menu: Profile, Log out. On a phone the search takes a line of its
+own. The product name and its release are in a quiet footer at the bottom
+of My day.
 
 The logo is the way back: there is no "Back" line on a page. My day keeps
 its state while a task or a person is open (its tab, pages, scroll), so the

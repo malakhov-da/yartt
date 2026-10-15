@@ -287,9 +287,14 @@ tense ("Марина оценивает…") and need no forms.
 
 ### 30. The name follows the language
 
-The product is "yartt" in English and "яртт" in Russian: the logo, the
-window title and emails. The mark is a tag with a check: tasks are named
-by tags, and each has one owner who sees it done.
+The product is "yartt" in English and "яртт" in Russian: the window title,
+emails and a quiet footer at the bottom of My day with the release and ©.
+Next to the mark in the top line is not the product name but the name of
+the only screen — Мой день / My day: the logo leads there, and people
+already know which product they have opened. The mark is a tag with a
+check: tasks are named by tags, and each has one owner who sees it done.
+The tag takes off like a rocket: done tasks are how a product gets built
+and shipped.
 
 ### 31. One screen, no tabs
 

@@ -50,7 +50,7 @@ const errors: Record<ErrorCode, string> = {
 
 export const ru = {
   app: {
-    /** The product name in this language: the logo, the window title, emails. */
+    /** The product name in this language: the window title, the footer of My day, emails. */
     name: 'яртт',
   },
   common: {

@@ -185,7 +185,7 @@ test.describe('a task', () => {
     await page.getByRole('dialog').getByLabel('День').fill(ymd);
     await page.getByLabel('Сколько', { exact: true }).fill('45');
     await page.getByRole('dialog').getByRole('button', { name: 'Сохранить' }).click();
-    await page.getByRole('link', { name: 'яртт' }).click();
+    await page.getByRole('link', { name: 'Мой день', exact: true }).click();
     const history = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Мои дни' }) });
     await expect(history.getByText('Списано на задачи: 45м')).toBeVisible();
   });
