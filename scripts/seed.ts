@@ -186,7 +186,7 @@ await I.Time.setLeft({ taskId: site, minutes: 240 });
 await P.Time.setLeft({ taskId: site, minutes: 900 });
 
 // 2. My task; Oleg asks for access.
-const report = await I.Task.create({ tags: ['отчёт', 'Q3'] });
+const report = await I.Task.create({ tags: ['отчёт', 'q3'] });
 await I.Task.setDeadline({ id: report, deadline: daysAhead(10) });
 await I.Task.update({ id: report, context: '<p>Квартальный отчёт для совета директоров: выручка, найм, ключевые проекты.</p>' });
 await O.Observer.request({ taskId: report });

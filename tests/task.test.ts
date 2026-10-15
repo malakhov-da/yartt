@@ -208,7 +208,7 @@ describe('search', () => {
     const tag = `s-${randomUUID().slice(0, 8)}`;
     const id = await (await client(owner.id)).Task.create({ tags: [tag] });
     await (await client(owner.id)).Comment.create(comment(id, '<p>needle in a haystack</p>'));
-    const tagId = (await (await client(stranger.id)).Task.tags({ query: tag }))[0]!.id;
+    const tagId = (await (await client(stranger.id)).Tags.suggest({ text: tag })).tags[0]!.id;
 
     const byTag = await (await client(stranger.id)).Task.search({ tagIds: [tagId], text: '', page: 1 });
     expect(byTag.items).toMatchObject([{ id, canSee: false }]);

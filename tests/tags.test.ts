@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { sql } from '../server/pg.ts';
+import { KEYBOARD_KEYS, KEYBOARDS, retype } from '../shared/keyboards.ts';
 import { client, createEmployee } from './helpers.ts';
 
 async function tag(name: string): Promise<number> {
@@ -82,5 +83,66 @@ describe('my tags', () => {
 
     await api.Tags.set({ tagId: x.id, color: null, weight: 0 });
     expect((await sql`SELECT 1 FROM user_tag WHERE employee_id = ${me.id}`).length).toBe(0);
+  });
+});
+
+describe('suggestions', () => {
+  test('tags are lower case: the API lowers them, the database refuses capitals', async () => {
+    const me = await createEmployee();
+    const api = await client(me.id);
+    expect((await api.Tags.create({ name: `  Склад  Б-${me.id} ` })).name).toBe(`склад б-${me.id}`);
+    await expect(sql`INSERT INTO tag (name) VALUES (${`Склад-${me.id}`})`).rejects.toMatchObject({ constraint_name: 'chk_tag_name' });
+  });
+
+  test('typos, transliteration and the other keyboard layout find the tag', async () => {
+    const me = await createEmployee();
+    const api = await client(me.id);
+    const name = `инвентаризация-${me.id}`;
+    const { id } = await api.Tags.create({ name });
+    const [swapped] = retype(name, ['ru', 'en']);
+    for (const text of [`инвентризация-${me.id}`, `inventarizatsiya-${me.id}`, swapped!, 'инвентар']) {
+      const found = await api.Tags.suggest({ text });
+      expect(found.tags.map((t) => t.id), text).toContain(id);
+      expect(found.exact).toBe(false);
+    }
+    expect((await api.Tags.suggest({ text: name.toUpperCase() })).exact).toBe(true);
+  });
+
+  test('a text is read as existing tags, the words around them as new ones', async () => {
+    const me = await createEmployee();
+    const api = await client(me.id);
+    const stock = await api.Tags.create({ name: `склад-${me.id}` });
+    const audit = await api.Tags.create({ name: `инвентаризация-${me.id}` });
+
+    const tail = await api.Tags.suggest({ text: `склад-${me.id} инвентризация-${me.id} перенос стеллажей` });
+    expect(tail.variants[0]).toEqual([{ tag: stock }, { tag: audit }, { name: 'перенос стеллажей' }]);
+
+    const between = await api.Tags.suggest({ text: `Склад-${me.id} срочно инвентаризация-${me.id}` });
+    expect(between.variants[0]).toEqual([{ tag: stock }, { name: 'срочно' }, { tag: audit }]);
+
+    expect((await api.Tags.suggest({ text: `склад-${me.id}` })).variants).toEqual([]);
+  });
+
+  test('the layouts are the person\'s: "б" and "ж" typed as "," and ";" stay inside words', async () => {
+    const me = await createEmployee();
+    const api = await client(me.id);
+    const budget = await api.Tags.create({ name: `бюджет-${me.id}` });
+    const office = await api.Tags.create({ name: `офис-${me.id}` });
+    const text = retype(`бюджет-${me.id} офис-${me.id}`, ['ru', 'en'])[0]!;
+    expect(text).toBe(`,.l;tn-${me.id} jabc-${me.id}`);
+    expect((await api.Tags.suggest({ text })).variants[0]).toEqual([{ tag: budget }, { tag: office }]);
+
+    // Someone who types only in English gets no reading in another layout.
+    await api.Employee.updateSettings({ keyboards: ['en'] });
+    expect((await api.Tags.suggest({ text: `jabc-${me.id}` })).tags.map((t) => t.id)).not.toContain(office.id);
+    await api.Employee.updateSettings({ keyboards: ['uk', 'en'] });
+    expect((await api.Tags.suggest({ text: `jabc-${me.id}` })).tags.map((t) => t.id)).toContain(office.id);
+  });
+
+  test('the layouts in the database are the ones the application has keys for', async () => {
+    const [row] = await sql<{ values: string[] }[]>`SELECT enum_range(NULL::keyboard)::text[] AS values`;
+    expect(row!.values).toEqual([...KEYBOARDS]);
+    expect(Object.keys(KEYBOARD_KEYS)).toEqual([...KEYBOARDS]);
+    for (const keys of Object.values(KEYBOARD_KEYS)) expect([...keys]).toHaveLength(47);
   });
 });

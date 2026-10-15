@@ -4,19 +4,23 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
+import type { TagPart } from '#shared/tags.ts';
 import { TagName, type Tag, type TaskHeader } from '#shared/task.ts';
 import { useStore } from '#client/hooks/store.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import TagChip from './TagChip.tsx';
 
 type Chosen = { kind: 'tag'; tag: Tag } | { kind: 'new'; name: string };
-type Option = Chosen | { kind: 'task'; task: TaskHeader & { canSee: boolean } } | { kind: 'create'; names: string[] };
+type Option = Chosen | { kind: 'variant'; parts: Chosen[] } | { kind: 'task'; task: TaskHeader & { canSee: boolean } } | { kind: 'create'; names: string[] };
 
 const name = (c: Chosen) => (c.kind === 'tag' ? c.tag.name : c.name);
+const chosen = (part: TagPart): Chosen => ('tag' in part ? { kind: 'tag', tag: part.tag } : { kind: 'new', name: part.name });
 
 /**
  * The search in the top line ("/" focuses it). Picked tags narrow the tasks,
- * the typed text searches context and comments. The last option creates a
+ * the typed text searches context and comments. Tags are found forgiving
+ * typos, transliteration and the other layout; several words are offered as
+ * ready sets of tags (Tags.suggest). The last option creates a
  * task with the picked tags and the typed text as one more tag, new or not
  * (docs/product/interface.md, Find).
  */
@@ -25,13 +29,13 @@ export default function () {
   const trpc = useTRPC();
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [chosen, setChosen] = useState<Chosen[]>([]);
+  const [picked, setChosen] = useState<Chosen[]>([]);
   const [input, setInput] = useState('');
   const query = input.trim();
-  const tagIds = chosen.flatMap((c) => (c.kind === 'tag' ? [c.tag.id] : []));
-  const hasNew = chosen.some((c) => c.kind === 'new');
+  const tagIds = picked.flatMap((c) => (c.kind === 'tag' ? [c.tag.id] : []));
+  const hasNew = picked.some((c) => c.kind === 'new');
 
-  const tags = useQuery(trpc.Task.tags.queryOptions({ query }, { enabled: query !== '' }));
+  const suggested = useQuery(trpc.Tags.suggest.queryOptions({ text: input }, { enabled: query !== '' }));
   const tasks = useQuery(trpc.Task.search.queryOptions(
     { tagIds, text: query, page: 1 },
     { enabled: !hasNew && (tagIds.length > 0 || query.length >= 3) },
@@ -67,12 +71,13 @@ export default function () {
     void navigate(`/tasks/${id}`);
   };
 
-  const names = chosen.map(name);
+  const names = picked.map(name);
   // The typed text becomes a tag of the new task: no need to pick it first.
   const createNames = TagName.safeParse(query).success && !names.includes(query) ? [...names, query] : names;
   const options: Option[] = [
     ...(tasks.data?.items ?? []).map((task) => ({ kind: 'task' as const, task })),
-    ...(tags.data ?? [])
+    ...(suggested.data?.variants ?? []).map((parts) => ({ kind: 'variant' as const, parts: parts.map(chosen) })),
+    ...(suggested.data?.tags ?? [])
       .filter((tag) => !tagIds.includes(tag.id))
       .map((tag) => ({ kind: 'tag' as const, tag })),
     ...(createNames.length > 0 ? [{ kind: 'create' as const, names: createNames }] : []),
@@ -87,16 +92,17 @@ export default function () {
       openOnFocus
       size="small"
       sx={{ flex: 1, minWidth: 0 }}
-      value={chosen}
+      value={picked}
       inputValue={input}
       options={options}
       filterOptions={(x) => x}
-      groupBy={(o) => (o.kind === 'task' ? 'task' : o.kind === 'tag' ? 'tag' : '')}
+      groupBy={(o) => (o.kind === 'task' ? 'task' : o.kind === 'tag' || o.kind === 'variant' ? 'tag' : '')}
       renderGroup={(g) => <li key={g.key}>{g.children}</li>}
       getOptionLabel={(o) =>
         typeof o === 'string' ? o
         : o.kind === 'tag' ? o.tag.name
         : o.kind === 'new' ? o.name
+        : o.kind === 'variant' ? o.parts.map(name).join(' · ')
         : o.kind === 'task' ? o.task.tags.map((tag) => tag.name).join(' · ')
         : t('search.create', { tags: o.names.join(' · ') })}
       isOptionEqualToValue={(a, b) => a === b}
@@ -109,6 +115,9 @@ export default function () {
           if (last.trim()) setChosen([...rest, { kind: 'new', name: last.trim() }]);
         } else if (last.kind === 'task') {
           return open(last.task.id);
+        } else if (last.kind === 'variant') {
+          const more = last.parts.filter((c) => !rest.some((r) => name(r) === name(c)));
+          setChosen([...rest, ...more]);
         } else if (last.kind === 'create') {
           return create.mutate({ tags: last.names });
         } else {
@@ -136,6 +145,9 @@ export default function () {
             </>
           )}
           {o.kind === 'tag' && <TagChip size="small" variant="outlined" tag={o.tag} />}
+          {o.kind === 'variant' && o.parts.map((c, i) => c.kind === 'tag'
+            ? <TagChip key={i} size="small" variant="outlined" tag={c.tag} />
+            : <Chip key={i} size="small" variant="outlined" label={c.name} icon={<Add />} sx={{ borderStyle: 'dashed' }} />)}
           {o.kind === 'create' && (
             <>
               <Add fontSize="small" />
@@ -144,13 +156,13 @@ export default function () {
           )}
         </Box>
       )}
-      noOptionsText={query || chosen.length ? t('search.noResults') : t('search.hint')}
+      noOptionsText={query || picked.length ? t('search.noResults') : t('search.hint')}
       renderInput={(params) => (
         <TextField
           {...params}
           inputRef={inputRef}
           variant="outlined"
-          placeholder={chosen.length ? '' : t('search.placeholder')}
+          placeholder={picked.length ? '' : t('search.placeholder')}
           slotProps={{
             input: {
               ...params.InputProps,

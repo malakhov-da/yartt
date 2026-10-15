@@ -1,16 +1,10 @@
 import { z } from 'zod';
 import { Id } from '#shared/employee.ts';
-import { CreateInput, SearchInput, SearchResult, Tag, TaskPage, TransferInput, UpdateInput } from '#shared/task.ts';
+import { CreateInput, SearchInput, SearchResult, TaskPage, TransferInput, UpdateInput } from '#shared/task.ts';
 import * as Tasks from '../services/Task.ts';
 import { authedProcedure, router } from '../trpc.ts';
 
 export default router({
-  /** Up to 10 tags whose name contains the query, prefix matches and the most used first. */
-  tags: authedProcedure
-    .input(z.object({ query: z.string().trim().max(100) }))
-    .output(Tag.array())
-    .query(({ input, ctx }) => Tasks.suggestTags(ctx.employeeId, input.query)),
-
   /**
    * Tasks carrying all the given tags — any task, since tags are visible to
    * everyone (`canSee` says whether it opens). With `text`, only the tasks the

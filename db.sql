@@ -22,6 +22,7 @@ CREATE EXTENSION IF NOT EXISTS citext;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;
 
 
 -- ============================================================================
@@ -274,8 +275,16 @@ From parsing @username to attachments.
 SEARCH
 ============================================================================
 
-  - By tags: autocomplete on tag.name (trigrams), then tasks
-    WHERE tag_ids @> ARRAY[...] (GIN).
+  - By tags: autocomplete forgiving typos, transliteration and the wrong
+    keyboard layout. Every tag keeps its name in Latin letters
+    (tag.latin); the typed text, and the same keys read with each other
+    layout of the person (employee.keyboards; the layouts themselves are
+    in the application), are transliterated the same way and compared
+    with Levenshtein and trigrams. Comparing in Latin also keeps trigrams
+    working when the database locale is C, where pg_trgm ignores non-ASCII
+    letters. Candidates are picked by the trigram index on tag.latin
+    first, so the cost does not grow with every tag.
+    Then tasks WHERE tag_ids @> ARRAY[...] (GIN).
   - By text: task.context and comment.value with ILIKE / similarity
     (trigrams work for any language and for substrings).
 
@@ -457,6 +466,7 @@ INVARIANTS (forbidden; all checked in the database)
 
   Tags:
     - Deleting a tag that is in use.
+    - A name with capital letters or surrounding spaces.
 
   Dependencies:
     - Self-dependency (task_id = value).
@@ -552,6 +562,10 @@ CRON JOBS (outside SQL)
                    WHERE used_at < NOW() - INTERVAL ''1 day''
                      AND NOT attachment_in_use(a.id);
   - every day:    DELETE FROM visit WHERE at < NOW() - INTERVAL ''1 year'';
+  - every day:    DELETE FROM tag t
+                   WHERE created_at < NOW() - INTERVAL ''1 day''
+                     AND NOT EXISTS (SELECT 1 FROM task WHERE tag_ids @> ARRAY[t.id])
+                     AND NOT EXISTS (SELECT 1 FROM user_tag WHERE tag_id = t.id);
   - every day:    UPDATE employee SET next_day = NULL
                    WHERE next_day <= local_today(id);
 ';
@@ -589,6 +603,13 @@ time zone (only days and months do).';
 -- ============================================================================
 -- 1. employee
 -- ============================================================================
+CREATE TYPE keyboard AS ENUM ('en', 'ru', 'uk', 'be');
+
+COMMENT ON TYPE keyboard IS
+'A keyboard layout someone types with (employee.keyboards). The keys of
+each are a table in the application (shared/keyboards.ts); a new layout
+is a value here and a line there.';
+
 CREATE TABLE employee (
     id SERIAL PRIMARY KEY,
     email CITEXT UNIQUE,
@@ -599,6 +620,7 @@ CREATE TABLE employee (
     time_zone TEXT NOT NULL DEFAULT 'UTC',
     locale VARCHAR(10) NOT NULL DEFAULT 'ru' CHECK (locale ~ '^[a-z]{2}(-[A-Z]{2})?$'),
     pronoun VARCHAR(3) CHECK (pronoun IN ('he', 'she')),
+    keyboards keyboard[],
 
     CONSTRAINT chk_employee_manager_not_self
         CHECK (manager_id <> id),
@@ -663,6 +685,12 @@ COMMENT ON COLUMN employee.pronoun IS
 'How to speak of the employee: he | she. Picks verb forms in languages
 that have them ("упомянул" / "упомянула"). NULL — not given (also a bot):
 the neutral form with both endings is used.';
+
+COMMENT ON COLUMN employee.keyboards IS
+'Keyboard layouts the employee switches between (en, ru, ...), for text
+typed with the wrong one: the tag search reads the same keys with each
+other layout. NULL — not chosen: the layout of the interface language and
+the US one.';
 
 COMMENT ON COLUMN employee.time_zone IS
 'IANA time zone (Europe/Moscow). Defines the employee''s day boundaries.
@@ -794,22 +822,60 @@ Cron deletes sessions where last_seen_at < NOW() - INTERVAL ''30 days''.';
 -- ============================================================================
 -- 3. tag / user_tag
 -- ============================================================================
+CREATE OR REPLACE FUNCTION translit(p_text TEXT)
+RETURNS TEXT AS $$
+    SELECT translate(
+        replace(replace(replace(replace(replace(replace(replace(replace(replace(
+            p_text, 'щ', 'sch'), 'ш', 'sh'), 'ч', 'ch'), 'ц', 'ts'), 'ж', 'zh'),
+            'ю', 'yu'), 'я', 'ya'), 'ъ', ''), 'ь', ''),
+        'абвгдеёзийклмнопрстуфхыэәғқңөұүһі',
+        'abvgdeeziyklmnoprstufhyeagknouuhi')
+$$ LANGUAGE sql IMMUTABLE PARALLEL SAFE;
+
+COMMENT ON FUNCTION translit(TEXT) IS
+'Lower-case Russian and Kazakh letters in Latin, the way people type them
+(х -> h, щ -> sch, й -> y); everything else stays. Used for tag.latin
+and for the typed text, so "sklad" finds "склад". Another alphabet the
+company writes tags in is one more line here.';
+
 CREATE TABLE tag (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(100) UNIQUE NOT NULL
+    name VARCHAR(100) UNIQUE NOT NULL,
+    latin TEXT GENERATED ALWAYS AS (translit(name)) STORED,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT chk_tag_name
+        CHECK (name = lower(name) AND name = btrim(name) AND name <> '')
 );
 CREATE INDEX idx_tag_name_trgm ON tag USING GIN (name gin_trgm_ops);
+CREATE INDEX idx_tag_latin_trgm ON tag USING GIN (latin gin_trgm_ops);
 
 COMMENT ON TABLE tag IS
 'A tag. Name only. Color and weight are personal settings (user_tag).
 Tags are stored in task.tag_ids as a sorted array.
-A tag in use cannot be deleted (trigger).';
+A tag in use cannot be deleted (trigger).
+A tag is created on its own (picked in the search) or with a task. Cron
+deletes, once a day, tags no task carries and nobody gave a color or a
+weight, created more than a day ago: abandoned tags would otherwise
+crowd the suggestions with misspellings.';
 
 COMMENT ON COLUMN tag.id IS
 'Tag id.';
 
 COMMENT ON COLUMN tag.name IS
-'Unique tag name.';
+'Unique tag name, lower case only: "Склад" and "склад" are one tag.
+The application lowers the case before it gets here (lower() depends on
+the database locale; under C it leaves Cyrillic as is).';
+
+COMMENT ON COLUMN tag.created_at IS
+'When the tag was created; the cron cleanup spares new tags for a day.';
+
+COMMENT ON COLUMN tag.latin IS
+'The name in Latin letters (translit()): fuzzy search compares the typed
+text with it, see SEARCH.';
+
+COMMENT ON CONSTRAINT chk_tag_name ON tag IS
+'Lower case, no surrounding spaces, not empty.';
 
 
 CREATE TABLE user_tag (

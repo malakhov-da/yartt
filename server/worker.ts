@@ -45,6 +45,16 @@ const JOBS: { name: string; every: number; run: (sql: Sql) => Promise<unknown> }
     run: (sql) => sql`DELETE FROM visit WHERE at < NOW() - INTERVAL '1 year'`,
   },
   {
+    name: 'tag_cleanup',
+    every: DAY,
+    run: (sql) => sql`
+      DELETE FROM tag t
+       WHERE created_at < NOW() - INTERVAL '1 day'
+         AND NOT EXISTS (SELECT 1 FROM task WHERE tag_ids @> ARRAY[t.id])
+         AND NOT EXISTS (SELECT 1 FROM user_tag WHERE tag_id = t.id)
+    `,
+  },
+  {
     name: 'next_day_cleanup',
     every: DAY,
     run: (sql) => sql`UPDATE employee SET next_day = NULL WHERE next_day <= local_today(id)`,

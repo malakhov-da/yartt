@@ -8,7 +8,8 @@ export const PRIORITIES = ['LOW', 'NORMAL', 'HIGH', 'CRITICAL'] as const;
 export const Priority = z.enum(PRIORITIES);
 export type Priority = z.infer<typeof Priority>;
 
-export const TagName = z.string().trim().min(1).max(100);
+/** Lower case only (db.sql, tag.name), inner spaces collapsed. */
+export const TagName = z.string().trim().toLowerCase().overwrite((s) => s.replace(/\s+/g, ' ')).min(1).max(100);
 
 /** #RRGGBB. */
 export const TagColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);

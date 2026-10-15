@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { Keyboard, KEYBOARDS } from './keyboards.ts';
 
 // A schema and its inferred type share a name: `Employee` is both.
 
@@ -30,6 +31,8 @@ export const Employee = z.object({
   timeZone: z.string(),
   locale: Locale,
   pronoun: Pronoun.nullable(),
+  /** Layouts switched between, for text typed with the wrong one; NULL — by the interface language. */
+  keyboards: Keyboard.array().nullable(),
   /** When the avatar was last set; NULL — none, the initials are shown. */
   avatarAt: z.date().nullable(),
 });
@@ -62,6 +65,7 @@ export const SettingsInput = z
     timeZone: TimeZone,
     locale: Locale,
     pronoun: Pronoun.nullable(),
+    keyboards: Keyboard.array().min(1).max(KEYBOARDS.length).nullable(),
   })
   .partial();
 export type SettingsInput = z.infer<typeof SettingsInput>;

@@ -317,3 +317,30 @@ deadline. Nothing new is stored. The word is neutral on purpose: an
 automatic close may be fine (the work was done on time), the manager
 looks into it.
 
+### 33. Tags forgive how they are typed
+
+Tags are the title, so a misspelled tag is a second name for the same
+thing and search splits in two. Tags are lower case only ("Склад" and
+"склад" are one tag), and suggestions forgive typos ("инвентризация"),
+transliteration ("sklad") and the wrong keyboard layout ("crkfl"): each
+tag keeps its name in Latin letters, and the typed text and the same keys
+read with each other layout of the person are compared with it by
+Levenshtein distance and trigrams. The layouts are the person's, chosen
+in the profile, not derived from the interface language: a Russian
+interface says nothing about the keyboards someone switches between, and
+with many languages one fixed pair would be wrong for most. Until chosen
+— the interface language's layout and the US one. Layouts are tables in
+the application (a new one is a line of code); transliteration stays one
+for everybody, since it depends on how tags are written, not on who
+types — another alphabet is a line in `translit()`. Only spaces part
+words: "," and ";" are "б" and "ж" in the other layout. Comparing in Latin also keeps it working on a database with
+the C locale. Several typed words are read as a set of tags: words that
+match existing tags become those tags, the words around them are offered
+as new ones, and a few such readings are suggested, best first — a
+reading is never applied silently. A tag can exist without a task; one
+nobody uses is removed after a day so abandoned spellings do not come
+back as suggestions.
+
+*Implemented:* `translit()`, `tag.latin`, `employee.keyboards`, the
+`tag_cleanup` cron job in `db.sql`; `shared/keyboards.ts`;
+`Tags.suggest`, `Tags.create`.

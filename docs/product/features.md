@@ -20,6 +20,7 @@ persona goal it serves. Status: **now** — stage one, **next** — stage two,
 | Feature | Serves | Status |
 |---|---|---|
 | Create a task from a set of tags; autocomplete existing tags | everyone: no title format to agree on | now (done) |
+| Tags in lower case; found despite typos, transliteration and the wrong layout; several words read as a set of tags | everyone: one tag is not spelled five ways | now (done) |
 | Tags shown in my own order: personal weight, then how often I meet the tag | everyone: the "title" reads naturally | now (in the database) |
 | Context: what the owner wants, rich text with images, edited only by the owner | Marina: one source of truth | now (done) |
 | Finish a task: the deadline is set to now and the task is closed | everyone: one way to close, no status | now (done) |

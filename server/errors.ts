@@ -21,6 +21,7 @@ const CONSTRAINT_CODES: Record<string, ErrorCode> = {
   chk_employee_manager_not_self: 'manager_cycle',
   uq_task_tag_ids: 'tag_set_taken',
   chk_task_tag_ids_set: 'invalid_data',
+  chk_tag_name: 'invalid_data',
   uq_observer_open: 'already_observer',
   excl_work_overlap: 'shift_overlap',
   chk_dependency_not_self: 'dependency_cycle',

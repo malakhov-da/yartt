@@ -71,20 +71,6 @@ async function assertOwner(taskId: number, employeeId: number, db: Sql = sql): P
   await db`SELECT check_owner(${taskId}, ${employeeId})`;
 }
 
-/** Tag suggestions for the search input: by name, most used first. */
-export async function suggestTags(viewerId: number, query: string): Promise<Tag[]> {
-  return TagRow.array().parse(await sql`
-    SELECT t.id, t.name, u.color
-      FROM tag t
-      LEFT JOIN user_tag u ON u.tag_id = t.id AND u.employee_id = ${viewerId}
-     WHERE t.name ILIKE ${'%' + query.replace(/[\\%_]/g, '\\$&') + '%'}
-     ORDER BY (t.name ILIKE ${query.replace(/[\\%_]/g, '\\$&') + '%'}) DESC,
-              (SELECT count(*) FROM task k WHERE k.tag_ids @> ARRAY[t.id]) DESC,
-              t.name
-     LIMIT 10
-  `);
-}
-
 /**
  * Tasks carrying all the given tags (any task: tags are visible to everyone),
  * and matching the text in the context or comments (only tasks the viewer

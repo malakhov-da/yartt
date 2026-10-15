@@ -158,7 +158,8 @@ observers, with pages.
 ## 3. Find — "where is that task?"
 
 One input at the top of every screen (`/` focuses it). Typing suggests
-tasks and tags; picked tags narrow the list to the tasks carrying all of
+tasks and tags — despite typos, transliteration or the wrong layout, and
+several words as ready sets of tags (decision 33); picked tags narrow the list to the tasks carrying all of
 them — any task, since tags are visible to everyone; a task the person does
 not see opens on "Request access". The typed text searches the context and
 comments of the tasks the person sees. Results show the number and tags.
@@ -207,6 +208,9 @@ A dialog behind my avatar, not a screen.
   leave, a day off; until that day my notifications are copied to my
   manager.
 - **Pronoun** — he, she or not given (a bot): verb forms follow.
+- **Keyboard layouts** I switch between (by default the interface
+  language's and the US one): tag search reads a word typed with the
+  wrong one in each of them (decision 33).
 - **Avatar** — a photo, cropped to a square; or the initials.
 - **My tags** — a second section of the dialog: the tags of the tasks I
   see, with how many tasks carry each; my own color and weight of a tag

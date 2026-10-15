@@ -3,7 +3,7 @@ import { Employee, type InviteInput, type ProfileInput, type SettingsInput } fro
 import { AppError } from '../errors.ts';
 import { sql } from '../pg.ts';
 
-const COLUMNS = 'id, email, full_name, about, manager_id, next_day, time_zone, locale, pronoun, '
+const COLUMNS = 'id, email, full_name, about, manager_id, next_day, time_zone, locale, pronoun, keyboards::text[] AS keyboards, '
   + '(SELECT updated_at FROM avatar a WHERE a.employee_id = employee.id) AS avatar_at';
 const Exists = z.object({ exists: z.boolean() });
 
@@ -57,7 +57,8 @@ export async function updateSettings(id: number, input: SettingsInput): Promise<
        SET next_day = ${input.nextDay === undefined ? sql`next_day` : input.nextDay},
            time_zone = COALESCE(${input.timeZone ?? null}, time_zone),
            locale = COALESCE(${input.locale ?? null}, locale),
-           pronoun = ${input.pronoun === undefined ? sql`pronoun` : input.pronoun}
+           pronoun = ${input.pronoun === undefined ? sql`pronoun` : input.pronoun},
+           keyboards = ${input.keyboards === undefined ? sql`keyboards` : sql`${input.keyboards}::keyboard[]`}
      WHERE id = ${id}
     RETURNING ${sql.unsafe(COLUMNS)}
   `);

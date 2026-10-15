@@ -17,6 +17,16 @@ test.describe('search', () => {
     await expect(page.getByText('инвентаризация').filter({ visible: true }).first()).toBeVisible();
   });
 
+  test('a tag is found despite a typo or the other layout; words become a set of tags', async ({ page }) => {
+    const search = page.getByPlaceholder('Найти или создать');
+    await search.fill('crkfl');
+    await expect(page.getByRole('option', { name: 'склад', exact: true })).toBeVisible();
+    await search.fill('склад инвентризация');
+    await page.getByRole('option', { name: 'склад инвентаризация', exact: true }).first().click();
+    await page.getByRole('option', { name: /^#\d+ склад инвентаризация/ }).click();
+    await expect(page).toHaveURL(/\/tasks\/\d+$/);
+  });
+
   test('text is searched in contexts and comments of tasks I see', async ({ page }) => {
     await page.getByPlaceholder('Найти или создать').fill('карусель');
     await expect(page.getByRole('option', { name: /сайт.*редизайн.*главная/ })).toBeVisible();

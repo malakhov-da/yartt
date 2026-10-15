@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LOCALES, PRONOUNS, type Locale, type Pronoun, type SettingsInput } from '#shared/employee.ts';
+import { defaultKeyboards, KEYBOARDS } from '#shared/keyboards.ts';
 import { deleteAvatar, uploadAvatar } from '#client/hooks/avatar.ts';
 import { useMe } from '#client/hooks/me.ts';
 import { showInfo } from '#client/hooks/store.ts';
@@ -172,6 +173,17 @@ export default function (p: { onClose: () => void }) {
               <MenuItem key={value} value={value}>{t(`profile.pronouns.${value}`)}</MenuItem>
             ))}
           </TextField>
+          <Autocomplete
+            multiple
+            disableClearable
+            options={[...KEYBOARDS]}
+            value={me.keyboards ?? defaultKeyboards(me.locale)}
+            getOptionLabel={(k) => t(`profile.keyboardNames.${k}`)}
+            onChange={(_e, value) => value.length > 0 && apply({ keyboards: value })}
+            renderInput={(params) => (
+              <TextField {...params} label={t('profile.keyboards')} helperText={t('profile.keyboardsHint')} />
+            )}
+          />
           <Autocomplete
             options={candidates}
             value={manager}

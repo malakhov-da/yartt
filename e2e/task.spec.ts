@@ -135,7 +135,7 @@ test.describe.serial('a task from creation to hand-over', () => {
 
 test('someone without access sees the header and asks for it', async ({ page }) => {
   await signIn(page, 'ivan@example.com');
-  const report = await taskId('отчёт', 'Q3');
+  const report = await taskId('отчёт', 'q3');
   await page.goto(`/tasks/${report}`);
   await expect(page.getByText('Это приватная задача')).toBeVisible();
   await page.getByRole('button', { name: 'Запросить доступ' }).click();
