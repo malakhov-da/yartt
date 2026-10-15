@@ -8,6 +8,7 @@ export type WebhookMessage = {
     email: string;
     fullName: string;
     locale: string;
+    timeZone: string;
   };
   taskId?: number | null;
   data: Record<string, unknown>;

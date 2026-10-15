@@ -8,7 +8,7 @@ import { sql } from '../pg.ts';
 const Token = z.object({ token: z.string().nullable() });
 const Session = z.object({ session: z.string().nullable() });
 const EmployeeId = z.object({ id: z.number().nullable() });
-const Recipient = Employee.pick({ id: true, fullName: true })
+const Recipient = Employee.pick({ id: true, fullName: true, timeZone: true })
   .extend({ email: z.string(), locale: Locale.catch('ru') });
 
 /**
@@ -22,12 +22,12 @@ export async function requestLogin(email: string): Promise<void> {
   if (!token?.token) return;
 
   const [employee] = Recipient.array().parse(await sql`
-    SELECT id, email, full_name, locale FROM employee WHERE email = ${email}
+    SELECT id, email, full_name, locale, time_zone FROM employee WHERE email = ${email}
   `);
   if (!employee) return;
 
   await deliver({
-    to: { employeeId: employee.id, email: employee.email, fullName: employee.fullName, locale: employee.locale },
+    to: { employeeId: employee.id, email: employee.email, fullName: employee.fullName, locale: employee.locale, timeZone: employee.timeZone },
     taskId: null,
     payload: { kind: 'login', url: `${env.PUBLIC_URL}/login/${token.token}` },
   });

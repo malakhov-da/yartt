@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { interpolate, TRANSLATIONS } from '#shared/i18n/index.ts';
+import type { NotificationPayload } from '#shared/notification.ts';
 import type { Message } from '../delivery.ts';
 import env from '../env.ts';
 import { sql } from '../pg.ts';
@@ -48,15 +49,39 @@ export async function renderMail(message: Message): Promise<{ subject: string; t
     employee: person('employeeId' in p ? p.employeeId : undefined),
     from: person('from' in p ? p.from : undefined),
     dependency: 'dependencyId' in p ? await taskTitle(p.dependencyId, recipientId) : '',
+    dependent: 'dependentId' in p ? await taskTitle(p.dependentId, recipientId) : '',
     text: 'text' in p ? (p.text ?? '') : '',
     day: 'day' in p ? p.day : '',
     url: p.kind === 'login' ? p.url : `${env.PUBLIC_URL}/login`,
   };
 
+  if (p.kind === 'score') return renderScore(message, p, params.by ?? '', person('for' in p ? p.for : undefined));
+
   const template = t[p.kind];
   const lines = [interpolate(template.body, params).trim()];
+  if (p.kind === 'dependency_added' && p.hard) lines.push(interpolate(t.dependency_added.hard, params));
   if ('for' in p && p.for !== undefined) lines.push(interpolate(t.awayCopy, { name: person(p.for) }));
   if (message.taskId !== null) lines.push(interpolate(t.open, { url: `${env.PUBLIC_URL}/tasks/${message.taskId}` }));
 
   return { subject: interpolate(template.subject, params), text: lines.join('\n\n') };
+}
+
+/**
+ * A score email is the record of one version of the score: value, reason,
+ * the moment in the recipient's time zone and, for a correction, what it
+ * replaced. The interface shows only the current version.
+ */
+function renderScore(message: Message, p: Extract<NotificationPayload, { kind: 'score' }>, by: string, forName: string) {
+  const { locale, timeZone } = message.to;
+  const t = TRANSLATIONS[locale].mail.score;
+  const day = new Date(`${p.day}T12:00:00Z`).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const at = new Date(p.at).toLocaleString(locale, { dateStyle: 'long', timeStyle: 'short', timeZone });
+  const params = { by, day, value: String(p.value), previous: String(p.previous?.value ?? '') };
+
+  const lines = [interpolate(p.previous ? t.changed : t.body, params)];
+  if (p.reason) lines.push(interpolate(t.reason, { reason: p.reason }));
+  if (p.previous?.reason && p.previous.reason !== p.reason) lines.push(interpolate(t.previousReason, { reason: p.previous.reason }));
+  lines.push(interpolate(t.at, { at }));
+  if (p.for !== undefined) lines.push(interpolate(TRANSLATIONS[locale].mail.awayCopy, { name: forName }));
+  return { subject: interpolate(p.previous ? t.changedSubject : t.subject, params), text: lines.join('\n\n') };
 }

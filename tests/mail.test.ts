@@ -19,7 +19,7 @@ describe('mail', () => {
     const me = await createEmployee();
     await sql`UPDATE employee SET full_name = 'Pavel' WHERE id = ${previous.id}`;
     const taskId = await taskWithTags(me.id, [`billing-${me.id}`, `export-${me.id}`]);
-    const to = { employeeId: me.id, email: me.email, fullName: 'Me', locale: 'en' as const };
+    const to = { employeeId: me.id, email: me.email, fullName: 'Me', locale: 'en' as const, timeZone: 'Europe/Moscow' };
 
     const en = await renderMail({ to, taskId, payload: { kind: 'owner_change', from: previous.id } });
     expect(en.subject).toBe(`You own: billing-${me.id} · export-${me.id}`);
@@ -34,7 +34,7 @@ describe('mail', () => {
     const me = await createEmployee();
     const absent = await createEmployee();
     await sql`UPDATE employee SET full_name = 'Marina' WHERE id = ${absent.id}`;
-    const to = { employeeId: me.id, email: me.email, fullName: 'Me', locale: 'en' as const };
+    const to = { employeeId: me.id, email: me.email, fullName: 'Me', locale: 'en' as const, timeZone: 'Europe/Moscow' };
 
     const login = await renderMail({ to, taskId: null, payload: { kind: 'login', url: 'http://yartt.test/login/abc' } });
     expect(login.text).toContain('http://yartt.test/login/abc');
@@ -42,5 +42,25 @@ describe('mail', () => {
 
     const copy = await renderMail({ to, taskId: null, payload: { kind: 'new_report', employeeId: me.id, for: absent.id } });
     expect(copy.text).toContain('A copy: Marina is away.');
+  });
+
+  test('a score correction carries the previous value, the reason and the time', async () => {
+    const boss = await createEmployee();
+    const me = await createEmployee();
+    await sql`UPDATE employee SET full_name = 'Marina' WHERE id = ${boss.id}`;
+    const to = { employeeId: me.id, email: me.email, fullName: 'Me', locale: 'en' as const, timeZone: 'Europe/Moscow' };
+    const mail = await renderMail({
+      to,
+      taskId: null,
+      payload: {
+        kind: 'score', by: boss.id, day: '2026-10-12', value: 90, reason: 'Good call on the release',
+        at: '2026-10-15T07:30:00.000Z', previous: { value: 60, reason: 'Wrong priorities' },
+      },
+    });
+    expect(mail.subject).toBe('Score for October 12, 2026 changed: 90%');
+    expect(mail.text).toContain('Marina changes the score for October 12, 2026: was 60%, now 90%.');
+    expect(mail.text).toContain('Reason: Good call on the release');
+    expect(mail.text).toContain('Previous reason: Wrong priorities');
+    expect(mail.text).toContain('10:30'); // Moscow time
   });
 });

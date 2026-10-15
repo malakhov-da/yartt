@@ -10,6 +10,8 @@ export type Recipient = {
   email: string;
   fullName: string;
   locale: Locale;
+  /** Moments in emails are shown in it. */
+  timeZone: string;
 };
 
 /** A notification from the queue, or a sign-in link that never touches the queue. */

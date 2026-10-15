@@ -135,8 +135,11 @@ Key principles:
   - Work quality is scored only per employee per day, never per task.
     The current manager (employee.manager_id) scores any past day with a
     filled timesheet. Scores are optional: the manager decides which days
-    to score, if any. A score is final: after it neither the score, nor
-    the timesheet, nor time entries of that day can change.
+    to score, if any. After the first score neither the timesheet nor
+    the time entries of that day can change. The score itself can be
+    corrected by the current manager; every version (value, reason, time
+    and the previous value) is emailed to the employee — the mail is the
+    history, the table keeps only the current value.
   - The timesheet and time entries are optional too: they are kept when the
     manager asks for them.
   - Workload comes from the timesheet (work). Quality and workload are
@@ -388,7 +391,8 @@ the API is implemented.
     - Close a notification (closed_at = NOW).
 
   Scores:
-    - Score an employee''s past day (the manager, once).
+    - Score an employee''s past day or correct the score (the current
+      manager; every version is notified to the employee).
 
 
 ============================================================================
@@ -701,7 +705,8 @@ SELECT * FROM task WHERE owner_id IN (SELECT subordinates(:me)).';
 CREATE TABLE avatar (
     employee_id INT PRIMARY KEY REFERENCES employee(id),
     value BYTEA NOT NULL,
-    mime VARCHAR(50) NOT NULL
+    mime VARCHAR(50) NOT NULL CHECK (mime IN ('image/png', 'image/jpeg', 'image/webp')),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 COMMENT ON TABLE avatar IS
@@ -715,7 +720,10 @@ COMMENT ON COLUMN avatar.value IS
 'Image bytes.';
 
 COMMENT ON COLUMN avatar.mime IS
-'MIME type (image/png, image/jpeg, ...).';
+'MIME type: image/png, image/jpeg or image/webp (never SVG — it can carry scripts).';
+
+COMMENT ON COLUMN avatar.updated_at IS
+'When it was last replaced: part of its URL, so browsers may cache it.';
 
 
 -- ============================================================================
@@ -1577,6 +1585,7 @@ CREATE TABLE score (
     value INT NOT NULL CHECK (value BETWEEN 0 AND 100),
     reason TEXT,
     added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ,
 
     PRIMARY KEY (employee_id, day)
 );
@@ -1586,8 +1595,11 @@ COMMENT ON TABLE score IS
 'An employee''s work score for a day. 0–100.
 Set by the current manager (employee.manager_id) for any past day (in the
 employee''s time zone) that has closed shifts and no open one.
-A score is final: it cannot be changed or deleted. After it the
-timesheet and time entries of that day are frozen too (triggers).
+A score cannot be deleted. The current manager may correct it (value,
+reason; by and updated_at follow); the application emails every version to
+the employee with its time and the previous value, so the history lives in
+their mail and the table keeps only the current value. After the first
+score the timesheet and time entries of that day are frozen (triggers).
 
 The score is about the quality of the day''s decisions:
   - did the employee pick the right priorities;
@@ -1622,7 +1634,10 @@ COMMENT ON COLUMN score.reason IS
 'Justification. Optional. Needed first of all for bad scores.';
 
 COMMENT ON COLUMN score.added_at IS
-'When the score was given.';
+'When the score was first given.';
+
+COMMENT ON COLUMN score.updated_at IS
+'When the score was last corrected. NULL — never.';
 
 
 -- ============================================================================
@@ -2476,14 +2491,28 @@ FOR EACH ROW EXECUTE FUNCTION trg_spent_minutes_check();
 
 
 -- ----------------------------------------------------------------------------
--- score: by the manager, for a past day with a timesheet, final
+-- score: by the manager, for a past day with a timesheet; corrected, never deleted
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION trg_score_check()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF TG_OP <> 'INSERT' THEN
-        RAISE EXCEPTION 'score is final'
+    IF TG_OP = 'DELETE' THEN
+        RAISE EXCEPTION 'score cannot be deleted'
             USING HINT = 'score_final';
+    END IF;
+
+    IF TG_OP = 'UPDATE' THEN
+        IF NEW.employee_id <> OLD.employee_id OR NEW.day <> OLD.day THEN
+            RAISE EXCEPTION 'score cannot move to another day or employee'
+                USING HINT = 'score_final';
+        END IF;
+        IF NEW."by" IS DISTINCT FROM (SELECT manager_id FROM employee WHERE id = NEW.employee_id) THEN
+            RAISE EXCEPTION 'only current manager can correct the score of employee %', NEW.employee_id
+                USING HINT = 'not_manager',
+                      DETAIL = json_build_object('employeeId', NEW.employee_id)::text;
+        END IF;
+        NEW.updated_at := NOW();
+        RETURN NEW;
     END IF;
 
     IF NEW."by" IS DISTINCT FROM (SELECT manager_id FROM employee WHERE id = NEW.employee_id) THEN
@@ -2522,7 +2551,8 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION trg_score_check() IS
 'Score: only by the current manager, only for a past day with a closed
-timesheet. UPDATE and DELETE are forbidden.';
+timesheet. A correction (UPDATE) only by the current manager, of the same
+employee and day; updated_at is set. DELETE is forbidden.';
 
 CREATE TRIGGER score_check
 BEFORE INSERT OR UPDATE OR DELETE ON score

@@ -1,0 +1,88 @@
+import { z } from 'zod';
+import { Day, Id } from './employee.ts';
+import { HistoryInput } from './myDay.ts';
+
+// Team: a manager's reports, an employee's page (their days and scores) and
+// the metrics of a period (docs/product/interface.md, 4 and 4a).
+
+/** Quick periods: the last N days, today included. Any other range is picked by dates. */
+export const PERIODS = [7, 30, 90] as const;
+/** The longest range the metrics are computed for, in days. */
+export const MAX_RANGE_DAYS = 366;
+
+/**
+ * Workload and quality side by side, never mixed (decision 6): the
+ * timesheet hours, the time logged to tasks, and the score weighted by
+ * the hours of the scored days.
+ */
+export const Stats = z.object({
+  /** Closed shifts in the period. */
+  workMinutes: z.number().int(),
+  /** Days with a closed shift. */
+  workDays: z.number().int(),
+  /** Time logged to tasks. */
+  spentMinutes: z.number().int(),
+  scoredDays: z.number().int(),
+  /** SUM(score × hours) / SUM(hours) over the scored days; NULL — nothing scored. */
+  weightedScore: z.number().nullable(),
+});
+export type Stats = z.infer<typeof Stats>;
+
+/** One person of the team summary for a range. */
+export const Member = z.object({
+  employeeId: Id,
+  /** A direct report (the signed-in employee is their manager). */
+  direct: z.boolean(),
+  stats: Stats,
+  /** Past days with a closed timesheet and no score — what the direct manager may score. */
+  unscoredDays: z.number().int(),
+  /** Their tasks closed by hand in the range: "Finish", or a deadline moved to the past. */
+  finished: z.number().int(),
+  /** Their tasks closed automatically in the range: a deadline set in advance came. */
+  expired: z.number().int(),
+  /** Their open tasks now. */
+  openTasks: z.number().int(),
+});
+export type Member = z.infer<typeof Member>;
+
+const RangeShape = { from: Day, to: Day };
+const rangeOk = (r: { from: string; to: string }) =>
+  r.from <= r.to && (Date.parse(r.to) - Date.parse(r.from)) / 86_400_000 < MAX_RANGE_DAYS;
+
+/** The team summary: the whole subtree for a range of days. */
+export const SummaryInput = z.object(RangeShape).refine(rangeOk, { path: ['to'] });
+export type SummaryInput = z.infer<typeof SummaryInput>;
+
+export const EmployeeInput = z.object({ employeeId: Id });
+
+/** From and to, both included, in the employee's own days. */
+export const StatsInput = EmployeeInput.extend(RangeShape).refine(rangeOk, { path: ['to'] });
+export type StatsInput = z.infer<typeof StatsInput>;
+
+/** One day of the chart. */
+export const DayStats = z.object({
+  day: Day,
+  workMinutes: z.number().int(),
+  spentMinutes: z.number().int(),
+  /** NULL — not scored. */
+  score: z.number().int().nullable(),
+});
+export type DayStats = z.infer<typeof DayStats>;
+
+export const PeriodStats = z.object({
+  stats: Stats,
+  /** Every day of the range, oldest first. */
+  days: DayStats.array(),
+});
+export type PeriodStats = z.infer<typeof PeriodStats>;
+
+export const EmployeeHistoryInput = HistoryInput.extend(EmployeeInput.shape);
+export type EmployeeHistoryInput = z.infer<typeof EmployeeHistoryInput>;
+
+export const ScoreInput = z.object({
+  employeeId: Id,
+  day: Day,
+  value: z.number().int().min(0).max(100),
+  reason: z.string().trim().max(2000).nullable(),
+});
+export type ScoreInput = z.infer<typeof ScoreInput>;

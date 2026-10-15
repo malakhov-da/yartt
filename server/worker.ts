@@ -36,7 +36,7 @@ const JOBS: { name: string; every: number; run: (sql: Sql) => Promise<unknown> }
     run: (sql) => sql`
       DELETE FROM attachment a
        WHERE used_at < NOW() - INTERVAL '1 day'
-         AND NOT EXISTS (SELECT 1 FROM comment WHERE attachment_ids @> ARRAY[a.id])
+         AND NOT attachment_in_use(a.id)
     `,
   },
   {
@@ -73,6 +73,7 @@ const PendingNotification = z.object({
   fullName: z.string(),
   // An unsupported language falls back to the default one.
   locale: Locale.catch('ru'),
+  timeZone: z.string(),
 });
 
 const BATCH_SIZE = 20;
@@ -85,7 +86,7 @@ const BATCH_SIZE = 20;
 export async function deliverNotifications(sql: Sql): Promise<number> {
   return sql.begin(async (tx) => {
     const rows = PendingNotification.array().parse(await tx`
-      SELECT n.id, n.employee_id, n.task_id, n.payload, e.email, e.full_name, e.locale
+      SELECT n.id, n.employee_id, n.task_id, n.payload, e.email, e.full_name, e.locale, e.time_zone
         FROM notification n
         JOIN employee e ON e.id = n.employee_id
        WHERE n.sent_at IS NULL
@@ -103,7 +104,7 @@ export async function deliverNotifications(sql: Sql): Promise<number> {
       } else if (row.email !== null) {
         try {
           await deliver({
-            to: { employeeId: row.employeeId, email: row.email, fullName: row.fullName, locale: row.locale },
+            to: { employeeId: row.employeeId, email: row.email, fullName: row.fullName, locale: row.locale, timeZone: row.timeZone },
             taskId: row.taskId,
             payload: payload.data,
           });
