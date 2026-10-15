@@ -170,8 +170,9 @@ entry in the `pages` array in `client/components/App.tsx`.
   through `deliver()`: an email in the recipient's language (`SMTP_URL`,
   `MAIL_FROM`) and/or the webhook for other channels (`WEBHOOK_URL`, body
   signed with HMAC-SHA256). Sign-in links bypass the queue.
-- Visits (a task, "My day") are logged through `Visit.log`, throttled to
-  one per 5 minutes; they feed "who looked at my task" and shift
+- Visits (a task, "My day") are logged through `Visit.log` (`useVisit`):
+  on opening and on returning to a tab hidden for 10+ minutes, throttled to
+  one per 10 minutes in the database; they feed "who looked at my task" and shift
   suggestions.
 - UI updates — polling through React Query; WebSocket only if ever needed.
 

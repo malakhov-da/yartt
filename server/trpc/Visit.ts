@@ -6,7 +6,7 @@ import { authedProcedure, router } from '../trpc.ts';
 export default router({
   /**
    * Logs that the signed-in employee opened a task, or "My day" when
-   * `taskId` is null. Repeats within 5 minutes are ignored. Call it when the
+   * `taskId` is null. Repeats within 10 minutes are ignored. Call it when the
    * screen is opened.
    * @throws not_found — unknown task.
    */

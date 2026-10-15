@@ -598,6 +598,7 @@ CREATE TABLE employee (
     next_day DATE,
     time_zone TEXT NOT NULL DEFAULT 'UTC',
     locale VARCHAR(10) NOT NULL DEFAULT 'ru' CHECK (locale ~ '^[a-z]{2}(-[A-Z]{2})?$'),
+    pronoun VARCHAR(3) CHECK (pronoun IN ('he', 'she')),
 
     CONSTRAINT chk_employee_manager_not_self
         CHECK (manager_id <> id),
@@ -657,6 +658,11 @@ A future date = away: notifications go both to them and to their manager.';
 COMMENT ON COLUMN employee.locale IS
 'Language of the interface and notifications (ru, en, pt-BR, ...).
 Sent to the webhook with every notification.';
+
+COMMENT ON COLUMN employee.pronoun IS
+'How to speak of the employee: he | she. Picks verb forms in languages
+that have them ("упомянул" / "упомянула"). NULL — not given (also a bot):
+the neutral form with both endings is used.';
 
 COMMENT ON COLUMN employee.time_zone IS
 'IANA time zone (Europe/Moscow). Defines the employee''s day boundaries.
@@ -1654,9 +1660,13 @@ CREATE INDEX idx_visit_employee ON visit(employee_id, at);
 
 COMMENT ON TABLE visit IS
 'Visits: an employee opened a task (task_id) or "My day" (task_id IS NULL).
-Written by log_visit(), at most once per 5 minutes per (employee, task).
+Written by log_visit(), at most once per 10 minutes per (employee, task).
+The client logs on opening a screen and on coming back to a tab that was
+hidden for 10 minutes or more: sitting on a page is one visit.
 Used to:
-  - show the owner in "My day" who looked at their task;
+  - show the owner in the task who looked at it;
+  - show the history of a day in "My day" and on the employee page
+    (which tasks were opened, when the employee came in);
   - suggest when a shift started and ended (first and last activity of
     the day).
 Cron deletes visits older than a year.';
@@ -1677,11 +1687,13 @@ COMMENT ON COLUMN visit.at IS
 CREATE OR REPLACE FUNCTION log_visit(p_employee_id INT, p_task_id INT)
 RETURNS VOID AS $$
 BEGIN
+    -- Two tabs opening the same screen at once must not both pass the check.
+    PERFORM pg_advisory_xact_lock(hashtext('yartt.visit'), p_employee_id);
     IF NOT EXISTS (
         SELECT 1 FROM visit
          WHERE employee_id = p_employee_id
            AND task_id IS NOT DISTINCT FROM p_task_id
-           AND at > NOW() - INTERVAL '5 minutes'
+           AND at > NOW() - INTERVAL '10 minutes'
     ) THEN
         INSERT INTO visit (employee_id, task_id) VALUES (p_employee_id, p_task_id);
     END IF;
@@ -1689,8 +1701,9 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION log_visit(INT, INT) IS
-'Logs a visit unless the same one was logged within the last 5 minutes.
-p_task_id = NULL — "My day".';
+'Logs a visit unless the same one was logged within the last 10 minutes.
+p_task_id = NULL — "My day". Serialized per employee by an advisory lock,
+so simultaneous calls log one visit.';
 
 
 -- ============================================================================

@@ -6,6 +6,11 @@ export const LOCALES = ['ru', 'en'] as const;
 export const Locale = z.enum(LOCALES);
 export type Locale = z.infer<typeof Locale>;
 
+/** How to speak of someone: verb forms in languages that have them. NULL — not given. */
+export const PRONOUNS = ['he', 'she'] as const;
+export const Pronoun = z.enum(PRONOUNS);
+export type Pronoun = z.infer<typeof Pronoun>;
+
 export const Id = z.number().int().positive();
 export const Email = z.email().max(254);
 export const FullName = z.string().trim().min(1).max(255);
@@ -20,10 +25,13 @@ export const Employee = z.object({
   fullName: z.string(),
   about: z.string().nullable(),
   managerId: Id.nullable(),
-  /** Away until this day; NULL = available. */
+  /** Back at work on this day (vacation, sick leave, ...); NULL = available. */
   nextDay: Day.nullable(),
   timeZone: z.string(),
   locale: Locale,
+  pronoun: Pronoun.nullable(),
+  /** When the avatar was last set; NULL — none, the initials are shown. */
+  avatarAt: z.date().nullable(),
 });
 export type Employee = z.infer<typeof Employee>;
 
@@ -37,11 +45,23 @@ export const InviteInput = z.object({
 });
 export type InviteInput = z.infer<typeof InviteInput>;
 
+/** What the employee writes about themselves; saved with a button. */
 export const ProfileInput = z.object({
   fullName: FullName,
+  /** The sign-in address. */
+  email: Email,
+  /** Free text: position, how to reach me, anything colleagues should know. */
   about: z.string().max(10_000).nullable(),
-  nextDay: Day.nullable(),
-  timeZone: TimeZone,
-  locale: Locale,
 });
 export type ProfileInput = z.infer<typeof ProfileInput>;
+
+/** Settings applied as soon as they are picked; only the given fields change. */
+export const SettingsInput = z
+  .object({
+    nextDay: Day.nullable(),
+    timeZone: TimeZone,
+    locale: Locale,
+    pronoun: Pronoun.nullable(),
+  })
+  .partial();
+export type SettingsInput = z.infer<typeof SettingsInput>;

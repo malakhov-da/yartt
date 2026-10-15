@@ -20,16 +20,31 @@ describe('employee', () => {
       .rejects.toMatchObject({ message: 'email_taken' });
   });
 
-  test('profile: invalid time zone is rejected with a code', async () => {
+  test('settings: invalid time zone is rejected with a code, left-out fields stay', async () => {
     const me = await createEmployee();
     const api = await client(me.id);
-    const profile = { fullName: 'Me', about: null, nextDay: null, timeZone: 'Europe/Moscow', locale: 'ru' as const };
 
-    expect(await api.Employee.updateProfile(profile)).toMatchObject({ timeZone: 'Europe/Moscow' });
-    await expect(api.Employee.updateProfile({ ...profile, timeZone: 'Mars/Base' }))
+    expect(await api.Employee.updateSettings({ timeZone: 'Europe/Moscow', locale: 'en' }))
+      .toMatchObject({ timeZone: 'Europe/Moscow', locale: 'en' });
+    expect(await api.Employee.updateSettings({ nextDay: '2026-12-31' }))
+      .toMatchObject({ timeZone: 'Europe/Moscow', locale: 'en', nextDay: '2026-12-31' });
+    expect(await api.Employee.updateSettings({ locale: 'ru' })).toMatchObject({ nextDay: '2026-12-31' });
+    expect(await api.Employee.updateSettings({ nextDay: null })).toMatchObject({ nextDay: null });
+    await expect(api.Employee.updateSettings({ timeZone: 'Mars/Base' }))
       .rejects.toMatchObject({ message: 'invalid_time_zone' });
-    await expect(api.Employee.updateProfile({ ...profile, nextDay: '2026-13-01' }))
+    await expect(api.Employee.updateSettings({ nextDay: '2026-13-01' }))
       .rejects.toMatchObject({ code: 'BAD_REQUEST' });
+  });
+
+  test('profile: name, email and about; the email stays unique', async () => {
+    const me = await createEmployee();
+    const other = await createEmployee();
+    const api = await client(me.id);
+
+    expect(await api.Employee.updateProfile({ fullName: 'Me', email: `me-${me.id}@yartt.test`, about: 'QA lead' }))
+      .toMatchObject({ fullName: 'Me', email: `me-${me.id}@yartt.test`, about: 'QA lead' });
+    await expect(api.Employee.updateProfile({ fullName: 'Me', email: other.email.toUpperCase(), about: null }))
+      .rejects.toMatchObject({ message: 'email_taken' });
   });
 
   test('output contract catches data the client does not know', async () => {
@@ -46,9 +61,8 @@ describe('employee', () => {
   test('nextDay stays a plain date', async () => {
     const me = await createEmployee();
     const api = await client(me.id);
-    const saved = await api.Employee.updateProfile({
-      fullName: 'Me', about: null, nextDay: '2026-12-31', timeZone: 'Pacific/Kiritimati', locale: 'ru',
-    });
+    await api.Employee.updateSettings({ timeZone: 'Pacific/Kiritimati' });
+    const saved = await api.Employee.updateSettings({ nextDay: '2026-12-31' });
     expect(saved.nextDay).toBe('2026-12-31');
   });
 
@@ -110,5 +124,17 @@ describe('employee', () => {
 
     const rows = await sql<{ payload: unknown }[]>`SELECT payload FROM notification WHERE employee_id = ${boss.id}`;
     expect(rows.map((r) => r.payload)).toEqual([{ kind: 'new_report', employeeId: dev.id }]);
+  });
+});
+
+describe('pronoun', () => {
+  test('set, cleared, and only he or she', async () => {
+    const me = await createEmployee();
+    const api = await client(me.id);
+    expect(await api.Employee.updateSettings({ pronoun: 'she' })).toMatchObject({ pronoun: 'she' });
+    expect(await api.Employee.updateSettings({ locale: 'en' })).toMatchObject({ pronoun: 'she' });
+    expect(await api.Employee.updateSettings({ pronoun: null })).toMatchObject({ pronoun: null });
+    // @ts-expect-error — not a pronoun
+    await expect(api.Employee.updateSettings({ pronoun: 'it' })).rejects.toMatchObject({ code: 'BAD_REQUEST' });
   });
 });

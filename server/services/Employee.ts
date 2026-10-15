@@ -1,9 +1,10 @@
 import { z } from 'zod';
-import { Employee, type InviteInput, type ProfileInput } from '#shared/employee.ts';
+import { Employee, type InviteInput, type ProfileInput, type SettingsInput } from '#shared/employee.ts';
 import { AppError } from '../errors.ts';
 import { sql } from '../pg.ts';
 
-const COLUMNS = 'id, email, full_name, about, manager_id, next_day, time_zone, locale';
+const COLUMNS = 'id, email, full_name, about, manager_id, next_day, time_zone, locale, pronoun, '
+  + '(SELECT updated_at FROM avatar a WHERE a.employee_id = employee.id) AS avatar_at';
 const Exists = z.object({ exists: z.boolean() });
 
 export async function list(): Promise<Employee[]> {
@@ -40,10 +41,23 @@ export async function updateProfile(id: number, input: ProfileInput): Promise<Em
   const [employee] = Employee.array().parse(await sql`
     UPDATE employee
        SET full_name = ${input.fullName},
-           about = ${input.about},
-           next_day = ${input.nextDay},
-           time_zone = ${input.timeZone},
-           locale = ${input.locale}
+           email = ${input.email},
+           about = ${input.about}
+     WHERE id = ${id} AND email IS NOT NULL
+    RETURNING ${sql.unsafe(COLUMNS)}
+  `);
+  if (!employee) throw new AppError('not_found');
+  return employee;
+}
+
+/** A field left out keeps its value. */
+export async function updateSettings(id: number, input: SettingsInput): Promise<Employee> {
+  const [employee] = Employee.array().parse(await sql`
+    UPDATE employee
+       SET next_day = ${input.nextDay === undefined ? sql`next_day` : input.nextDay},
+           time_zone = COALESCE(${input.timeZone ?? null}, time_zone),
+           locale = COALESCE(${input.locale ?? null}, locale),
+           pronoun = ${input.pronoun === undefined ? sql`pronoun` : input.pronoun}
      WHERE id = ${id}
     RETURNING ${sql.unsafe(COLUMNS)}
   `);
