@@ -16,6 +16,14 @@ it is decided. Proposals wait for a decision in their own section.
   read), rate limiting of sign-in links, cookies, the HTML allow-list.
 - [ ] **Performance.** Current tasks, search and the team summary on
   ~10 000 tasks and ~300 people; indexes for `can_see()`.
+- [ ] **Contributions with a signed assignment.** Once the repository is
+  on GitHub: install CLA Assistant, give it [legal/CAA-individual.md](../../legal/CAA-individual.md)
+  as the agreement and check on a test pull request that it blocks
+  the merge until the author signs; a company signs
+  [legal/CAA-entity.md](../../legal/CAA-entity.md) on paper, so keep the
+  signed copies. Before the first outside pull request a lawyer in
+  Kazakhstan checks both agreements, in particular that signing through
+  GitHub counts as the written form (CONTRIBUTING.md).
 - [ ] **Release 1.0.** Copy `db.sql` to `server/migrations/1.0.sql`; from
   then on every schema change is a migration.
 
