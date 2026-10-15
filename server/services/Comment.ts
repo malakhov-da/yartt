@@ -18,6 +18,7 @@ const FeedRow = z.object({
   minutes: z.number().nullable(),
   day: z.string().nullable(),
   sourceTaskId: z.number().nullable(),
+  entries: z.object({ day: z.string(), minutes: z.number() }).array().nullable(),
 });
 const CommentRow = z.object({
   id: z.number(),
@@ -43,7 +44,7 @@ const Id = z.object({ id: z.number() });
  * estimate_minutes; a clear is a row closed without a successor).
  * 'mentions' keeps only the comments with open mentions.
  */
-function events(taskId: number, filter: FeedFilter) {
+function rawEvents(taskId: number, filter: FeedFilter) {
   const all = filter === 'all';
   const none = sql`NULL::timestamptz AS "from", NULL::timestamptz AS "to", NULL::int AS employee_id,
                    NULL::int AS minutes, NULL::text AS day, NULL::int AS source_task_id`;
@@ -85,6 +86,31 @@ function events(taskId: number, filter: FeedFilter) {
   `;
 }
 
+/**
+ * The events as the feed shows them: time entries of one person that follow
+ * each other with nothing between them become one event (gaps and islands:
+ * a run keeps the same difference between its row number in the whole feed
+ * and among that person's entries).
+ */
+function events(taskId: number, filter: FeedFilter) {
+  return sql`
+    WITH e AS (${rawEvents(taskId, filter)}),
+    o AS (
+      SELECT e.*,
+             row_number() OVER (ORDER BY at, kind, comment_id, employee_id, day)
+             - row_number() OVER (PARTITION BY kind, employee_id ORDER BY at, kind, comment_id, employee_id, day) AS run
+        FROM e
+    )
+    SELECT kind, at, comment_id, "from", "to", employee_id, minutes, day, source_task_id, NULL::jsonb AS entries
+      FROM o WHERE kind <> 'spent'
+    UNION ALL
+    SELECT 'spent', max(at), NULL, NULL, NULL, employee_id, sum(minutes)::int, NULL, NULL,
+           jsonb_agg(jsonb_build_object('day', day, 'minutes', minutes) ORDER BY day DESC, at DESC)
+      FROM o WHERE kind = 'spent'
+     GROUP BY employee_id, run
+  `;
+}
+
 /** The feed of a task, newest first, with the counts for both filters. */
 export async function list(viewerId: number, taskId: number, filter: FeedFilter, page: number): Promise<Feed> {
   await assertCanSee(taskId, viewerId);
@@ -116,7 +142,7 @@ export async function list(viewerId: number, taskId: number, filter: FeedFilter,
         return task ? [{ kind: 'mentioned_in', at: r.at, task }] : [];
       }
       case 'spent':
-        return [{ kind: 'spent', at: r.at, employeeId: r.employeeId!, minutes: r.minutes!, day: r.day! }];
+        return [{ kind: 'spent', at: r.at, employeeId: r.employeeId!, minutes: r.minutes!, entries: r.entries ?? [] }];
       case 'plan':
         return [{ kind: 'plan', at: r.at, employeeId: r.employeeId!, minutes: r.minutes }];
     }

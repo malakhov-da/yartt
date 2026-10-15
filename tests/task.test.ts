@@ -261,7 +261,7 @@ describe('feed events', () => {
     expect(feed.items.map((i) => i.kind).sort()).toEqual(['mentioned_in', 'plan', 'plan', 'plan', 'spent']);
     expect(feed.items.find((i) => i.kind === 'mentioned_in')).toMatchObject({ task: { id: other } });
     expect(feed.items.filter((i) => i.kind === 'plan').map((i) => i.kind === 'plan' && i.minutes).sort()).toEqual([120, 60, null].sort());
-    expect(feed.items.find((i) => i.kind === 'spent')).toMatchObject({ employeeId: owner.id, minutes: 30, day: '2026-01-02' });
+    expect(feed.items.find((i) => i.kind === 'spent')).toMatchObject({ employeeId: owner.id, minutes: 30, entries: [{ day: '2026-01-02', minutes: 30 }] });
     expect((await api.Comment.list({ taskId: id, filter: 'mentions', page: 1 })).total).toBe(0);
   });
 });
@@ -329,3 +329,34 @@ describe('reminders', () => {
   });
 });
 
+describe('time in the feed', () => {
+  test("one person's entries in a row are one event; anything between them splits it", async () => {
+    const owner = await createEmployee();
+    const helper = await createEmployee();
+    const id = await createTask(owner.id);
+    await (await client(owner.id)).Observer.add({ taskId: id, employeeId: helper.id });
+    const mine = await client(owner.id);
+    const theirs = await client(helper.id);
+
+    // Oldest first: mine ×3, a comment, mine ×1, theirs ×2, mine ×1.
+    for (const day of ['2026-01-01', '2026-01-02', '2026-01-03']) await mine.Time.log({ taskId: id, day, minutes: 60 });
+    await mine.Comment.create(comment(id, '<p>Between</p>'));
+    await mine.Time.log({ taskId: id, day: '2026-01-04', minutes: 30 });
+    await theirs.Time.log({ taskId: id, day: '2026-01-04', minutes: 20 });
+    await theirs.Time.log({ taskId: id, day: '2026-01-05', minutes: 25 });
+    await mine.Time.log({ taskId: id, day: '2026-01-05', minutes: 15 });
+
+    const feed = await mine.Comment.list({ taskId: id, filter: 'all', page: 1 });
+    const shape = feed.items.map((i) => (i.kind === 'spent' ? [i.employeeId, i.minutes, i.entries.length] : i.kind));
+    expect(shape).toEqual([
+      [owner.id, 15, 1],
+      [helper.id, 45, 2],
+      [owner.id, 30, 1],
+      'comment',
+      [owner.id, 180, 3],
+    ]);
+    expect(feed.all).toBe(5);
+    const run = feed.items[4]!;
+    expect(run.kind === 'spent' && run.entries.map((e) => e.day)).toEqual(['2026-01-03', '2026-01-02', '2026-01-01']);
+  });
+});

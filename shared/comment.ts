@@ -53,14 +53,19 @@ export const MentionedInEvent = z.object({
 });
 export type MentionedInEvent = z.infer<typeof MentionedInEvent>;
 
-/** Someone logged time to the task (spent_minutes). */
+/**
+ * Someone logged time to the task (spent_minutes). Entries of one person in
+ * a row — nothing else between them in the feed — come as one event.
+ */
 export const SpentEvent = z.object({
   kind: z.literal('spent'),
+  /** The latest entry. */
   at: z.date(),
   employeeId: Id,
+  /** The sum. */
   minutes: z.number().int(),
-  /** The day the time is logged for. */
-  day: Day,
+  /** Each entry, the latest day first: one for a single entry. */
+  entries: z.object({ day: Day, minutes: z.number().int() }).array().min(1),
 });
 export type SpentEvent = z.infer<typeof SpentEvent>;
 

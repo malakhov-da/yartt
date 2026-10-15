@@ -164,6 +164,18 @@ test.describe('a task', () => {
     await ivan.close();
   });
 
+  test("one person's time entries in a row are one line in the feed, the days on a click", async ({ page }) => {
+    await signIn(page, 'marina@example.com');
+    await page.goto(`/tasks/${await taskId('склад', 'инвентаризация')}`);
+    await page.getByRole('button', { name: 'Все события', exact: true }).click();
+    const run = page.getByRole('button', { name: /Марина Соколова: списано 16ч за 8 дн\./ });
+    await expect(run).toBeVisible();
+    await expect(page.getByText(/Марина Соколова: списано 2ч за/)).toHaveCount(0);
+    await run.click();
+    await expect(run).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByRole('listitem').filter({ hasText: /— 2ч$/ })).toHaveCount(8);
+  });
+
   test('time logged for a past day lands on that day in My day', async ({ page }) => {
     await signIn(page, 'olga@example.com');
     await page.goto(`/tasks/${await taskId('onboarding', 'документация')}`);

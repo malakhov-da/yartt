@@ -1,5 +1,5 @@
-import { Event, HourglassBottom, Link as LinkIcon, TaskAlt } from '@mui/icons-material';
-import { Box, Button, Chip, Pagination, Paper, Stack, Typography } from '@mui/material';
+import { Event, ExpandLess, ExpandMore, HourglassBottom, Link as LinkIcon, TaskAlt } from '@mui/icons-material';
+import { Box, Button, ButtonBase, Chip, Pagination, Paper, Stack, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -94,6 +94,7 @@ function EventLine(p: { item: Exclude<FeedItem, { kind: 'comment' }> }) {
   const format = useFormat();
   const employees = useEmployees();
   const name = (id: number) => employees.get(id)?.fullName ?? `#${id}`;
+  const [open, setOpen] = useState(false);
   const { item } = p;
 
   let icon, text;
@@ -113,10 +114,41 @@ function EventLine(p: { item: Exclude<FeedItem, { kind: 'comment' }> }) {
         </Stack>
       );
       break;
-    case 'spent':
+    case 'spent': {
       icon = <TaskAlt fontSize="small" />;
-      text = t('task.feed.spent', { name: name(item.employeeId), time: format.minutes(item.minutes), day: format.date(fromDay(item.day)) });
+      const days = item.entries;
+      if (days.length === 1) {
+        text = t('task.feed.spent', { name: name(item.employeeId), time: format.minutes(item.minutes), day: format.date(fromDay(days[0]!.day)) });
+        break;
+      }
+      // Several entries in a row: one line, the days on demand.
+      text = (
+        <>
+          <ButtonBase
+            onClick={() => setOpen(!open)}
+            aria-expanded={open}
+            sx={{ font: 'inherit', color: 'inherit', textAlign: 'left', gap: 0.5, borderRadius: 0.5 }}
+          >
+            {t('task.feed.spentDays', {
+              name: name(item.employeeId),
+              time: format.minutes(item.minutes),
+              count: days.length,
+              from: format.date(fromDay(days[days.length - 1]!.day)),
+              to: format.date(fromDay(days[0]!.day)),
+            })}
+            {open ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
+          </ButtonBase>
+          {open && (
+            <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 2.5 }}>
+              {days.map((e, i) => (
+                <li key={`${e.day}-${i}`}>{format.date(fromDay(e.day))} — {format.minutes(e.minutes)}</li>
+              ))}
+            </Box>
+          )}
+        </>
+      );
       break;
+    }
     case 'plan':
       icon = <HourglassBottom fontSize="small" />;
       text = item.minutes === null
@@ -129,7 +161,7 @@ function EventLine(p: { item: Exclude<FeedItem, { kind: 'comment' }> }) {
     <Stack
       direction="row"
       spacing={1.25}
-      sx={{ px: 2, py: 1.25, borderTop: 1, borderColor: 'divider', alignItems: 'center', color: 'text.secondary' }}
+      sx={{ px: 2, py: 1.25, borderTop: 1, borderColor: 'divider', alignItems: 'flex-start', color: 'text.secondary' }}
     >
       {icon}
       <Typography component="div" variant="body2" sx={{ flexGrow: 1, minWidth: 0 }}>{text}</Typography>

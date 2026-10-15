@@ -90,7 +90,9 @@ Left, top to bottom:
   every comment and event, with pages. Events appear between the comments
   as grey lines: deadline moves, a comment of another task attaching this
   one ("Mentioned in #7"), time logged ("Pavel logged 2h for Oct 14") and
-  time left set or cleared. A reply shows a
+  time left set or cleared. Time entries of one person in a row, with
+  nothing else between them, are one line ("logged 16h over 8 days,
+  Oct 5 — Oct 14"); a click shows the days. A reply shows a
   quote of its parent; the feed stays flat. Who read a comment is not
   shown: in a public task that would be the whole company.
 

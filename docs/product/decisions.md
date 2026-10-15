@@ -273,7 +273,10 @@ minutes. Sitting on a page all day is one visit.
 
 Besides comments and deadline moves, "All events" shows a comment of
 another task attaching this one, time logged and time left set or
-cleared. The separate "Mentioned in" panel is gone.
+cleared. The separate "Mentioned in" panel is gone. Daily time entries
+would flood it, so one person's entries in a row — nothing else between
+them — are one line with the total, the days on a click; the feed pages
+count these lines, so a run is never split by a page.
 
 ### 29. Pronouns instead of "(а)"
 

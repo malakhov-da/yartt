@@ -223,6 +223,7 @@ export const ru = {
       deadlineCleared: 'Дедлайн убран (был {{from}})',
       mentionedIn: 'Упомянута в задаче',
       spent: '{{name}}: списано {{time}} за {{day}}',
+      spentDays: '{{name}}: списано {{time}} за {{count}} дн. ({{from}} — {{to}})',
       plan: '{{name}}: в плане ещё {{time}}',
       planCleared: '{{name}}: план убран',
     },

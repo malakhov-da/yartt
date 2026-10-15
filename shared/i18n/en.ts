@@ -174,6 +174,7 @@ export const en: Translation = {
       deadlineCleared: 'Deadline cleared (was {{from}})',
       mentionedIn: 'Mentioned in',
       spent: '{{name}} logged {{time}} for {{day}}',
+      spentDays: '{{name}} logged {{time}} over {{count}} days ({{from}} — {{to}})',
       plan: '{{name}} plans {{time}} more',
       planCleared: '{{name}} cleared their plan',
     },
