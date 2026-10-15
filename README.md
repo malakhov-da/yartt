@@ -107,3 +107,16 @@ TEST_DATABASE_URL=postgres://postgres@localhost:5432/postgres npm test
 ```
 
 Tests create and drop their own database on the given server.
+
+## License
+
+[FSL-1.1-ALv2](LICENSE.md) (Functional Source License). Any company may
+install yartt, change it and use it for its own work, free of charge. What
+is not allowed is selling it or offering it as a service that competes with
+yartt. Two years after each release, that release becomes Apache 2.0.
+
+The right to sell yartt, host it for others or build it into a product is
+granted separately by the copyright holder.
+
+All copyright in yartt belongs to one person, so contributions are
+accepted with a copyright assignment: see [CONTRIBUTING.md](CONTRIBUTING.md).
