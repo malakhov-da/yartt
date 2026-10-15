@@ -1800,48 +1800,6 @@ p_actor_id = NULL — a system action.';
 
 
 -- ----------------------------------------------------------------------------
--- check_deadlines — hard dependencies
--- ----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION check_deadlines(p_task_id INT)
-RETURNS VOID AS $$
-DECLARE
-    v_task_id INT;
-    v_value INT;
-BEGIN
-    PERFORM pg_advisory_xact_lock(hashtext('yartt.deadline'));
-
-    SELECT d.task_id, d.value INTO v_task_id, v_value
-      FROM dependency d
-      JOIN finished_at fa
-        ON fa.task_id = d.task_id AND fa.expired_at IS NULL
-      LEFT JOIN finished_at fb
-        ON fb.task_id = d.value AND fb.expired_at IS NULL
-     WHERE (d.task_id = p_task_id OR d.value = p_task_id)
-       AND d.min_minutes_after IS NOT NULL
-       AND (fb.value IS NULL
-            OR fb.value + d.min_minutes_after * INTERVAL '1 minute' > fa.value)
-     LIMIT 1;
-
-    IF FOUND THEN
-        RAISE EXCEPTION 'deadline of task % violates hard dependency on task %',
-            v_task_id, v_value
-            USING HINT = 'hard_dependency_violated',
-                  DETAIL = json_build_object('taskId', v_task_id, 'dependencyId', v_value)::text;
-    END IF;
-END;
-$$ LANGUAGE plpgsql;
-
-COMMENT ON FUNCTION check_deadlines(INT) IS
-'Checks the task''s hard dependencies in both directions.
-A global advisory lock serializes the checks so that two concurrent
-transactions cannot break the invariant together.';
-
-
--- ============================================================================
--- TRIGGERS
--- ============================================================================
-
--- ----------------------------------------------------------------------------
 -- is_public / can_see / is_observer — who sees a task
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION is_observer(p_task_id INT, p_employee_id INT)
@@ -1915,6 +1873,48 @@ COMMENT ON FUNCTION touch_attachments(INT[]) IS
 'Checks that all attachments exist and updates their used_at. The UPDATE
 locks the rows, so the cleanup cannot delete them concurrently.';
 
+
+-- ----------------------------------------------------------------------------
+-- check_deadlines — hard dependencies
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION check_deadlines(p_task_id INT)
+RETURNS VOID AS $$
+DECLARE
+    v_task_id INT;
+    v_value INT;
+BEGIN
+    PERFORM pg_advisory_xact_lock(hashtext('yartt.deadline'));
+
+    SELECT d.task_id, d.value INTO v_task_id, v_value
+      FROM dependency d
+      JOIN finished_at fa
+        ON fa.task_id = d.task_id AND fa.expired_at IS NULL
+      LEFT JOIN finished_at fb
+        ON fb.task_id = d.value AND fb.expired_at IS NULL
+     WHERE (d.task_id = p_task_id OR d.value = p_task_id)
+       AND d.min_minutes_after IS NOT NULL
+       AND (fb.value IS NULL
+            OR fb.value + d.min_minutes_after * INTERVAL '1 minute' > fa.value)
+     LIMIT 1;
+
+    IF FOUND THEN
+        RAISE EXCEPTION 'deadline of task % violates hard dependency on task %',
+            v_task_id, v_value
+            USING HINT = 'hard_dependency_violated',
+                  DETAIL = json_build_object('taskId', v_task_id, 'dependencyId', v_value)::text;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION check_deadlines(INT) IS
+'Checks the task''s hard dependencies in both directions.
+A global advisory lock serializes the checks so that two concurrent
+transactions cannot break the invariant together.';
+
+
+-- ============================================================================
+-- TRIGGERS
+-- ============================================================================
 
 -- ----------------------------------------------------------------------------
 -- no deletion: employee, task, comment
@@ -2311,28 +2311,6 @@ FOR EACH ROW EXECUTE FUNCTION trg_comment_local_id();
 
 
 -- ----------------------------------------------------------------------------
--- comment: attachments exist, used_at is updated
--- ----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION trg_comment_attachments()
-RETURNS TRIGGER AS $$
-BEGIN
-    PERFORM touch_attachments(NEW.attachment_ids || NEW.image_ids);
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-COMMENT ON FUNCTION trg_comment_attachments() IS
-'Checks that all attachment_ids and image_ids exist and updates their
-used_at (touch_attachments locks them against the cleanup).';
-
-CREATE TRIGGER comment_attachments
-BEFORE INSERT ON comment
-FOR EACH ROW
-WHEN (cardinality(NEW.attachment_ids) + cardinality(NEW.image_ids) > 0)
-EXECUTE FUNCTION trg_comment_attachments();
-
-
--- ----------------------------------------------------------------------------
 -- comment: only by someone who sees the task
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION trg_comment_author()
@@ -2353,6 +2331,28 @@ COMMENT ON FUNCTION trg_comment_author() IS
 CREATE TRIGGER comment_author
 BEFORE INSERT ON comment
 FOR EACH ROW EXECUTE FUNCTION trg_comment_author();
+
+
+-- ----------------------------------------------------------------------------
+-- comment: attachments exist, used_at is updated
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION trg_comment_attachments()
+RETURNS TRIGGER AS $$
+BEGIN
+    PERFORM touch_attachments(NEW.attachment_ids || NEW.image_ids);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION trg_comment_attachments() IS
+'Checks that all attachment_ids and image_ids exist and updates their
+used_at (touch_attachments locks them against the cleanup).';
+
+CREATE TRIGGER comment_attachments
+BEFORE INSERT ON comment
+FOR EACH ROW
+WHEN (cardinality(NEW.attachment_ids) + cardinality(NEW.image_ids) > 0)
+EXECUTE FUNCTION trg_comment_attachments();
 
 
 -- ----------------------------------------------------------------------------
@@ -2953,6 +2953,9 @@ BEGIN
             USING HINT = 'no_pending_request',
                   DETAIL = json_build_object('employeeId', p_employee_id, 'taskId', p_task_id)::text;
     END IF;
+
+    PERFORM notify(p_employee_id, p_task_id, jsonb_build_object(
+        'kind', 'access_opened', 'by', p_actor_id));
 END;
 $$ LANGUAGE plpgsql;
 
@@ -2985,7 +2988,7 @@ BEGIN
     END IF;
 
     PERFORM notify(p_employee_id, p_task_id, jsonb_build_object(
-        'kind', 'access_opened', 'by', p_actor_id));
+        'kind', 'access_closed', 'by', p_actor_id));
 END;
 $$ LANGUAGE plpgsql;
 
@@ -3158,9 +3161,6 @@ BEGIN
     IF FOUND THEN
         PERFORM notify_dependents(p_task_id);
     END IF;
-
-    PERFORM notify(p_employee_id, p_task_id, jsonb_build_object(
-        'kind', 'access_closed', 'by', p_actor_id));
 END;
 $$ LANGUAGE plpgsql;
 
