@@ -28,11 +28,11 @@ export default function (p: { employee: Employee; onClose: () => void; onDone: (
   return (
     <Dialog open onClose={p.onClose} fullWidth maxWidth="xs">
       <form onSubmit={submit}>
-        <DialogTitle>{t('employees.restoreTitle', { name: p.employee.fullName })}</DialogTitle>
+        <DialogTitle>{t('team.restoreTitle', { name: p.employee.fullName })}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <TextField
-              label={t('employees.email')}
+              label={t('team.email')}
               type="email"
               required
               autoFocus
@@ -46,7 +46,7 @@ export default function (p: { employee: Employee; onClose: () => void; onDone: (
         <DialogActions>
           <Button onClick={p.onClose}>{t('common.cancel')}</Button>
           <Button type="submit" variant="contained" disabled={restore.isPending}>
-            {t('employees.restore')}
+            {t('team.restore')}
           </Button>
         </DialogActions>
       </form>

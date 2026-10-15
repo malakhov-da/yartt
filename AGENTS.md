@@ -76,9 +76,11 @@ client/
   theme.ts          — MUI theme
   hooks/trpc.ts     — useTRPC(); hooks/store.ts — zustand, showError/showInfo; hooks/me.ts — useMe()
   i18n/             — i18next setup, errors.ts — error texts
-  components/App.tsx — the `pages` array (header tabs) and the layout
-  components/App/   — header, notifications
+  components/App.tsx — My day and the pages that open over it by route; the layout
+  components/App/   — the top line, notifications, profile and invite dialogs
   components/<Name>Page.tsx, components/<Name>Page/ — pages and their parts
+                    (TaskPage, EmployeePage open over the sections by route)
+  components/App/RichEditor.tsx, RichView.tsx — the mui-tiptap editor and viewer
 tests/              — vitest against a real PostgreSQL
 ```
 
@@ -86,8 +88,11 @@ Adding an API: schemas — `shared/<entity>.ts`, SQL — `server/services/<Entit
 procedures — `server/trpc/<Entity>.ts`, wire it in `server/trpc/index.ts`.
 On the client: `useQuery(trpc.<Entity>.<procedure>.queryOptions(input))`.
 
-Adding a page: a component in `client/components/<Name>Page.tsx` and an
-entry in the `pages` array in `client/components/App.tsx`.
+Screens: there is one — My day (`/`); there are no tabs (decision 31). A
+new place is first a block of My day, a section of the profile dialog or
+something that opens over My day by route, like a task (`/tasks/:id`) or
+a person (`/employees/:id`): a component in `client/components/<Name>Page.tsx`
+and a `matchPath` in `client/components/App.tsx`.
 
 ## Database
 

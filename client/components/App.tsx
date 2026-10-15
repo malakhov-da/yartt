@@ -2,24 +2,28 @@ import { Box, CircularProgress } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Navigate, Route, Routes, useLocation } from 'react-router';
+import { matchPath, Navigate, Route, Routes, useLocation } from 'react-router';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import Header from './App/Header.tsx';
 import Notifications from './App/Notifications.tsx';
-import EmployeesPage from './EmployeesPage.tsx';
+import { useMe } from '#client/hooks/me.ts';
+import EmployeePage from './EmployeePage.tsx';
 import LoginCallbackPage from './LoginCallbackPage.tsx';
 import LoginPage from './LoginPage.tsx';
-import ProfilePage from './ProfilePage.tsx';
+import MyDayPage from './MyDayPage.tsx';
+import TaskPage from './TaskPage.tsx';
 
-// Header tabs. `label` is a translation key.
+// Screens of the signed-in employee. There is one — My day (decision 31);
+// a task and a person open over it by route. `label` is a translation key
+// for the window title.
 const pages = [
-  { path: '/employees', component: EmployeesPage, label: 'nav.employees' },
-  { path: '/profile', component: ProfilePage, label: 'nav.profile' },
+  { path: '/', component: MyDayPage, label: 'nav.myDay' },
 ] as const;
 
 type PagePath = (typeof pages)[number]['path'];
 
 export default function () {
+  const { pathname } = useLocation();
   const trpc = useTRPC();
   const { i18n } = useTranslation();
   const me = useQuery(trpc.Auth.me.queryOptions());
@@ -34,6 +38,17 @@ export default function () {
       <Box sx={{ display: 'grid', placeItems: 'center', height: '100%' }}>
         <CircularProgress />
       </Box>
+    );
+  }
+
+  // A sign-in link works even when someone is signed in here: it switches
+  // to the person it was sent to (My day mounts afresh after it).
+  if (matchPath('/login/:token', pathname)) {
+    return (
+      <>
+        <Notifications />
+        <Routes><Route path="/login/:token" element={<LoginCallbackPage />} /></Routes>
+      </>
     );
   }
 
@@ -54,8 +69,23 @@ export default function () {
 }
 
 function SignedIn() {
+  const { t } = useTranslation();
+  const trpc = useTRPC();
   const { pathname } = useLocation();
-  const activePath = pages.find((p) => p.path === pathname)?.path;
+  const employees = useQuery(trpc.Employee.list.queryOptions());
+  const active = pages.find((p) => p.path === pathname);
+  const activePath = active?.path;
+  // A task or an employee opens over the sections; they stay mounted underneath.
+  const taskId = Number(matchPath('/tasks/:id', pathname)?.params.id) || null;
+  const employeeId = Number(matchPath('/employees/:id', pathname)?.params.id) || null;
+  const employeeName = employees.data?.find((e) => e.id === employeeId)?.fullName;
+
+  useEffect(() => {
+    const name = t('app.name');
+    document.title = taskId ? `${name}: ${t('task.title', { id: taskId })}`
+      : employeeId ? `${name}: ${employeeName ?? ''}`
+      : active ? `${name}: ${t(active.label)}` : name;
+  }, [active, taskId, employeeId, employeeName, t]);
 
   // A page is mounted on first visit and then stays in the DOM to keep its state.
   const [loaded, setLoaded] = useState<Partial<Record<PagePath, true>>>({});
@@ -63,11 +93,11 @@ function SignedIn() {
     if (activePath && !loaded[activePath]) setLoaded((prev) => ({ ...prev, [activePath]: true }));
   }, [activePath, loaded]);
 
-  if (!activePath) return <Navigate to={pages[0].path} replace />;
+  if (!activePath && !taskId && !employeeId) return <Navigate to={pages[0].path} replace />;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <Header tabs={pages} activePath={activePath} />
+      <Header />
       {pages.map(
         ({ path, component: Page }) =>
           loaded[path] && (
@@ -79,6 +109,16 @@ function SignedIn() {
               <Page />
             </Box>
           ),
+      )}
+      {taskId && (
+        <Box component="main" sx={{ display: 'flex', flexGrow: 1, p: 2, overflow: 'auto' }}>
+          <TaskPage key={taskId} id={taskId} />
+        </Box>
+      )}
+      {employeeId && (
+        <Box component="main" sx={{ display: 'flex', flexGrow: 1, p: 2, overflow: 'auto' }}>
+          <EmployeePage key={employeeId} id={employeeId} />
+        </Box>
       )}
     </Box>
   );
