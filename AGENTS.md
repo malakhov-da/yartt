@@ -212,6 +212,28 @@ and a `matchPath` in `client/components/App.tsx`.
   outgoing messages through `vi.mock('../server/delivery.ts')`. The HTTP
   error format — `tests/errors.test.ts`.
 
+## Commits
+
+The history is the changelog: someone reading `git log` learns what the
+product gained and why. Always, without being asked:
+
+- **One commit per feature or fix.** Everything that belongs to it goes
+  together — code, schema (`db.sql`), translations, tests, demo data
+  (`scripts/seed.ts`), docs and the roadmap tick. Unrelated changes (a
+  stray fix, a refactoring, docs about something else) are separate
+  commits. Commit when a feature is done and verified, before starting the
+  next one; push only when asked.
+- **Every commit builds and passes the tests**: `npm run typecheck`,
+  `npm test`, and `npm run e2e` when the interface changed.
+- **The message** is in English:
+  - the first line — what changed, as a changelog entry a user would
+    understand ("Team summary in My day for managers"), up to ~72
+    characters, no trailing period;
+  - an empty line, then the body: the motivation — the problem or the
+    persona goal (docs/product/personas.md); what it does for people;
+    notable decisions (with their number in decisions.md) and what is
+    deliberately left out. Wrap at 72 characters. Not a list of files.
+
 ## Scope
 
 - Stage one: sign-in by link, employees and invites, tasks with tags and
