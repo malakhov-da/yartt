@@ -717,7 +717,10 @@ CREATE TABLE avatar (
 
 COMMENT ON TABLE avatar IS
 'Employee avatar, stored as BYTEA.
-One avatar per employee (PK = employee_id).';
+One avatar per employee (PK = employee_id). Set and deleted only by the
+employee themselves; seen by every employee. The client crops it to a
+square and scales it down before uploading; without one the interface
+shows the initials.';
 
 COMMENT ON COLUMN avatar.employee_id IS
 'PK. One avatar per employee.';
@@ -1542,7 +1545,13 @@ RULES:
     (unless they wrote the comment).
   - reminder (remind) -> whoever set it.
   - access request -> the task owner.
+  - access opened (added by the owner, request approved, the task made
+    public while a request waited) -> the employee.
+  - access closed (removed, request rejected, the task made private
+    without them) -> the employee.
   - finished_at set / moved / cleared -> owners of dependent tasks.
+  - a new dependency -> the owner of the task waited for (a hard one ties
+    their deadline).
   - owner change -> the new owner. If the manager initiated it — the
     previous owner too.
   - score -> the scored employee.
@@ -1575,8 +1584,10 @@ COMMENT ON COLUMN notification.closed_at IS
 
 COMMENT ON COLUMN notification.payload IS
 'JSONB context. Contains kind:
-  comment | mention | task_mention | remind | access_request | finished_at_change |
-  owner_change | score | invite | new_report.
+  comment | mention | task_mention | remind | access_request |
+  access_opened | access_closed | finished_at_change | dependency_added |
+  owner_change | owner_handed |
+  score | invite | new_report.
 Payload keys are camelCase (employeeId, dependencyId, ...).
 A copy for an absent employee''s manager has for = the recipient id.';
 

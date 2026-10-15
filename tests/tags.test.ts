@@ -37,7 +37,7 @@ describe('task title order', () => {
 });
 
 describe('visits', () => {
-  test('logged at most once per 5 minutes per task or "My day"', async () => {
+  test('logged at most once per 10 minutes per task or "My day"', async () => {
     const me = await createEmployee();
     const [t] = await sql<{ id: number }[]>`INSERT INTO tag (name) VALUES (${'visit-' + me.id}) RETURNING id`;
     const [task] = await sql<{ id: number }[]>`INSERT INTO task (owner_id, tag_ids) VALUES (${me.id}, ${[t!.id]}) RETURNING id`;
@@ -50,10 +50,37 @@ describe('visits', () => {
       (await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM visit WHERE employee_id = ${me.id}`)[0]!.n;
     expect(await count()).toBe(2);
 
-    await sql`UPDATE visit SET at = at - INTERVAL '6 minutes' WHERE employee_id = ${me.id}`;
+    await sql`UPDATE visit SET at = at - INTERVAL '11 minutes' WHERE employee_id = ${me.id}`;
     await api.Visit.log({ taskId: null });
     expect(await count()).toBe(3);
 
     await expect(api.Visit.log({ taskId: 999_999 })).rejects.toMatchObject({ message: 'not_found' });
+  });
+});
+
+describe('my tags', () => {
+  test('the tags of tasks I see, with counts; my color and weight change only my view', async () => {
+    const me = await createEmployee();
+    const other = await createEmployee();
+    const unique = `mt-${me.id}`;
+    const api = await client(me.id);
+    const a = await api.Task.create({ tags: [unique, `${unique}-x`] });
+    await api.Task.create({ tags: [unique, `${unique}-y`] });
+    await (await client(other.id)).Task.create({ tags: [unique, `${unique}-hidden`] });
+
+    const list = await api.Tags.mine({ query: unique, page: 1 });
+    expect(list.items.map((t) => t.name)).not.toContain(`${unique}-hidden`);
+    const tag = list.items.find((t) => t.name === unique)!;
+    expect(tag).toMatchObject({ tasks: 2, open: 2, color: null, weight: 0 });
+
+    const x = list.items.find((t) => t.name === `${unique}-x`)!;
+    await api.Tags.set({ tagId: x.id, color: '#ff8800', weight: 5 });
+    const task = await api.Task.get({ id: a });
+    expect(task.tags[0]).toEqual({ id: x.id, name: `${unique}-x`, color: '#ff8800' });
+    expect((await api.Tags.mine({ query: unique, page: 1 })).items[0]).toMatchObject({ id: x.id, weight: 5 });
+    expect((await (await client(other.id)).Task.get({ id: a })).tags.find((t) => t.id === x.id)?.color).toBeNull();
+
+    await api.Tags.set({ tagId: x.id, color: null, weight: 0 });
+    expect((await sql`SELECT 1 FROM user_tag WHERE employee_id = ${me.id}`).length).toBe(0);
   });
 });
