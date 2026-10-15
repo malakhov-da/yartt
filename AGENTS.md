@@ -185,8 +185,12 @@ entry in the `pages` array in `client/components/App.tsx`.
 ## Commands
 
 - `npm run dev` — server (:3000, `node --watch`) and client (:5173, proxy `/api`).
-- `npm run typecheck` — `tsconfig.json` (server + shared + tests) and `client/tsconfig.json`.
+- `npm run typecheck` — `tsconfig.json` (server + shared + tests + scripts + e2e) and `client/tsconfig.json`.
+- `npm run seed -- --reset` — wipes the database in `DATABASE_URL` and fills it with demo data that
+  touches every screen (`scripts/seed.ts`, not in the image). Keep it in step with new features.
 - `TEST_DATABASE_URL=postgres://postgres@localhost:5432/postgres npm test`
+- `TEST_DATABASE_URL=… npm run e2e` — end-to-end tests in Chrome over the demo data
+  (`e2e/`, Playwright). How the suites divide the work: `docs/engineering/testing.md`.
 
 ## Tests
 
