@@ -1,7 +1,9 @@
-import { Pagination, Paper, Stack, Tab, Tabs, Typography } from '@mui/material';
+import { Add } from '@mui/icons-material';
+import { Button, Pagination, Paper, Stack, Tab, Tabs, Typography } from '@mui/material';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 import type { CurrentTab } from '#shared/myDay.ts';
 import { POLL_MS } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
@@ -26,16 +28,23 @@ export default function () {
   return (
     <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
       <Typography variant="h3" sx={{ fontWeight: 600 }}>{t('myDay.current.title')}</Typography>
-      <Tabs value={tab} onChange={(_, value: CurrentTab) => setTab(value)} sx={{ minHeight: 0, mb: 1 }}>
-        {(['mine', 'others'] as const).map((value) => (
-          <Tab
-            key={value}
-            value={value}
-            label={t(`myDay.current.${value}`, { count: counts?.[value] ?? 0 })}
-            sx={{ minHeight: 0, py: 1 }}
-          />
-        ))}
-      </Tabs>
+      <Stack direction="row" sx={{ alignItems: 'center', gap: 1, mb: 1 }}>
+        <Tabs value={tab} onChange={(_, value: CurrentTab) => setTab(value)} sx={{ minHeight: 0, flexGrow: 1 }}>
+          {(['mine', 'others'] as const).map((value) => (
+            <Tab
+              key={value}
+              value={value}
+              label={t(`myDay.current.${value}`, { count: counts?.[value] ?? 0 })}
+              sx={{ minHeight: 0, py: 1 }}
+            />
+          ))}
+        </Tabs>
+        {tab === 'mine' && (
+          <Button component={Link} to="/tasks/new" size="small" variant="outlined" startIcon={<Add />}>
+            {t('newTask.title')}
+          </Button>
+        )}
+      </Stack>
       {current.isSuccess && total === 0 && (
         <Typography sx={{ color: 'text.secondary' }}>{t(`myDay.current.${tab}Empty`)}</Typography>
       )}

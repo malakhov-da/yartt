@@ -28,8 +28,13 @@ export default router({
 
   /**
    * Creates a private task owned by the signed-in employee; new tags are
-   * created. Returns its id.
+   * created. Priority, deadline, context and a soft dependency — the new
+   * task waits for `waitsFor`, or `waitedOnBy` (the creator's own task)
+   * waits for it — may come at once. Returns its id.
    * @throws tag_set_taken — a task with this set of tags exists.
+   * @throws forbidden — `waitedOnBy` is not the creator's task.
+   * @throws not_found — an unknown task to depend on.
+   * @throws unknown_attachment — an image the creator may not read.
    */
   create: authedProcedure
     .input(CreateInput)

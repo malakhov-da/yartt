@@ -17,7 +17,7 @@ of My day.
 The logo is the way back: there is no "Back" line on a page. My day keeps
 its state while a task or a person is open (its tab, pages, scroll), so the
 logo returns me exactly where I was. Search stays on every page: it is the
-only way to find a task and the only way to create one.
+way to find a task; a task is created in the new-task form (2a).
 
 ## 1. My day — "what needs me?"
 
@@ -83,6 +83,9 @@ Left, top to bottom:
   Each line — tags, priority, kind (hard, with its lag), deadline, owner's
   avatar. Resolved dependencies stay in the list, struck through, so the
   history of what blocked the task is not lost.
+  **New task** next to each list opens the new-task form tied to this
+  task: one this task waits for (the owner only), or one that waits for
+  it (anyone who sees it — the new task is theirs).
 - **Feed**, newest first; the composer on top is a rich text editor
   (mui-tiptap): images are pasted, dropped or picked and shown in the
   text; other files become attachments; people and tasks are attached
@@ -154,6 +157,15 @@ open mention; the people who commented are offered back with one click
 (decision 14). A public task shows a "Public" mark in its header; its
 side panel lists only the people who opened it, the same way as
 observers, with pages.
+
+## 2a. New task — "what is there to do?"
+
+A form over My day (`/tasks/new`), opened by **New task** in Current
+tasks (the "mine" tab) or from a task's dependencies. The title is the
+tags, typed as in Find: typos forgiven, several words offered as ready
+sets of tags, "Create tag" when no tag is spelled exactly so. Priority,
+deadline and context are optional; a dependency the form was opened with
+can be dropped. "Create task" opens the new task.
 
 ## 3. Find — "where is that task?"
 

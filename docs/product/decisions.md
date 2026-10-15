@@ -344,3 +344,18 @@ back as suggestions.
 *Implemented:* `translit()`, `tag.latin`, `employee.keyboards`, the
 `tag_cleanup` cron job in `db.sql`; `shared/keyboards.ts`;
 `Tags.suggest`, `Tags.create`.
+
+### 34. A task is created in a form
+
+The search used to be the only way to create a task: a set of tags, then
+"Create", and everything else filled in on the task page. That hid
+creation inside finding, and a task meant to unblock another had to be
+created and then linked by its number. Now a form opens over My day from
+**New task** in my tasks, or from a task's dependencies already tied to
+it (a task this one waits for, or one that waits for it). The title
+field works like the search (decision 33); priority, deadline, context
+and the dependency are saved with the task in one transaction, under the
+same rules as changing them later.
+
+*Implemented:* `NewTaskPage`, `TagInput`; `Task.create` takes the
+optional fields.

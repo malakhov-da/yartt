@@ -301,6 +301,37 @@ describe('dependencies', () => {
   });
 });
 
+describe('creating with details', () => {
+  test('priority, deadline, context and a dependency either way come with the task', async () => {
+    const me = await createEmployee();
+    const other = await createEmployee();
+    const api = await client(me.id);
+    const theirs = await createTask(other.id);
+    const mine = await createTask(me.id);
+    const deadline = new Date(Date.now() + 86_400_000);
+
+    const id = await api.Task.create({
+      tags: [`n-${randomUUID().slice(0, 8)}`], priority: 'HIGH', deadline, context: '<p>why</p>', waitsFor: theirs,
+    });
+    const task = await api.Task.get({ id });
+    expect(task).toMatchObject({ priority: 'HIGH', deadline });
+    expect(task.details?.context).toBe('<p>why</p>');
+    expect(task.details?.waitsFor.map((d) => d.id)).toEqual([theirs]);
+    expect((await notifications(other.id)).map((n) => n.kind)).toContain('dependency_added');
+
+    const blocker = await api.Task.create({ tags: [`n-${randomUUID().slice(0, 8)}`], waitedOnBy: mine });
+    expect((await api.Task.get({ id: mine })).details?.waitsFor.map((d) => d.id)).toEqual([blocker]);
+  });
+
+  test("another's task cannot be made to wait; nothing is created then", async () => {
+    const me = await createEmployee();
+    const theirs = await createTask((await createEmployee()).id);
+    const tag = `n-${randomUUID().slice(0, 8)}`;
+    await expect((await client(me.id)).Task.create({ tags: [tag], waitedOnBy: theirs })).rejects.toMatchObject({ message: 'forbidden' });
+    expect(await sql`SELECT 1 FROM tag WHERE name = ${tag}`).toHaveLength(0);
+  });
+});
+
 describe('reminders', () => {
   test('for oneself, in the future; delivered once due, then gone; leaving the task drops them', async () => {
     const owner = await createEmployee();

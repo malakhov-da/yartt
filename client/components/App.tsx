@@ -11,6 +11,7 @@ import EmployeePage from './EmployeePage.tsx';
 import LoginCallbackPage from './LoginCallbackPage.tsx';
 import LoginPage from './LoginPage.tsx';
 import MyDayPage from './MyDayPage.tsx';
+import NewTaskPage from './NewTaskPage.tsx';
 import TaskPage from './TaskPage.tsx';
 
 // Screens of the signed-in employee. There is one — My day (decision 31);
@@ -75,17 +76,19 @@ function SignedIn() {
   const employees = useQuery(trpc.Employee.list.queryOptions());
   const active = pages.find((p) => p.path === pathname);
   const activePath = active?.path;
-  // A task or an employee opens over the sections; they stay mounted underneath.
+  // A task, a new task or an employee opens over the sections; they stay mounted underneath.
+  const newTask = !!matchPath('/tasks/new', pathname);
   const taskId = Number(matchPath('/tasks/:id', pathname)?.params.id) || null;
   const employeeId = Number(matchPath('/employees/:id', pathname)?.params.id) || null;
   const employeeName = employees.data?.find((e) => e.id === employeeId)?.fullName;
 
   useEffect(() => {
     const name = t('app.name');
-    document.title = taskId ? `${name}: ${t('task.title', { id: taskId })}`
+    document.title = newTask ? `${name}: ${t('newTask.title')}`
+      : taskId ? `${name}: ${t('task.title', { id: taskId })}`
       : employeeId ? `${name}: ${employeeName ?? ''}`
       : active ? `${name}: ${t(active.label)}` : name;
-  }, [active, taskId, employeeId, employeeName, t]);
+  }, [active, newTask, taskId, employeeId, employeeName, t]);
 
   // A page is mounted on first visit and then stays in the DOM to keep its state.
   const [loaded, setLoaded] = useState<Partial<Record<PagePath, true>>>({});
@@ -93,7 +96,7 @@ function SignedIn() {
     if (activePath && !loaded[activePath]) setLoaded((prev) => ({ ...prev, [activePath]: true }));
   }, [activePath, loaded]);
 
-  if (!activePath && !taskId && !employeeId) return <Navigate to={pages[0].path} replace />;
+  if (!activePath && !newTask && !taskId && !employeeId) return <Navigate to={pages[0].path} replace />;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -109,6 +112,11 @@ function SignedIn() {
               <Page />
             </Box>
           ),
+      )}
+      {newTask && (
+        <Box component="main" sx={{ display: 'flex', flexGrow: 1, p: 2, overflow: 'auto' }}>
+          <NewTaskPage />
+        </Box>
       )}
       {taskId && (
         <Box component="main" sx={{ display: 'flex', flexGrow: 1, p: 2, overflow: 'auto' }}>

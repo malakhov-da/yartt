@@ -12,27 +12,29 @@ const Owner = z.object({ ownerId: z.number().nullable(), isNew: z.boolean() });
  * for: a hard one ties their deadline.
  */
 export async function set(actorId: number, input: SetDependencyInput): Promise<void> {
-  await sql.begin(async (tx) => {
-    const db = tx as unknown as Sql;
-    await db`SELECT check_owner(${input.taskId}, ${actorId})`;
-    if (input.value === input.taskId) throw new AppError('dependency_cycle');
-    const [target] = Owner.array().parse(await db`
-      SELECT owner_id,
-             NOT EXISTS (SELECT 1 FROM dependency WHERE task_id = ${input.taskId} AND value = ${input.value}) AS is_new
-        FROM task WHERE id = ${input.value}
-    `);
-    if (!target) throw new AppError('not_found');
-    await db`
-      INSERT INTO dependency (task_id, value, min_minutes_after)
-      VALUES (${input.taskId}, ${input.value}, ${input.minMinutesAfter})
-      ON CONFLICT (task_id, value) DO UPDATE SET min_minutes_after = EXCLUDED.min_minutes_after
-    `;
-    if (target.isNew && target.ownerId !== null && target.ownerId !== actorId) {
-      await db`SELECT notify(${target.ownerId}, ${input.value}, ${db.json({
-        kind: 'dependency_added', by: actorId, dependentId: input.taskId, hard: input.minMinutesAfter !== null,
-      })})`;
-    }
-  });
+  await sql.begin((tx) => setIn(tx as unknown as Sql, actorId, input));
+}
+
+/** `set` inside the caller's transaction (a task created together with its dependency). */
+export async function setIn(db: Sql, actorId: number, input: SetDependencyInput): Promise<void> {
+  await db`SELECT check_owner(${input.taskId}, ${actorId})`;
+  if (input.value === input.taskId) throw new AppError('dependency_cycle');
+  const [target] = Owner.array().parse(await db`
+    SELECT owner_id,
+           NOT EXISTS (SELECT 1 FROM dependency WHERE task_id = ${input.taskId} AND value = ${input.value}) AS is_new
+      FROM task WHERE id = ${input.value}
+  `);
+  if (!target) throw new AppError('not_found');
+  await db`
+    INSERT INTO dependency (task_id, value, min_minutes_after)
+    VALUES (${input.taskId}, ${input.value}, ${input.minMinutesAfter})
+    ON CONFLICT (task_id, value) DO UPDATE SET min_minutes_after = EXCLUDED.min_minutes_after
+  `;
+  if (target.isNew && target.ownerId !== null && target.ownerId !== actorId) {
+    await db`SELECT notify(${target.ownerId}, ${input.value}, ${db.json({
+      kind: 'dependency_added', by: actorId, dependentId: input.taskId, hard: input.minMinutesAfter !== null,
+    })})`;
+  }
 }
 
 /** The owner of a task stops it waiting for another one. */

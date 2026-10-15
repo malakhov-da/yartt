@@ -87,6 +87,14 @@ export type SearchResult = z.infer<typeof SearchResult>;
 export const CreateInput = z.object({
   /** Existing or new tag names; new ones are created. */
   tags: TagName.array().min(1).max(20),
+  priority: Priority.optional(),
+  /** NULL or left out — no deadline. */
+  deadline: z.date().nullable().optional(),
+  context: Html.nullable().optional(),
+  /** The new task waits for this one (soft). */
+  waitsFor: Id.optional(),
+  /** This task waits for the new one (soft); the creator must own it. */
+  waitedOnBy: Id.optional(),
 });
 export type CreateInput = z.infer<typeof CreateInput>;
 

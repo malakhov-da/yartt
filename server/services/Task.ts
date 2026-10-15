@@ -6,6 +6,7 @@ import {
 import { AppError } from '../errors.ts';
 import { cleanHtml } from '../html.ts';
 import { sql, type Sql } from '../pg.ts';
+import * as Dependencies from './Dependency.ts';
 
 export const PAGE_SIZE = 20;
 
@@ -107,15 +108,27 @@ async function tagIds(names: string[], db: Sql): Promise<number[]> {
   return Id.array().parse(await db`SELECT id FROM tag WHERE name = ANY(${unique})`).map((r) => r.id);
 }
 
-/** A new private task owned by its creator; tags are created as needed. */
+/**
+ * A new private task owned by its creator; tags are created as needed.
+ * Priority, deadline, context and one soft dependency come in the same
+ * transaction, under the same rules as changing them later.
+ */
 export async function create(ownerId: number, input: CreateInput): Promise<number> {
   return sql.begin(async (tx) => {
     const db = tx as unknown as Sql;
     const ids = await tagIds(input.tags, db);
+    const clean = input.context ? cleanHtml(input.context) : { html: null, imageIds: [] };
+    await assertReadable(clean.imageIds, ownerId, db);
     const [row] = Id.array().parse(await db`
-      INSERT INTO task (owner_id, tag_ids) VALUES (${ownerId}, ${ids}) RETURNING id
+      INSERT INTO task (owner_id, tag_ids, priority, context, context_image_ids)
+      VALUES (${ownerId}, ${ids}, ${input.priority ?? 'NORMAL'}, ${clean.html}, ${clean.imageIds})
+      RETURNING id
     `);
-    return row!.id;
+    const id = row!.id;
+    if (input.deadline) await db`SELECT set_finished_at(${id}, ${input.deadline})`;
+    if (input.waitsFor) await Dependencies.setIn(db, ownerId, { taskId: id, value: input.waitsFor, minMinutesAfter: null });
+    if (input.waitedOnBy) await Dependencies.setIn(db, ownerId, { taskId: input.waitedOnBy, value: id, minMinutesAfter: null });
+    return id;
   });
 }
 

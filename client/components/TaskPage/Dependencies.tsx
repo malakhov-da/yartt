@@ -1,8 +1,9 @@
-import { Add, Close, Edit } from '@mui/icons-material';
+import { Add, AddTask, Close, Edit } from '@mui/icons-material';
 import { Box, Button, IconButton, MenuItem, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 import type { Dependency, TaskDetails, TaskPage } from '#shared/task.ts';
 import { parseMinutes, useFormat } from '#client/hooks/format.ts';
 import { useTaskRefresh } from '#client/hooks/task.ts';
@@ -16,7 +17,9 @@ type Draft = { value: string; hard: boolean; lag: string; editing: number | null
 /**
  * "Waits for", then "Waited on by". The owner adds a dependency by task
  * number — soft, or hard with a lag that ties the deadlines — changes and
- * removes it; everyone else reads.
+ * removes it; everyone else reads. "New task" opens the new-task form tied
+ * to this one: one this task waits for (the owner), or one that waits for
+ * this task (anyone who sees it — the new task is theirs).
  */
 export default function (p: { task: TaskPage & { details: TaskDetails } }) {
   const { t } = useTranslation();
@@ -49,7 +52,7 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
   const groups = [
     { title: t('task.waitsFor'), items: task.details.waitsFor, waits: true },
     { title: t('task.waitedOnBy'), items: task.details.waitedOnBy, waits: false },
-  ].filter((g) => g.items.length > 0 || (g.waits && isOwner));
+  ].filter((g) => g.items.length > 0 || !g.waits || isOwner);
 
   return (
     <>
@@ -60,6 +63,16 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
             {g.waits && isOwner && !draft && (
               <Button size="small" startIcon={<Add />} onClick={() => setDraft({ value: '', hard: false, lag: '1д', editing: null })}>
                 {t('task.dependency.add')}
+              </Button>
+            )}
+            {(!g.waits || isOwner) && !draft && (
+              <Button
+                size="small"
+                startIcon={<AddTask />}
+                component={Link}
+                to={`/tasks/new?${g.waits ? 'waitedOnBy' : 'waitsFor'}=${task.id}`}
+              >
+                {t('task.dependency.newTask')}
               </Button>
             )}
           </Stack>

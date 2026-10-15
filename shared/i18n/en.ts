@@ -40,7 +40,7 @@ export const en: Translation = {
       title: 'Current tasks',
       mine: 'Mine · {{count}}',
       others: 'Others · {{count}}',
-      mineEmpty: 'You own no open tasks. A new task is created from search.',
+      mineEmpty: 'You own no open tasks.',
       othersEmpty: 'No other open tasks you see.',
     },
     history: {
@@ -98,6 +98,20 @@ export const en: Translation = {
       final: 'A closed shift can no longer be changed.',
     },
   },
+  newTask: {
+    title: 'New task',
+    tags: 'Tags',
+    tagsHint: 'The set of tags is the name of the task. Several words can be typed at once.',
+    priority: 'Priority',
+    waitsFor: 'Will wait for',
+    waitedOnBy: 'Will be waited on by',
+    noDependency: 'Without this link',
+    create: 'Create task',
+  },
+  tagInput: {
+    create: 'Create tag “{{name}}”',
+    hint: 'Start typing a tag',
+  },
   search: {
     placeholder: 'Find or create',
     hint: 'Pick tags; text is searched in context and comments and becomes a tag of a new task',
@@ -140,6 +154,7 @@ export const en: Translation = {
     hardHint: 'Hard dependency: #{{dependent}} can finish no earlier than {{lag}} after #{{dependency}}. The deadlines are tied: to move #{{dependency}} later, move #{{dependent}} first.',
     dependency: {
       add: 'Add',
+      newTask: 'New task',
       edit: 'Change the dependency',
       remove: 'Remove the dependency',
       task: 'Task',
