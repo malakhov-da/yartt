@@ -4,7 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-import type { Tag, TaskHeader } from '#shared/task.ts';
+import { TagName, type Tag, type TaskHeader } from '#shared/task.ts';
 import { useStore } from '#client/hooks/store.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import TagChip from './TagChip.tsx';
@@ -16,8 +16,9 @@ const name = (c: Chosen) => (c.kind === 'tag' ? c.tag.name : c.name);
 
 /**
  * The search in the top line ("/" focuses it). Picked tags narrow the tasks,
- * the typed text searches context and comments; the last option creates a
- * task with the picked tags (docs/product/interface.md, Find).
+ * the typed text searches context and comments. The last option creates a
+ * task with the picked tags and the typed text as one more tag, new or not
+ * (docs/product/interface.md, Find).
  */
 export default function () {
   const { t } = useTranslation();
@@ -67,12 +68,14 @@ export default function () {
   };
 
   const names = chosen.map(name);
+  // The typed text becomes a tag of the new task: no need to pick it first.
+  const createNames = TagName.safeParse(query).success && !names.includes(query) ? [...names, query] : names;
   const options: Option[] = [
     ...(tasks.data?.items ?? []).map((task) => ({ kind: 'task' as const, task })),
     ...(tags.data ?? [])
       .filter((tag) => !tagIds.includes(tag.id))
       .map((tag) => ({ kind: 'tag' as const, tag })),
-    ...(names.length > 0 ? [{ kind: 'create' as const, names }] : []),
+    ...(createNames.length > 0 ? [{ kind: 'create' as const, names: createNames }] : []),
   ];
 
   return (

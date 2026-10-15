@@ -163,8 +163,9 @@ them — any task, since tags are visible to everyone; a task the person does
 not see opens on "Request access". The typed text searches the context and
 comments of the tasks the person sees. Results show the number and tags.
 
-Creating a task starts here: if the typed set of tags matches no task,
-"Create a task with these tags" is the last item.
+Creating a task starts here: the last item is "Create a task" with the
+picked tags plus the typed text as one more tag — created if it is new, so
+a new tag needs no separate step (Enter still turns the text into a tag).
 
 ## 4. My team — "how is my team doing?" (managers only)
 

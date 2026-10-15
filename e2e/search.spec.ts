@@ -22,6 +22,17 @@ test.describe('search', () => {
     await expect(page.getByRole('option', { name: /сайт.*редизайн.*главная/ })).toBeVisible();
   });
 
+  test('the typed text becomes a tag of the created task, a new one too', async ({ page }) => {
+    const tag = `новый-${Date.now()}`;
+    await page.getByPlaceholder('Найти или создать').click();
+    await page.keyboard.type('склад');
+    await page.getByRole('option', { name: 'склад', exact: true }).click();
+    await page.keyboard.type(tag);
+    await page.getByRole('option', { name: `Создать задачу: склад · ${tag}` }).click();
+    await expect(page).toHaveURL(/\/tasks\/\d+$/);
+    await expect(page.getByText(tag).filter({ visible: true }).first()).toBeVisible();
+  });
+
   test('the same set of tags twice is refused with an explanation', async ({ page }) => {
     await page.getByPlaceholder('Найти или создать').click();
     for (const tag of ['офис', 'переезд']) {

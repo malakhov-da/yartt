@@ -100,7 +100,7 @@ export const en: Translation = {
   },
   search: {
     placeholder: 'Find or create',
-    hint: 'Pick tags; text is searched in context and comments',
+    hint: 'Pick tags; text is searched in context and comments and becomes a tag of a new task',
     create: 'Create a task: {{tags}}',
     noResults: 'Nothing found',
     closed: 'closed',
