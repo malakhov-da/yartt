@@ -1,7 +1,11 @@
 # yartt
 
-A task tracker without projects, subtasks or assignments. Product docs are
-in `docs/product/` (start with `vision.md`). The whole domain,
+A task tracker without projects, subtasks or assignments. Documentation is
+in `docs/` (index: `docs/README.md`): product in `docs/product/` (start with
+`vision.md`), engineering in `docs/engineering/`, installation for a company
+in `docs/admin/` — keep it in step with configuration changes. The plan is in
+`docs/product/roadmap.md`: keep it current — tick a task when it is done
+and verified, add one when it is decided. The whole domain,
 access rules and invariants are described in `db.sql` (COMMENT ON) — it is
 the specification; read it before any work.
 
@@ -38,7 +42,8 @@ the specification; read it before any work.
 - Database: PostgreSQL through the `postgres` library (porsager), queries
   are `sql```. No ORM: the logic lives in triggers, functions, partial
   indexes and EXCLUDE constraints.
-- client: React, Vite, React Query (through tRPC), Zustand, MUI.
+- client: React, Vite, React Query (through tRPC), Zustand, MUI; rich text
+  (comments, task context) — mui-tiptap (Tiptap 3).
 - Localization from day one: UI texts go through keys, the server returns
   error codes, never texts. The employee's language is `employee.locale`.
 - Major versions are pinned deliberately: TypeScript 5, Vite 7, MUI 7,
@@ -62,6 +67,8 @@ server/
   trpc/<Entity>.ts  — an entity router: procedure descriptions only
   services/<Entity>.ts — SQL and business logic
   errors.ts         — AppError, Postgres errors -> codes
+  html.ts           — sanitizes rich text (comments, context) to an allow-list
+  attachments.ts    — /api/attachments: raw upload and download, outside tRPC
   delivery.ts       — every outgoing message: email (mail.ts) and/or webhook (webhook.ts)
   services/Mail.ts  — renders an email in the recipient's language
   migrate.ts, migrations/, bootstrap.ts, worker.ts

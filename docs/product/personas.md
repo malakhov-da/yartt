@@ -37,8 +37,9 @@ colleagues need his help.
   - be interrupted only when he is really needed;
   - log time and shifts in seconds, not minutes;
   - see why a day was scored low and what to change.
-- **Experience goals:** not feel watched; never lose work because of the
-  tool.
+- **Experience goals:** be judged by facts, not suspicion — his days are
+  open to his managers, so nobody has to guess; never lose work because of
+  the tool.
 - **Frustrations today:** notifications about everything; filling in
   timesheets on Friday from memory; tasks "assigned" to him that he cannot
   close.
