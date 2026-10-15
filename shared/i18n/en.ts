@@ -113,11 +113,8 @@ export const en: Translation = {
     hint: 'Start typing a tag',
   },
   search: {
-    placeholder: 'Find or create',
-    hint: 'Pick tags; text is searched in context and comments and becomes a tag of a new task',
-    create: 'Create a task: {{tags}}',
+    placeholder: 'Find: tags or text',
     noResults: 'Nothing found',
-    closed: 'closed',
   },
   task: {
     title: 'Task #{{id}}',

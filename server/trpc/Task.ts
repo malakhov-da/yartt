@@ -7,9 +7,10 @@ import { authedProcedure, router } from '../trpc.ts';
 export default router({
   /**
    * Tasks carrying all the given tags — any task, since tags are visible to
-   * everyone (`canSee` says whether it opens). With `text`, only the tasks the
-   * signed-in employee sees whose context or comments contain it. Open tasks
-   * first, by deadline; 20 per page.
+   * everyone (`canSee` says whether it opens). With `text`, the tasks with a
+   * tag containing it, and the ones the signed-in employee sees whose context
+   * or comments contain it. One tab — mine or the others — per call, with
+   * counts for both; open tasks first, by deadline; 20 per page.
    */
   search: authedProcedure
     .input(SearchInput)

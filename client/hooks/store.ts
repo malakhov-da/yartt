@@ -5,7 +5,7 @@ import { errorMessage } from '#client/i18n/errors.ts';
 type AppState = {
   error: string;
   info: string;
-  /** Tags to put into the search in the top line (e.g. from the Tags tab); it takes and clears them. */
+  /** Tags to put into the search in My day (a tag in My tags); it takes and clears them. */
   searchTags: Tag[] | null;
 };
 
@@ -15,7 +15,7 @@ export const useStore = create<AppState>()(() => ({
   searchTags: null,
 }));
 
-/** Opens the search in the top line narrowed to these tags. */
+/** Opens My day with the search narrowed to these tags. */
 export const searchByTags = (tags: Tag[]) => {
   useStore.setState({ searchTags: tags });
 };

@@ -3,7 +3,7 @@ import { Box, Button, IconButton, MenuItem, Paper, Stack, TextField, Tooltip, Ty
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { PRIORITIES, TagName, type Priority, type Tag } from '#shared/task.ts';
 import { useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
@@ -19,7 +19,8 @@ const label = { fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', textTran
  * typed as in the search; priority, deadline and context are optional.
  * `?waitsFor=<id>` — the new task waits for that one, `?waitedOnBy=<id>` —
  * that one (mine) waits for the new task: the "New task" buttons of a
- * task's dependencies open it so.
+ * task's dependencies open it so. The search in My day passes its picked
+ * tags as the router state.
  */
 export default function () {
   const { t } = useTranslation();
@@ -32,7 +33,8 @@ export default function () {
   const relatedId = waitsFor ?? waitedOnBy;
   const related = useQuery(trpc.Task.get.queryOptions({ id: relatedId ?? 0 }, { enabled: relatedId !== undefined }));
 
-  const [tags, setTags] = useState<Tag[]>([]);
+  const location = useLocation();
+  const [tags, setTags] = useState<Tag[]>((location.state as { tags?: Tag[] } | null)?.tags ?? []);
   const [input, setInput] = useState('');
   const [priority, setPriority] = useState<Priority>('NORMAL');
   const [deadline, setDeadline] = useState('');

@@ -210,11 +210,14 @@ describe('search', () => {
     await (await client(owner.id)).Comment.create(comment(id, '<p>needle in a haystack</p>'));
     const tagId = (await (await client(stranger.id)).Tags.suggest({ text: tag })).tags[0]!.id;
 
-    const byTag = await (await client(stranger.id)).Task.search({ tagIds: [tagId], text: '', page: 1 });
+    const byTag = await (await client(stranger.id)).Task.search({ tagIds: [tagId], text: '', tab: 'others', page: 1 });
     expect(byTag.items).toMatchObject([{ id, canSee: false }]);
-    expect((await (await client(stranger.id)).Task.search({ tagIds: [tagId], text: 'needle', page: 1 })).total).toBe(0);
-    expect((await (await client(owner.id)).Task.search({ tagIds: [tagId], text: 'needle', page: 1 })).items)
+    expect((await (await client(stranger.id)).Task.search({ tagIds: [tagId], text: 'needle', tab: 'others', page: 1 })).counts).toEqual({ mine: 0, others: 0 });
+    expect((await (await client(owner.id)).Task.search({ tagIds: [tagId], text: 'needle', tab: 'mine', page: 1 })).items)
       .toMatchObject([{ id, canSee: true }]);
+    // Text that is part of a tag name finds any task, like the tag itself.
+    expect((await (await client(stranger.id)).Task.search({ tagIds: [], text: tag.slice(0, 6).toUpperCase(), tab: 'others', page: 1 })).items)
+      .toMatchObject([{ id, canSee: false }]);
     await expect((await client(stranger.id)).Task.create({ tags: [tag] })).rejects.toMatchObject({ message: 'tag_set_taken' });
   });
 });

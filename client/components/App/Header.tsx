@@ -10,10 +10,10 @@ import EmployeeAvatar from './EmployeeAvatar.tsx';
 import InviteDialog from './InviteDialog.tsx';
 import Logo from './Logo.tsx';
 import ProfileDialog from './ProfileDialog.tsx';
-import Search from './Search.tsx';
 
 // The top line: the logo (home — My day, which keeps its state while a task
-// or a person is open), the search, invite and my avatar. No tabs (decision 31).
+// or a person is open), invite and my avatar. No tabs (decision 31); the
+// search is in My day, over Current tasks.
 export default function () {
   const { t } = useTranslation();
   const trpc = useTRPC();
@@ -28,13 +28,9 @@ export default function () {
 
   return (
     <AppBar position="static" color="inherit" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-      {/* On a phone: the logo and my avatar, then the search on its own line. */}
-      <Toolbar variant="dense" sx={{ gap: 1, flexWrap: { xs: 'wrap', md: 'nowrap' }, py: { xs: 0.5, md: 0 } }}>
+      <Toolbar variant="dense" sx={{ gap: 1 }}>
         <Logo />
         <Box sx={{ flexGrow: 1 }} />
-        <Box sx={{ display: 'flex', order: { xs: 3, md: 0 }, flex: { xs: '1 1 100%', md: '0 1 420px' }, minWidth: { md: 200 } }}>
-          <Search />
-        </Box>
         <Tooltip title={t('nav.invite')}>
           <IconButton onClick={() => setInviteOpen(true)}>
             <PersonAddAlt1 />

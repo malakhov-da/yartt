@@ -72,15 +72,18 @@ export type TaskPage = z.infer<typeof TaskPage>;
 
 export const SearchInput = z.object({
   tagIds: Id.array().max(20),
-  /** Searches context and comments of the tasks the viewer sees. */
+  /** Part of a tag name of any task, or of the context and comments of the tasks the viewer sees. */
   text: z.string().trim().max(200),
+  /** 'mine' — tasks I own; 'others' — the rest (as in Current tasks). */
+  tab: z.enum(['mine', 'others']),
   page: z.number().int().min(1),
 });
 export type SearchInput = z.infer<typeof SearchInput>;
 
 export const SearchResult = z.object({
   items: TaskHeader.extend({ canSee: z.boolean() }).array(),
-  total: z.number().int(),
+  /** Found tasks in each tab. */
+  counts: z.object({ mine: z.number().int(), others: z.number().int() }),
 });
 export type SearchResult = z.infer<typeof SearchResult>;
 

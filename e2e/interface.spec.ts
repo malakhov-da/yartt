@@ -11,7 +11,7 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 /** A translation key on screen means a missing translation: "myDay.todo.title" instead of the text. */
 async function noRawKeys(page: Page) {
   const text = await page.evaluate(() => document.body.innerText);
-  const keys = text.match(/\b(?:common|nav|login|myDay|search|task|team|employee|tags|invite|profile|locales|errors|app)\.[a-zA-Z_.]+\b/g);
+  const keys = text.match(/\b(?:common|nav|login|myDay|search|newTask|tagInput|task|team|employee|tags|invite|profile|locales|errors|app)\.[a-zA-Z_.]+\b/g);
   expect(keys ?? []).toEqual([]);
 }
 

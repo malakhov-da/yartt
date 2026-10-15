@@ -7,17 +7,16 @@ settings screen and no tabs (decision 31).
 ## The top line
 
 A thin line, not a toolbar: the logo (the mark and the name of the only
-screen in the interface language — Мой день / My day), a compact search
-input, **Invite** (a person with a plus: a small dialog with a name and an
-email) and my avatar (a photo, or the initials in a circle). The avatar
-opens a menu: Profile, Log out. On a phone the search takes a line of its
-own. The product name and its release are in a quiet footer at the bottom
+screen in the interface language — Мой день / My day), **Invite** (a
+person with a plus: a small dialog with a name and an email) and my
+avatar (a photo, or the initials in a circle). The avatar opens a menu:
+Profile, Log out. The search lives in My day (3). The product name and its release are in a quiet footer at the bottom
 of My day.
 
 The logo is the way back: there is no "Back" line on a page. My day keeps
 its state while a task or a person is open (its tab, pages, scroll), so the
-logo returns me exactly where I was. Search stays on every page: it is the
-way to find a task; a task is created in the new-task form (2a).
+logo returns me exactly where I was — the search and its picked tags
+included (3); a task is created in the new-task form (2a).
 
 ## 1. My day — "what needs me?"
 
@@ -41,8 +40,9 @@ someone with reports:
   ahead), in two tabs: **mine** (I own them) and **others**. Each tab is a
   grid with pages, by deadline, nearest first; tasks without a deadline at
   the end. For a director "others" is hundreds of tasks — pages keep it
-  usable, search finds the rest. Public tasks of others are in "others"
-  for everyone: there should be few of them (decision 14).
+  usable, the search on top narrows it (3). Public tasks of others are in
+  "others" for everyone: there should be few of them (decision 14).
+  **New task** in the "mine" tab opens the form (2a).
 - **My team** — only for someone with reports; see 4.
 - **History** — my days, from today back into the past, with pages. A day shows the shift (work) if the team keeps a timesheet, the
   time logged to tasks (spent_minutes), and the visits: which tasks I
@@ -169,16 +169,18 @@ can be dropped. "Create task" opens the new task.
 
 ## 3. Find — "where is that task?"
 
-One input at the top of every screen (`/` focuses it). Typing suggests
-tasks and tags — despite typos, transliteration or the wrong layout, and
-several words as ready sets of tags (decision 33); picked tags narrow the list to the tasks carrying all of
-them — any task, since tags are visible to everyone; a task the person does
-not see opens on "Request access". The typed text searches the context and
-comments of the tasks the person sees. Results show the number and tags.
-
-Creating a task starts here: the last item is "Create a task" with the
-picked tags plus the typed text as one more tag — created if it is new, so
-a new tag needs no separate step (Enter still turns the text into a tag).
+One input at the top of Current tasks in My day; `/` anywhere (a task
+page too) brings My day back and focuses it. Typing suggests tags —
+despite typos, transliteration or the wrong layout, and several words as
+ready sets of tags (decision 33); the last item is "Create tag" when no
+tag is spelled exactly as typed. Picked tags narrow both tabs to the
+tasks carrying all of them — any task then, closed ones and ones the
+person does not see included (they open on "Request access"), since tags
+are visible to everyone. Typed text (from three letters) also finds
+tasks by part of a tag name, and by context and comments of the tasks
+the person sees. When the current tab has nothing and the other has,
+the other one opens. **New task** in the "mine" tab takes the picked
+tags into the form (2a) — so "nothing found" is one click from creating it.
 
 ## 4. My team — "how is my team doing?" (managers only)
 

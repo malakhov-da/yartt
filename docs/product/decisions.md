@@ -359,3 +359,18 @@ same rules as changing them later.
 
 *Implemented:* `NewTaskPage`, `TagInput`; `Task.create` takes the
 optional fields.
+
+### 35. The search lives in My day and filters Current tasks
+
+The search sat in the top line and showed its results in a dropdown —
+a second list of tasks next to Current tasks, with its own look and
+without pages. Now it is the input on top of Current tasks: picked tags
+and typed text narrow both tabs, so there is one list of tasks and it
+is filtered in place. With a filter the tabs hold any task with those
+tags, closed and not visible ones included, as the old search did. "/"
+from any page brings My day back with the input focused. Creating moved
+out of the search (decision 34): it offers "Create tag", and "New task"
+takes the picked tags. The top line is left with the logo, Invite and
+the avatar.
+
+*Implemented:* `CurrentTasks`, `Task.search` with tabs and counts.

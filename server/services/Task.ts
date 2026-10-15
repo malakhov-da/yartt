@@ -74,23 +74,30 @@ async function assertOwner(taskId: number, employeeId: number, db: Sql = sql): P
 
 /**
  * Tasks carrying all the given tags (any task: tags are visible to everyone),
- * and matching the text in the context or comments (only tasks the viewer
- * sees: the text is private). Open tasks first, by deadline.
+ * and matching the text in a tag name (any task) or in the context or
+ * comments (only tasks the viewer sees: the text is private). Mine apart
+ * from the others, as in Current tasks; open tasks first, by deadline.
  */
 export async function search(viewerId: number, input: SearchInput): Promise<SearchResult> {
   const like = '%' + input.text.replace(/[\\%_]/g, '\\$&') + '%';
   const where = sql`
     k.tag_ids @> ${input.tagIds}::int[]
-    AND (${input.text} = '' OR (can_see(k.id, ${viewerId}) AND (
-      k.context ILIKE ${like}
-      OR EXISTS (SELECT 1 FROM comment c WHERE c.task_id = k.id AND c.value ILIKE ${like}))))
+    AND (${input.text} = ''
+      OR EXISTS (SELECT 1 FROM tag t WHERE t.id = ANY(k.tag_ids) AND t.name LIKE ${like.toLowerCase()})
+      OR (can_see(k.id, ${viewerId}) AND (
+        k.context ILIKE ${like}
+        OR EXISTS (SELECT 1 FROM comment c WHERE c.task_id = k.id AND c.value ILIKE ${like}))))
   `;
-  const [count] = Count.array().parse(await sql`SELECT count(*)::int AS n FROM task k WHERE ${where}`);
+  const [counts] = z.object({ mine: z.number(), others: z.number() }).array().parse(await sql`
+    SELECT count(*) FILTER (WHERE k.owner_id = ${viewerId})::int AS mine,
+           count(*) FILTER (WHERE k.owner_id IS DISTINCT FROM ${viewerId})::int AS others
+      FROM task k WHERE ${where}
+  `);
   const ids = Id.array().parse(await sql`
     SELECT k.id
       FROM task k
       LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
-     WHERE ${where}
+     WHERE ${where} AND (k.owner_id IS NOT DISTINCT FROM ${viewerId}) = ${input.tab === 'mine'}
      ORDER BY (f.value IS NOT NULL AND f.value <= NOW()), f.value NULLS LAST, k.id DESC
      LIMIT ${PAGE_SIZE} OFFSET ${(input.page - 1) * PAGE_SIZE}
   `).map((r) => r.id);
@@ -98,7 +105,7 @@ export async function search(viewerId: number, input: SearchInput): Promise<Sear
     Id.array().parse(await sql`SELECT id FROM task WHERE id = ANY(${ids}) AND can_see(id, ${viewerId})`).map((r) => r.id),
   );
   const items = (await headers(viewerId, ids)).map((h) => ({ ...h, canSee: seen.has(h.id) }));
-  return { items, total: count?.n ?? 0 };
+  return { items, counts: counts! };
 }
 
 /** Ids of the tags with these names; missing ones are created. */
