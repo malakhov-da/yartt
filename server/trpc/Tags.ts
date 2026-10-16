@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import { CreateTagInput, MyTags, MyTagsInput, SetTagInput, Suggestions, SuggestInput } from '#shared/tags.ts';
-import { Tag } from '#shared/task.ts';
+import { MyTags, MyTagsInput, SetTagInput, Suggestions, SuggestInput } from '#shared/tags.ts';
 import * as Tags from '../services/Tags.ts';
 import { authedProcedure, router } from '../trpc.ts';
 
@@ -14,16 +13,6 @@ export default router({
     .input(SuggestInput)
     .output(Suggestions)
     .query(({ input, ctx }) => Tags.suggest(ctx.employeeId, input.text)),
-
-  /**
-   * Creates a tag (lower case) or returns the one with this name. Anyone
-   * signed in; a tag no task carries is harmless — it only shows up in
-   * suggestions.
-   */
-  create: authedProcedure
-    .input(CreateTagInput)
-    .output(Tag)
-    .mutation(({ input, ctx }) => Tags.create(ctx.employeeId, input.name)),
 
   /**
    * The tags of the tasks the signed-in employee sees, with task counts and

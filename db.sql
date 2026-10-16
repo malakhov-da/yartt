@@ -854,10 +854,11 @@ COMMENT ON TABLE tag IS
 'A tag. Name only. Color and weight are personal settings (user_tag).
 Tags are stored in task.tag_ids as a sorted array.
 A tag in use cannot be deleted (trigger).
-A tag is created on its own (picked in the search) or with a task. Cron
-deletes, once a day, tags no task carries and nobody gave a color or a
-weight, created more than a day ago: abandoned tags would otherwise
-crowd the suggestions with misspellings.';
+A tag is created only with a task, when the task is saved with a name no
+tag has. Cron deletes, once a day, tags no task carries any more (the
+owner changed the title) and nobody gave a color or a weight, created
+more than a day ago: abandoned spellings would otherwise crowd the
+suggestions.';
 
 COMMENT ON COLUMN tag.id IS
 'Tag id.';

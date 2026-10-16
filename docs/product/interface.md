@@ -173,24 +173,24 @@ observers, with pages.
 A form over My day (`/tasks/new`), opened by **New task** in Current
 tasks (the "mine" tab) or from a task's dependencies. The title is the
 tags, typed as in Find: typos forgiven, several words offered as ready
-sets of tags, "Create tag" when no tag is spelled exactly so. Priority,
+sets of tags, "New tag" when no tag is spelled exactly so — shown dashed
+and created only when the task is saved. Priority,
 deadline and context are optional; a dependency the form was opened with
 can be dropped. "Create task" opens the new task.
 
 ## 3. Find — "where is that task?"
 
 One input at the top of Current tasks in My day; `/` anywhere (a task
-page too) brings My day back and focuses it. Typing suggests tags —
-despite typos, transliteration or the wrong layout, and several words as
-ready sets of tags (decision 33); the last item is "Create tag" when no
-tag is spelled exactly as typed. Picked tags narrow both tabs to the
-tasks carrying all of them — any task then, closed ones and ones the
-person does not see included (they open on "Request access"), since tags
-are visible to everyone. Typed text (from three letters) also finds
-tasks by part of a tag name, and by context and comments of the tasks
-the person sees. When the current tab has nothing and the other has,
-the other one opens. **New task** in the "mine" tab takes the picked
-tags into the form (2a) — so "nothing found" is one click from creating it.
+page too) brings My day back and focuses it. It finds by tags only.
+Typing suggests tags — despite typos, transliteration or the wrong
+layout, and several words as ready sets of tags (decision 33); Enter
+takes the best one. There is no "create" here: a tag nobody has would
+find nothing. Picked tags narrow both tabs to the tasks carrying all of
+them — any task then, closed ones and ones the person does not see
+included (they open on "Request access"), since tags are visible to
+everyone. When the current tab has nothing and the other has, the other
+one opens. **New task** in the "mine" tab takes the picked tags into the
+form (2a).
 
 ## 4. My team — "how is my team doing?" (managers only)
 

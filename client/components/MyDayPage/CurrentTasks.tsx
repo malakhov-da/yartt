@@ -13,17 +13,14 @@ import TagInput from '../App/TagInput.tsx';
 import TaskLine from '../TaskPage/TaskLine.tsx';
 
 const PAGE_SIZE = 20;
-/** Shorter text would match half of every context. */
-const MIN_TEXT = 3;
-
 const TABS = ['mine', 'others'] as const;
 
 /**
  * Every open task I see: mine apart from the others (decision 8), by
  * deadline, with pages. The search on top narrows both tabs to the tasks
- * carrying the picked tags — any task then, closed and not mine included —
- * and the typed text finds tags, contexts and comments ("/" focuses it from
- * anywhere). "New task" in my tab opens the form with the picked tags.
+ * carrying the picked tags — any task then, closed and not mine included;
+ * the typed text only finds tags ("/" focuses it from anywhere). "New task"
+ * in my tab opens the form with the picked tags.
  */
 export default function () {
   const { t } = useTranslation();
@@ -35,8 +32,7 @@ export default function () {
   const [pages, setPages] = useState<Record<CurrentTab, number>>({ mine: 1, others: 1 });
   const [tags, setTags] = useState<Tag[]>([]);
   const [input, setInput] = useState('');
-  const text = input.trim();
-  const filtering = tags.length > 0 || text.length >= MIN_TEXT;
+  const filtering = tags.length > 0;
   const page = pages[tab];
 
   const current = useQuery(trpc.MyDay.current.queryOptions(
@@ -44,7 +40,7 @@ export default function () {
     { enabled: !filtering, refetchInterval: POLL_MS, placeholderData: keepPreviousData },
   ));
   const found = useQuery(trpc.Task.search.queryOptions(
-    { tagIds: tags.map((tag) => tag.id), text: text.length >= MIN_TEXT ? text : '', tab, page },
+    { tagIds: tags.map((tag) => tag.id), tab, page },
     { enabled: filtering, placeholderData: keepPreviousData },
   ));
   const shown = filtering ? found : current;
@@ -62,7 +58,7 @@ export default function () {
   // once per filter, so the empty tab can still be opened by hand.
   const other = tab === 'mine' ? 'others' : 'mine';
   const foundCounts = found.isPlaceholderData ? undefined : found.data?.counts;
-  const filterKey = JSON.stringify([tags.map((tag) => tag.id), text]);
+  const filterKey = JSON.stringify(tags.map((tag) => tag.id));
   const switchedFor = useRef('');
   useEffect(() => {
     if (!filtering || !foundCounts || switchedFor.current === filterKey) return;
@@ -110,8 +106,8 @@ export default function () {
     <Paper component="section" aria-label={t('myDay.current.title')} sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
       <Typography variant="h3" sx={{ fontWeight: 600 }}>{t('myDay.current.title')}</Typography>
       <TagInput
-        value={tags}
-        onChange={(next) => filter({ tags: next })}
+        value={tags.map((tag) => ({ tag }))}
+        onChange={(next) => filter({ tags: next.flatMap((part) => ('tag' in part ? [part.tag] : [])) })}
         input={input}
         onInputChange={(next) => filter({ input: next })}
         placeholder={t('search.placeholder')}

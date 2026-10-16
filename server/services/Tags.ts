@@ -196,14 +196,3 @@ export async function suggest(viewerId: number, text: string): Promise<Suggestio
 
   return { tags, variants, exact: tags.some((t) => t.name === whole) };
 }
-
-/** A tag by name, created if there is none yet; with the viewer's color. */
-export async function create(viewerId: number, name: string): Promise<Tag> {
-  await sql`INSERT INTO tag (name) VALUES (${name}) ON CONFLICT (name) DO NOTHING`;
-  const [tag] = Tag.array().parse(await sql`
-    SELECT t.id, t.name, u.color
-      FROM tag t LEFT JOIN user_tag u ON u.tag_id = t.id AND u.employee_id = ${viewerId}
-     WHERE t.name = ${name}
-  `);
-  return tag!;
-}

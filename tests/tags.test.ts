@@ -8,6 +8,11 @@ async function tag(name: string): Promise<number> {
   return row!.id;
 }
 
+/** A tag as the API returns it to someone without a color for it. */
+async function newTag(name: string): Promise<{ id: number; name: string; color: null }> {
+  return { id: await tag(name), name, color: null };
+}
+
 async function ordered(employeeId: number, tagIds: number[]): Promise<number[]> {
   const [row] = await sql<{ ids: number[] }[]>`SELECT ordered_tags(${employeeId}, ${tagIds}) AS ids`;
   return row!.ids;
@@ -90,7 +95,8 @@ describe('suggestions', () => {
   test('tags are lower case: the API lowers them, the database refuses capitals', async () => {
     const me = await createEmployee();
     const api = await client(me.id);
-    expect((await api.Tags.create({ name: `  Склад  Б-${me.id} ` })).name).toBe(`склад б-${me.id}`);
+    const id = await api.Task.create({ tags: [`  Склад  Б-${me.id} `] });
+    expect((await api.Task.get({ id })).tags.map((t) => t.name)).toEqual([`склад б-${me.id}`]);
     await expect(sql`INSERT INTO tag (name) VALUES (${`Склад-${me.id}`})`).rejects.toMatchObject({ constraint_name: 'chk_tag_name' });
   });
 
@@ -98,7 +104,7 @@ describe('suggestions', () => {
     const me = await createEmployee();
     const api = await client(me.id);
     const name = `инвентаризация-${me.id}`;
-    const { id } = await api.Tags.create({ name });
+    const { id } = await newTag(name);
     const [swapped] = retype(name, ['ru', 'en']);
     for (const text of [`инвентризация-${me.id}`, `inventarizatsiya-${me.id}`, swapped!, 'инвентар']) {
       const found = await api.Tags.suggest({ text });
@@ -111,8 +117,8 @@ describe('suggestions', () => {
   test('a text is read as existing tags, the words around them as new ones', async () => {
     const me = await createEmployee();
     const api = await client(me.id);
-    const stock = await api.Tags.create({ name: `склад-${me.id}` });
-    const audit = await api.Tags.create({ name: `инвентаризация-${me.id}` });
+    const stock = await newTag(`склад-${me.id}`);
+    const audit = await newTag(`инвентаризация-${me.id}`);
 
     const tail = await api.Tags.suggest({ text: `склад-${me.id} инвентризация-${me.id} перенос стеллажей` });
     expect(tail.variants[0]).toEqual([{ tag: stock }, { tag: audit }, { name: 'перенос стеллажей' }]);
@@ -126,8 +132,8 @@ describe('suggestions', () => {
   test('the layouts are the person\'s: "б" and "ж" typed as "," and ";" stay inside words', async () => {
     const me = await createEmployee();
     const api = await client(me.id);
-    const budget = await api.Tags.create({ name: `бюджет-${me.id}` });
-    const office = await api.Tags.create({ name: `офис-${me.id}` });
+    const budget = await newTag(`бюджет-${me.id}`);
+    const office = await newTag(`офис-${me.id}`);
     const text = retype(`бюджет-${me.id} офис-${me.id}`, ['ru', 'en'])[0]!;
     expect(text).toBe(`,.l;tn-${me.id} jabc-${me.id}`);
     expect((await api.Tags.suggest({ text })).variants[0]).toEqual([{ tag: budget }, { tag: office }]);

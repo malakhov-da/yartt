@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { signIn, taskId, unique } from './helpers.ts';
+import { signIn, sql, taskId, unique } from './helpers.ts';
 
 test.describe('new task', () => {
   test.beforeEach(async ({ page }) => {
@@ -12,7 +12,9 @@ test.describe('new task', () => {
     await expect(page).toHaveURL(/\/tasks\/new$/);
     await expect(page.getByLabel('Теги')).toBeFocused();
     await page.keyboard.type(tag.toUpperCase());
-    await page.getByRole('option', { name: `Создать тег «${tag}»` }).click();
+    await page.getByRole('option', { name: `Новый тег «${tag}»` }).click();
+    // A new tag exists only once the task is saved: titles change while typed.
+    expect(await sql`SELECT 1 FROM tag WHERE name = ${tag}`).toHaveLength(0);
     await page.keyboard.type('склад');
     await page.keyboard.press('Escape');
     await page.getByLabel('Приоритет').click();

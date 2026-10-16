@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Id } from './employee.ts';
-import { Tag, TagColor, TagName } from './task.ts';
+import { Tag, TagColor } from './task.ts';
 
 // The Tags tab: the tags I meet, with my own color and weight (db.sql, user_tag).
 
@@ -54,6 +54,3 @@ export const Suggestions = z.object({
   exact: z.boolean(),
 });
 export type Suggestions = z.infer<typeof Suggestions>;
-
-export const CreateTagInput = z.object({ name: TagName });
-export type CreateTagInput = z.infer<typeof CreateTagInput>;

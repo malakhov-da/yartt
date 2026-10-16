@@ -4,16 +4,17 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
+import type { TagPart } from '#shared/tags.ts';
 import { PRIORITIES, TagName, type Priority, type Tag } from '#shared/task.ts';
 import { useDraft } from '#client/hooks/drafts.ts';
 import { useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import RichEditor, { type RichEditorHandle } from './App/RichEditor.tsx';
-import TagInput from './App/TagInput.tsx';
+import TagInput, { partName } from './App/TagInput.tsx';
 import PriorityChip from './TaskPage/PriorityChip.tsx';
 import TaskLine from './TaskPage/TaskLine.tsx';
 
-type Draft = { tags: Tag[]; input: string; priority: Priority; deadline: string; context: string };
+type Draft = { tags: TagPart[]; input: string; priority: Priority; deadline: string; context: string };
 const EMPTY: Draft = { tags: [], input: '', priority: 'NORMAL', deadline: '', context: '' };
 
 const label = { fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'text.secondary' } as const;
@@ -50,12 +51,12 @@ export default function () {
   useEffect(() => {
     if (!passed?.length || taken.current === location.key) return;
     taken.current = location.key;
-    setDraft((prev) => ({ ...prev, tags: passed }));
+    setDraft((prev) => ({ ...prev, tags: passed.map((tag) => ({ tag })) }));
   });
 
   // Text typed but not turned into a chip still counts as one more tag.
   const typed = TagName.safeParse(input);
-  const names = [...tags.map((tag) => tag.name), ...(typed.success && !tags.some((tag) => tag.name === typed.data) ? [typed.data] : [])];
+  const names = [...tags.map(partName), ...(typed.success && !tags.some((part) => partName(part) === typed.data) ? [typed.data] : [])];
 
   const create = useMutation(trpc.Task.create.mutationOptions({
     onSuccess: (id) => {
@@ -87,6 +88,7 @@ export default function () {
         onChange={(next) => change({ tags: next })}
         input={input}
         onInputChange={(next) => change({ input: next })}
+        allowNew
         label={t('newTask.tags')}
         helperText={t('newTask.tagsHint')}
         autoFocus

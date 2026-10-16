@@ -163,11 +163,10 @@ export const ru = {
     create: 'Создать задачу',
   },
   tagInput: {
-    create: 'Создать тег «{{name}}»',
-    hint: 'Начните набирать тег',
+    newTag: 'Новый тег «{{name}}»',
   },
   search: {
-    placeholder: 'Найти: теги или текст',
+    placeholder: 'Найти по тегам',
     noResults: 'Ничего не найдено',
   },
   task: {

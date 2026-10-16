@@ -202,24 +202,20 @@ describe('rich text and attachments', () => {
 });
 
 describe('search', () => {
-  test('tags find any task; text only the ones I see', async () => {
+  test('tags find any task, mine apart from the others', async () => {
     const owner = await createEmployee();
     const stranger = await createEmployee();
     const tag = `s-${randomUUID().slice(0, 8)}`;
     const id = await (await client(owner.id)).Task.create({ tags: [tag] });
-    await (await client(owner.id)).Comment.create(comment(id, '<p>needle in a haystack</p>'));
     const tagId = (await (await client(stranger.id)).Tags.suggest({ text: tag })).tags[0]!.id;
 
-    const byTag = await (await client(stranger.id)).Task.search({ tagIds: [tagId], text: '', tab: 'others', page: 1 });
-    expect(byTag.items).toMatchObject([{ id, canSee: false }]);
-    expect((await (await client(stranger.id)).Task.search({ tagIds: [tagId], text: 'needle', tab: 'others', page: 1 })).counts).toEqual({ mine: 0, others: 0 });
-    expect((await (await client(owner.id)).Task.search({ tagIds: [tagId], text: 'needle', tab: 'mine', page: 1 })).items)
+    const byTag = await (await client(stranger.id)).Task.search({ tagIds: [tagId], tab: 'others', page: 1 });
+    expect(byTag).toMatchObject({ items: [{ id, canSee: false }], counts: { mine: 0, others: 1 } });
+    expect((await (await client(owner.id)).Task.search({ tagIds: [tagId], tab: 'mine', page: 1 })).items)
       .toMatchObject([{ id, canSee: true }]);
-    // Text that is part of a tag name finds any task, like the tag itself.
-    expect((await (await client(stranger.id)).Task.search({ tagIds: [], text: tag.slice(0, 6).toUpperCase(), tab: 'others', page: 1 })).items)
-      .toMatchObject([{ id, canSee: false }]);
     await expect((await client(stranger.id)).Task.create({ tags: [tag] })).rejects.toMatchObject({ message: 'tag_set_taken' });
   });
+
 });
 
 describe('observer list', () => {

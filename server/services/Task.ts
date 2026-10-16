@@ -73,21 +73,12 @@ async function assertOwner(taskId: number, employeeId: number, db: Sql = sql): P
 }
 
 /**
- * Tasks carrying all the given tags (any task: tags are visible to everyone),
- * and matching the text in a tag name (any task) or in the context or
- * comments (only tasks the viewer sees: the text is private). Mine apart
- * from the others, as in Current tasks; open tasks first, by deadline.
+ * Tasks carrying all the given tags — any task: tags are visible to
+ * everyone. Mine apart from the others, as in Current tasks; open tasks
+ * first, by deadline.
  */
 export async function search(viewerId: number, input: SearchInput): Promise<SearchResult> {
-  const like = '%' + input.text.replace(/[\\%_]/g, '\\$&') + '%';
-  const where = sql`
-    k.tag_ids @> ${input.tagIds}::int[]
-    AND (${input.text} = ''
-      OR EXISTS (SELECT 1 FROM tag t WHERE t.id = ANY(k.tag_ids) AND t.name LIKE ${like.toLowerCase()})
-      OR (can_see(k.id, ${viewerId}) AND (
-        k.context ILIKE ${like}
-        OR EXISTS (SELECT 1 FROM comment c WHERE c.task_id = k.id AND c.value ILIKE ${like}))))
-  `;
+  const where = sql`k.tag_ids @> ${input.tagIds}::int[]`;
   const [counts] = z.object({ mine: z.number(), others: z.number() }).array().parse(await sql`
     SELECT count(*) FILTER (WHERE k.owner_id = ${viewerId})::int AS mine,
            count(*) FILTER (WHERE k.owner_id IS DISTINCT FROM ${viewerId})::int AS others

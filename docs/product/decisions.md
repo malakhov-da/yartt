@@ -337,13 +337,14 @@ words: "," and ";" are "б" and "ж" in the other layout. Comparing in Latin als
 the C locale. Several typed words are read as a set of tags: words that
 match existing tags become those tags, the words around them are offered
 as new ones, and a few such readings are suggested, best first — a
-reading is never applied silently. A tag can exist without a task; one
-nobody uses is removed after a day so abandoned spellings do not come
-back as suggestions.
+reading is never applied silently. A tag is created only when a task is
+saved with it — while a title is typed its tags keep changing; a tag no
+task carries any more is removed after a day so abandoned spellings do
+not come back as suggestions.
 
 *Implemented:* `translit()`, `tag.latin`, `employee.keyboards`, the
 `tag_cleanup` cron job in `db.sql`; `shared/keyboards.ts`;
-`Tags.suggest`, `Tags.create`.
+`Tags.suggest`.
 
 ### 34. A task is created in a form
 
@@ -369,7 +370,10 @@ and typed text narrow both tabs, so there is one list of tasks and it
 is filtered in place. With a filter the tabs hold any task with those
 tags, closed and not visible ones included, as the old search did. "/"
 from any page brings My day back with the input focused. Creating moved
-out of the search (decision 34): it offers "Create tag", and "New task"
+out of the search (decision 34), and the search finds by tags only: text
+in contexts and comments mixed tasks with a word into the list of tasks
+with a tag, and a tag that does not exist finds nothing, so there is
+nothing to create there. Enter takes the best suggestion. "New task"
 takes the picked tags. The top line is left with the logo, Invite and
 the avatar.
 

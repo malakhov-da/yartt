@@ -114,11 +114,10 @@ export const en: Translation = {
     create: 'Create task',
   },
   tagInput: {
-    create: 'Create tag “{{name}}”',
-    hint: 'Start typing a tag',
+    newTag: 'New tag “{{name}}”',
   },
   search: {
-    placeholder: 'Find: tags or text',
+    placeholder: 'Find by tags',
     noResults: 'Nothing found',
   },
   task: {
