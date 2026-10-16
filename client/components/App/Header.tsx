@@ -11,10 +11,12 @@ import EmployeeAvatar from './EmployeeAvatar.tsx';
 import InviteDialog from './InviteDialog.tsx';
 import Logo from './Logo.tsx';
 import ProfileDialog from './ProfileDialog.tsx';
+import TopStatus from './TopStatus.tsx';
 
 // The top line: the logo (home — My day, which keeps its state while a task
-// or a person is open), invite and my avatar. No tabs (decision 31); the
-// search is in My day, over Current tasks.
+// or a person is open), what waits for me and the open shift (TopStatus),
+// invite and my avatar. No tabs (decision 31); the search is in My day,
+// over Current tasks.
 export default function () {
   const { t } = useTranslation();
   const trpc = useTRPC();
@@ -34,6 +36,7 @@ export default function () {
       <Toolbar variant="dense" sx={{ gap: 1 }}>
         <Logo />
         <Box sx={{ flexGrow: 1 }} />
+        <TopStatus />
         <Tooltip title={t('nav.invite')}>
           <IconButton onClick={() => setInviteOpen(true)}>
             <PersonAddAlt1 />

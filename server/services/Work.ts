@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { AddShiftInput, CloseShiftInput } from '#shared/myDay.ts';
+import { OpenShift, type AddShiftInput, type CloseShiftInput } from '#shared/myDay.ts';
 import { AppError } from '../errors.ts';
 import { sql, type Sql } from '../pg.ts';
 
@@ -17,6 +17,14 @@ async function minutesBetween(from: Date, to: Date, db: Sql): Promise<number> {
   `);
   if (!row || row.minutes <= 0) throw new AppError('invalid_data');
   return row.minutes;
+}
+
+/** My open shift (at most one), or null. */
+export async function open(employeeId: number): Promise<OpenShift> {
+  const rows = OpenShift.unwrap().array().parse(await sql`
+    SELECT started_at FROM work WHERE employee_id = ${employeeId} AND spent_minutes IS NULL
+  `);
+  return rows[0] ?? null;
 }
 
 /** Opens a shift; there is at most one open shift (EXCLUDE: shift_overlap). */

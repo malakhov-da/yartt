@@ -16,6 +16,9 @@ export const en: Translation = {
     invite: 'Invite an employee',
     profile: 'Profile',
     logout: 'Log out',
+    todo: 'Waiting for me: {{count}}',
+    shift: 'Shift · {{time}}',
+    closeShift: 'Shift since {{from}} — close it',
   },
   login: {
     title: 'Sign in',

@@ -117,6 +117,10 @@ export type History = z.infer<typeof History>;
 
 export const About = z.string().trim().max(2000).nullable();
 
+/** My open shift, or none. */
+export const OpenShift = z.object({ startedAt: z.date() }).nullable();
+export type OpenShift = z.infer<typeof OpenShift>;
+
 export const StartShiftInput = z.object({ startedAt: z.date() });
 export type StartShiftInput = z.infer<typeof StartShiftInput>;
 

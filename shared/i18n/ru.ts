@@ -65,6 +65,9 @@ export const ru = {
     invite: 'Пригласить сотрудника',
     profile: 'Профиль',
     logout: 'Выйти',
+    todo: 'Ждёт меня: {{count}}',
+    shift: 'Смена · {{time}}',
+    closeShift: 'Смена идёт с {{from}} — закрыть',
   },
   login: {
     title: 'Вход',

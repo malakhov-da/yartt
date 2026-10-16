@@ -7,10 +7,14 @@ settings screen and no tabs (decision 31).
 ## The top line
 
 A thin line, not a toolbar: the logo (the mark and the name of the only
-screen in the interface language — Мой день / My day), **Invite** (a
-person with a plus: a small dialog with a name and an email) and my
-avatar (a photo, or the initials in a circle). The avatar opens a menu:
-Profile, Log out. The search lives in My day (3). The product name and its release are in a quiet footer at the bottom
+screen in the interface language — Мой день / My day), my open shift
+with its running time (a click closes it — the end of the day is often
+spent on a task page; a shift is started in My day, where the first
+visit suggests its start), a bell with how many TODO items wait for me
+(a click brings My day — so a new mention is noticed on any page),
+**Invite** (a person with a plus: a small dialog with a name and an
+email) and my avatar (a photo, or the initials in a circle). The avatar
+opens a menu: Profile, Log out. The search lives in My day (3). The product name and its release are in a quiet footer at the bottom
 of My day.
 
 The logo is the way back: there is no "Back" line on a page. My day keeps

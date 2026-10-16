@@ -145,13 +145,17 @@ describe('history', () => {
     await api.Work.add({ startedAt: morning, endedAt: new Date(morning.getTime() + 2 * hour), about: 'Morning' });
     await expect(api.Work.add({ startedAt: new Date(morning.getTime() + hour), endedAt: new Date(morning.getTime() + 3 * hour), about: null }))
       .rejects.toMatchObject({ message: 'shift_overlap' });
-    await api.Work.start({ startedAt: new Date(Date.now() - hour) });
+    expect(await api.Work.open()).toBeNull();
+    const evening = new Date(Date.now() - hour);
+    await api.Work.start({ startedAt: evening });
+    expect((await api.Work.open())?.startedAt.getTime()).toBe(Math.floor(evening.getTime() / 60_000) * 60_000);
 
     const days = (await api.MyDay.history({ page: 1 })).days;
     // Days come newest first and the morning may fall on yesterday: order by start.
     const shifts = days.flatMap((d) => d.shifts).sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime());
     expect(shifts.map((s) => s.spentMinutes)).toEqual([120, null]);
     await api.Work.close({ startedAt: shifts[1]!.startedAt, endedAt: new Date(), about: 'Evening' });
+    expect(await api.Work.open()).toBeNull();
     // Shifts started 6 hours ago may fall on yesterday: take every day shown.
     const range = { employeeId: me.id, from: days[days.length - 1]!.day, to: days[0]!.day };
     expect((await api.Team.stats(range)).stats.workMinutes).toBe(180);

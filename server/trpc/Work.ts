@@ -1,11 +1,16 @@
 import { z } from 'zod';
-import { AddShiftInput, CloseShiftInput, StartShiftInput } from '#shared/myDay.ts';
+import { AddShiftInput, CloseShiftInput, OpenShift, StartShiftInput } from '#shared/myDay.ts';
 import * as Work from '../services/Work.ts';
 import { authedProcedure, router } from '../trpc.ts';
 
 // The signed-in employee's own timesheet. It only moves forward: a closed
 // shift is never changed or deleted.
 export default router({
+  /** The signed-in employee's open shift (when it started), or null: for the top line. */
+  open: authedProcedure
+    .output(OpenShift)
+    .query(({ ctx }) => Work.open(ctx.employeeId)),
+
   /**
    * Opens a shift at the given moment (cut to the minute, not later than now).
    * @throws shift_overlap — a shift is already open or covers the moment.
