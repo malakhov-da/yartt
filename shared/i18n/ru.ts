@@ -133,6 +133,8 @@ export const ru = {
       openOther: 'Смена идёт с {{from}}',
       closed: 'Смена {{from}}–{{to}} · {{time}}',
       startAt: 'Начать смену с {{time}}',
+      arrivals: 'Начать смену с захода:',
+      startNow: 'Начать сейчас',
       otherTime: 'Указать другое время',
       suggested: 'Похоже на смену {{from}}–{{to}}',
       confirm: 'Подтвердить',

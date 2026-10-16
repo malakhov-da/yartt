@@ -84,6 +84,8 @@ export const en: Translation = {
       openOther: 'Shift since {{from}}',
       closed: 'Shift {{from}}–{{to}} · {{time}}',
       startAt: 'Start the shift at {{time}}',
+      arrivals: 'Start the shift from an arrival:',
+      startNow: 'Start now',
       otherTime: 'Another time',
       suggested: 'Looks like a shift {{from}}–{{to}}',
       confirm: 'Confirm',

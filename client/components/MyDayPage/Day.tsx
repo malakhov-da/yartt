@@ -1,4 +1,4 @@
-import { DeleteOutline, Edit } from '@mui/icons-material';
+import { DeleteOutline, Edit, PlayArrow } from '@mui/icons-material';
 import { Alert, Box, Button, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -15,8 +15,12 @@ import ShiftDialog, { type ShiftDialogMode } from './ShiftDialog.tsx';
 
 type Dialog = { mode: ShiftDialogMode; from: Date; to: Date };
 
+/** A pause after which a visit counts as coming back to work. */
+const ARRIVAL_GAP_MS = 10 * 60_000;
+
 /**
- * One day of History. My own day: today is where a shift is started; the
+ * One day of History. My own day: today is where a shift is started — from
+ * any arrival (the first visit, or one after a pause) or at another time; the
  * open shift is closed in its own day; a past day without shifts offers the
  * one its activity suggests, confirmed with one click. Someone else's day
  * (`employeeId`) is read-only; their direct manager scores it (`canScore`).
@@ -54,8 +58,13 @@ export default function (p: {
   const opened = new Map<number, Date[]>();
   for (const v of day.visits) if (v.taskId !== null) opened.set(v.taskId, [...(opened.get(v.taskId) ?? []), v.at]);
 
-  // Today: the shift starts from the first activity, unless a shift was already worked.
-  const startAt = day.shifts.length === 0 && day.firstActivity ? day.firstActivity : new Date();
+  // Today: a shift starts from an arrival — the first visit, or one after a
+  // pause — not earlier than the end of a shift already worked (they never overlap).
+  const workedUntil = Math.max(0, ...day.shifts.map((s) => s.startedAt.getTime() + (s.spentMinutes ?? 0) * 60_000));
+  const visits = [...day.visits].sort((a, b) => a.at.getTime() - b.at.getTime());
+  const arrivals = visits.filter((v, i) => (i === 0 || v.at.getTime() - visits[i - 1]!.at.getTime() >= ARRIVAL_GAP_MS)
+    && v.at.getTime() >= workedUntil);
+  const canStart = mine && p.isToday && !p.hasOpenShift && !scored;
   // A past day: what the first and last activity suggest.
   const suggestion = !p.isToday && day.shifts.length === 0 && day.firstActivity && day.lastActivity
     && day.lastActivity.getTime() - day.firstActivity.getTime() >= 60_000
@@ -125,16 +134,47 @@ export default function (p: {
         </Box>
       ))}
 
-      {mine && p.isToday && !p.hasOpenShift && !scored && (
-        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-          <Button size="small" variant="outlined" disabled={start.isPending} onClick={() => start.mutate({ startedAt: startAt })}>
-            {t('myDay.shift.startAt', { time: format.time(startAt) })}
-          </Button>
-          <Tooltip title={t('myDay.shift.otherTime')}>
-            <IconButton size="small" onClick={() => setDialog({ mode: 'start', from: startAt, to: startAt })}>
-              <Edit fontSize="small" />
-            </IconButton>
-          </Tooltip>
+      {canStart && (
+        <Stack spacing={0.5}>
+          {arrivals.length > 0 && (
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>{t('myDay.shift.arrivals')}</Typography>
+          )}
+          {arrivals.map((visit) => {
+            const header = visit.taskId === null ? undefined : task(visit.taskId);
+            return (
+              <Stack key={visit.at.getTime()} direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums', width: 44, flexShrink: 0 }}>
+                  {format.time(visit.at)}
+                </Typography>
+                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                  {header ? <TaskLine dense task={header} /> : (
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>{t('nav.myDay')}</Typography>
+                  )}
+                </Box>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<PlayArrow />}
+                  disabled={start.isPending}
+                  aria-label={t('myDay.shift.startAt', { time: format.time(visit.at) })}
+                  onClick={() => start.mutate({ startedAt: visit.at })}
+                  sx={{ flexShrink: 0 }}
+                >
+                  {t('myDay.shift.start')}
+                </Button>
+              </Stack>
+            );
+          })}
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+            <Button size="small" variant={arrivals.length ? 'text' : 'outlined'} disabled={start.isPending} onClick={() => start.mutate({ startedAt: new Date() })}>
+              {t('myDay.shift.startNow')}
+            </Button>
+            <Tooltip title={t('myDay.shift.otherTime')}>
+              <IconButton size="small" onClick={() => setDialog({ mode: 'start', from: new Date(), to: new Date() })}>
+                <Edit fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Stack>
         </Stack>
       )}
 

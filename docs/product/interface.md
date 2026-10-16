@@ -53,7 +53,11 @@ someone with reports:
 - **History** — my days, from today back into the past, with pages. A day shows the shift (work) if the team keeps a timesheet, the
   time logged to tasks (spent_minutes), and the visits: which tasks I
   opened and when I came into the system. Today's day is where the shift
-  is started and stopped; the suggestion comes from the same visits.
+  is started: each arrival — the first visit, or one after a pause of 10
+  minutes or more — has its own "Start" opposite it, so a shift begun
+  after lunch starts from that return, not from the morning; "Start now"
+  and another time are there too. The open shift is closed here or from
+  the top line; past days suggest a shift from the same visits.
 
 There is no separate "closed by its deadline" item: a passed deadline
 closes the task like a manual close does, and the task simply leaves

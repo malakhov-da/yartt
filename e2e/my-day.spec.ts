@@ -44,8 +44,11 @@ test.describe('My day', () => {
   });
 
   test('history: start a shift today and close it with what was done; confirm a suggested one', async ({ page }) => {
-    await page.getByRole('button', { name: /Начать смену с/ }).click();
-    await expect(page.getByText(/Смена идёт с/)).toBeVisible();
+    // Each arrival of today has its own start button; the shift starts from it.
+    const first = page.getByRole('button', { name: /^Начать смену с \d\d:\d\d$/ }).first();
+    const time = (await first.getAttribute('aria-label'))!.slice(-5);
+    await first.click();
+    await expect(page.getByText(new RegExp(`Смена идёт с ${time}`))).toBeVisible();
     await page.getByRole('button', { name: 'Закрыть смену' }).click();
     await page.getByLabel('Что сделано').fill('Проверка e2e');
     await page.getByRole('dialog').getByRole('button', { name: 'Закрыть смену' }).click();
