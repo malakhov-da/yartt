@@ -125,6 +125,7 @@ function Item(p: { item: TodoItem }) {
           taskId={item.task.id}
           replyTo={{ id: item.commentId, authorId: item.authorId }}
           onCancelReply={() => setReplying(false)}
+          onSent={() => setReplying(false)}
         />
       )}
     </Stack>

@@ -37,6 +37,11 @@ export default function (p: {
   onCancelReply: () => void;
   /** "c" anywhere on the page (outside inputs) focuses this composer: the task page has one. */
   shortcut?: boolean;
+  /**
+   * Called once the comment went out (after the hold). Given (a reply from
+   * My day), "Send" keeps the composer and its reply target until then.
+   */
+  onSent?: () => void;
 }) {
   const { t } = useTranslation();
   const trpc = useTRPC();
@@ -98,6 +103,8 @@ export default function (p: {
   const heldRef = useRef(held);
   heldRef.current = held;
   const sendNow = useRef<(draft: NonNullable<typeof held>) => void>(null);
+  const onSent = useRef(p.onSent);
+  onSent.current = p.onSent;
   sendNow.current = (draft) => create.mutate({
     taskId: p.taskId,
     html: draft.html,
@@ -105,7 +112,7 @@ export default function (p: {
     files: draft.files,
     mentionIds: draft.mentions.map((m) => m.id),
     taskIds: draft.taskIds,
-  }, { onError: () => restore(draft) });
+  }, { onSuccess: () => onSent.current?.(), onError: () => restore(draft) });
   useEffect(() => () => {
     if (heldRef.current) sendNow.current?.(heldRef.current);
   }, []);
@@ -124,9 +131,13 @@ export default function (p: {
 
   const send = () => {
     if (!editor.current || editor.current.isEmpty() || uploading > 0) return;
-    setHeld({ html: editor.current.getHtml(), files, mentions, taskIds, replyTo: p.replyTo, seconds: HOLD_SECONDS });
+    const next = { html: editor.current.getHtml(), files, mentions, taskIds, replyTo: p.replyTo, seconds: HOLD_SECONDS };
+    // Set at once: if the composer unmounts before rendering again, the
+    // unmount still finds the held comment and sends it.
+    heldRef.current = next;
+    setHeld(next);
     reset('');
-    p.onCancelReply();
+    if (!p.onSent) p.onCancelReply();
   };
 
   // The editor is uncontrolled: a new key makes it take the draft's text.
