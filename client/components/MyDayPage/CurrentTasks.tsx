@@ -1,5 +1,5 @@
 import { Add, Search } from '@mui/icons-material';
-import { Button, InputAdornment, Pagination, Paper, Stack, Tab, Tabs, Typography } from '@mui/material';
+import { Button, InputAdornment, Pagination, Paper, Stack, Tab, Tabs, Tooltip, Typography } from '@mui/material';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -121,7 +121,11 @@ export default function () {
             <Tab
               key={value}
               value={value}
-              label={t(`myDay.current.${value}`, { count: counts?.[value] ?? 0 })}
+              label={(
+                <Tooltip title={t(`myDay.current.${value}Hint`)} describeChild>
+                  <span>{t(`myDay.current.${value}`, { count: counts?.[value] ?? 0 })}</span>
+                </Tooltip>
+              )}
               sx={{ minHeight: 0, py: 1 }}
             />
           ))}

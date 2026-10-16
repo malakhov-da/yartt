@@ -52,7 +52,7 @@ test.describe('search', () => {
     await page.keyboard.type('склад');
     await page.getByRole('option', { name: 'склад', exact: true }).click();
     await page.keyboard.press('Escape');
-    await page.getByRole('tab', { name: /Мои/ }).click();
+    await page.getByRole('tab', { name: /Я владелец/ }).click();
     await panel(page).getByRole('link', { name: 'Новая задача' }).click();
     await expect(page.getByRole('button', { name: 'склад', exact: true })).toBeVisible();
   });
@@ -65,7 +65,7 @@ test.describe('search', () => {
       await expect(page.getByRole('button', { name: tag, exact: true })).toBeVisible();
     }
     await page.keyboard.press('Escape');
-    await page.getByRole('tab', { name: /Мои/ }).click();
+    await page.getByRole('tab', { name: /Я владелец/ }).click();
     await page.getByRole('link', { name: 'Новая задача' }).click();
     await page.getByRole('button', { name: 'Создать задачу' }).click();
     await expect(errorToast(page)).toHaveText('Задача с таким набором тегов уже есть — добавьте тег, чтобы различить их.');

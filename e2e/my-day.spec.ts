@@ -38,7 +38,7 @@ test.describe('My day', () => {
   });
 
   test('current tasks: mine and others, with pages', async ({ page }) => {
-    await expect(page.getByRole('tab', { name: /Мои · 3/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Я владелец · 3/ })).toBeVisible();
     const others = page.getByRole('tab', { name: /Остальные · \d+/ });
     await others.click();
     await expect(page.getByRole('link', { name: /тикет-/ }).first()).toBeVisible();

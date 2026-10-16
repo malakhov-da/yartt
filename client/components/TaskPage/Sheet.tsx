@@ -63,6 +63,11 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
     update.mutate({ id: task.id, context: html }, { onSuccess: () => setContextDraft(null) });
   };
 
+  // What a deadline means here: it closes the task when it comes (decision 10).
+  const deadlineHint = task.deadline
+    ? t('task.deadlineHint', { date: format.dateTime(task.deadline), relative: format.relative(task.deadline) })
+    : t('task.deadlineNoneHint');
+
   const names = (ids: number[]) => ids.map((id) => employees.get(id)?.fullName ?? `#${id}`).join(', ');
 
   return (
@@ -128,24 +133,26 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
             ) : (
               <PriorityChip priority={task.priority} />
             )}
-            {isOwner ? (
-              <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-                <TextField
-                  type="datetime-local"
-                  variant="standard"
-                  slotProps={{ htmlInput: { 'aria-label': t('task.deadline') } }}
-                  value={task.deadline ? localInput(task.deadline) : ''}
-                  onChange={(e) => e.target.value && setDeadline.mutate({ id: task.id, deadline: new Date(e.target.value) })}
-                />
-                {task.deadline && (
-                  <Button size="small" color="inherit" onClick={() => setDeadline.mutate({ id: task.id, deadline: null })}>
-                    {t('task.clearDeadline')}
-                  </Button>
-                )}
-              </Stack>
-            ) : (
-              <span>{task.deadline ? format.dateTime(task.deadline) : t('task.noDeadline')}</span>
-            )}
+            <Tooltip title={deadlineHint} describeChild>
+              {isOwner ? (
+                <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                  <TextField
+                    type="datetime-local"
+                    variant="standard"
+                    slotProps={{ htmlInput: { 'aria-label': t('task.deadline') } }}
+                    value={task.deadline ? localInput(task.deadline) : ''}
+                    onChange={(e) => e.target.value && setDeadline.mutate({ id: task.id, deadline: new Date(e.target.value) })}
+                  />
+                  {task.deadline && (
+                    <Button size="small" color="inherit" onClick={() => setDeadline.mutate({ id: task.id, deadline: null })}>
+                      {t('task.clearDeadline')}
+                    </Button>
+                  )}
+                </Stack>
+              ) : (
+                <span>{task.deadline ? format.dateTime(task.deadline) : t('task.noDeadline')}</span>
+              )}
+            </Tooltip>
             {task.deadline && <span>{closed ? t('task.closed') : format.relative(task.deadline)}</span>}
             <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
               {task.isPublic ? <Public fontSize="small" /> : <Lock fontSize="small" />}

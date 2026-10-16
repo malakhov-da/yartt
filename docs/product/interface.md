@@ -45,12 +45,13 @@ someone with reports:
   goal. Days of my reports waiting for a score are not here: scoring is
   never required, it lives on the employee's page.
 - **Current tasks** — every open task I see (no deadline, or a deadline
-  ahead), in two tabs: **mine** (I own them) and **others**. Each tab is a
+  ahead), in two tabs: **I own** (I answer for them) and **others** —
+  each explains itself on hover. Each tab is a
   grid with pages, by deadline, nearest first; tasks without a deadline at
   the end. For a director "others" is hundreds of tasks — pages keep it
   usable, the search on top narrows it (3). Public tasks of others are in
   "others" for everyone: there should be few of them (decision 14).
-  **New task** in the "mine" tab opens the form (2a).
+  **New task** in the "I own" tab opens the form (2a).
 - **My team** — only for someone with reports; see 4.
 - **History** — my days, from today back into the past, with pages. A day shows the shift (work) if the team keeps a timesheet, the
   time logged to tasks (spent_minutes), and the visits: which tasks I
@@ -173,7 +174,7 @@ observers, with pages.
 ## 2a. New task — "what is there to do?"
 
 A form over My day (`/tasks/new`), opened by **New task** in Current
-tasks (the "mine" tab) or from a task's dependencies. The title is the
+tasks (the "I own" tab) or from a task's dependencies. The title is the
 tags, typed as in Find: typos forgiven, several words offered as ready
 sets of tags, "New tag" when no tag is spelled exactly so — shown dashed
 and created only when the task is saved. Priority,
@@ -191,7 +192,7 @@ find nothing. Picked tags narrow both tabs to the tasks carrying all of
 them — any task then, closed ones and ones the person does not see
 included (they open on "Request access"), since tags are visible to
 everyone. When the current tab has nothing and the other has, the other
-one opens. **New task** in the "mine" tab takes the picked tags into the
+one opens. **New task** in the "I own" tab takes the picked tags into the
 form (2a).
 
 ## 4. My team — "how is my team doing?" (managers only)
