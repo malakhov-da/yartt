@@ -1247,6 +1247,25 @@ COMMENT ON COLUMN estimate_minutes.expired_at IS
 'When it stopped being current. NULL = current.';
 
 
+CREATE OR REPLACE FUNCTION backlog_minutes(p_employee_id INT, p_at TIMESTAMPTZ)
+RETURNS INT AS $$
+    SELECT COALESCE(sum(es.value), 0)::int
+      FROM estimate_minutes es
+     WHERE es."by" = p_employee_id
+       AND es.entered_at <= p_at AND (es.expired_at IS NULL OR es.expired_at > p_at)
+       AND NOT EXISTS (
+         SELECT 1 FROM finished_at f
+          WHERE f.task_id = es.task_id
+            AND f.entered_at <= p_at AND (f.expired_at IS NULL OR f.expired_at > p_at)
+            AND f.value <= p_at)
+$$ LANGUAGE sql STABLE;
+
+COMMENT ON FUNCTION backlog_minutes(INT, TIMESTAMPTZ) IS
+'The employee''s backlog at a moment: how many more minutes they planned
+to spend (their estimates current then) on tasks still open then. Its
+change over a range is whether planned work grows faster than it is done.';
+
+
 -- ============================================================================
 -- 9. spent_minutes — time entries
 -- ============================================================================
@@ -2572,6 +2591,25 @@ Updates updated_at on UPDATE.';
 CREATE TRIGGER work_check
 BEFORE INSERT OR UPDATE OR DELETE ON work
 FOR EACH ROW EXECUTE FUNCTION trg_work_check();
+
+
+CREATE OR REPLACE FUNCTION working_minutes(p_employee_id INT, p_from TIMESTAMPTZ, p_to TIMESTAMPTZ)
+RETURNS NUMERIC AS $$
+    SELECT COALESCE(sum(extract(epoch FROM upper(r) - lower(r))), 0) / 60
+      FROM (
+        SELECT work_period(started_at, spent_minutes) * tstzrange(p_from, LEAST(p_to, NOW())) AS r
+          FROM work
+         WHERE employee_id = p_employee_id
+           AND work_period(started_at, spent_minutes) && tstzrange(p_from, LEAST(p_to, NOW()))
+      ) x
+     WHERE NOT isempty(r)
+$$ LANGUAGE sql STABLE;
+
+COMMENT ON FUNCTION working_minutes(INT, TIMESTAMPTZ, TIMESTAMPTZ) IS
+'Minutes of the employee''s shifts between two moments (an open shift
+counts up to now). Time someone did not work is not theirs to answer
+for: a mention a minute after the shift ended, answered as the next
+shift began, took 0 working minutes.';
 
 
 -- ----------------------------------------------------------------------------

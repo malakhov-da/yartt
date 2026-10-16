@@ -55,3 +55,9 @@ In this order after stage 6 (S — a day, M — a few days, L — a week or more
 - Import from other trackers — only if migration becomes the main
   obstacle to adoption.
 - Everything in "Never" of [features](features.md).
+- Team metrics that push people to game the tracker (decision 39): task
+  flow (many small or few big tasks), deadline moves (often not the
+  owner's doing), cycle time (discourages writing down tasks of unknown
+  length), blocked tasks (discourages linking tasks).
+- Transliteration tables for more alphabets — not until a company needs
+  one.

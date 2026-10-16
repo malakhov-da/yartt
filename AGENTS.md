@@ -190,6 +190,9 @@ and a `matchPath` in `client/components/App.tsx`.
 
 ## Interface
 
+- Hours of different people are never added up or weighted against each
+  other (decision 38): their worth differs and is a trade secret. Combine
+  shares of each person's own time, averages over people and counts.
 - Comments are never edited. After "Send" a comment stays in the
   interface for a few seconds with a "Back to editing" button and only
   then goes to the server.

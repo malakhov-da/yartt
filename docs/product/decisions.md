@@ -417,3 +417,53 @@ again.
 *Implemented:* `score.value` NULL, `trg_work_check()`,
 `trg_spent_minutes_check()`, `trg_score_check()` in `db.sql`;
 `Work.update`, `Work.remove`, `Team.unscore`.
+
+### 38. Hours of different people are never added up
+
+An hour of one person is not an hour of another: what each hour is worth
+— pay, grade, contract — differs, and the company keeps it to itself, so
+the product cannot store the weights and must not pretend hours are
+interchangeable. A sum of the team's hours, or a score weighted by hours
+across people, is therefore meaningless and is not shown anywhere.
+
+Each person's hours stay theirs: their timesheet, and their score
+weighted by their own hours. Across people only what does not depend on
+the weight is combined: time in tasks as a share of each person's own
+timesheet, averaged over people; the score averaged over people; counts
+of days and tasks. Settled — not to be revisited without a way to know
+the weights, which the product deliberately does not have.
+
+*Implemented:* `MyDayPage/Team.tsx` (the team line), `Team.summary`.
+
+### 39. Signals of how a team works, not only how much
+
+Hours and scores say how much and how well, but not whether the team's
+habits hold or where the work is heading. My team adds signals that come
+from data already kept and that cannot be gamed by working worse:
+
+- **How late the timesheet is written** — the median between a shift's
+  end and its record: a timesheet written days later is a
+  reconstruction, and a score built on it is weaker.
+- **Reaction to mentions** — the median of the person's *working* time
+  (their shifts, `working_minutes()`) from a mention to their first
+  reply, and the mentions left unanswered. Time off is not theirs to
+  answer for: a mention a minute after the shift, answered as the next
+  shift began, took 0. Without a timesheet there is nothing to measure
+  against, so no value.
+- **How long days wait for a score** — on a manager's row: the median
+  from the end of a report's day to the manager's score.
+- **Backlog** — the person's planned work in hours (their "time left"
+  estimates on open tasks, `backlog_minutes()`), its growth over the
+  range and its sparkline: is planned work piling up faster than it is
+  done.
+
+Medians, so one outlier does not color a month. Across people they are
+averaged, and hours — the backlog included — are never added up
+(decision 38). Deliberately not measured: task flow (many small tasks or
+a few big ones say nothing), deadline moves (often not the owner's
+doing), cycle time (it discourages writing down tasks of unknown length)
+and blocked tasks (it discourages linking tasks) — each would push people
+to game the tracker instead of doing the work.
+
+*Implemented:* `working_minutes()`, `backlog_minutes()` in `db.sql`;
+`Team.summary`; `client/components/App/Sparkline.tsx`.

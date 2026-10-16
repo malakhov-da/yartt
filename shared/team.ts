@@ -28,11 +28,25 @@ export const Stats = z.object({
 });
 export type Stats = z.infer<typeof Stats>;
 
+/** One day of a person: timesheet, time logged to tasks, the score. */
+export const DayStats = z.object({
+  day: Day,
+  workMinutes: z.number().int(),
+  spentMinutes: z.number().int(),
+  /** NULL — not scored. */
+  score: z.number().int().nullable(),
+  /** Planned work at the end of the day (now for today): the sum of their estimates of open tasks. */
+  backlogMinutes: z.number().int(),
+});
+export type DayStats = z.infer<typeof DayStats>;
+
 /** One person of the team summary for a range. */
 export const Member = z.object({
   employeeId: Id,
   /** A direct report (the signed-in employee is their manager). */
   direct: z.boolean(),
+  /** The signed-in employee themselves, on top: their own report. */
+  self: z.boolean(),
   stats: Stats,
   /** Past days with a closed timesheet and no score — what the direct manager may score. */
   unscoredDays: z.number().int(),
@@ -42,6 +56,26 @@ export const Member = z.object({
   expired: z.number().int(),
   /** Their open tasks now. */
   openTasks: z.number().int(),
+  /**
+   * How late the timesheet is written: the median of minutes between a
+   * shift's end and when it was last recorded; NULL — no closed shifts.
+   */
+  recordDelayMinutes: z.number().nullable(),
+  /**
+   * The median of their working minutes (shifts only) from a mention to
+   * their first reply in the task; NULL — none answered, or no timesheet.
+   */
+  replyMinutes: z.number().nullable(),
+  /** As a manager: the median of minutes from the end of a report's day to their score of it; NULL — scored none. */
+  scoreWaitMinutes: z.number().nullable(),
+  /** Planned work now: the sum of their estimates of time left on open tasks. */
+  backlogMinutes: z.number().int(),
+  /** How the backlog changed over the range (now minus its start): planned work growing or melting. */
+  backlogGrowthMinutes: z.number().int(),
+  /** Mentions of them in the range with no reply yet. */
+  unanswered: z.number().int(),
+  /** Every day of the range, oldest first: for the sparklines. */
+  days: DayStats.array(),
 });
 export type Member = z.infer<typeof Member>;
 
@@ -60,14 +94,6 @@ export const StatsInput = EmployeeInput.extend(RangeShape).refine(rangeOk, { pat
 export type StatsInput = z.infer<typeof StatsInput>;
 
 /** One day of the chart. */
-export const DayStats = z.object({
-  day: Day,
-  workMinutes: z.number().int(),
-  spentMinutes: z.number().int(),
-  /** NULL — not scored. */
-  score: z.number().int().nullable(),
-});
-export type DayStats = z.infer<typeof DayStats>;
 
 export const PeriodStats = z.object({
   stats: Stats,

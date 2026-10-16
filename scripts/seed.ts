@@ -183,7 +183,11 @@ await I.Task.update({
 await I.Task.setDeadline({ id: site, deadline: daysAhead(3) });
 await I.Observer.add({ taskId: site, employeeId: pavel });
 await I.Time.setLeft({ taskId: site, minutes: 240 });
-await P.Time.setLeft({ taskId: site, minutes: 900 });
+await P.Time.setLeft({ taskId: site, minutes: 600 });
+// Plans made three weeks ago; Pavel's has grown since: My team shows his backlog rising.
+await sql`UPDATE estimate_minutes SET entered_at = NOW() - INTERVAL '21 days' WHERE task_id = ${site}`;
+await sql`UPDATE estimate_minutes SET expired_at = NOW() - INTERVAL '5 days' WHERE task_id = ${site} AND "by" = ${pavel}`;
+await sql`INSERT INTO estimate_minutes (task_id, "by", value, entered_at) VALUES (${site}, ${pavel}, 900, NOW() - INTERVAL '5 days')`;
 
 // 2. My task; Oleg asks for access.
 const report = await I.Task.create({ tags: ['отчёт', 'q3'] });
@@ -334,6 +338,17 @@ for (const d of marinaDays) {
   await M.Time.log({ taskId: stock, day: await day(marina, d), minutes: 120 });
   await M.Work.add({ startedAt: await at(marina, d, '08:50'), endedAt: await at(marina, d, '17:45'), about: 'Склад, найм, ревью' });
 }
+
+// The shifts above were written now, days after they ended. Make them look written on time —
+// minutes after the end — except Pavel's, written the next day: My team shows how late
+// the timesheet is written. The trigger stamps updated_at itself, so it is off for this.
+await sql`ALTER TABLE work DISABLE TRIGGER work_check`;
+await sql`
+  UPDATE work SET updated_at = started_at + spent_minutes * INTERVAL '1 minute'
+                              + CASE WHEN employee_id = ${pavel} THEN INTERVAL '1 day 2 hours' ELSE INTERVAL '12 minutes' END
+   WHERE spent_minutes IS NOT NULL
+`;
+await sql`ALTER TABLE work ENABLE TRIGGER work_check`;
 
 // Scores: I score some of Marina's days, Marina some of Pavel's; the rest wait. A score freezes its day.
 const score = async (employeeId: number, by: number, daysAgo: number, value: number, reason: string | null) =>

@@ -201,16 +201,32 @@ form (2a).
 
 ## 4. My team — "how is my team doing?" (managers only)
 
-A block of My day, shown only to someone who has reports — a summary of
-the whole subtree for a range (the last 7, 30, 90 days or any dates),
-direct reports first, then theirs with their manager named:
+A block of My day across its whole width, shown only to someone who has
+reports: the tree of
+the whole subtree for a range (the last 7, 30, 90 days or any dates) —
+me at the root (my own report: there is no other place to see it), each
+manager's reports nested under them, collapsible. A person's row:
 
-- workload (timesheet hours and days) and time logged to tasks;
-- the score weighted by hours, with the number of scored days;
+- workload (timesheet hours and days);
+- time in tasks — the share of their own timesheet logged to tasks;
+- the score weighted by their own hours, with the number of scored days;
 - days waiting for my score (direct reports only);
 - tasks closed by hand and closed automatically — a deadline set in
   advance came (decision 32); open tasks now;
-- a total line.
+- how late the timesheet is written — the median time from a shift's end
+  to its record (a day or more: written after the fact);
+- reaction to mentions — the median of their working time (shifts only)
+  to the first reply in the task, and how many are left unanswered;
+- for a manager, how long their reports' days wait for a score;
+- backlog — planned work in hours (their "time left" on open tasks), its
+  growth over the range and a sparkline.
+
+Time in tasks and the score have a sparkline of the range's days under
+them (hover tells a day). Under a manager's reports is the line of their team: counts add up,
+shares and scores are averaged over people, hours are never added up
+(decision 38). "With managers" counts the manager in their team's line.
+Ticks pick people for a line of their own ("Picked"); one click on a
+manager picks their whole team.
 
 Direct reports can be dismissed and brought back here. A name opens the
 person's page. Inviting is not here — anyone invites from the top line.

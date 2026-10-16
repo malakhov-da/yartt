@@ -34,6 +34,8 @@ persona goal it serves. Status: **now** — stage one, **next** — stage two,
 | A new-task form: tags as the title, priority, deadline, context; opened from My tasks or tied to a task as its dependency | everyone: write a task down whole, link it where it belongs | now (done) |
 | Unsaved comments, new tasks and edits are kept as drafts when going to another page | everyone: following a link never costs the typed text | now (done) |
 | Shifts of any day not scored are added, corrected and deleted; the manager withdraws a score to let a day be fixed | Pavel: a mistyped shift is fixed; Marina: lets it be fixed without losing the reason | now (done) |
+| My team: my own row; time in tasks as a share of each timesheet; the team line averages people, never adds hours | Marina: compare people fairly, see her own report | now (done) |
+| My team as a tree with each team's line, ticks and one-click teams; sparklines; how late the timesheet is written; how fast mentions are answered | Marina: see where a sub-team is heading and which habits slip | now (done) |
 | The top line: how many TODO items wait for me, the open shift and closing it, from any page | Pavel: notice a mention and close the day without going back to My day | now (done) |
 | Personal tag colors and weights — in the profile | Pavel: scan lists faster | now (done) |
 

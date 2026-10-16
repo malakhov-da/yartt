@@ -6,19 +6,42 @@ test.describe('Team and the employee page', () => {
     await signIn(page);
   });
 
-  test('My team in My day: the whole subtree for a range, direct reports first, with totals', async ({ page }) => {
+  test('My team as a tree: me at the root, each team nested with its own line; ticks pick people', async ({ page }) => {
     const team = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Моя команда' }) });
     await expect(team).toBeVisible();
-    for (const column of ['Табель', 'В задачах', 'Оценка', 'К оценке', 'Вручную', 'Автоматически', 'Открыто']) {
+    for (const column of ['Табель', 'В задачах', 'Оценка', 'К оценке', 'Вручную', 'Автоматически', 'Открыто', 'Запись', 'Ответ', 'Оценивает', 'Бэклог']) {
       await expect(team.getByRole('columnheader', { name: column })).toBeVisible();
     }
     const rows = team.getByRole('row');
-    await expect(rows.nth(1)).toContainText('Ольга Белова'); // direct reports first (by name)
+    await expect(rows.nth(1)).toContainText('First Employee'); // me at the root
+    await expect(rows.nth(2)).toContainText('Ольга Белова'); // then my direct reports (by name)
     await expect(team.getByText(/^до \d+/)).toBeVisible(); // Olga is away
-    await expect(team.getByRole('cell', { name: 'Подчинённые ваших подчинённых' })).toBeVisible();
-    await expect(team.getByText(/руководитель — Марина Соколова/).first()).toBeVisible();
     await expect(team.getByText('Уволен')).toBeVisible();
-    await expect(team.getByRole('row', { name: /^Всего/ })).toBeVisible();
+
+    // Marina's reports hang under her, followed by the line of her team; nobody's hours are added up.
+    const marinaTeam = team.getByRole('row', { name: /^Команда: Марина Соколова/ });
+    await expect(marinaTeam).toBeVisible();
+    await expect(marinaTeam.getByRole('cell').nth(1)).toHaveText('—');
+    await expect(team.getByRole('row', { name: /^Команда: First Employee/ })).toBeVisible();
+    await team.getByLabel('С руководителями').check();
+    await expect(team.getByRole('row', { name: /^Команда с руководителем: Марина Соколова/ })).toBeVisible();
+    await team.getByRole('button', { name: 'Свернуть команду' }).nth(1).click();
+    await expect(team.getByRole('row', { name: /Павел Орлов/ })).toHaveCount(0);
+    await team.getByRole('button', { name: 'Показать команду' }).click();
+
+    // Pavel writes his timesheet the next day (the demo data): the "Written" column says so.
+    const pavelRow = team.getByRole('row').filter({ hasText: 'Павел Орлов' });
+    await expect(pavelRow.getByRole('cell').nth(8)).toHaveText(/^2\dч/);
+
+    // One click picks Marina's whole team; a tick adds one more person.
+    const pavel = team.getByRole('row').filter({ hasText: 'Павел Орлов' });
+    await team.getByRole('row').filter({ hasText: 'Марина Соколова' }).first().getByRole('button', { name: 'Выбрать всю команду' }).click();
+    await expect(pavel.getByRole('checkbox')).toBeChecked();
+    await team.getByLabel('Выбрать: Ольга Белова').check();
+    const picked = team.getByRole('row', { name: /^Выбрано · \d+/ });
+    await expect(picked).toBeVisible();
+    await picked.getByRole('button', { name: 'Снять выбор' }).click();
+    await expect(picked).toHaveCount(0);
 
     await team.getByRole('button', { name: '7 дн.' }).click();
     await expect(team.getByRole('button', { name: '7 дн.' })).toHaveClass(/MuiChip-filled/);
