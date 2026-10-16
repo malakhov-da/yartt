@@ -148,7 +148,8 @@ describe('history', () => {
     await api.Work.start({ startedAt: new Date(Date.now() - hour) });
 
     const days = (await api.MyDay.history({ page: 1 })).days;
-    const shifts = days.flatMap((d) => d.shifts);
+    // Days come newest first and the morning may fall on yesterday: order by start.
+    const shifts = days.flatMap((d) => d.shifts).sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime());
     expect(shifts.map((s) => s.spentMinutes)).toEqual([120, null]);
     await api.Work.close({ startedAt: shifts[1]!.startedAt, endedAt: new Date(), about: 'Evening' });
     // Shifts started 6 hours ago may fall on yesterday: take every day shown.
