@@ -44,6 +44,7 @@ export const ERROR_CODES = [
   'unknown_attachment',
   'attachment_in_use',
   'self_mention',
+  'mention_needs_reply',
 
   // reminders
   'remind_in_past',

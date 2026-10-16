@@ -33,7 +33,7 @@ const CommentRow = z.object({
   isNew: z.boolean(),
 });
 const FileRow = z.object({ id: z.number(), size: z.number(), mime: z.string() });
-const MentionRow = z.object({ commentId: z.number(), value: z.number(), closedAt: z.date().nullable() });
+const MentionRow = z.object({ commentId: z.number(), value: z.number(), closedAt: z.date().nullable(), replied: z.boolean() });
 const TaskMentionRow = z.object({ commentId: z.number(), value: z.number() });
 const Id = z.object({ id: z.number() });
 
@@ -167,8 +167,11 @@ async function load(viewerId: number, taskId: number, ids: number[]): Promise<Ma
     FileRow.array().parse(await sql`SELECT id, size, mime FROM attachment WHERE id = ANY(${fileIds})`).map((f) => [f.id, f]),
   );
   const mentions = MentionRow.array().parse(await sql`
-    SELECT comment_id, value, closed_at FROM mention
-     WHERE task_id = ${taskId} AND comment_id = ANY(${ids}) ORDER BY value
+    SELECT m.comment_id, m.value, m.closed_at,
+           EXISTS (SELECT 1 FROM comment r
+                    WHERE r.task_id = m.task_id AND r.id > m.comment_id AND r.created_by = m.value) AS replied
+      FROM mention m
+     WHERE m.task_id = ${taskId} AND m.comment_id = ANY(${ids}) ORDER BY m.value
   `);
   const taskMentions = TaskMentionRow.array().parse(await sql`
     SELECT comment_id, value FROM task_mention WHERE task_id = ${taskId} AND comment_id = ANY(${ids})
@@ -188,7 +191,7 @@ async function load(viewerId: number, taskId: number, ids: number[]): Promise<Ma
       const f = files.get(id);
       return f ? [{ id, name: r.attachmentNames[i] ?? '', size: f.size, mime: f.mime }] : [];
     }),
-    mentions: mentions.filter((m) => m.commentId === r.id).map((m) => ({ employeeId: m.value, closedAt: m.closedAt })),
+    mentions: mentions.filter((m) => m.commentId === r.id).map((m) => ({ employeeId: m.value, closedAt: m.closedAt, replied: m.replied })),
     tasks: taskMentions.filter((m) => m.commentId === r.id).flatMap((m) => tasks.get(m.value) ?? []),
     isNew: r.isNew,
   } satisfies Comment]));
@@ -239,7 +242,7 @@ export async function create(authorId: number, input: CreateCommentInput): Promi
   });
 }
 
-/** "Done": the mentioned employee closes their own mention. */
+/** "Done": the mentioned employee closes their own mention, once they replied (trigger). */
 export async function closeMention(employeeId: number, taskId: number, commentId: number): Promise<void> {
   const rows = await sql`
     UPDATE mention SET closed_at = NOW()

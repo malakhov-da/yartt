@@ -34,6 +34,7 @@ export default router({
   /**
    * "Done": the signed-in employee closes their mention in a comment.
    * @throws not_found — no open mention of them there.
+   * @throws mention_needs_reply — they have not commented in the task since.
    */
   closeMention: authedProcedure
     .input(z.object({ taskId: Id, commentId: Id }))

@@ -65,14 +65,18 @@ function Item(p: { item: TodoItem }) {
     actions = (
       <>
         <Button size="small" onClick={() => setReplying((v) => !v)}>{t('task.feed.reply')}</Button>
-        <Button
-          size="small"
-          variant="contained"
-          disabled={closeMention.isPending}
-          onClick={() => closeMention.mutate({ taskId: item.task.id, commentId: item.commentId })}
-        >
-          {t('task.feed.done')}
-        </Button>
+        <Tooltip title={item.replied ? '' : t('task.feed.replyFirst')}>
+          <span>
+            <Button
+              size="small"
+              variant="contained"
+              disabled={!item.replied || closeMention.isPending}
+              onClick={() => closeMention.mutate({ taskId: item.task.id, commentId: item.commentId })}
+            >
+              {t('task.feed.done')}
+            </Button>
+          </span>
+        </Tooltip>
       </>
     );
   } else if (item.kind === 'review') {

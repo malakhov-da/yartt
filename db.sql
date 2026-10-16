@@ -464,6 +464,10 @@ INVARIANTS (forbidden; all checked in the database)
     - Deleting a task.
     - The owner of a private task who is not an observer.
 
+  Mentions:
+    - Closing a mention the mentioned employee has not replied to (no
+      comment of theirs in the task after it).
+
   Tags:
     - Deleting a tag that is in use.
     - A name with capital letters or surrounding spaces.
@@ -1498,7 +1502,9 @@ COMMENT ON TABLE mention IS
 Attached explicitly, the text is not parsed.
 closed_at IS NULL — the mention is open.
 Closed only explicitly, by the mentioned employee ("Done"): a reply alone
-does not mean the request is handled. An open mention is the only way a
+does not mean the request is handled — but there is no "Done" without a
+reply: the mentioned employee must have commented in the task after the
+mention, so whoever asked sees the answer (trigger). An open mention is the only way a
 task the employee merely observes gets into their TODO in My day.
 Self-mention and mentioning a dismissed employee are forbidden. In a
 private task the mentioned employee becomes an observer if they are not
@@ -2481,6 +2487,28 @@ a public task stays without observers.';
 CREATE TRIGGER mention_check
 BEFORE INSERT ON mention
 FOR EACH ROW EXECUTE FUNCTION trg_mention_check();
+
+
+CREATE OR REPLACE FUNCTION trg_mention_close_check()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM comment
+                    WHERE task_id = NEW.task_id AND id > NEW.comment_id AND created_by = NEW.value) THEN
+        RAISE EXCEPTION 'mention in comment % of task % is closed without a reply', NEW.comment_id, NEW.task_id
+            USING HINT = 'mention_needs_reply';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION trg_mention_close_check() IS
+'A mention is closed only after the mentioned employee commented in the
+task after it: "Done" without a word would leave the author guessing.';
+
+CREATE TRIGGER mention_close_check
+BEFORE UPDATE OF closed_at ON mention
+FOR EACH ROW WHEN (OLD.closed_at IS NULL AND NEW.closed_at IS NOT NULL)
+EXECUTE FUNCTION trg_mention_close_check();
 
 
 -- ----------------------------------------------------------------------------

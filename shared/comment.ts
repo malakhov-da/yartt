@@ -16,6 +16,8 @@ export const Mention = z.object({
   employeeId: Id,
   /** NULL — open. */
   closedAt: z.date().nullable(),
+  /** The mentioned employee commented after it: "Done" is allowed. */
+  replied: z.boolean(),
 });
 export type Mention = z.infer<typeof Mention>;
 

@@ -1,5 +1,5 @@
 import { AttachFile } from '@mui/icons-material';
-import { alpha, Box, Button, Chip, Stack, Typography } from '@mui/material';
+import { alpha, Box, Button, Chip, Stack, Tooltip, Typography } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { Comment } from '#shared/comment.ts';
@@ -52,9 +52,18 @@ export default function (p: { taskId: number; comment: Comment; onReply: () => v
                   label={`@${name(m.employeeId)} · ${m.closedAt ? t('task.feed.closed') : t('task.feed.open')}`}
                 />
                 {m.employeeId === me.id && !m.closedAt && (
-                  <Button size="small" variant="contained" disabled={close.isPending} onClick={() => close.mutate({ taskId: p.taskId, commentId: c.id })}>
-                    {t('task.feed.done')}
-                  </Button>
+                  <Tooltip title={m.replied ? '' : t('task.feed.replyFirst')}>
+                    <span>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        disabled={!m.replied || close.isPending}
+                        onClick={() => close.mutate({ taskId: p.taskId, commentId: c.id })}
+                      >
+                        {t('task.feed.done')}
+                      </Button>
+                    </span>
+                  </Tooltip>
                 )}
               </Stack>
             ))}

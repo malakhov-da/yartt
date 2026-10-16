@@ -129,7 +129,13 @@ describe('mentions', () => {
       .toEqual(['deadline', 'comment', 'comment']);
 
     await expect(api.Comment.closeMention({ taskId: id, commentId: asked })).rejects.toMatchObject({ message: 'not_found' });
-    await (await client(dev.id)).Comment.closeMention({ taskId: id, commentId: asked });
+    // No "Done" without a word: the mentioned one replies first.
+    const devApi = await client(dev.id);
+    await expect(devApi.Comment.closeMention({ taskId: id, commentId: asked })).rejects.toMatchObject({ message: 'mention_needs_reply' });
+    await devApi.Comment.create({ ...comment(id, '<p>Checked</p>'), replyToId: asked });
+    const mention = (await devApi.Comment.list({ taskId: id, filter: 'mentions', page: 1 })).items[0];
+    expect(mention?.kind === 'comment' && mention.mentions[0]).toMatchObject({ employeeId: dev.id, replied: true });
+    await devApi.Comment.closeMention({ taskId: id, commentId: asked });
     expect((await api.Comment.list({ taskId: id, filter: 'mentions', page: 1 })).items).toEqual([]);
   });
 });

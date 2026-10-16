@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { signIn } from './helpers.ts';
+import { editable, signIn } from './helpers.ts';
 
 // My day of the first employee over the demo data (scripts/seed.ts).
 test.describe('My day', () => {
@@ -20,6 +20,13 @@ test.describe('My day', () => {
     const mention = todo.locator('div').filter({ hasText: /^Марина Соколова упомянула вас/ }).first();
     await expect(mention).toBeVisible();
     const item = todo.locator('.MuiStack-root').filter({ hasText: 'Нужна ваша подпись' }).filter({ has: page.getByRole('button', { name: 'Готово' }) }).last();
+    // No "Done" without a reply: answer right here, then close.
+    await expect(item.getByRole('button', { name: 'Готово' })).toBeDisabled();
+    await item.getByRole('button', { name: 'Ответить' }).click();
+    await editable(page).click();
+    await page.keyboard.type('Подпишу сегодня');
+    await page.getByRole('button', { name: 'Отправить' }).click();
+    await expect(item.getByRole('button', { name: 'Готово' })).toBeEnabled({ timeout: 15_000 });
     await item.getByRole('button', { name: 'Готово' }).click();
     await expect(todo.getByText('Нужна ваша подпись')).toHaveCount(0);
   });

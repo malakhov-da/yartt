@@ -15,6 +15,7 @@ const MentionRow = z.object({
   createdBy: z.number(),
   createdAt: z.date(),
   value: z.string(),
+  replied: z.boolean(),
 });
 const ReviewRow = z.object({
   taskId: z.number(),
@@ -39,7 +40,9 @@ export async function todo(me: number): Promise<TodoItem[]> {
   `);
   // A mention in a task I no longer see cannot be answered: it is not shown.
   const mentions = MentionRow.array().parse(await sql`
-    SELECT m.task_id, m.comment_id, c.created_by, c.created_at, c.value
+    SELECT m.task_id, m.comment_id, c.created_by, c.created_at, c.value,
+           EXISTS (SELECT 1 FROM comment r
+                    WHERE r.task_id = m.task_id AND r.id > m.comment_id AND r.created_by = m.value) AS replied
       FROM mention m
       JOIN comment c ON c.task_id = m.task_id AND c.id = m.comment_id
      WHERE m.value = ${me} AND m.closed_at IS NULL AND can_see(m.task_id, ${me})
@@ -64,7 +67,7 @@ export async function todo(me: number): Promise<TodoItem[]> {
       return task
         ? [{
             kind: 'mention' as const, task, commentId: m.commentId, authorId: m.createdBy, at: m.createdAt,
-            excerpt: plainText(m.value).slice(0, EXCERPT),
+            excerpt: plainText(m.value).slice(0, EXCERPT), replied: m.replied,
           }]
         : [];
     }),

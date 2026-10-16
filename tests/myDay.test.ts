@@ -19,10 +19,10 @@ describe('todo', () => {
 
     const api = await client(helper.id);
     expect(await api.MyDay.todo()).toMatchObject([
-      { kind: 'mention', task: { id }, commentId, authorId: owner.id, excerpt: 'Please look' },
+      { kind: 'mention', task: { id }, commentId, authorId: owner.id, excerpt: 'Please look', replied: false },
     ]);
     await api.Comment.create({ ...comment(id, '<p>On it</p>'), replyToId: commentId });
-    expect(await api.MyDay.todo()).toHaveLength(1);
+    expect(await api.MyDay.todo()).toMatchObject([{ kind: 'mention', replied: true }]);
     await api.Comment.closeMention({ taskId: id, commentId });
     expect(await api.MyDay.todo()).toEqual([]);
   });

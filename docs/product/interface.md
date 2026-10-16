@@ -32,7 +32,9 @@ someone with reports:
 
 - **TODO** — what waits for my reaction, newest first:
   - mentions of me that are still open. A mention closes only explicitly
-    ("Done"): a reply alone does not mean the request is handled. This is
+    ("Done"): a reply alone does not mean the request is handled — but
+    "Done" needs a reply: until I comment in the task after the mention
+    the button waits, so whoever asked always gets an answer. This is
     the only way a task I merely observe gets here — its other comments
     stay quiet;
   - my own tasks with comments by others since I last confirmed that no

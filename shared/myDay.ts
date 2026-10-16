@@ -13,6 +13,8 @@ export const TodoMention = z.object({
   at: z.date(),
   /** The beginning of the comment as plain text. */
   excerpt: z.string(),
+  /** I commented in the task after it: "Done" is allowed. */
+  replied: z.boolean(),
 });
 export type TodoMention = z.infer<typeof TodoMention>;
 
