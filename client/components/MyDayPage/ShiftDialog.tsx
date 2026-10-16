@@ -8,11 +8,12 @@ import { useTRPC } from '#client/hooks/trpc.ts';
 
 /**
  * 'start' — open a shift; 'close' — close the open one (its start may be
- * corrected); 'add' — a closed shift for a past day at once.
+ * corrected); 'add' — a closed shift at once, to any day not scored;
+ * 'edit' — correct a closed shift (`from` finds it).
  */
-export type ShiftDialogMode = 'start' | 'close' | 'add';
+export type ShiftDialogMode = 'start' | 'close' | 'add' | 'edit';
 
-export default function (p: { mode: ShiftDialogMode; from: Date; to: Date; onClose: () => void }) {
+export default function (p: { mode: ShiftDialogMode; from: Date; to: Date; about?: string | null; onClose: () => void }) {
   const { t } = useTranslation();
   const trpc = useTRPC();
   const format = useFormat();
@@ -21,21 +22,24 @@ export default function (p: { mode: ShiftDialogMode; from: Date; to: Date; onClo
   const start = useMutation(trpc.Work.start.mutationOptions(done));
   const close = useMutation(trpc.Work.close.mutationOptions(done));
   const add = useMutation(trpc.Work.add.mutationOptions(done));
+  const update = useMutation(trpc.Work.update.mutationOptions(done));
 
   const [from, setFrom] = useState(toLocalInput(p.from));
   const [to, setTo] = useState(toLocalInput(p.to));
-  const [about, setAbout] = useState('');
+  const [about, setAbout] = useState(p.about ?? '');
   const startedAt = fromLocalInput(from);
   const endedAt = fromLocalInput(to);
   const now = toLocalInput(new Date());
   const minutes = startedAt && endedAt ? Math.floor((endedAt.getTime() - startedAt.getTime()) / 60_000) : 0;
   const valid = startedAt !== null && (p.mode === 'start' || minutes > 0);
-  const pending = start.isPending || close.isPending || add.isPending;
+  const pending = start.isPending || close.isPending || add.isPending || update.isPending;
 
   const save = () => {
     if (!startedAt) return;
     if (p.mode === 'start') start.mutate({ startedAt });
-    else if (endedAt) (p.mode === 'close' ? close : add).mutate({ startedAt, endedAt, about: about.trim() || null });
+    else if (!endedAt) return;
+    else if (p.mode === 'edit') update.mutate({ startedAt: p.from, newStartedAt: startedAt, endedAt, about: about.trim() || null });
+    else (p.mode === 'close' ? close : add).mutate({ startedAt, endedAt, about: about.trim() || null });
   };
 
   return (
@@ -68,13 +72,13 @@ export default function (p: { mode: ShiftDialogMode; from: Date; to: Date; onClo
               value={about}
               onChange={(e) => setAbout(e.target.value)}
             />
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.shift.final')}</Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.shift.untilScored')}</Typography>
           </>
         )}
       </DialogContent>
       <DialogActions>
         <Button onClick={p.onClose}>{t('common.cancel')}</Button>
-        <Button variant="contained" disabled={!valid || pending} onClick={save}>{t(`myDay.shift.${p.mode}`)}</Button>
+        <Button variant="contained" disabled={!valid || pending} onClick={save}>{t(`myDay.shift.${p.mode === 'edit' ? 'add' : p.mode}`)}</Button>
       </DialogActions>
     </Dialog>
   );

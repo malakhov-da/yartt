@@ -1,10 +1,10 @@
 import { z } from 'zod';
-import { OpenShift, type AddShiftInput, type CloseShiftInput } from '#shared/myDay.ts';
+import { OpenShift, type AddShiftInput, type CloseShiftInput, type UpdateShiftInput } from '#shared/myDay.ts';
 import { AppError } from '../errors.ts';
 import { sql, type Sql } from '../pg.ts';
 
-// The timesheet only moves forward: the triggers forbid changing a closed
-// shift, a shift in the future and anything on a scored day. Moments are
+// The timesheet is the employee's until the day is scored: the triggers
+// forbid a shift in the future and any change on a scored day. Moments are
 // cut to the minute and never later than now, so a clock a few seconds
 // ahead in the browser does not make a shift "future".
 const at = (db: Sql, value: Date) => db`LEAST(date_trunc('minute', ${value}::timestamptz), date_trunc('minute', NOW()))`;
@@ -46,7 +46,7 @@ export async function close(employeeId: number, input: CloseShiftInput): Promise
   });
 }
 
-/** Adds a closed shift at once: a suggestion for a past day confirmed. */
+/** Adds a closed shift at once, to any day not scored: a suggestion confirmed, a forgotten shift. */
 export async function add(employeeId: number, input: AddShiftInput): Promise<void> {
   await sql.begin(async (tx) => {
     const db = tx as unknown as Sql;
@@ -58,10 +58,24 @@ export async function add(employeeId: number, input: AddShiftInput): Promise<voi
   });
 }
 
-/** Deletes the open shift (a closed one cannot be deleted). */
-export async function remove(employeeId: number): Promise<void> {
+/** Corrects a closed shift of a day not scored: its start, end and what was done. */
+export async function update(employeeId: number, input: UpdateShiftInput): Promise<void> {
+  await sql.begin(async (tx) => {
+    const db = tx as unknown as Sql;
+    const minutes = await minutesBetween(input.newStartedAt, input.endedAt, db);
+    const rows = await db`
+      UPDATE work SET started_at = ${at(db, input.newStartedAt)}, spent_minutes = ${minutes}, about = ${input.about || null}
+       WHERE employee_id = ${employeeId} AND started_at = ${at(db, input.startedAt)} AND spent_minutes IS NOT NULL
+      RETURNING employee_id
+    `;
+    if (rows.length === 0) throw new AppError('not_found');
+  });
+}
+
+/** Deletes a shift, open or closed, of a day not scored. */
+export async function remove(employeeId: number, startedAt: Date): Promise<void> {
   const rows = await sql`
-    DELETE FROM work WHERE employee_id = ${employeeId} AND spent_minutes IS NULL RETURNING employee_id
+    DELETE FROM work WHERE employee_id = ${employeeId} AND started_at = ${at(sql, startedAt)} RETURNING employee_id
   `;
   if (rows.length === 0) throw new AppError('not_found');
 }

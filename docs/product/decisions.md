@@ -230,7 +230,8 @@ required) and may correct the score later. The interface shows only the
 current value. Every version — the value, the reason, the moment and, for
 a correction, the previous value — is emailed to the employee, so in a
 dispute they have the record in their mail. A score is never deleted; the
-day's timesheet and time entries freeze at the first score.
+day's timesheet and time entries are frozen while a score stands — it can
+be withdrawn (decision 37).
 
 ### 23. Metrics for any range, with a chart
 
@@ -394,3 +395,25 @@ nothing. My day keeps its own state anyway (the search included): it
 stays mounted under a task.
 
 *Implemented:* `client/hooks/drafts.ts` (`useDraft`).
+
+### 37. The timesheet is the employee's until the day is scored
+
+The timesheet only moved forward: a closed shift could be neither
+corrected nor deleted, a second shift was offered only for a past day
+without any, and a scored day was frozen for good. A wrong end typed at
+night stayed wrong, and the manager had no way to let it be fixed.
+
+Now every shift of a day without a standing score — open or closed — can
+be added, corrected and deleted, and any day may have several. The score
+is what freezes the day. The direct manager can withdraw a score
+(the value goes, the reason stays): the employee corrects the timesheet
+and time entries, and the day is scored again, with the old reason
+offered in the dialog; scoring a withdrawn day checks it like a first
+score. A withdrawal is mailed like every version, so the history in the
+employee's mail stays whole; a withdrawn score counts nowhere — not in
+scored days, not in the weighted score, and the day waits for a score
+again.
+
+*Implemented:* `score.value` NULL, `trg_work_check()`,
+`trg_spent_minutes_check()`, `trg_score_check()` in `db.sql`;
+`Work.update`, `Work.remove`, `Team.unscore`.

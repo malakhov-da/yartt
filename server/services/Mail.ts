@@ -76,12 +76,15 @@ function renderScore(message: Message, p: Extract<NotificationPayload, { kind: '
   const t = TRANSLATIONS[locale].mail.score;
   const day = new Date(`${p.day}T12:00:00Z`).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
   const at = new Date(p.at).toLocaleString(locale, { dateStyle: 'long', timeStyle: 'short', timeZone });
-  const params = { by, day, value: String(p.value), previous: String(p.previous?.value ?? '') };
+  const params = { by, day, value: String(p.value ?? ''), previous: String(p.previous?.value ?? '') };
+  // A score given again after a withdrawal reads as a first one.
+  const kind = p.value === null ? 'withdrawn' : p.previous?.value != null ? 'changed' : 'body';
 
-  const lines = [interpolate(p.previous ? t.changed : t.body, params)];
+  const lines = [interpolate(t[kind], params)];
   if (p.reason) lines.push(interpolate(t.reason, { reason: p.reason }));
   if (p.previous?.reason && p.previous.reason !== p.reason) lines.push(interpolate(t.previousReason, { reason: p.previous.reason }));
   lines.push(interpolate(t.at, { at }));
   if (p.for !== undefined) lines.push(interpolate(TRANSLATIONS[locale].mail.awayCopy, { name: forName }));
-  return { subject: interpolate(p.previous ? t.changedSubject : t.subject, params), text: lines.join('\n\n') };
+  const subject = kind === 'withdrawn' ? t.withdrawnSubject : kind === 'changed' ? t.changedSubject : t.subject;
+  return { subject: interpolate(subject, params), text: lines.join('\n\n') };
 }

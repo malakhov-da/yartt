@@ -1318,9 +1318,10 @@ Shift end = started_at + spent_minutes. Shift day = local_day(started_at).
 Shifts of one employee never overlap (EXCLUDE).
 A shift cannot be in the future.
 
-Only moves forward: the open shift can be changed, closed or deleted.
-A closed one can be neither changed nor deleted. For a scored day the
-timesheet is fully frozen.
+Any shift of a day without a standing score can be added, changed or
+deleted, closed ones included, and a day may have several shifts. A
+score freezes the day''s timesheet; the manager withdrawing the score
+(score.value NULL) lets the employee correct it.
 
 about — what was done during the shift. Free text, optional.
 
@@ -1672,7 +1673,7 @@ CREATE TABLE score (
     employee_id INT NOT NULL REFERENCES employee(id),
     day DATE NOT NULL,
     by INT NOT NULL REFERENCES employee(id),
-    value INT NOT NULL CHECK (value BETWEEN 0 AND 100),
+    value INT CHECK (value BETWEEN 0 AND 100),
     reason TEXT,
     added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ,
@@ -1686,10 +1687,14 @@ COMMENT ON TABLE score IS
 Set by the current manager (employee.manager_id) for any past day (in the
 employee''s time zone) that has closed shifts and no open one.
 A score cannot be deleted. The current manager may correct it (value,
-reason; by and updated_at follow); the application emails every version to
-the employee with its time and the previous value, so the history lives in
-their mail and the table keeps only the current value. After the first
-score the timesheet and time entries of that day are frozen (triggers).
+reason; by and updated_at follow) or withdraw it (value -> NULL, the
+reason stays, to be seen again when the day is scored anew); the
+application emails every version to the employee with its time and the
+previous value, so the history lives in their mail and the table keeps
+only the current value. While a score stands (value IS NOT NULL) the
+timesheet and time entries of that day are frozen (triggers); withdrawing
+it is how a manager lets the employee correct the day. A withdrawn score
+is not a score: it counts nowhere.
 
 The score is about the quality of the day''s decisions:
   - did the employee pick the right priorities;
@@ -1718,7 +1723,8 @@ COMMENT ON COLUMN score.by IS
 'Who scored — the manager at the time of scoring (manager_id has no history).';
 
 COMMENT ON COLUMN score.value IS
-'Score 0–100. Quality of the day''s decisions.';
+'Score 0–100. Quality of the day''s decisions. NULL — withdrawn: the day
+is not scored and its timesheet can be corrected.';
 
 COMMENT ON COLUMN score.reason IS
 'Justification. Optional. Needed first of all for bad scores.';
@@ -2512,16 +2518,19 @@ EXECUTE FUNCTION trg_mention_close_check();
 
 
 -- ----------------------------------------------------------------------------
--- work: forward only, not in the future, not for a scored day
+-- work: not in the future, frozen on a scored day
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION trg_work_check()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF TG_OP IN ('UPDATE', 'DELETE') THEN
-        IF OLD.spent_minutes IS NOT NULL THEN
-            RAISE EXCEPTION 'closed shift cannot be changed'
-            USING HINT = 'shift_closed';
-        END IF;
+    IF TG_OP IN ('UPDATE', 'DELETE') AND EXISTS (
+        SELECT 1 FROM score
+         WHERE employee_id = OLD.employee_id
+           AND day = local_day(OLD.employee_id, OLD.started_at)
+           AND value IS NOT NULL
+    ) THEN
+        RAISE EXCEPTION 'day is already scored'
+            USING HINT = 'day_scored';
     END IF;
 
     IF TG_OP = 'DELETE' THEN
@@ -2538,6 +2547,7 @@ BEGIN
         SELECT 1 FROM score
          WHERE employee_id = NEW.employee_id
            AND day = local_day(NEW.employee_id, NEW.started_at)
+           AND value IS NOT NULL
     ) THEN
         RAISE EXCEPTION 'day is already scored'
             USING HINT = 'day_scored';
@@ -2551,10 +2561,12 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION trg_work_check() IS
-'The timesheet only moves forward:
-  - a closed shift cannot be changed or deleted;
+'The timesheet of a day is the employee''s until the day is scored:
+  - any shift of a day without a standing score can be added, changed
+    or deleted, an open or a closed one;
   - a shift is not in the future (neither its start nor its end);
-  - nothing can be added for a scored day.
+  - nothing changes on a scored day — neither the shift''s old day nor
+    its new one; a withdrawn score (value NULL) frees the day.
 Updates updated_at on UPDATE.';
 
 CREATE TRIGGER work_check
@@ -2574,7 +2586,7 @@ BEGIN
     END IF;
 
     IF TG_OP = 'DELETE' THEN
-        IF EXISTS (SELECT 1 FROM score WHERE employee_id = OLD."by" AND day = OLD.day) THEN
+        IF EXISTS (SELECT 1 FROM score WHERE employee_id = OLD."by" AND day = OLD.day AND value IS NOT NULL) THEN
             RAISE EXCEPTION 'day is already scored'
             USING HINT = 'day_scored';
         END IF;
@@ -2592,7 +2604,7 @@ BEGIN
             USING HINT = 'spent_in_future';
     END IF;
 
-    IF EXISTS (SELECT 1 FROM score WHERE employee_id = NEW."by" AND day = NEW.day) THEN
+    IF EXISTS (SELECT 1 FROM score WHERE employee_id = NEW."by" AND day = NEW.day AND value IS NOT NULL) THEN
         RAISE EXCEPTION 'day is already scored'
             USING HINT = 'day_scored';
     END IF;
@@ -2631,10 +2643,13 @@ BEGIN
                       DETAIL = json_build_object('employeeId', NEW.employee_id)::text;
         END IF;
         NEW.updated_at := NOW();
-        RETURN NEW;
+        -- Withdrawing, or correcting a standing score: the day was checked when scored.
+        IF NEW.value IS NULL OR OLD.value IS NOT NULL THEN
+            RETURN NEW;
+        END IF;
     END IF;
 
-    IF NEW."by" IS DISTINCT FROM (SELECT manager_id FROM employee WHERE id = NEW.employee_id) THEN
+    IF TG_OP = 'INSERT' AND NEW."by" IS DISTINCT FROM (SELECT manager_id FROM employee WHERE id = NEW.employee_id) THEN
         RAISE EXCEPTION 'only current manager can score employee %', NEW.employee_id
             USING HINT = 'not_manager',
                   DETAIL = json_build_object('employeeId', NEW.employee_id)::text;
@@ -2670,8 +2685,10 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION trg_score_check() IS
 'Score: only by the current manager, only for a past day with a closed
-timesheet. A correction (UPDATE) only by the current manager, of the same
-employee and day; updated_at is set. DELETE is forbidden.';
+timesheet. A correction or a withdrawal (UPDATE, value NULL) only by the
+current manager, of the same employee and day; updated_at is set. Scoring
+a withdrawn day again checks the day like a first score: its timesheet
+may have changed meanwhile. DELETE is forbidden.';
 
 CREATE TRIGGER score_check
 BEFORE INSERT OR UPDATE OR DELETE ON score

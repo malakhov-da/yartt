@@ -79,4 +79,26 @@ test.describe('My day', () => {
     await expect(dialog).toHaveCount(0);
     await expect(entries).toHaveCount(before + 1);
   });
+
+  test('history: a shift is added to a past day, corrected and deleted while the day is not scored', async ({ page }) => {
+    const history = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Мои дни' }) });
+    await expect(history.getByRole('button', { name: 'Добавить смену' }).nth(1)).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    const edits = history.getByRole('button', { name: 'Поправить смену' });
+    const before = await edits.count();
+    await history.getByRole('button', { name: 'Добавить смену' }).nth(1).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('Что сделано').fill('Забытая смена');
+    await dialog.getByRole('button', { name: 'Сохранить' }).click();
+    await expect(history.getByText('Забытая смена')).toBeVisible();
+    await expect(edits).toHaveCount(before + 1);
+
+    const row = history.locator('.MuiStack-root').filter({ hasText: 'Забытая смена' }).filter({ has: page.getByRole('button', { name: 'Поправить смену' }) }).last();
+    await row.getByRole('button', { name: 'Поправить смену' }).click();
+    await dialog.getByLabel('Что сделано').fill('Забытая смена, поправлено');
+    await dialog.getByRole('button', { name: 'Сохранить' }).click();
+    await expect(history.getByText('Забытая смена, поправлено')).toBeVisible();
+    await row.getByRole('button', { name: 'Удалить смену' }).click();
+    await expect(history.getByText('Забытая смена, поправлено')).toHaveCount(0);
+  });
 });

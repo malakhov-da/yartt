@@ -51,6 +51,13 @@ test.describe('Team and the employee page', () => {
     await page.getByLabel('Почему').fill('Слишком поздно начали');
     await page.getByRole('button', { name: 'Поставить оценку' }).click();
     await expect(page.getByRole('button', { name: 'Оценка 50%' }).first()).toBeVisible();
+
+    // Withdrawn: the day is open again for the employee, the reason waits for the next score.
+    await page.getByRole('button', { name: 'Оценка 50%' }).first().click();
+    await page.getByRole('button', { name: 'Снять оценку' }).click();
+    await expect(page.getByText('Оценка снята: сотрудник может поправить табель').first()).toBeVisible();
+    await page.getByRole('button', { name: 'Оценить' }).first().click();
+    await expect(page.getByLabel('Почему')).toHaveValue('Слишком поздно начали');
   });
 
   test('a manager higher up sees the days but does not score', async ({ page }) => {

@@ -26,12 +26,13 @@ export const NotificationPayload = z.discriminatedUnion('kind', [
     kind: z.literal('score'),
     by: Id,
     day: Day,
-    value: z.number().int(),
+    /** NULL — the score was withdrawn: the day's timesheet can be corrected. */
+    value: z.number().int().nullable(),
     reason: z.string().nullable(),
     /** When this version was given, ISO. */
     at: z.string(),
-    /** The value it replaced; NULL — the first score of the day. */
-    previous: z.object({ value: z.number().int(), reason: z.string().nullable() }).nullable(),
+    /** The value it replaced; NULL — the first score of the day (a withdrawn one has value NULL). */
+    previous: z.object({ value: z.number().int().nullable(), reason: z.string().nullable() }).nullable(),
     ...Copy,
   }),
   z.object({ kind: z.literal('new_report'), employeeId: Id, ...Copy }),

@@ -1,4 +1,4 @@
-import { DeleteOutline, Edit, MoreTime, PlayArrow } from '@mui/icons-material';
+import { AlarmAdd, DeleteOutline, Edit, MoreTime, PlayArrow } from '@mui/icons-material';
 import { Alert, Box, Button, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -14,7 +14,29 @@ import TaskLine from '../TaskPage/TaskLine.tsx';
 import LogTimeDialog from './LogTimeDialog.tsx';
 import ShiftDialog, { type ShiftDialogMode } from './ShiftDialog.tsx';
 
-type Dialog = { mode: ShiftDialogMode; from: Date; to: Date };
+type Dialog = { mode: ShiftDialogMode; from: Date; to: Date; about?: string | null };
+
+/**
+ * Where a new shift of a day is put in the dialog: the first free hour of
+ * that day from 09:00 (then the small hours), every half hour, inside the
+ * day and not past now — never into the next day or into another shift.
+ */
+function defaultShift(day: string, shifts: { startedAt: Date; spentMinutes: number | null }[]): { from: Date; to: Date } {
+  const HOUR = 3_600_000;
+  const busy = shifts.map((s) => [s.startedAt.getTime(), s.startedAt.getTime() + (s.spentMinutes ?? 24 * 60) * 60_000] as const);
+  const dayEnd = Math.min(new Date(`${day}T00:00`).getTime() + 24 * HOUR, Date.now());
+  const midnight = new Date(`${day}T00:00`).getTime();
+  // From 09:00 to the day's end, then the small hours.
+  const starts = Array.from({ length: 48 }, (_, i) => midnight + ((i + 18) % 48) * (HOUR / 2));
+  for (const from of starts) {
+    if (from + HOUR <= dayEnd && busy.every(([a, b]) => from + HOUR <= a || from >= b)) {
+      return { from: new Date(from), to: new Date(from + HOUR) };
+    }
+  }
+  // No free hour: the person corrects the times themselves.
+  const start = new Date(`${day}T00:00`);
+  return { from: start, to: new Date(start.getTime() + HOUR) };
+}
 
 /** A pause after which a visit counts as coming back to work. */
 const ARRIVAL_GAP_MS = 10 * 60_000;
@@ -50,7 +72,8 @@ export default function (p: {
 
   const { day } = p;
   const mine = p.employeeId === undefined;
-  const scored = day.score !== null;
+  // A withdrawn score (value NULL) keeps its reason but frees the day.
+  const scored = day.score !== null && day.score.value !== null;
   // The database requires a past day with closed shifts and no open one.
   const scorable = p.canScore && !scored && !p.isToday
     && day.shifts.some((s) => s.spentMinutes !== null) && !day.shifts.some((s) => s.spentMinutes === null);
@@ -84,7 +107,7 @@ export default function (p: {
         {scorable && p.employeeId !== undefined && (
           <Button size="small" variant="outlined" onClick={() => setScoring(true)}>{t('employee.score.action')}</Button>
         )}
-        {day.score && (
+        {day.score && scored && (
           <Tooltip title={[day.score.reason, p.canScore && t('employee.score.edit')].filter(Boolean).join(' · ')} describeChild>
             <Chip
               size="small"
@@ -95,7 +118,24 @@ export default function (p: {
             />
           </Tooltip>
         )}
+        {mine && !scored && (
+          <Tooltip title={t('myDay.shift.addHint')} describeChild>
+            <IconButton
+              size="small"
+              aria-label={t('myDay.shift.addTitle')}
+              onClick={() => setDialog({ mode: 'add', ...(suggestion ?? defaultShift(day.day, day.shifts)) })}
+            >
+              <AlarmAdd fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
       </Stack>
+
+      {day.score && !scored && (
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+          {t(mine ? 'myDay.history.withdrawnMine' : 'myDay.history.withdrawn')}
+        </Typography>
+      )}
 
       {day.shifts.map((shift) => shift.spentMinutes === null && mine ? (
         <Stack key={shift.startedAt.getTime()} direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
@@ -114,26 +154,47 @@ export default function (p: {
             {t('myDay.shift.close')}
           </Button>
           <Tooltip title={t('myDay.shift.remove')}>
-            <IconButton size="small" disabled={removeShift.isPending} onClick={() => removeShift.mutate()}>
+            <IconButton size="small" disabled={removeShift.isPending} onClick={() => removeShift.mutate({ startedAt: shift.startedAt })}>
               <DeleteOutline fontSize="small" />
             </IconButton>
           </Tooltip>
         </Stack>
       ) : (
-        <Box key={shift.startedAt.getTime()}>
-          <Typography variant="body2">
-            {shift.spentMinutes === null
-              ? t('myDay.shift.openOther', { from: format.time(shift.startedAt) })
-              : t('myDay.shift.closed', {
-                  from: format.time(shift.startedAt),
-                  to: format.time(new Date(shift.startedAt.getTime() + shift.spentMinutes * 60_000)),
-                  time: format.minutes(shift.spentMinutes),
-                })}
-          </Typography>
-          {shift.about && (
-            <Typography variant="body2" sx={{ color: 'text.secondary', whiteSpace: 'pre-wrap' }}>{shift.about}</Typography>
+        <Stack key={shift.startedAt.getTime()} direction="row" spacing={0.5} sx={{ alignItems: 'flex-start' }}>
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+            <Typography variant="body2">
+              {shift.spentMinutes === null
+                ? t('myDay.shift.openOther', { from: format.time(shift.startedAt) })
+                : t('myDay.shift.closed', {
+                    from: format.time(shift.startedAt),
+                    to: format.time(new Date(shift.startedAt.getTime() + shift.spentMinutes * 60_000)),
+                    time: format.minutes(shift.spentMinutes),
+                  })}
+            </Typography>
+            {shift.about && (
+              <Typography variant="body2" sx={{ color: 'text.secondary', whiteSpace: 'pre-wrap' }}>{shift.about}</Typography>
+            )}
+          </Box>
+          {mine && !scored && shift.spentMinutes !== null && (
+            <>
+              <Tooltip title={t('myDay.shift.edit')}>
+                <IconButton size="small" onClick={() => setDialog({
+                  mode: 'edit',
+                  from: shift.startedAt,
+                  to: new Date(shift.startedAt.getTime() + shift.spentMinutes! * 60_000),
+                  about: shift.about,
+                })}>
+                  <Edit fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={t('myDay.shift.delete')}>
+                <IconButton size="small" disabled={removeShift.isPending} onClick={() => removeShift.mutate({ startedAt: shift.startedAt })}>
+                  <DeleteOutline fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </>
           )}
-        </Box>
+        </Stack>
       ))}
 
       {canStart && (

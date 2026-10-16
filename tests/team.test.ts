@@ -171,4 +171,43 @@ describe('team', () => {
     const [day] = (await (await client(dev.id)).MyDay.history({ page: 1 })).days.filter((d) => d.day === short);
     expect(day?.score).toEqual({ value: 40, reason: 'Wrong priorities' });
   });
+
+  test('a day is the employee\'s until scored: several shifts, corrected and deleted; a withdrawn score frees it', async () => {
+    const lead = await createEmployee();
+    const dev = await createEmployee({ managerId: lead.id });
+    const devApi = await client(dev.id);
+    const leadApi = await client(lead.id);
+    const day = await shift(dev.id, 3, 4);
+    const history = async () => (await devApi.MyDay.history({ page: 1 })).days.find((d) => d.day === day)!;
+    const [morning] = (await history()).shifts;
+
+    // A second shift the same day, then corrections: the day is not scored yet.
+    const afternoon = new Date(morning!.startedAt.getTime() + 5 * 3_600_000);
+    await devApi.Work.add({ startedAt: afternoon, endedAt: new Date(afternoon.getTime() + 3_600_000), about: 'Calls' });
+    await devApi.Work.update({ startedAt: afternoon, newStartedAt: afternoon, endedAt: new Date(afternoon.getTime() + 2 * 3_600_000), about: 'Calls, notes' });
+    expect((await history()).shifts.map((s) => [s.spentMinutes, s.about])).toEqual([[240, null], [120, 'Calls, notes']]);
+    await devApi.Work.remove({ startedAt: afternoon });
+    expect((await history()).shifts).toHaveLength(1);
+
+    // A score freezes the day.
+    await leadApi.Team.score({ employeeId: dev.id, day, value: 50, reason: 'The report was late' });
+    await expect(devApi.Work.update({ startedAt: morning!.startedAt, newStartedAt: morning!.startedAt, endedAt: new Date(morning!.startedAt.getTime() + 3_600_000), about: null }))
+      .rejects.toMatchObject({ message: 'day_scored' });
+    await expect(devApi.Work.remove({ startedAt: morning!.startedAt })).rejects.toMatchObject({ message: 'day_scored' });
+
+    // Withdrawn: the reason stays, the day counts nowhere and is open again.
+    await expect((await client((await createEmployee()).id)).Team.unscore({ employeeId: dev.id, day }))
+      .rejects.toMatchObject({ message: 'not_manager' });
+    await leadApi.Team.unscore({ employeeId: dev.id, day });
+    expect((await history()).score).toEqual({ value: null, reason: 'The report was late' });
+    expect((await leadApi.Team.stats(await lastDays(dev.id, 7))).stats).toMatchObject({ scoredDays: 0, weightedScore: null });
+    const { from, to } = await lastDays(lead.id, 7);
+    expect((await leadApi.Team.summary({ from, to }))[0]).toMatchObject({ unscoredDays: 1 });
+    await devApi.Work.update({ startedAt: morning!.startedAt, newStartedAt: morning!.startedAt, endedAt: new Date(morning!.startedAt.getTime() + 5 * 3_600_000), about: 'Report done' });
+
+    // Scored again; the mail tells a withdrawal and a new score apart.
+    await leadApi.Team.score({ employeeId: dev.id, day, value: 80, reason: 'The report was late, but done well' });
+    const mails = (await kinds(dev.id)).filter((m) => m.kind === 'score');
+    expect(mails.map((m) => (m as unknown as { value: number | null }).value)).toEqual([50, null, 80]);
+  });
 });

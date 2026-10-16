@@ -93,7 +93,8 @@ export const DayHistory = z.object({
   /** The first and last thing I did that day: visits, comments, time logged. */
   firstActivity: z.date().nullable(),
   lastActivity: z.date().nullable(),
-  score: z.object({ value: z.number().int(), reason: z.string().nullable() }).nullable(),
+  /** NULL — never scored; `value` NULL — the score was withdrawn (its reason stays): the day is open again. */
+  score: z.object({ value: z.number().int().nullable(), reason: z.string().nullable() }).nullable(),
 });
 export type DayHistory = z.infer<typeof DayHistory>;
 
@@ -133,3 +134,11 @@ export type CloseShiftInput = z.infer<typeof CloseShiftInput>;
 /** A closed shift added at once, e.g. a suggestion for a past day confirmed. */
 export const AddShiftInput = CloseShiftInput;
 export type AddShiftInput = z.infer<typeof AddShiftInput>;
+
+/** A closed shift corrected: found by its start, given a new start, end and what was done. */
+export const UpdateShiftInput = z.object({ startedAt: z.date(), newStartedAt: z.date(), endedAt: z.date(), about: About });
+export type UpdateShiftInput = z.infer<typeof UpdateShiftInput>;
+
+/** A shift, open or closed, by its start. */
+export const ShiftKey = z.object({ startedAt: z.date() });
+export type ShiftKey = z.infer<typeof ShiftKey>;

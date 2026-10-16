@@ -113,7 +113,7 @@ describe('history', () => {
     await api.Work.close({ startedAt, endedAt: new Date(), about: 'Done' });
     const [closed] = (await api.MyDay.history({ page: 1 })).days;
     expect(closed!.shifts).toMatchObject([{ spentMinutes: 60, about: 'Done' }]);
-    await expect(api.Work.remove()).rejects.toMatchObject({ message: 'not_found' });
+    await expect(api.Work.remove({ startedAt: new Date(0) })).rejects.toMatchObject({ message: 'not_found' });
 
     await api.Time.remove({ id: today!.entries[0]!.id });
     expect((await api.MyDay.history({ page: 1 })).days[0]!.entries).toEqual([]);

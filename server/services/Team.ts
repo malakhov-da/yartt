@@ -63,10 +63,10 @@ export async function stats(ids: number[], range: Range, db: Sql = sql): Promise
            (SELECT COALESCE(sum(value), 0)::int FROM spent_minutes s
              WHERE s."by" = e.id AND s.day BETWEEN e.since AND e.until) AS spent_minutes,
            (SELECT count(*)::int FROM score s
-             WHERE s.employee_id = e.id AND s.day BETWEEN e.since AND e.until) AS scored_days,
+             WHERE s.employee_id = e.id AND s.day BETWEEN e.since AND e.until AND s.value IS NOT NULL) AS scored_days,
            (SELECT (sum(s.value * w.minutes) / NULLIF(sum(w.minutes), 0))::float8
               FROM score s JOIN w ON w.employee_id = s.employee_id AND w.day = s.day
-             WHERE s.employee_id = e.id AND s.day BETWEEN e.since AND e.until) AS weighted_score
+             WHERE s.employee_id = e.id AND s.day BETWEEN e.since AND e.until AND s.value IS NOT NULL) AS weighted_score
       FROM e
   `);
   return new Map(rows.map(({ employeeId, ...rest }) => [employeeId, rest]));
@@ -107,7 +107,8 @@ export async function summary(viewerId: number, from: string, to: string): Promi
            (SELECT count(*)::int FROM days d
              WHERE d.employee_id = e.id AND d.closed AND d.day < e.today
                AND d.day BETWEEN ${from}::date AND ${to}::date
-               AND NOT EXISTS (SELECT 1 FROM score s WHERE s.employee_id = e.id AND s.day = d.day)) AS unscored_days,
+               AND NOT EXISTS (SELECT 1 FROM score s
+                                WHERE s.employee_id = e.id AND s.day = d.day AND s.value IS NOT NULL)) AS unscored_days,
            (SELECT count(*)::int FROM closed c WHERE c.owner_id = e.id AND NOT c.automatic) AS finished,
            (SELECT count(*)::int FROM closed c WHERE c.owner_id = e.id AND c.automatic) AS expired,
            (SELECT count(*)::int FROM task k
@@ -156,7 +157,7 @@ export async function history(viewerId: number, employeeId: number, page: number
   return MyDay.history(employeeId, page);
 }
 
-const ScoreRow = z.object({ value: z.number(), reason: z.string().nullable() });
+const ScoreRow = z.object({ value: z.number().nullable(), reason: z.string().nullable() });
 const Now = z.object({ at: z.date() });
 
 /**
@@ -184,10 +185,33 @@ export async function score(viewerId: number, input: ScoreInput): Promise<void> 
         VALUES (${input.employeeId}, ${input.day}, ${viewerId}, ${input.value}, ${reason})
       `;
     }
-    const [now] = Now.array().parse(await db`SELECT NOW() AS at`);
-    await db`SELECT notify(${input.employeeId}, NULL, ${db.json({
-      kind: 'score', by: viewerId, day: input.day, value: input.value, reason,
-      at: now!.at.toISOString(), previous: previous ?? null,
-    })})`;
+    await notifyScore(db, viewerId, input.employeeId, input.day, input.value, reason, previous ?? null);
+  });
+}
+
+async function notifyScore(
+  db: Sql, by: number, employeeId: number, day: string, value: number | null, reason: string | null,
+  previous: { value: number | null; reason: string | null } | null,
+): Promise<void> {
+  const [now] = Now.array().parse(await db`SELECT NOW() AS at`);
+  await db`SELECT notify(${employeeId}, NULL, ${db.json({
+    kind: 'score', by, day, value, reason, at: now!.at.toISOString(), previous,
+  })})`;
+}
+
+/**
+ * The direct manager withdraws a score so the employee can correct the
+ * day's timesheet; the reason stays and shows up when the day is scored
+ * again. Mailed like every version. A day without a standing score is a no-op.
+ */
+export async function unscore(viewerId: number, employeeId: number, day: string): Promise<void> {
+  await sql.begin(async (tx) => {
+    const db = tx as unknown as Sql;
+    const [previous] = ScoreRow.array().parse(await db`
+      SELECT value, reason FROM score WHERE employee_id = ${employeeId} AND day = ${day} FOR UPDATE
+    `);
+    if (!previous || previous.value === null) return;
+    await db`UPDATE score SET value = NULL, "by" = ${viewerId} WHERE employee_id = ${employeeId} AND day = ${day}`;
+    await notifyScore(db, viewerId, employeeId, day, null, previous.reason, previous);
   });
 }

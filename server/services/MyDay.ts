@@ -129,7 +129,7 @@ const ShiftRow = z.object({
 const EntryRow = z.object({ day: z.string(), id: z.number(), taskId: z.number(), minutes: z.number() });
 const VisitRow = z.object({ day: z.string(), taskId: z.number().nullable(), at: z.date() });
 const ActivityRow = z.object({ day: z.string(), first: z.date(), last: z.date() });
-const ScoreRow = z.object({ day: z.string(), value: z.number(), reason: z.string().nullable() });
+const ScoreRow = z.object({ day: z.string(), value: z.number().nullable(), reason: z.string().nullable() });
 
 /**
  * My days, newest first, DAYS_PER_PAGE days with any activity per page:

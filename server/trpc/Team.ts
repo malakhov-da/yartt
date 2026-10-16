@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { History } from '#shared/myDay.ts';
-import { EmployeeHistoryInput, Member, PeriodStats, ScoreInput, StatsInput, SummaryInput } from '#shared/team.ts';
+import { EmployeeHistoryInput, Member, PeriodStats, ScoreInput, StatsInput, SummaryInput, UnscoreInput } from '#shared/team.ts';
 import * as Team from '../services/Team.ts';
 import { authedProcedure, router } from '../trpc.ts';
 
@@ -40,8 +40,9 @@ export default router({
   /**
    * The direct manager scores a past day of a report, 0–100, with an
    * optional reason, or corrects the score. Every version is mailed to the
-   * report with its time and the previous value. The first score freezes
-   * the day's timesheet and time entries.
+   * report with its time and the previous value. A standing score freezes
+   * the day's timesheet and time entries; scoring a withdrawn day again
+   * checks the day anew.
    * @throws not_manager
    * @throws score_day_not_past
    * @throws no_work_for_day
@@ -51,4 +52,15 @@ export default router({
     .input(ScoreInput)
     .output(z.void())
     .mutation(({ input, ctx }) => Team.score(ctx.employeeId, input)),
+
+  /**
+   * The direct manager withdraws a score, keeping its reason: the report
+   * may correct that day's timesheet and time entries, then the day is
+   * scored again. Mailed to the report like every version.
+   * @throws not_manager
+   */
+  unscore: authedProcedure
+    .input(UnscoreInput)
+    .output(z.void())
+    .mutation(({ input, ctx }) => Team.unscore(ctx.employeeId, input.employeeId, input.day)),
 });

@@ -86,3 +86,7 @@ export const ScoreInput = z.object({
   reason: z.string().trim().max(2000).nullable(),
 });
 export type ScoreInput = z.infer<typeof ScoreInput>;
+
+/** A score withdrawn: the day's timesheet can be corrected; the reason stays. */
+export const UnscoreInput = z.object({ employeeId: Id, day: Day });
+export type UnscoreInput = z.infer<typeof UnscoreInput>;

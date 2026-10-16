@@ -62,7 +62,9 @@ someone with reports:
   minutes or more — has its own "Start" opposite it, so a shift begun
   after lunch starts from that return, not from the morning; "Start now"
   and another time are there too. The open shift is closed here or from
-  the top line; past days suggest a shift from the same visits.
+  the top line; past days suggest a shift from the same visits. Any day
+  not scored is mine to fix: "Add a shift" (a forgotten or a second one),
+  and each closed shift can be corrected or deleted (decision 37).
 
 There is no separate "closed by its deadline" item: a passed deadline
 closes the task like a manual close does, and the task simply leaves
@@ -220,8 +222,10 @@ The same History as in their My day: shifts, time logged to tasks, visits
 given. Nothing is hidden from the managers (decision 12). Seen by the employee and every manager
 above them. Only the direct manager scores a day — never required;
 managers higher up only look. A score is given in a small dialog, with a
-reason for a low one, and may be corrected; the page shows the current
-value, the employee's mail keeps every version (decision 22). On top —
+reason for a low one, and may be corrected or withdrawn so the employee
+can correct the day (the reason stays for the next score); the page
+shows the current value, the employee's mail keeps every version
+(decisions 22, 37). On top —
 workload and the weighted score for 7, 30, 90 days or any dates, with a
 chart (decision 23).
 
