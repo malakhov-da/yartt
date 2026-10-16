@@ -393,6 +393,7 @@ export const ru = {
     lighter: 'Легче',
   },
   employee: {
+    dayDetails: 'Подробнее',
     awayUntil: 'Отсутствует до {{day}}',
     manager: 'Руководитель: {{name}}',
     noManager: 'Без руководителя',

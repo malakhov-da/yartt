@@ -235,7 +235,9 @@ person's page. Inviting is not here — anyone invites from the top line.
 
 The same History as in their My day: shifts, time logged to tasks, visits
 (which tasks were opened, when they came in), and the score of each day if
-given. Nothing is hidden from the managers (decision 12). Seen by the employee and every manager
+given — laid out as a grid of day cards of one size (a week fits two rows
+on a wide screen); a day that does not fit fades out under "Details",
+which opens the whole day, with its actions, in a dialog. Nothing is hidden from the managers (decision 12). Seen by the employee and every manager
 above them. Only the direct manager scores a day — never required;
 managers higher up only look. A score is given in a small dialog, with a
 reason for a low one, and may be corrected or withdrawn so the employee

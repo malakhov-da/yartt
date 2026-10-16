@@ -344,6 +344,7 @@ export const en: Translation = {
     lighter: 'Lighter',
   },
   employee: {
+    dayDetails: 'Details',
     awayUntil: 'Away until {{day}}',
     manager: 'Manager: {{name}}',
     noManager: 'No manager',
