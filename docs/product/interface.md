@@ -55,7 +55,9 @@ someone with reports:
 - **My team** — only for someone with reports; see 4.
 - **History** — my days, from today back into the past, with pages. A day shows the shift (work) if the team keeps a timesheet, the
   time logged to tasks (spent_minutes), and the visits: which tasks I
-  opened and when I came into the system. Today's day is where the shift
+  opened and when I came into the system. Next to each task I opened is
+  "Log time" for that day (15m, 30m, 1h, 2h a click away), so time is
+  logged where the day is reviewed, without opening every task. Today's day is where the shift
   is started: each arrival — the first visit, or one after a pause of 10
   minutes or more — has its own "Start" opposite it, so a shift begun
   after lunch starts from that return, not from the morning; "Start now"

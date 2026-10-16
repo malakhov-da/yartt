@@ -65,4 +65,18 @@ test.describe('My day', () => {
     await expect(page.getByText(/Смена \d\d:\d\d–\d\d:\d\d/).first()).toBeVisible();
     await expect(page.getByRole('navigation').or(page.locator('.MuiPagination-root')).first()).toBeVisible();
   });
+
+  test('history: time is logged to a task I opened, right from My day', async ({ page }) => {
+    const history = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Мои дни' }) });
+    const entries = history.getByRole('button', { name: 'Удалить списание' });
+    await expect(history.getByRole('button', { name: 'Списать время' }).first()).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    const before = await entries.count();
+    await history.getByRole('button', { name: 'Списать время' }).first().click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: '30м' }).click();
+    await dialog.getByRole('button', { name: 'Сохранить' }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(entries).toHaveCount(before + 1);
+  });
 });

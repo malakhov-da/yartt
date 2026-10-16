@@ -1,4 +1,4 @@
-import { DeleteOutline, Edit, PlayArrow } from '@mui/icons-material';
+import { DeleteOutline, Edit, MoreTime, PlayArrow } from '@mui/icons-material';
 import { Alert, Box, Button, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -11,6 +11,7 @@ import { useMe } from '#client/hooks/me.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import ScoreDialog from '../EmployeePage/ScoreDialog.tsx';
 import TaskLine from '../TaskPage/TaskLine.tsx';
+import LogTimeDialog from './LogTimeDialog.tsx';
 import ShiftDialog, { type ShiftDialogMode } from './ShiftDialog.tsx';
 
 type Dialog = { mode: ShiftDialogMode; from: Date; to: Date };
@@ -41,6 +42,7 @@ export default function (p: {
   const pronoun = usePronoun();
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [scoring, setScoring] = useState(false);
+  const [logging, setLogging] = useState<TaskHeader | null>(null);
   const start = useMutation(trpc.Work.start.mutationOptions({ onSuccess: refresh }));
   const add = useMutation(trpc.Work.add.mutationOptions({ onSuccess: refresh }));
   const removeShift = useMutation(trpc.Work.remove.mutationOptions({ onSuccess: refresh }));
@@ -239,7 +241,20 @@ export default function (p: {
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>{t('myDay.history.opened', pronoun(p.employeeId ?? me.id))}</Typography>
           {[...opened].map(([id, times]) => {
             const header = task(id);
-            return header && <TaskLine dense key={id} task={header} note={times.map(format.time).join(', ')} />;
+            return header && (
+              <Stack key={id} direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                  <TaskLine dense task={header} note={times.map(format.time).join(', ')} />
+                </Box>
+                {mine && !scored && (
+                  <Tooltip title={t('task.myTime.log')}>
+                    <IconButton size="small" onClick={() => setLogging(header)}>
+                      <MoreTime fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Stack>
+            );
           })}
         </Stack>
       )}
@@ -249,6 +264,7 @@ export default function (p: {
       )}
 
       {dialog && <ShiftDialog {...dialog} onClose={() => setDialog(null)} />}
+      {logging && <LogTimeDialog task={logging} day={day.day} onClose={() => setLogging(null)} />}
       {scoring && p.employeeId !== undefined && (
         <ScoreDialog employeeId={p.employeeId} day={day.day} current={day.score} onClose={() => setScoring(false)} />
       )}
