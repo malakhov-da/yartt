@@ -555,17 +555,42 @@ one column; the three delays are one column showing the delay furthest
 past its limit (a day for the timesheet, a working day for a reply, three
 days for a score) and naming it. Teams fold, not managers: a manager is
 a person in the list, and their team is a line of its own under them; my
-own team is never folded, its total on top.
+own team is never folded, its total on top. A manager is part of their
+team: its line includes them, and it unfolds into them first.
 
 A team's score is its manager's score: how well the team works is what its
 manager answers for, and an average or an hours-weighted mix of its
 people's scores would either repeat the people's own lines or add up
 hours of different people (decision 38). For the same reason a team has
-no backlog — a dash, not a sum of hours. A dismissed person shows only
-for ranges they worked in (dismissed on or after its first day:
-`employee.dismissed_at`); the others are named under the table, where their
-direct manager can bring them back.
+no backlog — a dash, not a sum of hours. A person shows only for ranges
+they were there in: invited before the range ended, dismissed on or after
+its first day (`employee.created_at`, `dismissed_at`). Bringing someone
+back is a separate, folded list under the table: the viewer's own
+dismissed reports, whatever the range (decision 45).
 
 *Implemented:* `client/components/MyDayPage/Team.tsx`, `TeamDetails.tsx`,
 `TeamChart.tsx`, `teamMetrics.ts`; `employee.dismissed_at`;
 `Member.days` with the delays of each day.
+
+### 45. A dismissed employee always has a manager who can bring them back
+
+Only the direct manager brings a dismissed employee back, so a dismissed
+employee without one could never return. The database keeps that from
+happening (`chk_employee_dismissed_manager`): nobody is dismissed without
+a manager, and when a manager is dismissed their reports — the dismissed
+ones too — move to the manager above, who can bring them back. Bringing
+back may hand the person to another manager at once (they are notified),
+so a returning employee lands in the right team without a second step.
+
+Someone at the top has no manager and cannot be dismissed; setting their
+successor — usually their own report — as their manager would be a cycle.
+So they hand the team over (`hand_over_team`): the successor takes their
+place, gets their other reports, the dismissed included, and becomes
+their manager, who may then dismiss them. It works the same for any
+manager who steps down in favour of a report. Deliberately not added:
+moving a dismissed employee to another manager without bringing them
+back — the list stays with whoever answers for the team.
+
+*Implemented:* `hand_over_team()`, `restore_employee()` with a manager,
+`chk_employee_dismissed_manager` in `db.sql`; `Employee.handOver`; the
+"My dismissed" list and the restore dialog in `client/components/MyDayPage/`.

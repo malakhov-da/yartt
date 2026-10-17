@@ -186,7 +186,8 @@ async function delaysByDay(ids: number[], from: string, to: string): Promise<z.i
 
 /**
  * The team summary: me first (my own report), then the whole subtree of my
- * reports, direct ones first — without those dismissed before the range — for a range of their days — workload and
+ * reports, direct ones first — without those invited after the range or
+ * dismissed before it — for a range of their days — workload and
  * score, days waiting for a score, tasks closed by hand and automatically
  * (decision 32). Nobody's hours are added up (decision 38).
  */
@@ -195,7 +196,8 @@ export async function summary(viewerId: number, from: string, to: string): Promi
     SELECT e.id, COALESCE(e.manager_id = ${viewerId}, FALSE) AS direct, e.id = ${viewerId} AS self
       FROM employee e
      WHERE (e.id IN (SELECT subordinates(${viewerId})) OR e.id = ${viewerId})
-       -- Someone dismissed before the range did not work in it.
+       -- Someone invited after the range or dismissed before it did not work in it.
+       AND (e.created_at AT TIME ZONE e.time_zone)::date <= ${to}::date
        AND (e.dismissed_at IS NULL OR (e.dismissed_at AT TIME ZONE e.time_zone)::date >= ${from}::date)
      ORDER BY (e.id = ${viewerId}) DESC, (e.manager_id = ${viewerId}) DESC, e.email IS NULL, e.full_name, e.id
   `);

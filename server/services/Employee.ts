@@ -89,10 +89,15 @@ export async function dismiss(id: number, actorId: number): Promise<void> {
   await sql`SELECT dismiss_employee(${id}, ${actorId})`;
 }
 
-/** See restore_employee() in db.sql: only the direct manager. */
-export async function restore(id: number, email: string, actorId: number): Promise<Employee> {
-  await sql`SELECT restore_employee(${id}, ${email}, ${actorId})`;
+/** See restore_employee() in db.sql: only the direct manager; under them or another manager. */
+export async function restore(id: number, email: string, actorId: number, managerId: number): Promise<Employee> {
+  await sql`SELECT restore_employee(${id}, ${email}, ${actorId}, ${managerId})`;
   const employee = await get(id);
   if (!employee) throw new AppError('not_found');
   return employee;
+}
+
+/** See hand_over_team() in db.sql: a direct report takes my place and becomes my manager. */
+export async function handOver(actorId: number, successorId: number): Promise<void> {
+  await sql`SELECT hand_over_team(${actorId}, ${successorId})`;
 }

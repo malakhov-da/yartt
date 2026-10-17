@@ -58,6 +58,7 @@ export const ERROR_CODES = [
   'day_scored',
   'score_final',
   'not_manager',
+  'not_direct_report',
   'score_day_not_past',
   'no_work_for_day',
 ] as const;

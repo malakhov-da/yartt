@@ -237,7 +237,7 @@ describe('team', () => {
     expect(member.days.at(-1)!.recordDelayMinutes).toBeNull();
   });
 
-  test('someone dismissed before the range is not in the summary; coming back clears the date', async () => {
+  test('someone dismissed before the range or invited after it is not in the summary; coming back clears the date', async () => {
     const lead = await createEmployee();
     const dev = await createEmployee({ managerId: lead.id });
     const leadApi = await client(lead.id);
@@ -250,6 +250,9 @@ describe('team', () => {
     await leadApi.Employee.restore({ id: dev.id, email: `back-${randomUUID()}@example.com` });
     expect((await leadApi.Employee.list()).find((e) => e.id === dev.id)!.dismissedAt).toBeNull();
     expect(await ids(7)).toEqual([lead.id, dev.id]);
+    // Invited after the range: not in it either.
+    await sql`UPDATE employee SET created_at = NOW() + INTERVAL '2 days' WHERE id = ${dev.id}`;
+    expect(await ids(7)).toEqual([lead.id]);
   });
 
   test('reaction counts working time only: a mention after the shift, answered as the next began, took nothing', async () => {

@@ -451,7 +451,11 @@ ACCESS RULES
     - manager_id — the employee themselves (own profile). No confirmation
       from the manager: such a substitution is too noticeable.
     - Dismiss / bring back — the direct manager only. An employee with no
-      manager cannot be dismissed.
+      manager cannot be dismissed; a dismissed one always has a manager.
+      Bringing back may hand the employee to another manager at once.
+    - Hand the team over (hand_over_team) — the employee themselves, to
+      one of their direct reports, who takes their place and becomes
+      their manager: the way out for someone at the top.
     - Setting a manager notifies the new manager (new_report).
 
 
@@ -629,11 +633,14 @@ CREATE TABLE employee (
     keyboards keyboard[],
     weekly_digest_on DATE,
     dismissed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     CONSTRAINT chk_employee_manager_not_self
         CHECK (manager_id <> id),
     CONSTRAINT chk_employee_dismissed
         CHECK ((dismissed_at IS NULL) = (email IS NOT NULL)),
+    CONSTRAINT chk_employee_dismissed_manager
+        CHECK (email IS NOT NULL OR manager_id IS NOT NULL),
     CONSTRAINT chk_employee_time_zone
         CHECK ((TIMESTAMPTZ '2000-01-01 00:00Z' AT TIME ZONE time_zone) IS NOT NULL)
 );
@@ -687,6 +694,10 @@ COMMENT ON COLUMN employee.next_day IS
 NULL or a past date = available (cron clears past dates).
 A future date = away: notifications go both to them and to their manager.';
 
+COMMENT ON COLUMN employee.created_at IS
+'When the employee was invited (or created on the first start). My team
+does not show them for a range that ended before.';
+
 COMMENT ON COLUMN employee.dismissed_at IS
 'When the employee was dismissed (dismiss_employee): set exactly when
 email is NULL, cleared when they come back. My team
@@ -721,6 +732,12 @@ COMMENT ON CONSTRAINT chk_employee_manager_not_self ON employee IS
 
 COMMENT ON CONSTRAINT chk_employee_dismissed ON employee IS
 'Dismissed (no email) exactly when there is a dismissal time.';
+
+COMMENT ON CONSTRAINT chk_employee_dismissed_manager ON employee IS
+'A dismissed employee always has a manager — the one who can bring them
+back. Someone without a manager cannot be dismissed (they first hand
+their team over: hand_over_team), and a dismissed manager''s reports,
+dismissed ones included, move to the manager above.';
 
 
 CREATE OR REPLACE FUNCTION local_today(p_employee_id INT)
@@ -3059,7 +3076,7 @@ an employee without a manager cannot be dismissed.
 History (scores, time entries, comments) is kept.';
 
 
-CREATE OR REPLACE FUNCTION restore_employee(p_employee_id INT, p_email CITEXT, p_actor_id INT)
+CREATE OR REPLACE FUNCTION restore_employee(p_employee_id INT, p_email CITEXT, p_actor_id INT, p_manager_id INT)
 RETURNS VOID AS $$
 DECLARE
     v_email CITEXT;
@@ -3079,14 +3096,61 @@ BEGIN
                   DETAIL = json_build_object('employeeId', p_employee_id)::text;
     END IF;
 
-    UPDATE employee SET email = p_email, dismissed_at = NULL WHERE id = p_employee_id;
+    IF NOT EXISTS (SELECT 1 FROM employee WHERE id = p_manager_id AND email IS NOT NULL) THEN
+        RAISE EXCEPTION 'manager % is unknown or dismissed', p_manager_id
+            USING HINT = 'not_found';
+    END IF;
+
+    UPDATE employee SET email = p_email, dismissed_at = NULL, manager_id = p_manager_id
+     WHERE id = p_employee_id;
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION restore_employee(INT, CITEXT, INT) IS
-'Brings a dismissed employee back with the given email. Only their direct
-manager at the time of dismissal (p_actor_id) can do it. History was kept;
-tasks and reports that were handed over stay with the manager.';
+COMMENT ON FUNCTION restore_employee(INT, CITEXT, INT, INT) IS
+'Brings a dismissed employee back with the given email under p_manager_id
+— the actor or another active employee (who is notified: new_report).
+Only their direct manager (p_actor_id) can do it: the one at the time of
+dismissal, or the manager above when that one left too. History was kept;
+tasks and reports that were handed over stay where they went.';
+
+
+-- ----------------------------------------------------------------------------
+-- hand_over_team — a manager steps down in favour of a direct report
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION hand_over_team(p_actor_id INT, p_successor_id INT)
+RETURNS VOID AS $$
+DECLARE
+    v_manager_id INT;
+BEGIN
+    PERFORM pg_advisory_xact_lock(hashtext('yartt.hierarchy'));
+    SELECT manager_id INTO v_manager_id FROM employee WHERE id = p_actor_id AND email IS NOT NULL;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'employee % is unknown or dismissed', p_actor_id
+            USING HINT = 'not_found';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM employee
+                    WHERE id = p_successor_id AND manager_id = p_actor_id AND email IS NOT NULL) THEN
+        RAISE EXCEPTION 'employee % is not an active direct report of %', p_successor_id, p_actor_id
+            USING HINT = 'not_direct_report',
+                  DETAIL = json_build_object('employeeId', p_successor_id)::text;
+    END IF;
+
+    -- In this order no step makes a cycle: the successor climbs first.
+    UPDATE employee SET manager_id = v_manager_id WHERE id = p_successor_id;
+    UPDATE employee SET manager_id = p_successor_id WHERE manager_id = p_actor_id;
+    UPDATE employee SET manager_id = p_successor_id WHERE id = p_actor_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION hand_over_team(INT, INT) IS
+'The actor hands their team to one of their active direct reports: the
+successor takes the actor''s place (under the actor''s manager, or at the
+top), gets the actor''s other reports — dismissed ones included — and
+becomes the actor''s manager, who may then dismiss them. The only way to
+dismiss someone at the top: an employee without a manager cannot be
+dismissed, and their successor is in their own subtree, so setting them
+as the manager would be a cycle. Everyone whose manager changed is
+announced to the new one (new_report). Tasks stay with their owners.';
 
 
 -- ----------------------------------------------------------------------------

@@ -7,7 +7,7 @@ test.describe('Team and the employee page', () => {
     await signIn(page);
   });
 
-  test('My team: my whole team on top, then me and my reports; a report\'s team unfolds; a row opens its details', async ({ page }) => {
+  test('My team: my whole team on top, then me and my reports; a report\'s team unfolds into them and theirs; a row opens its details', async ({ page }) => {
     const team = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Моя команда' }) });
     await expect(team).toBeVisible();
     for (const column of ['Сотрудник', 'В задачах', 'Оценка', 'Задачи', 'Задержка']) {
@@ -15,15 +15,17 @@ test.describe('Team and the employee page', () => {
     }
     await expect(team.getByRole('columnheader')).toHaveCount(5);
     const rows = team.getByRole('row');
-    await expect(rows.nth(1)).toContainText('Вся моя команда · 5'); // the line of everyone under me
+    await expect(rows.nth(1)).toContainText('Вся моя команда · 6'); // me and everyone under me
     await expect(rows.nth(3)).toContainText('First Employee'); // then me (each line is followed by its hidden details)
     await expect(team.getByText(/^до \d+/)).toBeVisible(); // Olga is away
 
-    // Marina's team is a line of its own, folded: her reports show when it unfolds.
-    const marinaTeam = team.getByRole('row', { name: /Команда: Марина Соколова · 3/ });
+    // Marina is part of her team: a line of its own, folded; she and her reports show when it unfolds.
+    const marinaTeam = team.getByRole('row', { name: /Команда: Марина Соколова · 4/ });
     await expect(marinaTeam).toBeVisible();
+    await expect(team.getByRole('link', { name: 'Марина Соколова' })).toHaveCount(0);
     await expect(team.getByRole('row', { name: /Павел Орлов/ })).toHaveCount(0);
     await marinaTeam.getByRole('button', { name: 'Показать команду' }).click();
+    await expect(team.getByRole('link', { name: 'Марина Соколова' })).toBeVisible();
     const pavel = team.getByRole('row').filter({ hasText: 'Павел Орлов' }).first();
     await expect(pavel).toBeVisible();
     // Sergey was dismissed three weeks ago (the demo data): shown for 30 days.
@@ -48,33 +50,39 @@ test.describe('Team and the employee page', () => {
     await team.getByLabel('Выбрать всю команду: Марина Соколова').check();
     await expect(pavel.getByRole('checkbox')).toBeChecked();
     await team.getByLabel('Выбрать: Ольга Белова').check();
-    const picked = team.getByRole('row', { name: /Выбрано · 4/ });
+    const picked = team.getByRole('row', { name: /Выбрано · 5/ });
     await expect(picked).toBeVisible();
     await picked.getByRole('button', { name: 'Снять выбор' }).click();
     await expect(picked).toHaveCount(0);
 
-    // For the last 7 days Sergey is out of the table, named below it.
+    // For the last 7 days Sergey is out of the table; he is Marina's to bring back, not in my list.
     await team.getByRole('button', { name: '7 дн.' }).click();
     await expect(team.getByRole('button', { name: '7 дн.' })).toHaveClass(/MuiChip-filled/);
     await expect(team.getByRole('row', { name: /Сергей Волков/ })).toHaveCount(0);
-    await expect(team.getByText('Уволены до начала периода:')).toBeVisible();
-    await expect(team.getByRole('link', { name: 'Сергей Волков' })).toBeVisible();
+    await expect(team.getByRole('button', { name: /Мои уволенные/ })).toHaveCount(0);
     await team.getByRole('link', { name: 'Марина Соколова' }).click();
     await expect(page).toHaveURL(/\/employees\/\d+$/);
   });
 
-  test('the direct manager dismisses a report from the details and brings them back', async ({ page }) => {
+  test('the direct manager brings a report back from the folded list of their dismissed, and dismisses from the details', async ({ page }) => {
     await signIn(page, 'marina@example.com');
     const team = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Моя команда' }) });
     const sergey = team.getByRole('row').filter({ hasText: 'Сергей Волков' }).first();
-    await sergey.getByRole('cell').last().click();
+    await team.getByRole('button', { name: 'Мои уволенные · 1' }).click();
     await team.getByRole('button', { name: 'Вернуть' }).click();
-    await page.getByRole('dialog').getByLabel('Email').fill('sergey.back@example.com');
-    await page.getByRole('dialog').getByRole('button', { name: 'Вернуть' }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByLabel('Руководитель')).toHaveValue('Марина Соколова'); // under me unless I pick another
+    await dialog.getByLabel('Email').fill('sergey.back@example.com');
+    await dialog.getByRole('button', { name: 'Вернуть' }).click();
     await expect(sergey.getByText(/^Уволен/)).toHaveCount(0);
+    await expect(team.getByRole('button', { name: /Мои уволенные/ })).toHaveCount(0);
+
+    await sergey.getByRole('cell').last().click();
+    await expect(team.getByRole('button', { name: 'Передать руководство' })).toBeVisible();
     page.once('dialog', (d) => void d.accept());
     await team.getByRole('button', { name: 'Уволить' }).click();
     await expect(sergey.getByText(/^Уволен/)).toBeVisible();
+    await expect(team.getByRole('button', { name: 'Мои уволенные · 1' })).toBeVisible();
   });
 
   test('someone without reports has no team block', async ({ page }) => {

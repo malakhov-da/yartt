@@ -224,13 +224,16 @@ narrow — four columns that compare across rows, no horizontal scroll
   working time to the first reply; a working day), scoring reports' days
   (median from the day's end to the score; three days).
 
-On top, the line of all my team; then me (my own report: there is no
-other place to see it) and my direct reports, always shown. Under a report
-who manages others comes the line of their team, folded; it unfolds into
-its people, with their own teams folded the same way. A team's line
-combines everyone under its manager: counts add up, shares and delays are
+On top, the line of all my team — me included; then me (my own report:
+there is no other place to see it) and my direct reports, always shown.
+A report who manages others is the line of their team, folded: the
+manager is part of it, so it unfolds into them first, then their people,
+with their own teams folded the same way. A team's line combines its
+manager and everyone under them: counts add up, shares and delays are
 averaged over people, its score is its manager's, its backlog is not
-shown (hours are never added up — decision 38).
+shown (hours are never added up — decision 38). Only people who were
+there in the range are shown: not someone invited after it or dismissed
+before it.
 
 A click on a line opens its details under it: the timesheet hours and
 days, logged time, scored days, tasks closed by hand and automatically
@@ -238,10 +241,12 @@ days, logged time, scored days, tasks closed by hand and automatically
 mentions — with charts over the range (time in tasks, score, backlog,
 the three delays; a team's are the averages of its people, its score
 chart is its manager's). A person's details let their direct manager
-dismiss them or bring them back.
+dismiss them or hand them the team: they take my place, get my reports
+and become my manager (decision 45).
 
-Someone dismissed before the range is not in the table: they are named
-under it, with "Bring back" for their direct manager. Ticks pick people
+Under the table, folded, **My dismissed**: my own dismissed reports,
+whatever the range — only I can bring them back, under me or at once
+under another manager. Ticks pick people
 for a line of their own ("Picked", the score averaged over them); a
 team's tick picks the whole team. **Export** saves the picked people (or
 everyone) for payroll: an Excel file with a summary per person and a

@@ -10,6 +10,7 @@ import { Link } from 'react-router';
 import type { Employee } from '#shared/employee.ts';
 import type { Member } from '#shared/team.ts';
 import { fromDay, today, useFormat } from '#client/hooks/format.ts';
+import { useMe } from '#client/hooks/me.ts';
 import { POLL_MS, useEmployees, usePronoun } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import { csv, download, xlsx, type Cell } from '#client/hooks/xlsx.ts';
@@ -28,8 +29,9 @@ type Pick = { checked: boolean; indeterminate?: boolean; onChange: (on: boolean)
 /**
  * My team — only for someone with reports (docs/product/interface.md, 4):
  * on top the line of my whole team, then me and my direct reports, always
- * shown; under a report who manages others, the line of their team, which
- * unfolds into its people. Four columns that compare across rows; a click
+ * shown; a report who manages others is the line of their team, which
+ * unfolds into them and their people. Under the table, folded, my
+ * dismissed reports, to bring back. Four columns that compare across rows; a click
  * on a row opens its details with charts. Ticks pick people for a line of
  * their own; a team's tick picks the whole team. Hours of different people
  * are never added up (decision 38); a team's score is its manager's.
@@ -41,6 +43,7 @@ export default function () {
   const format = useFormat();
   const pronoun = usePronoun();
   const employees = useEmployees();
+  const me = useMe();
   const [range, setRange, valid] = useRange();
   const summary = useQuery(trpc.Team.summary.queryOptions(range, {
     refetchInterval: POLL_MS, placeholderData: keepPreviousData, enabled: valid,
@@ -49,6 +52,7 @@ export default function () {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [unfolded, setUnfolded] = useState<Set<number>>(new Set());
   const [opened, setOpened] = useState<Set<string>>(new Set());
+  const [showDismissed, setShowDismissed] = useState(false);
   const [exportMenu, setExportMenu] = useState<HTMLElement | null>(null);
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: trpc.Employee.list.queryKey() });
@@ -73,14 +77,13 @@ export default function () {
   }
   const descendants = (id: number): Member[] =>
     (children.get(id) ?? []).flatMap((c) => [c, ...descendants(c.employeeId)]);
-  const teamOf = (manager: Member): Extract<Group, { kind: 'team' }> =>
-    ({ kind: 'team', manager, people: descendants(manager.employeeId), direct: children.get(manager.employeeId) ?? [] });
+  // A team is its manager and everyone under them: the manager is part of it.
+  const teamOf = (manager: Member): Extract<Group, { kind: 'team' }> => ({
+    kind: 'team', manager, people: [manager, ...descendants(manager.employeeId)], direct: children.get(manager.employeeId) ?? [],
+  });
 
-  // Dismissed before the range: not in the table, still reachable — and brought back by their manager.
-  const subtree = (id: number): Employee[] => [...employees.values()]
-    .filter((e) => e.managerId === id)
-    .flatMap((e) => [e, ...subtree(e.id)]);
-  const gone = root ? subtree(root.employeeId).filter((e) => e.email === null && !byId.has(e.id)) : [];
+  // My dismissed reports, whatever the range: only I can bring them back (a dismissed one always has a manager).
+  const dismissed = [...employees.values()].filter((e) => e.email === null && e.managerId === me.id);
 
   const toggle = (ids: number[], on: boolean) => setSelected((prev) => {
     const next = new Set(prev);
@@ -157,7 +160,6 @@ export default function () {
       action={action}
       open={opened.has(key)}
       onOpen={() => flip(setOpened, key)}
-      onRestore={setRestoring}
       onChanged={refresh}
     />
   );
@@ -197,20 +199,20 @@ export default function () {
     label: t('myDay.team.pick', { name: name(m.employeeId) }),
   });
 
-  // A report who manages others: their row, then the line of their team, which unfolds.
+  // A report who manages others is the line of their team, which unfolds into them first, then their people.
   const branch = (m: Member, depth: number): ReactNode => {
     if (!children.has(m.employeeId)) return personRow(m, depth);
     const group = teamOf(m);
     const open = unfolded.has(m.employeeId);
     return (
       <Fragment key={`b${m.employeeId}`}>
-        {personRow(m, depth)}
         {row(
           `t${m.employeeId}`, depth, group,
           t('myDay.team.teamOf', { name: name(m.employeeId), count: group.people.length }),
           pickAll(group.people, t('myDay.team.pickTeam', { name: name(m.employeeId) })),
           { open, onToggle: () => flip(setUnfolded, m.employeeId) },
         )}
+        {open && personRow(m, depth + 1)}
         {open && (children.get(m.employeeId) ?? []).map((k) => branch(k, depth + 1))}
       </Fragment>
     );
@@ -229,7 +231,7 @@ export default function () {
           <MenuItem onClick={exportCsv}>{t('myDay.team.export.csv')}</MenuItem>
         </Menu>
       </Stack>
-      {summary.isSuccess && members.length <= 1 && gone.length === 0 && (
+      {summary.isSuccess && members.length <= 1 && (
         <Typography sx={{ color: 'text.secondary' }}>{t('team.noReports')}</Typography>
       )}
       {root && members.length > 1 && (
@@ -255,8 +257,8 @@ export default function () {
               </TableRow>
             </TableHead>
             <TableBody>
-              {row('total', 0, teamOf(root), t('myDay.team.mine', { count: descendants(root.employeeId).length }),
-                pickAll(descendants(root.employeeId), t('myDay.team.pickAll')))}
+              {row('total', 0, teamOf(root), t('myDay.team.mine', { count: teamOf(root).people.length }),
+                pickAll(teamOf(root).people, t('myDay.team.pickAll')))}
               {personRow(root, 0)}
               {(children.get(root.employeeId) ?? []).map((m) => branch(m, 0))}
               {picked.length > 0 && row('picked', 0, { kind: 'picked', people: picked }, t('myDay.team.picked', { count: picked.length }), null, undefined, (
@@ -268,20 +270,35 @@ export default function () {
           </Table>
         </Box>
       )}
-      {gone.length > 0 && (
-        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          {t('myDay.team.gone')}{' '}
-          {gone.map((e, i) => (
-            <Fragment key={e.id}>
-              {i > 0 && ', '}
-              <MuiLink component={Link} to={`/employees/${e.id}`}>{e.fullName}</MuiLink>
-              {e.dismissedAt && ` (${format.date(e.dismissedAt)})`}
-              {e.managerId === root?.employeeId && (
-                <Button size="small" sx={{ ml: 0.5, minWidth: 0, py: 0 }} onClick={() => setRestoring(e)}>{t('team.restore')}</Button>
-              )}
-            </Fragment>
-          ))}
-        </Typography>
+      {dismissed.length > 0 && (
+        <Box>
+          <Button
+            size="small"
+            color="inherit"
+            startIcon={showDismissed ? <ExpandMore /> : <ChevronRight />}
+            aria-expanded={showDismissed}
+            onClick={() => setShowDismissed((v) => !v)}
+            sx={{ color: 'text.secondary' }}
+          >
+            {t('myDay.team.dismissedList', { count: dismissed.length })}
+          </Button>
+          <Collapse in={showDismissed}>
+            <Stack sx={{ pl: 4, pt: 0.5, gap: 0.5 }}>
+              {dismissed.map((e) => (
+                <Stack key={e.id} direction="row" sx={{ alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <MuiLink component={Link} to={`/employees/${e.id}`} variant="body2">{e.fullName}</MuiLink>
+                  {e.dismissedAt && (
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                      {t('myDay.team.dismissedOn', { day: format.date(e.dismissedAt), ...pronoun(e.id) })}
+                    </Typography>
+                  )}
+                  <Button size="small" sx={{ py: 0 }} onClick={() => setRestoring(e)}>{t('team.restore')}</Button>
+                </Stack>
+              ))}
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.team.dismissedHint')}</Typography>
+            </Stack>
+          </Collapse>
+        </Box>
       )}
       {restoring && <RestoreDialog employee={restoring} onClose={() => setRestoring(null)} onDone={refresh} />}
     </Paper>
@@ -345,7 +362,6 @@ function Row(p: {
   action?: ReactNode;
   open: boolean;
   onOpen: () => void;
-  onRestore: (e: Employee) => void;
   onChanged: () => void;
 }) {
   const { t } = useTranslation();
@@ -395,7 +411,7 @@ function Row(p: {
           <Collapse in={p.open} unmountOnExit>
             {/* Takes the table's width, never widens it: the charts fit the columns, not the other way round. */}
             <Box sx={{ width: 0, minWidth: '100%' }}>
-              <TeamDetails group={p.group} onRestore={p.onRestore} onChanged={p.onChanged} />
+              <TeamDetails group={p.group} onChanged={p.onChanged} />
             </Box>
           </Collapse>
         </TableCell>

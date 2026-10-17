@@ -117,6 +117,50 @@ describe('employee', () => {
       .rejects.toMatchObject({ message: 'not_found' });
   });
 
+  test('a dismissed employee always has a manager to bring them back: theirs, or the one above when theirs leaves', async () => {
+    const top = await createEmployee();
+    const lead = await createEmployee({ managerId: top.id });
+    const dev = await createEmployee({ managerId: lead.id });
+    await (await client(lead.id)).Employee.dismiss({ id: dev.id });
+    await (await client(top.id)).Employee.dismiss({ id: lead.id });
+    // The lead's dismissed report moved up with the rest: the top manager brings them back.
+    expect((await (await client(top.id)).Employee.list()).find((e) => e.id === dev.id)?.managerId).toBe(top.id);
+    await expect(sql`UPDATE employee SET manager_id = NULL WHERE id = ${dev.id}`)
+      .rejects.toMatchObject({ constraint_name: 'chk_employee_dismissed_manager' });
+  });
+
+  test('bringing back may hand the employee to another manager, who is notified', async () => {
+    const boss = await createEmployee();
+    const peer = await createEmployee();
+    const dev = await createEmployee({ managerId: boss.id });
+    const api = await client(boss.id);
+    await api.Employee.dismiss({ id: dev.id });
+    // Not under someone dismissed — themselves included.
+    await expect(api.Employee.restore({ id: dev.id, email: dev.email, managerId: dev.id })).rejects.toMatchObject({ message: 'not_found' });
+    expect(await api.Employee.restore({ id: dev.id, email: dev.email, managerId: peer.id }))
+      .toMatchObject({ email: dev.email, managerId: peer.id, dismissedAt: null });
+    const rows = await sql<{ payload: unknown }[]>`SELECT payload FROM notification WHERE employee_id = ${peer.id}`;
+    expect(rows.map((r) => r.payload)).toContainEqual({ kind: 'new_report', employeeId: dev.id });
+  });
+
+  test('someone at the top hands the team to a report, who then may dismiss them', async () => {
+    const top = await createEmployee();
+    const heir = await createEmployee({ managerId: top.id });
+    const other = await createEmployee({ managerId: top.id });
+    const gone = await createEmployee({ managerId: top.id });
+    const topApi = await client(top.id);
+    await topApi.Employee.dismiss({ id: gone.id });
+    await expect(topApi.Employee.handOver({ successorId: gone.id }))
+      .rejects.toMatchObject({ message: 'not_direct_report', cause: { params: { employeeId: gone.id } } });
+    await expect((await client(heir.id)).Employee.handOver({ successorId: top.id })).rejects.toMatchObject({ message: 'not_direct_report' });
+
+    await topApi.Employee.handOver({ successorId: heir.id });
+    const managers = new Map((await topApi.Employee.list()).map((e) => [e.id, e.managerId]));
+    expect([managers.get(heir.id), managers.get(top.id), managers.get(other.id), managers.get(gone.id)])
+      .toEqual([null, heir.id, heir.id, heir.id]);
+    await (await client(heir.id)).Employee.dismiss({ id: top.id });
+  });
+
   test('the new manager is notified', async () => {
     const boss = await createEmployee();
     const dev = await createEmployee();
