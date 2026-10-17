@@ -6,11 +6,11 @@
 --
 --  The schema version is major.minor, stored in schema_version (below).
 --  New installation: this file is applied to an empty database as a whole.
---  Upgrade: migrations server/migrations/<from>-<to>.sql in a chain.
---  Until a version is released all changes go here only. On the 1.0
---  release this file is copied to server/migrations/1.0.sql (a snapshot
---  to verify the chain); every later release that changes the schema adds
---  a migration and bumps the version here.
+--  Upgrade: migrations server/migrations/<from>-<to>.sql in a chain. The
+--  first version is 0.0; after a release every change of the schema is a
+--  migration from the released version and a new version here. A
+--  migration is checked against this file as it was at the release tag
+--  (tests/schema.test.ts), so nothing is kept frozen by hand.
 --  The application creates the first employee on startup (from .env).
 --
 --  Business rule errors: RAISE EXCEPTION ... USING HINT = '<code>'
@@ -36,7 +36,7 @@ CREATE TABLE schema_version (
 CREATE UNIQUE INDEX uq_schema_version_active
     ON schema_version((TRUE)) WHERE expired_at IS NULL;
 
-INSERT INTO schema_version (version) VALUES ('1.0');
+INSERT INTO schema_version (version) VALUES ('0.0');
 
 COMMENT ON TABLE schema_version IS
 'History of database schema versions (major.minor). Current = expired_at IS NULL.

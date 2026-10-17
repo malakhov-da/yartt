@@ -3,7 +3,8 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import type { Sql } from './pg.ts';
 
-// The schema is versioned as major.minor (see db.sql, schema_version).
+// The schema is versioned as major.minor (see db.sql, schema_version); the
+// first version is 0.0.
 //   - empty database -> db.sql is applied as a whole;
 //   - older database -> migrations server/migrations/<from>-<to>.sql in a chain;
 //   - otherwise      -> error.
@@ -23,10 +24,40 @@ const LOCK_TIMEOUT = '30s';
 
 const NON_TRANSACTIONAL = /\b(CONCURRENTLY|VACUUM)\b/i;
 
+/**
+ * The SQL without comments and string literals, which say nothing about
+ * commands (a COMMENT may well mention VACUUM). A small lexer: a regular
+ * expression trips over an apostrophe inside a comment.
+ */
+function codeOnly(text: string): string {
+  let out = '';
+  for (let i = 0; i < text.length; i++) {
+    if (text.startsWith('--', i)) {
+      const end = text.indexOf('\n', i);
+      i = end === -1 ? text.length : end;
+      out += '\n';
+    } else if (text.startsWith('/*', i)) {
+      const end = text.indexOf('*/', i + 2);
+      i = end === -1 ? text.length : end + 1;
+    } else if (text[i] === "'") {
+      // A literal ends at a quote not followed by another ('' is a quote inside).
+      for (i++; i < text.length; i++) {
+        if (text[i] === "'") {
+          if (text[i + 1] === "'") i++;
+          else break;
+        }
+      }
+      out += "''";
+    } else {
+      out += text[i];
+    }
+  }
+  return out;
+}
+
 // Rejects commands that cannot run inside a transaction.
 export function checkMigrationSql(file: string, text: string): void {
-  const withoutComments = text.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-  const match = NON_TRANSACTIONAL.exec(withoutComments);
+  const match = NON_TRANSACTIONAL.exec(codeOnly(text));
   if (match) {
     throw new Error(`Migration ${file}: ${match[1]!.toUpperCase()} cannot run inside a transaction`);
   }
@@ -49,7 +80,7 @@ export function versionOfDbSql(dbSql: string): Version {
   return parseVersion(match[1]!);
 }
 
-// Migration files: "1.3-1.4.sql". Release snapshots ("1.0.sql") are not migrations.
+// Migration files: "1.3-1.4.sql".
 export function parseMigrations(files: string[]): Migration[] {
   const migrations: Migration[] = [];
   for (const file of files) {

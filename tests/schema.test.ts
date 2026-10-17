@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import postgres from 'postgres';
@@ -47,10 +48,10 @@ describe('migration chain rules', () => {
   const v = parseVersion;
 
   test('minor and major steps', () => {
-    const migrations = parseMigrations(['1.0.sql', '1.0-1.1.sql', '1.1-1.2.sql', '1.2-2.0.sql', '2.0-2.1.sql']);
-    expect(planMigrations(migrations, v('1.0'), v('2.1')).map((m) => m.file))
-      .toEqual(['1.0-1.1.sql', '1.1-1.2.sql', '1.2-2.0.sql', '2.0-2.1.sql']);
-    expect(planMigrations(migrations, v('2.0'), v('2.1')).map((m) => m.file)).toEqual(['2.0-2.1.sql']);
+    const migrations = parseMigrations(['0.0-0.1.sql', '0.1-1.0.sql', '1.0-1.1.sql', '1.1-2.0.sql']);
+    expect(planMigrations(migrations, v('0.0'), v('2.0')).map((m) => m.file))
+      .toEqual(['0.0-0.1.sql', '0.1-1.0.sql', '1.0-1.1.sql', '1.1-2.0.sql']);
+    expect(planMigrations(migrations, v('1.1'), v('2.0')).map((m) => m.file)).toEqual(['1.1-2.0.sql']);
   });
 
   test('invalid steps are rejected', () => {
@@ -67,6 +68,7 @@ describe('migration chain rules', () => {
     expect(() => checkMigrationSql('1.0-1.1.sql', 'CREATE INDEX CONCURRENTLY i ON t(x);')).toThrow(/CONCURRENTLY/);
     expect(() => checkMigrationSql('1.0-1.1.sql', 'vacuum t;')).toThrow(/VACUUM/);
     expect(() => checkMigrationSql('1.0-1.1.sql', '-- no CONCURRENTLY here\nCREATE INDEX i ON t(x);')).not.toThrow();
+    expect(() => checkMigrationSql('1.0-1.1.sql', "COMMENT ON TABLE t IS 'never vacuumed ''concurrently''';")).not.toThrow();
   });
 
   test('missing path is an error', () => {
@@ -75,16 +77,19 @@ describe('migration chain rules', () => {
   });
 });
 
-// Snapshot of the first released version + all migrations = fresh db.sql.
-// Before 1.0 is released there is no snapshot and nothing to check.
+// Every released version upgrades to exactly the schema of db.sql: the
+// database is built from db.sql as it was at the release tag, migrated with
+// the migrations of today, and compared with a fresh db.sql. The same
+// version at a tag and now means the same schema — a change without a new
+// version and a migration fails here. Nothing released, nothing to check.
 const files = await readdir(MIGRATIONS_DIR);
-const snapshot = files
-  .filter((f) => /^\d+\.\d+\.sql$/.test(f))
-  .sort((a, b) => {
-    const va = parseVersion(a.slice(0, -4));
-    const vb = parseVersion(b.slice(0, -4));
-    return va.major - vb.major || va.minor - vb.minor;
-  })[0];
+const releases = (() => {
+  try {
+    return execFileSync('git', ['tag', '--list', 'v*'], { encoding: 'utf8' }).split('\n').filter(Boolean);
+  } catch {
+    return []; // no git (an unpacked tree): nothing to compare with
+  }
+})();
 
 test('released migrations are transactional', async () => {
   for (const m of parseMigrations(files)) {
@@ -92,8 +97,8 @@ test('released migrations are transactional', async () => {
   }
 });
 
-describe.skipIf(!snapshot)('db.sql', () => {
-  const name = `yartt_chain_${process.pid}`;
+describe.skipIf(releases.length === 0)('db.sql', () => {
+  const name = `yartt_release_${process.pid}`;
   const admin = postgres(inject('adminUrl'), { onnotice: () => {} });
 
   afterAll(async () => {
@@ -101,19 +106,18 @@ describe.skipIf(!snapshot)('db.sql', () => {
     await admin.end();
   });
 
-  test(`matches ${snapshot} + migrations`, async () => {
+  test.each(releases)('is what %s becomes by the migrations', async (tag) => {
     await admin.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
     await admin.unsafe(`CREATE DATABASE ${name}`);
     const url = new URL(inject('adminUrl'));
     url.pathname = `/${name}`;
-    const chained = connect(url.toString());
-
+    const released = connect(url.toString());
     try {
-      await chained.unsafe(await readFile(join(MIGRATIONS_DIR, snapshot!), 'utf8'));
-      await migrate(chained);
-      expect(await chained.unsafe(FINGERPRINT)).toEqual(await sql.unsafe(FINGERPRINT));
+      await released.unsafe(execFileSync('git', ['show', `${tag}:db.sql`], { encoding: 'utf8' }));
+      await migrate(released);
+      expect(await released.unsafe(FINGERPRINT)).toEqual(await sql.unsafe(FINGERPRINT));
     } finally {
-      await chained.end();
+      await released.end();
     }
   });
 });

@@ -51,8 +51,9 @@ release becomes an image on Docker Hub that a company runs
    (AGENTS.md, Database).
 2. If the schema changed since the last release, there is a migration
    `server/migrations/<from>-<to>.sql` and the new version in `db.sql`.
-   **For 1.0 itself:** copy `db.sql` to `server/migrations/1.0.sql` — the
-   snapshot every later migration is checked against.
+   The first schema version is 0.0. CI checks every migration against
+   `db.sql` as it was at each release tag (git history, hence the full
+   checkout in the workflows), so the released schema needs no copy.
 3. Set `"version"` in `package.json` (the footer shows it; the release
    workflow refuses a tag that does not match), commit it, then tag and
    push:

@@ -106,10 +106,8 @@ and a `matchPath` in `client/components/App.tsx`.
 - `db.sql` always describes the whole current schema; its version
   (major.minor) is in `INSERT INTO schema_version`. A new installation
   applies `db.sql` in one step.
-- Until 1.0 is released all schema changes go to `db.sql` only; there are
-  no migrations.
-- Releasing 1.0: `db.sql` is copied to `server/migrations/1.0.sql` (a snapshot).
-- Every later release that changes the schema: a migration
+- The first schema version is 0.0. Before the first release the schema
+  changes in `db.sql` only. After a release every change of the schema: a migration
   `server/migrations/<from>-<to>.sql` + a change in `db.sql` + a new version
   there. Minor — `X.Y-X.(Y+1)`, major — only from the last minor,
   `X.last-(X+1).0`. The version history (`schema_version`, entered_at /
@@ -121,8 +119,10 @@ and a `matchPath` in `client/components/App.tsx`.
   administrator's job, not the application's.
 - A migration of an unreleased version is a draft and may be edited (local
   databases are recreated). Released migrations never change.
-- `tests/schema.test.ts`: snapshot + migration chain must give the same
-  result as a fresh `db.sql`.
+- `tests/schema.test.ts`: for every release tag `v*`, `db.sql` as it was
+  at the tag, migrated with today's migrations, must give exactly the
+  schema of a fresh `db.sql` (the same version means the same schema).
+  Nothing is kept frozen by hand: the released schema is in git.
 - Business rules live in the database (triggers, functions). A rule error:
   `RAISE EXCEPTION '<message for logs>' USING HINT = '<code>'
   [, DETAIL = json_build_object(...)::text]`. The code is added to
