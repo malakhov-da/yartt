@@ -70,7 +70,9 @@ someone with reports:
   is started: each arrival — the first visit, or one after a pause of 10
   minutes or more — has its own "Start" opposite it, so a shift begun
   after lunch starts from that return, not from the morning; "Start now"
-  and another time are there too. The open shift is closed here or from
+  and another time are there too. A shift already written down hides
+  only the arrivals inside it; an arrival before it adds a closed shift
+  up to the last activity before it (an open shift would run into it). The open shift is closed here or from
   the top line; past days suggest a shift from the same visits — a day
   without shifts, or activity outside its shifts (30 minutes or more
   before the first, between two or after the last) as the shift that

@@ -114,11 +114,21 @@ export default function (p: {
   for (const v of day.visits) if (v.taskId !== null) opened.set(v.taskId, [...(opened.get(v.taskId) ?? []), v.at]);
 
   // Today: a shift starts from an arrival — the first visit, or one after a
-  // pause — not earlier than the end of a shift already worked (they never overlap).
-  const workedUntil = Math.max(0, ...day.shifts.map((s) => s.startedAt.getTime() + (s.spentMinutes ?? 0) * 60_000));
+  // pause — that no shift already written down covers; the others are offered
+  // as if there were no shifts at all.
+  const spans = day.shifts.map((s) => [s.startedAt.getTime(), s.startedAt.getTime() + (s.spentMinutes ?? 0) * 60_000] as const);
   const visits = [...day.visits].sort((a, b) => a.at.getTime() - b.at.getTime());
   const arrivals = visits.filter((v, i) => (i === 0 || v.at.getTime() - visits[i - 1]!.at.getTime() >= ARRIVAL_GAP_MS)
-    && v.at.getTime() >= workedUntil);
+    && !spans.some(([a, b]) => v.at.getTime() >= a && v.at.getTime() < b));
+  // An open shift lasts until infinity, so one cannot start before a shift
+  // already written down: from such an arrival a closed one is added instead,
+  // up to the last activity before that shift (or its start).
+  const startFrom = (at: Date) => {
+    const next = Math.min(...spans.map(([a]) => a).filter((a) => a > at.getTime()));
+    if (next === Infinity) return start.mutate({ startedAt: at });
+    const last = visits.filter((v) => v.at > at && v.at.getTime() < next).at(-1)?.at;
+    setDialog({ mode: 'add', from: at, to: last ?? new Date(next) });
+  };
   const canStart = mine && p.isToday && !p.hasOpenShift && !scored;
   // A past day: what the first and last activity suggest.
   const suggestion = p.isToday ? null
@@ -251,7 +261,7 @@ export default function (p: {
                   startIcon={<PlayArrow />}
                   disabled={start.isPending}
                   aria-label={t('myDay.shift.startAt', { time: format.time(visit.at) })}
-                  onClick={() => start.mutate({ startedAt: visit.at })}
+                  onClick={() => startFrom(visit.at)}
                   sx={{ flexShrink: 0 }}
                 >
                   {t('myDay.shift.start')}
