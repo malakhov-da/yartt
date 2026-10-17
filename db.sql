@@ -560,6 +560,7 @@ CRON JOBS (outside SQL)
 
   - every minute: SELECT send_due_reminds();
   - every hour:   DELETE FROM token WHERE sent_at < NOW() - INTERVAL ''1 hour'';
+  - every hour:   SELECT send_weekly_digests();
   - every day:    DELETE FROM session WHERE last_seen_at < NOW() - INTERVAL ''30 days'';
   - every day:    DELETE FROM notification WHERE added_at < NOW() - INTERVAL ''1 year'';
   - every day:    DELETE FROM attachment a
@@ -625,6 +626,7 @@ CREATE TABLE employee (
     locale VARCHAR(10) NOT NULL DEFAULT 'ru' CHECK (locale ~ '^[a-z]{2}(-[A-Z]{2})?$'),
     pronoun VARCHAR(3) CHECK (pronoun IN ('he', 'she')),
     keyboards keyboard[],
+    weekly_digest_on DATE,
 
     CONSTRAINT chk_employee_manager_not_self
         CHECK (manager_id <> id),
@@ -695,6 +697,10 @@ COMMENT ON COLUMN employee.keyboards IS
 typed with the wrong one: the tag search reads the same keys with each
 other layout. NULL — not chosen: the layout of the interface language and
 the US one.';
+
+COMMENT ON COLUMN employee.weekly_digest_on IS
+'The Monday the weekly email for managers last went out (or was due
+with nothing to say), in their time zone: it goes once a week.';
 
 COMMENT ON COLUMN employee.time_zone IS
 'IANA time zone (Europe/Moscow). Defines the employee''s day boundaries.
@@ -3395,6 +3401,73 @@ exactly something that needs the owner.';
 
 -- ----------------------------------------------------------------------------
 -- deadlines
+-- ----------------------------------------------------------------------------
+-- send_weekly_digests — Monday morning email for managers
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION send_weekly_digests(p_now TIMESTAMPTZ DEFAULT NOW())
+RETURNS INT AS $$
+DECLARE
+    v_manager RECORD;
+    v_unscored INT;
+    v_expired INT;
+    v_at_risk INT;
+    v_sent INT := 0;
+BEGIN
+    FOR v_manager IN
+        SELECT e.id, e.time_zone FROM employee e
+         WHERE e.email IS NOT NULL
+           AND EXISTS (SELECT 1 FROM employee r WHERE r.manager_id = e.id AND r.email IS NOT NULL)
+           AND extract(isodow FROM p_now AT TIME ZONE e.time_zone) = 1
+           AND (p_now AT TIME ZONE e.time_zone)::time >= TIME '09:00'
+           AND (e.weekly_digest_on IS NULL OR e.weekly_digest_on < (p_now AT TIME ZONE e.time_zone)::date)
+         FOR UPDATE OF e SKIP LOCKED
+    LOOP
+        -- Past days of direct reports (the last 30) with a closed timesheet and no standing score.
+        SELECT count(*) INTO v_unscored FROM (
+            SELECT w.employee_id, local_day(w.employee_id, w.started_at) AS day
+              FROM work w JOIN employee r ON r.id = w.employee_id
+             WHERE r.manager_id = v_manager.id AND r.email IS NOT NULL
+             GROUP BY 1, 2
+            HAVING bool_and(w.spent_minutes IS NOT NULL)
+        ) d
+         WHERE d.day < (p_now AT TIME ZONE v_manager.time_zone)::date
+           AND d.day >= (p_now AT TIME ZONE v_manager.time_zone)::date - 30
+           AND NOT EXISTS (SELECT 1 FROM score s
+                            WHERE s.employee_id = d.employee_id AND s.day = d.day AND s.value IS NOT NULL);
+        -- Tasks of the team closed automatically last week: a deadline set in advance came.
+        SELECT count(*) INTO v_expired
+          FROM task k JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
+         WHERE k.owner_id IN (SELECT subordinates(v_manager.id))
+           AND f.value <= p_now AND f.value > p_now - INTERVAL '7 days'
+           AND f.value - f.entered_at > INTERVAL '1 minute';
+        SELECT count(*) INTO v_at_risk
+          FROM task k
+         WHERE k.owner_id IN (SELECT subordinates(v_manager.id))
+           AND EXISTS (SELECT 1 FROM deadline_risk(k.id));
+
+        UPDATE employee SET weekly_digest_on = (p_now AT TIME ZONE v_manager.time_zone)::date WHERE id = v_manager.id;
+        -- Nothing to say, nothing sent: a quiet week needs no email.
+        IF v_unscored + v_expired + v_at_risk > 0 THEN
+            INSERT INTO notification (employee_id, task_id, payload)
+            VALUES (v_manager.id, NULL, jsonb_build_object(
+                'kind', 'weekly_digest', 'unscored', v_unscored, 'expired', v_expired, 'atRisk', v_at_risk));
+            v_sent := v_sent + 1;
+        END IF;
+    END LOOP;
+    RETURN v_sent;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION send_weekly_digests(TIMESTAMPTZ) IS
+'Cron, every hour: on Monday from 09:00 in each manager''s time zone,
+once a week, a summary of what waits for them — days of direct reports
+waiting for a score (the last 30), tasks of the subtree closed
+automatically last week, tasks of the subtree at risk now. Sent only if
+something is there; not copied to anyone (it is about their own team).
+Safe with several workers (SKIP LOCKED, weekly_digest_on). p_now is the
+moment to act as of — NOW() for the cron, a chosen Monday in tests.';
+
+
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION notify_dependents(p_task_id INT)
 RETURNS VOID AS $$

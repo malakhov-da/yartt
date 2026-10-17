@@ -56,6 +56,14 @@ export async function renderMail(message: Message): Promise<{ subject: string; t
   };
 
   if (p.kind === 'score') return renderScore(message, p, params.by ?? '', person('for' in p ? p.for : undefined));
+  if (p.kind === 'weekly_digest') {
+    const w = t.weekly_digest;
+    const lines = [w.body];
+    if (p.unscored) lines.push(interpolate(w.unscored, { count: String(p.unscored) }));
+    if (p.expired) lines.push(interpolate(w.expired, { count: String(p.expired) }));
+    if (p.atRisk) lines.push(interpolate(w.atRisk, { count: String(p.atRisk) }));
+    return { subject: w.subject, text: [lines.join('\n'), interpolate(w.open, { url: `${env.PUBLIC_URL}/` })].join('\n\n') };
+  }
 
   const template = t[p.kind];
   const lines = [interpolate(template.body, params).trim()];

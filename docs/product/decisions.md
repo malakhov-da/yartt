@@ -499,3 +499,17 @@ with `Authorization: Bearer` — documented for administrators in
 *Implemented:* `api_token`, `issue_api_token()`, `authenticate_token()`,
 `revoke_api_token()` in `db.sql`; `server/ctx.ts`; `ApiToken` router;
 `ApiTokens` in the profile and on the employee page.
+
+### 42. Monday's email says what waits, or nothing
+
+A manager starts the week with an email — Monday from 09:00 in their own
+time zone — that says what waits for them in their team: days of direct
+reports waiting for a score, tasks of the subtree closed automatically
+last week, tasks at risk now, with a link to My day. Only the lines that
+are there; a quiet week sends nothing, so the email stays worth opening.
+It goes once a week (`weekly_digest_on`), is not copied to anyone while
+the manager is away (it is about their own team), and reaches the
+webhook like every notification.
+
+*Implemented:* `send_weekly_digests()`, `employee.weekly_digest_on` in
+`db.sql`; the `weekly_digests` cron job; `weekly_digest` notifications.

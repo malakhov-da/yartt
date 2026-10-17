@@ -36,6 +36,17 @@ export const NotificationPayload = z.discriminatedUnion('kind', [
     ...Copy,
   }),
   z.object({ kind: z.literal('new_report'), employeeId: Id, ...Copy }),
+  // Monday morning for a manager: what waits for them in their team.
+  z.object({
+    kind: z.literal('weekly_digest'),
+    /** Days of direct reports waiting for a score. */
+    unscored: z.number().int(),
+    /** Tasks of the subtree closed automatically last week. */
+    expired: z.number().int(),
+    /** Tasks of the subtree at risk now. */
+    atRisk: z.number().int(),
+    ...Copy,
+  }),
 ]);
 export type NotificationPayload = z.infer<typeof NotificationPayload>;
 export type NotificationKind = NotificationPayload['kind'];

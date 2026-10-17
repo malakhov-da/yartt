@@ -63,4 +63,15 @@ describe('mail', () => {
     expect(mail.text).toContain('Previous reason: Wrong priorities');
     expect(mail.text).toContain('10:30'); // Moscow time
   });
+
+  test('the weekly email lists only what is there, with a link to My day', async () => {
+    const me = await createEmployee();
+    const to = { employeeId: me.id, email: 'lead@example.com', fullName: 'Lead', locale: 'ru' as const, timeZone: 'UTC' };
+    const mail = await renderMail({ to, taskId: null, payload: { kind: 'weekly_digest', unscored: 3, expired: 0, atRisk: 2 } });
+    expect(mail.subject).toBe('Неделя вашей команды');
+    expect(mail.text).toContain('ждут вашей оценки: 3');
+    expect(mail.text).toContain('под угрозой');
+    expect(mail.text).not.toContain('автоматически');
+    expect(mail.text).toMatch(/Открыть «Мой день»: http\S+\/$/m);
+  });
 });

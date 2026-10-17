@@ -21,6 +21,11 @@ const JOBS: { name: string; every: number; run: (sql: Sql) => Promise<unknown> }
     run: (sql) => sql`DELETE FROM token WHERE sent_at < NOW() - INTERVAL '1 hour'`,
   },
   {
+    name: 'weekly_digests',
+    every: HOUR,
+    run: (sql) => sql`SELECT send_weekly_digests()`,
+  },
+  {
     name: 'session_cleanup',
     every: DAY,
     run: (sql) => sql`DELETE FROM session WHERE last_seen_at < NOW() - INTERVAL '30 days'`,

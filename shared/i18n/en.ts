@@ -577,5 +577,13 @@ export const en: Translation = {
       subject: 'New report: {{employee}}',
       body: '{{employee}} set you as their manager.',
     },
+    weekly_digest: {
+      subject: 'Your team this week',
+      body: 'What waits for you in your team this week:',
+      unscored: '— days of your reports waiting for your score: {{count}}',
+      expired: '— tasks closed automatically last week (the deadline came, the owner neither finished nor moved it): {{count}}',
+      atRisk: '— tasks at risk — someone’s plan does not fit before the deadline: {{count}}',
+      open: 'Open My day: {{url}}',
+    },
   },
 };

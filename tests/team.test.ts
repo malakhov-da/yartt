@@ -277,4 +277,29 @@ describe('team', () => {
     expect(leadRow.scoreWaitMinutes).toBeGreaterThan(1440);
     expect(leadRow.scoreWaitMinutes).toBeLessThan(2 * 1440);
   });
+
+  test('the weekly email: Monday from 09:00 in the manager\'s time zone, once, only when there is something', async () => {
+    const lead = await createEmployee();
+    const dev = await createEmployee({ managerId: lead.id });
+    await shift(dev.id, 2, 8); // a past day waiting for the lead's score
+    const monday = async (time: string) => (await sql<{ at: Date }[]>`
+      SELECT (date_trunc('week', NOW() AT TIME ZONE time_zone)::date + 7 + ${time}::time) AT TIME ZONE time_zone AS at
+        FROM employee WHERE id = ${lead.id}
+    `)[0]!.at;
+    const digests = async () => (await sql<{ payload: { kind: string; unscored: number } }[]>`
+      SELECT payload FROM notification WHERE employee_id = ${lead.id} AND payload->>'kind' = 'weekly_digest'
+    `).map((n) => n.payload);
+
+    await sql`SELECT send_weekly_digests(${await monday('08:59')})`;
+    expect(await digests()).toEqual([]);
+    await sql`SELECT send_weekly_digests(${await monday('09:05')})`;
+    await sql`SELECT send_weekly_digests(${await monday('10:05')})`; // once a week
+    expect(await digests()).toEqual([expect.objectContaining({ unscored: 1, expired: 0, atRisk: 0 })]);
+
+    // A manager with nothing waiting gets no email.
+    const calm = await createEmployee();
+    await createEmployee({ managerId: calm.id });
+    await sql`SELECT send_weekly_digests(${await monday('09:30')})`;
+    expect(await sql`SELECT 1 FROM notification WHERE employee_id = ${calm.id} AND payload->>'kind' = 'weekly_digest'`).toHaveLength(0);
+  });
 });
