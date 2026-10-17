@@ -458,6 +458,8 @@ ACCESS RULES
     - Someone at the top leaves in three steps of their own people:
       the successor clears their manager (or picks the one above), the
       leaver picks the successor as manager, the successor dismisses them.
+      Someone who will not: the installation administrator dismisses them
+      with an heir (dismiss_with_heir, server/admin.ts) — outside the API.
     - Setting a manager notifies the new manager (new_report).
 
 
@@ -3077,6 +3079,45 @@ an employee without a manager cannot be dismissed.
   4. Sessions, magic tokens and reminders are deleted; API tokens are
      revoked.
 History (scores, time entries, comments) is kept.';
+
+
+-- ----------------------------------------------------------------------------
+-- dismiss_with_heir — the installation administrator dismisses anyone
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION dismiss_with_heir(p_employee_id INT, p_heir_id INT)
+RETURNS VOID AS $$
+DECLARE
+    v_manager_id INT;
+BEGIN
+    PERFORM pg_advisory_xact_lock(hashtext('yartt.hierarchy'));
+    SELECT manager_id INTO v_manager_id FROM employee WHERE id = p_employee_id AND email IS NOT NULL FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'employee % is unknown or already dismissed', p_employee_id
+            USING HINT = 'not_found';
+    END IF;
+    IF p_heir_id = p_employee_id OR NOT EXISTS (SELECT 1 FROM employee WHERE id = p_heir_id AND email IS NOT NULL) THEN
+        RAISE EXCEPTION 'heir % is unknown, dismissed or the employee themselves', p_heir_id
+            USING HINT = 'not_found';
+    END IF;
+
+    -- An heir from the employee's own subtree steps out of it first: their place is above.
+    IF p_heir_id IN (SELECT subordinates(p_employee_id)) THEN
+        UPDATE employee SET manager_id = v_manager_id WHERE id = p_heir_id;
+    END IF;
+    UPDATE employee SET manager_id = p_heir_id WHERE id = p_employee_id;
+    PERFORM dismiss_employee(p_employee_id, p_heir_id);
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION dismiss_with_heir(INT, INT) IS
+'For the installation administrator (server/admin.ts), not the API: the
+way to dismiss someone who will not hand over — in particular someone at
+the top, whom nobody in the product can dismiss. The heir becomes the
+employee''s manager and dismisses them (dismiss_employee): the tasks and
+the team, dismissed reports included, go to the heir, the only one who
+can bring the employee back. An heir from the employee''s own subtree
+first leaves it for the employee''s place (under their manager, or at
+the top): otherwise they would be their own manager''s manager.';
 
 
 CREATE OR REPLACE FUNCTION restore_employee(p_employee_id INT, p_email CITEXT, p_actor_id INT)

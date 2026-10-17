@@ -61,6 +61,22 @@ others from the top line.
 To run the worker apart from the API, start the same image twice with
 `ROLE=api` and `ROLE=worker`; several workers are safe.
 
+## Dismissing someone who will not hand over
+
+In the product only a manager dismisses, so nobody can dismiss the person
+at the top, and someone may refuse to hand over. The administrator of the
+installation does it from the running container, naming the heir:
+
+```sh
+docker exec yartt node server/admin.ts dismiss ceo@example.com --heir marina@example.com
+```
+
+The heir becomes their manager and dismisses them: the tasks and the whole
+team, dismissed people included, go to the heir — the only one who can
+bring the person back. If the heir is in the person's own team, they first
+leave it for the person's place (under the person's manager, or at the
+top). Everyone affected is notified as usual.
+
 ## Upgrades
 
 Replace the container with one from the new image. Schema migrations run on start, all of

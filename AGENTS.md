@@ -72,6 +72,7 @@ server/
   delivery.ts       — every outgoing message: email (mail.ts) and/or webhook (webhook.ts)
   services/Mail.ts  — renders an email in the recipient's language
   migrate.ts, migrations/, bootstrap.ts, worker.ts
+  admin.ts          — installation administrator commands (dismiss with an heir), outside the API
 shared/
   <entity>.ts       — zod schemas shared by the client and the server
   errors.ts         — error codes and the error.data shape

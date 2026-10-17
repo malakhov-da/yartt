@@ -593,6 +593,14 @@ over" operation: it would have the leaver move the successor, and a
 manager does not move people. Deliberately not added: a manager moving a
 report, dismissed or brought back, to another manager.
 
-*Implemented:* `restore_employee()`, `chk_employee_dismissed_manager` in
-`db.sql`; the
+Someone who will not hand over — at the top, nobody in the product can
+dismiss them — is dismissed by the installation administrator with an
+heir (`node server/admin.ts dismiss <email> --heir <email>`): the heir
+becomes their manager and dismisses them, getting the tasks and the team;
+an heir from their own team first leaves it for their place. It is a
+command, not a button: the product has no admins, and whoever runs the
+installation already holds its database.
+
+*Implemented:* `restore_employee()`, `dismiss_with_heir()`,
+`chk_employee_dismissed_manager` in `db.sql`; `server/admin.ts`; the
 "My dismissed" list and the restore dialog in `client/components/MyDayPage/`.

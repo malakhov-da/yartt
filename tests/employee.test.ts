@@ -162,6 +162,27 @@ describe('employee', () => {
     await heirApi.Employee.restore({ id: gone.id, email: gone.email });
   });
 
+  test('the administrator dismisses someone at the top with an heir from their own team', async () => {
+    const top = await createEmployee();
+    const lead = await createEmployee({ managerId: top.id });
+    const heir = await createEmployee({ managerId: lead.id }); // deep in the top's team
+    const gone = await createEmployee({ managerId: top.id });
+    await (await client(top.id)).Employee.dismiss({ id: gone.id });
+
+    await sql`SELECT dismiss_with_heir(${top.id}, ${heir.id})`;
+    const managers = new Map((await (await client(heir.id)).Employee.list()).map((e) => [e.id, e]));
+    expect(managers.get(top.id)).toMatchObject({ email: null, managerId: heir.id });
+    expect([managers.get(heir.id)!.managerId, managers.get(lead.id)!.managerId, managers.get(gone.id)!.managerId])
+      .toEqual([null, heir.id, heir.id]);
+    await (await client(heir.id)).Employee.restore({ id: top.id, email: top.email });
+
+    // An heir from elsewhere just becomes the manager; the heir must be someone else, and active.
+    const other = await createEmployee();
+    await expect(sql`SELECT dismiss_with_heir(${other.id}, ${other.id})`).rejects.toMatchObject({ hint: 'not_found' });
+    await sql`SELECT dismiss_with_heir(${top.id}, ${lead.id})`;
+    expect((await (await client(lead.id)).Employee.list()).find((e) => e.id === top.id)).toMatchObject({ email: null, managerId: lead.id });
+  });
+
   test('the new manager is notified', async () => {
     const boss = await createEmployee();
     const dev = await createEmployee();
