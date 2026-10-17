@@ -628,9 +628,12 @@ CREATE TABLE employee (
     pronoun VARCHAR(3) CHECK (pronoun IN ('he', 'she')),
     keyboards keyboard[],
     weekly_digest_on DATE,
+    dismissed_at TIMESTAMPTZ,
 
     CONSTRAINT chk_employee_manager_not_self
         CHECK (manager_id <> id),
+    CONSTRAINT chk_employee_dismissed
+        CHECK ((dismissed_at IS NULL) = (email IS NOT NULL)),
     CONSTRAINT chk_employee_time_zone
         CHECK ((TIMESTAMPTZ '2000-01-01 00:00Z' AT TIME ZONE time_zone) IS NOT NULL)
 );
@@ -684,6 +687,12 @@ COMMENT ON COLUMN employee.next_day IS
 NULL or a past date = available (cron clears past dates).
 A future date = away: notifications go both to them and to their manager.';
 
+COMMENT ON COLUMN employee.dismissed_at IS
+'When the employee was dismissed (dismiss_employee): set exactly when
+email is NULL, cleared when they come back. My team
+shows a dismissed employee only for ranges they worked in: dismissed on
+or after the range''s first day.';
+
 COMMENT ON COLUMN employee.locale IS
 'Language of the interface and notifications (ru, en, pt-BR, ...).
 Sent to the webhook with every notification.';
@@ -709,6 +718,9 @@ Changing it shifts past day boundaries — do it rarely.';
 
 COMMENT ON CONSTRAINT chk_employee_manager_not_self ON employee IS
 'An employee cannot be their own manager.';
+
+COMMENT ON CONSTRAINT chk_employee_dismissed ON employee IS
+'Dismissed (no email) exactly when there is a dismissal time.';
 
 
 CREATE OR REPLACE FUNCTION local_today(p_employee_id INT)
@@ -3025,7 +3037,7 @@ BEGIN
 
     UPDATE employee SET manager_id = v_manager_id WHERE manager_id = p_employee_id;
 
-    UPDATE employee SET email = NULL, next_day = NULL WHERE id = p_employee_id;
+    UPDATE employee SET email = NULL, next_day = NULL, dismissed_at = NOW() WHERE id = p_employee_id;
 
     DELETE FROM token WHERE employee_id = p_employee_id;
     DELETE FROM session WHERE employee_id = p_employee_id;
@@ -3040,8 +3052,8 @@ an employee without a manager cannot be dismissed.
   1. All tasks (open and closed — a closed one can be reopened) go to the
      manager with a notification.
   2. Reports move to the manager (who is notified: new_report).
-  3. email = NULL — signing in is impossible. manager_id is kept, so the
-     same manager can bring the employee back.
+  3. email = NULL — signing in is impossible; dismissed_at = NOW().
+     manager_id is kept, so the same manager can bring the employee back.
   4. Sessions, magic tokens and reminders are deleted; API tokens are
      revoked.
 History (scores, time entries, comments) is kept.';
@@ -3067,7 +3079,7 @@ BEGIN
                   DETAIL = json_build_object('employeeId', p_employee_id)::text;
     END IF;
 
-    UPDATE employee SET email = p_email WHERE id = p_employee_id;
+    UPDATE employee SET email = p_email, dismissed_at = NULL WHERE id = p_employee_id;
 END;
 $$ LANGUAGE plpgsql;
 

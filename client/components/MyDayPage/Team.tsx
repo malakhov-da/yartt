@@ -1,109 +1,45 @@
-import { ChevronRight, Close, Download, ExpandMore, GroupAdd, PersonAdd, PersonRemove } from '@mui/icons-material';
+import { ChevronRight, Close, Download, ExpandMore, WarningAmber } from '@mui/icons-material';
 import {
-  Box, Button, Checkbox, Chip, FormControlLabel, IconButton, Menu, MenuItem, Paper, Stack, Switch, Table, TableBody, TableCell, TableHead,
+  Box, Button, Checkbox, Chip, Collapse, IconButton, Link as MuiLink, Menu, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead,
   TableRow, Tooltip, Typography,
 } from '@mui/material';
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Fragment, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import type { Employee } from '#shared/employee.ts';
 import type { Member } from '#shared/team.ts';
 import { fromDay, today, useFormat } from '#client/hooks/format.ts';
-import { POLL_MS, useEmployees } from '#client/hooks/task.ts';
+import { POLL_MS, useEmployees, usePronoun } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import { csv, download, xlsx, type Cell } from '#client/hooks/xlsx.ts';
 import EmployeeAvatar from '../App/EmployeeAvatar.tsx';
-import Sparkline from '../App/Sparkline.tsx';
 import RangePicker, { useRange } from '../App/RangePicker.tsx';
 import RestoreDialog from './RestoreDialog.tsx';
+import TeamDetails, { useDuration } from './TeamDetails.tsx';
+import { DELAY_LIMIT, DELAYS, metrics, share, type Group, type Metrics } from './teamMetrics.ts';
 
-/** How far a report sits from their manager, px. */
+/** How far a team's people sit from the team line, px. */
 const INDENT = 20;
 
-/** What a row shows: one person's numbers, or a group's (hours left out — decision 38). */
-type Cells = {
-  work: { minutes: number; days: number } | null;
-  /** Time in tasks, % of the person's own timesheet; for a group — the average of people. */
-  share: number | null;
-  score: { value: number; days: number | null } | null;
-  /** Days waiting for my score: only my direct reports have them. */
-  unscored: number | null;
-  finished: number;
-  expired: number;
-  open: number;
-  /** Open tasks whose deadline a plan does not fit. */
-  atRisk: number;
-  /** Median minutes from a shift's end to its record; a group — the average of people. */
-  recordDelay: number | null;
-  /** Median minutes to answer a mention, and mentions left without an answer. */
-  reply: number | null;
-  unanswered: number;
-  /** As a manager: median minutes a report's day waits for their score. */
-  scoreWait: number | null;
-  /** A person's planned work now and its change over the range; a group has none (hours are not combined). */
-  backlog: { minutes: number; growth: number } | null;
-  /** A person's days, for the sparklines; a group has none. */
-  days: Member['days'] | null;
-};
-
-/** Time logged to tasks as a share of the person's own timesheet; NULL — no timesheet. */
-const share = (m: Member) => (m.stats.workMinutes > 0 ? (m.stats.spentMinutes / m.stats.workMinutes) * 100 : null);
-const average = (values: number[]) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : null);
-const percent = (value: number | null) => (value === null ? '—' : `${Math.round(value)}%`);
-
-const personCells = (m: Member): Cells => ({
-  work: { minutes: m.stats.workMinutes, days: m.stats.workDays },
-  share: share(m),
-  score: m.stats.weightedScore === null ? null : { value: m.stats.weightedScore, days: m.stats.scoredDays },
-  unscored: m.direct ? m.unscoredDays : null,
-  finished: m.finished,
-  expired: m.expired,
-  open: m.openTasks,
-  atRisk: m.atRisk,
-  recordDelay: m.recordDelayMinutes,
-  reply: m.replyMinutes,
-  unanswered: m.unanswered,
-  scoreWait: m.scoreWaitMinutes,
-  backlog: { minutes: m.backlogMinutes, growth: m.backlogGrowthMinutes },
-  days: m.days,
-});
-
-/** A group: counts add up, shares and scores are averaged over people, hours are not combined. */
-function groupCells(members: Member[]): Cells {
-  const direct = members.filter((m) => m.direct);
-  const score = average(members.flatMap((m) => (m.stats.weightedScore === null ? [] : [m.stats.weightedScore])));
-  return {
-    work: null,
-    share: average(members.flatMap((m) => { const v = share(m); return v === null ? [] : [v]; })),
-    score: score === null ? null : { value: score, days: null },
-    unscored: direct.length ? direct.reduce((n, m) => n + m.unscoredDays, 0) : null,
-    finished: members.reduce((n, m) => n + m.finished, 0),
-    expired: members.reduce((n, m) => n + m.expired, 0),
-    open: members.reduce((n, m) => n + m.openTasks, 0),
-    atRisk: members.reduce((n, m) => n + m.atRisk, 0),
-    recordDelay: average(members.flatMap((m) => (m.recordDelayMinutes === null ? [] : [m.recordDelayMinutes]))),
-    reply: average(members.flatMap((m) => (m.replyMinutes === null ? [] : [m.replyMinutes]))),
-    unanswered: members.reduce((n, m) => n + m.unanswered, 0),
-    scoreWait: average(members.flatMap((m) => (m.scoreWaitMinutes === null ? [] : [m.scoreWaitMinutes]))),
-    backlog: null,
-    days: null,
-  };
-}
+/** A tick: one person, or everyone of a team at once. */
+type Pick = { checked: boolean; indeterminate?: boolean; onChange: (on: boolean) => void; label: string };
 
 /**
  * My team — only for someone with reports (docs/product/interface.md, 4):
- * the tree of my subtree for a range, me at the root, each manager's
- * reports nested under them. A manager's row is their own numbers; under
- * their reports, the line of their team — without them, or with them when
- * "with managers" is on. Ticks pick people for a line of their own; one
- * click picks a manager's whole team. Hours of different people are never
- * added up (decision 38).
+ * on top the line of my whole team, then me and my direct reports, always
+ * shown; under a report who manages others, the line of their team, which
+ * unfolds into its people. Four columns that compare across rows; a click
+ * on a row opens its details with charts. Ticks pick people for a line of
+ * their own; a team's tick picks the whole team. Hours of different people
+ * are never added up (decision 38); a team's score is its manager's.
  */
 export default function () {
   const { t } = useTranslation();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const format = useFormat();
+  const pronoun = usePronoun();
   const employees = useEmployees();
   const [range, setRange, valid] = useRange();
   const summary = useQuery(trpc.Team.summary.queryOptions(range, {
@@ -111,13 +47,19 @@ export default function () {
   }));
   const [restoring, setRestoring] = useState<Employee | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
-  const [withManagers, setWithManagers] = useState(false);
+  const [unfolded, setUnfolded] = useState<Set<number>>(new Set());
+  const [opened, setOpened] = useState<Set<string>>(new Set());
   const [exportMenu, setExportMenu] = useState<HTMLElement | null>(null);
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: trpc.Employee.list.queryKey() });
     void queryClient.invalidateQueries({ queryKey: trpc.Team.pathKey() });
   };
+  const flip = <T,>(set: (f: (prev: Set<T>) => Set<T>) => void, key: T) => set((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    return next;
+  });
 
   const members = summary.data ?? [];
   const byId = new Map(members.map((m) => [m.employeeId, m]));
@@ -131,7 +73,14 @@ export default function () {
   }
   const descendants = (id: number): Member[] =>
     (children.get(id) ?? []).flatMap((c) => [c, ...descendants(c.employeeId)]);
-  const team = (m: Member) => [...(withManagers ? [m] : []), ...descendants(m.employeeId)];
+  const teamOf = (manager: Member): Extract<Group, { kind: 'team' }> =>
+    ({ kind: 'team', manager, people: descendants(manager.employeeId), direct: children.get(manager.employeeId) ?? [] });
+
+  // Dismissed before the range: not in the table, still reachable — and brought back by their manager.
+  const subtree = (id: number): Employee[] => [...employees.values()]
+    .filter((e) => e.managerId === id)
+    .flatMap((e) => [e, ...subtree(e.id)]);
+  const gone = root ? subtree(root.employeeId).filter((e) => e.email === null && !byId.has(e.id)) : [];
 
   const toggle = (ids: number[], on: boolean) => setSelected((prev) => {
     const next = new Set(prev);
@@ -142,6 +91,15 @@ export default function () {
     return next;
   });
   const picked = members.filter((m) => selected.has(m.employeeId));
+  const pickAll = (people: Member[], label: string): Pick => {
+    const count = people.filter((m) => selected.has(m.employeeId)).length;
+    return {
+      checked: people.length > 0 && count === people.length,
+      indeterminate: count > 0 && count < people.length,
+      onChange: (on) => toggle(people.map((m) => m.employeeId), on),
+      label,
+    };
+  };
 
   // Payroll export: the picked people, or everyone; one row per person and per
   // person-day — never a total of hours across people (decision 38).
@@ -182,56 +140,78 @@ export default function () {
 
   const head = [
     { key: 'person', label: t('myDay.team.person') },
-    { key: 'work', label: t('employee.stats.work'), hint: t('myDay.team.workHint') },
-    { key: 'spent', label: t('myDay.team.spent'), hint: t('myDay.team.spentHint') },
+    { key: 'share', label: t('myDay.team.spent'), hint: t('myDay.team.spentHint') },
     { key: 'score', label: t('employee.stats.score'), hint: t('myDay.team.scoreHint') },
-    { key: 'unscored', label: t('myDay.team.unscored'), hint: t('myDay.team.unscoredHint') },
-    { key: 'finished', label: t('myDay.team.finished'), hint: t('myDay.team.finishedHint') },
-    { key: 'expired', label: t('myDay.team.expired'), hint: t('myDay.team.expiredHint') },
-    { key: 'open', label: t('myDay.team.open') },
-    { key: 'atRisk', label: t('myDay.team.atRisk'), hint: t('myDay.team.atRiskHint') },
-    { key: 'record', label: t('myDay.team.record'), hint: t('myDay.team.recordHint') },
-    { key: 'reply', label: t('myDay.team.reply'), hint: t('myDay.team.replyHint') },
-    { key: 'scoreWait', label: t('myDay.team.scoreWait'), hint: t('myDay.team.scoreWaitHint') },
-    { key: 'backlog', label: t('myDay.team.backlog'), hint: t('myDay.team.backlogHint') },
-    { key: 'actions', label: '' },
+    { key: 'tasks', label: t('myDay.team.tasks'), hint: t('myDay.team.tasksHint') },
+    { key: 'delay', label: t('myDay.team.delay'), hint: t('myDay.team.delayHint') },
   ];
 
-  const node = (m: Member, depth: number): ReactNode => {
-    const kids = children.get(m.employeeId) ?? [];
-    const open = kids.length > 0 && !collapsed.has(m.employeeId);
-    const mates = descendants(m.employeeId);
-    const allPicked = mates.length > 0 && mates.every((d) => selected.has(d.employeeId));
+  const row = (key: string, depth: number, group: Group, label: ReactNode, pick: Pick | null, fold?: { open: boolean; onToggle: () => void }, action?: ReactNode) => (
+    <Row
+      key={key}
+      depth={depth}
+      group={group}
+      label={label}
+      pick={pick}
+      fold={fold}
+      action={action}
+      open={opened.has(key)}
+      onOpen={() => flip(setOpened, key)}
+      onRestore={setRestoring}
+      onChanged={refresh}
+    />
+  );
+
+  const personLabel = (m: Member) => {
+    const e = employees.get(m.employeeId);
+    if (!e) return null;
+    const away = e.nextDay !== null && e.nextDay > today();
     return (
-      <Fragment key={m.employeeId}>
-        <PersonRow
-          member={m}
-          depth={depth}
-          expandable={kids.length > 0}
-          expanded={open}
-          onExpand={() => setCollapsed((prev) => {
-            const next = new Set(prev);
-            if (next.has(m.employeeId)) next.delete(m.employeeId);
-            else next.add(m.employeeId);
-            return next;
-          })}
-          checked={selected.has(m.employeeId)}
-          onCheck={(on) => toggle([m.employeeId], on)}
-          teamPicked={allPicked}
-          onPickTeam={mates.length > 0 ? () => toggle(mates.map((d) => d.employeeId), !allPicked) : undefined}
-          onRestore={setRestoring}
-          onChanged={refresh}
-        />
-        {open && kids.map((k) => node(k, depth + 1))}
-        {open && (
-          <GroupRow
-            depth={depth + 1}
-            label={t(withManagers ? 'myDay.team.teamWith' : 'myDay.team.teamOf', {
-              name: employees.get(m.employeeId)?.fullName ?? '', count: team(m).length,
-            })}
-            cells={groupCells(team(m))}
-          />
+      <Stack direction="row" sx={{ alignItems: 'center', flexWrap: 'wrap', columnGap: 0.75, rowGap: 0.25, minWidth: 0 }}>
+        <Box sx={{ display: { xs: 'none', sm: 'flex' } }}><EmployeeAvatar employee={e} size={24} /></Box>
+        <Typography
+          variant="body2"
+          component={Link}
+          to={`/employees/${e.id}`}
+          onClick={(ev) => ev.stopPropagation()}
+          sx={{ color: 'text.primary', fontWeight: 500, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+        >
+          {e.fullName}
+        </Typography>
+        {m.self && <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.team.me')}</Typography>}
+        {e.dismissedAt && (
+          <Chip size="small" label={t('myDay.team.dismissedOn', { day: format.date(e.dismissedAt), ...pronoun(e.id) })} />
         )}
+        {away && (
+          <Tooltip title={t('employee.awayUntil', { day: format.date(fromDay(e.nextDay!)) })}>
+            <Chip size="small" color="warning" label={t('myDay.team.away', { day: format.date(fromDay(e.nextDay!)) })} />
+          </Tooltip>
+        )}
+      </Stack>
+    );
+  };
+
+  const personRow = (m: Member, depth: number) => row(`p${m.employeeId}`, depth, { kind: 'person', person: m }, personLabel(m), {
+    checked: selected.has(m.employeeId),
+    onChange: (on) => toggle([m.employeeId], on),
+    label: t('myDay.team.pick', { name: name(m.employeeId) }),
+  });
+
+  // A report who manages others: their row, then the line of their team, which unfolds.
+  const branch = (m: Member, depth: number): ReactNode => {
+    if (!children.has(m.employeeId)) return personRow(m, depth);
+    const group = teamOf(m);
+    const open = unfolded.has(m.employeeId);
+    return (
+      <Fragment key={`b${m.employeeId}`}>
+        {personRow(m, depth)}
+        {row(
+          `t${m.employeeId}`, depth, group,
+          t('myDay.team.teamOf', { name: name(m.employeeId), count: group.people.length }),
+          pickAll(group.people, t('myDay.team.pickTeam', { name: name(m.employeeId) })),
+          { open, onToggle: () => flip(setUnfolded, m.employeeId) },
+        )}
+        {open && (children.get(m.employeeId) ?? []).map((k) => branch(k, depth + 1))}
       </Fragment>
     );
   };
@@ -248,19 +228,23 @@ export default function () {
           <MenuItem onClick={exportXlsx}>{t('myDay.team.export.xlsx')}</MenuItem>
           <MenuItem onClick={exportCsv}>{t('myDay.team.export.csv')}</MenuItem>
         </Menu>
-        <Tooltip title={t('myDay.team.withManagersHint')} describeChild>
-          <FormControlLabel
-            control={<Switch size="small" checked={withManagers} onChange={(e) => setWithManagers(e.target.checked)} />}
-            label={t('myDay.team.withManagers')}
-          />
-        </Tooltip>
       </Stack>
-      {summary.isSuccess && members.length <= 1 && (
+      {summary.isSuccess && members.length <= 1 && gone.length === 0 && (
         <Typography sx={{ color: 'text.secondary' }}>{t('team.noReports')}</Typography>
       )}
       {root && members.length > 1 && (
-        <Box sx={{ overflowX: 'auto', opacity: summary.isPlaceholderData ? 0.6 : 1 }}>
-          <Table size="small" sx={{ '& td, & th': { whiteSpace: 'nowrap', px: 0.75 }, '& th': { color: 'text.secondary', fontSize: 12 } }}>
+        <Box sx={{ opacity: summary.isPlaceholderData ? 0.6 : 1 }}>
+          {/* Narrow on purpose (no horizontal scroll): on a phone the share goes to the details. */}
+          <Table
+            size="small"
+            sx={{
+              '& td, & th': { px: { xs: 0.5, sm: 0.75 } },
+              '& th': { color: 'text.secondary', fontSize: 12 },
+              '& th, & td:not(:first-of-type)': { whiteSpace: 'nowrap' },
+              '& td:nth-of-type(2), & th:nth-of-type(2)': { display: { xs: 'none', sm: 'table-cell' } },
+              '& td[colspan]': { display: 'table-cell' },
+            }}
+          >
             <TableHead>
               <TableRow>
                 {head.map((h) => (
@@ -271,203 +255,151 @@ export default function () {
               </TableRow>
             </TableHead>
             <TableBody>
-              {node(root, 0)}
-              {picked.length > 0 && (
-                <GroupRow
-                  depth={0}
-                  label={t('myDay.team.picked', { count: picked.length })}
-                  cells={groupCells(picked)}
-                  action={(
-                    <Tooltip title={t('myDay.team.clear')}>
-                      <IconButton size="small" onClick={() => setSelected(new Set())}><Close fontSize="small" /></IconButton>
-                    </Tooltip>
-                  )}
-                />
-              )}
+              {row('total', 0, teamOf(root), t('myDay.team.mine', { count: descendants(root.employeeId).length }),
+                pickAll(descendants(root.employeeId), t('myDay.team.pickAll')))}
+              {personRow(root, 0)}
+              {(children.get(root.employeeId) ?? []).map((m) => branch(m, 0))}
+              {picked.length > 0 && row('picked', 0, { kind: 'picked', people: picked }, t('myDay.team.picked', { count: picked.length }), null, undefined, (
+                <Tooltip title={t('myDay.team.clear')}>
+                  <IconButton size="small" onClick={(e) => { e.stopPropagation(); setSelected(new Set()); }}><Close fontSize="small" /></IconButton>
+                </Tooltip>
+              ))}
             </TableBody>
           </Table>
         </Box>
+      )}
+      {gone.length > 0 && (
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+          {t('myDay.team.gone')}{' '}
+          {gone.map((e, i) => (
+            <Fragment key={e.id}>
+              {i > 0 && ', '}
+              <MuiLink component={Link} to={`/employees/${e.id}`}>{e.fullName}</MuiLink>
+              {e.dismissedAt && ` (${format.date(e.dismissedAt)})`}
+              {e.managerId === root?.employeeId && (
+                <Button size="small" sx={{ ml: 0.5, minWidth: 0, py: 0 }} onClick={() => setRestoring(e)}>{t('team.restore')}</Button>
+              )}
+            </Fragment>
+          ))}
+        </Typography>
       )}
       {restoring && <RestoreDialog employee={restoring} onClose={() => setRestoring(null)} onDone={refresh} />}
     </Paper>
   );
 }
 
-function MetricCells(p: { cells: Cells }) {
+function MetricCells(p: { group: Group; m: Metrics }) {
   const { t } = useTranslation();
   const format = useFormat();
-  const { cells: c } = p;
-  // Coarse on purpose: "3 дн." reads faster than "72ч" in a column.
-  const duration = (minutes: number | null) =>
-    minutes === null ? '—' : minutes >= 2 * 1440 ? t('myDay.team.inDays', { count: Math.round(minutes / 1440) }) : format.minutes(Math.round(minutes));
-  const dayNames = c.days?.map((d) => d.day) ?? [];
-  const days = (count: number) => (
-    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>{t('myDay.team.days', { count })}</Typography>
+  const duration = useDuration();
+  const { m } = p;
+  const percent = (value: number | null) => (value === null ? '—' : `${Math.round(value)}%`);
+  const note = (text: ReactNode, warn = false) => (
+    <Typography variant="caption" sx={{ color: warn ? 'warning.dark' : 'text.secondary', display: 'block', lineHeight: 1.3 }}>{text}</Typography>
   );
+  const late = m.worst !== null && m.worst.minutes >= DELAY_LIMIT[m.worst.kind];
+  const mine = p.group.kind === 'person' || (p.group.kind === 'team' && p.group.manager.self);
   return (
     <>
-      <TableCell align="right">{c.work ? <>{format.minutes(c.work.minutes)}{days(c.work.days)}</> : '—'}</TableCell>
-      <TableCell align="right" sx={{ color: (c.share ?? 0) > 100 ? 'warning.dark' : undefined }}>
-        {percent(c.share)}
-        {c.days && (
-          <Sparkline
-            kind="line"
-            max={100}
-            days={dayNames}
-            values={c.days.map((d) => (d.workMinutes > 0 ? (d.spentMinutes / d.workMinutes) * 100 : null))}
-            label={(day, v) => `${format.date(fromDay(day))}: ${Math.round(v)}%`}
-          />
-        )}
+      <TableCell align="right" sx={{ color: (m.share ?? 0) > 100 ? 'warning.dark' : undefined }}>{percent(m.share)}</TableCell>
+      <TableCell align="right">
+        {percent(m.score)}
+        {/* Days waiting for my score only: a team's wait for its manager is in its details. */}
+        {mine && m.unscored !== null && m.unscored > 0 && note(t('myDay.team.toScore', { count: m.unscored }), true)}
       </TableCell>
       <TableCell align="right">
-        {percent(c.score?.value ?? null)}
-        {c.score?.days != null && days(c.score.days)}
-        {c.days && (
-          <Sparkline
-            kind="dots"
-            max={100}
-            days={dayNames}
-            values={c.days.map((d) => d.score)}
-            label={(day, v) => `${format.date(fromDay(day))}: ${v}%`}
-          />
-        )}
+        <Stack direction="row" sx={{ justifyContent: 'flex-end', alignItems: 'center', gap: 0.5 }}>
+          {m.atRisk > 0 && (
+            <Tooltip title={t('myDay.team.atRiskCount', { count: m.atRisk })}>
+              <Stack direction="row" sx={{ alignItems: 'center', color: 'warning.dark', fontWeight: 600 }}>
+                <WarningAmber sx={{ fontSize: 16 }} />{m.atRisk}
+              </Stack>
+            </Tooltip>
+          )}
+          {m.open}
+        </Stack>
+        {m.backlog && m.backlog.minutes > 0 && note(t('myDay.team.planned', { time: format.minutes(m.backlog.minutes) }))}
       </TableCell>
-      <TableCell align="right">{c.unscored ?? '—'}</TableCell>
-      <TableCell align="right">{c.finished}</TableCell>
-      <TableCell align="right" sx={{ color: c.expired > 0 ? 'warning.dark' : undefined, fontWeight: c.expired > 0 ? 600 : undefined }}>
-        {c.expired}
-      </TableCell>
-      <TableCell align="right">{c.open}</TableCell>
-      <TableCell align="right" sx={{ color: c.atRisk > 0 ? 'warning.dark' : undefined, fontWeight: c.atRisk > 0 ? 600 : undefined }}>
-        {c.atRisk}
-      </TableCell>
-      <TableCell align="right" sx={{ color: (c.recordDelay ?? 0) >= 1440 ? 'warning.dark' : undefined }}>{duration(c.recordDelay)}</TableCell>
       <TableCell align="right">
-        {duration(c.reply)}
-        {c.unanswered > 0 && (
-          <Typography variant="caption" sx={{ color: 'warning.dark', display: 'block' }}>{t('myDay.team.unanswered', { count: c.unanswered })}</Typography>
-        )}
-      </TableCell>
-      <TableCell align="right" sx={{ color: (c.scoreWait ?? 0) >= 3 * 1440 ? 'warning.dark' : undefined }}>{duration(c.scoreWait)}</TableCell>
-      <TableCell align="right">
-        {c.backlog ? (
-          <>
-            {format.minutes(c.backlog.minutes)}
-            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-              {c.backlog.growth === 0 ? '±0' : `${c.backlog.growth > 0 ? '+' : '−'}${format.minutes(Math.abs(c.backlog.growth))}`}
-            </Typography>
-            {c.days && (
-              <Sparkline
-                kind="line"
-                max={60}
-                days={dayNames}
-                values={c.days.map((d) => d.backlogMinutes / 60)}
-                label={(day, v) => `${format.date(fromDay(day))}: ${format.minutes(Math.round(v * 60))}`}
-              />
-            )}
-          </>
-        ) : '—'}
+        <Tooltip
+          title={DELAYS.map((kind) => `${t(`myDay.team.details.delay.${kind}`)}: ${duration(m.delays[kind])}`).join(' · ')}
+          describeChild
+        >
+          <Box component="span" sx={{ color: late ? 'warning.dark' : undefined, fontWeight: late ? 600 : undefined }}>
+            {m.worst ? duration(m.worst.minutes) : '—'}
+          </Box>
+        </Tooltip>
+        {m.worst && note(t(`myDay.team.delayOf.${m.worst.kind}`), late)}
       </TableCell>
     </>
   );
 }
 
-/** The line of a group of people: a manager's team, or the ticked ones. */
-function GroupRow(p: { depth: number; label: string; cells: Cells; action?: ReactNode }) {
-  return (
-    <TableRow sx={{ '& td': { fontWeight: 600, bgcolor: 'action.hover' } }}>
-      <TableCell sx={{ pl: `${p.depth * INDENT + 30}px !important` }}>{p.label}</TableCell>
-      <MetricCells cells={p.cells} />
-      <TableCell align="right">{p.action}</TableCell>
-    </TableRow>
-  );
-}
-
-function PersonRow(p: {
-  member: Member;
+/** A line of the table: a person, a team, all of my team or the picked; a click opens its details. */
+function Row(p: {
   depth: number;
-  expandable: boolean;
-  expanded: boolean;
-  onExpand: () => void;
-  checked: boolean;
-  onCheck: (on: boolean) => void;
-  teamPicked: boolean;
-  onPickTeam?: () => void;
+  group: Group;
+  label: ReactNode;
+  pick: Pick | null;
+  fold?: { open: boolean; onToggle: () => void };
+  action?: ReactNode;
+  open: boolean;
+  onOpen: () => void;
   onRestore: (e: Employee) => void;
   onChanged: () => void;
 }) {
   const { t } = useTranslation();
-  const trpc = useTRPC();
-  const format = useFormat();
-  const employees = useEmployees();
-  const dismiss = useMutation(trpc.Employee.dismiss.mutationOptions({ onSuccess: p.onChanged }));
-  const { member: m } = p;
-  const employee = employees.get(m.employeeId);
-  if (!employee) return null;
-  const away = employee.nextDay !== null && employee.nextDay > today();
-
-  // Dismissal cannot be undone by the person dismissed and hurts them: confirm it.
-  const confirmDismiss = () => {
-    if (window.confirm(t('team.dismissConfirm', { name: employee.fullName }))) dismiss.mutate({ id: employee.id });
-  };
-
+  const isGroup = p.group.kind !== 'person';
   return (
-    <TableRow hover>
-      <TableCell sx={{ pl: `${p.depth * INDENT}px !important` }}>
-        <Stack direction="row" sx={{ alignItems: 'center' }}>
-          <Box sx={{ width: 26, flexShrink: 0 }}>
-            {p.expandable && (
-              <IconButton size="small" aria-label={t(p.expanded ? 'myDay.team.collapse' : 'myDay.team.expand')} onClick={p.onExpand}>
-                {p.expanded ? <ExpandMore fontSize="small" /> : <ChevronRight fontSize="small" />}
-              </IconButton>
-            )}
-          </Box>
-          <Checkbox
-            size="small"
-            sx={{ p: 0.5 }}
-            checked={p.checked}
-            onChange={(e) => p.onCheck(e.target.checked)}
-            slotProps={{ input: { 'aria-label': t('myDay.team.pick', { name: employee.fullName }) } }}
-          />
-          <EmployeeAvatar employee={employee} size={24} />
-          <Stack direction="row" sx={{ alignItems: 'center', gap: 0.75, ml: 0.75 }}>
-            <Typography
-              variant="body2"
-              component={Link}
-              to={`/employees/${employee.id}`}
-              sx={{ color: 'text.primary', fontWeight: 500, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
-            >
-              {employee.fullName}
-            </Typography>
-            {m.self && <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.team.me')}</Typography>}
-            {employee.email === null && <Chip size="small" label={t('team.dismissed')} />}
-            {away && (
-              <Tooltip title={t('employee.awayUntil', { day: format.date(fromDay(employee.nextDay!)) })}>
-                <Chip size="small" color="warning" label={t('myDay.team.away', { day: format.date(fromDay(employee.nextDay!)) })} />
-              </Tooltip>
-            )}
+    <>
+      <TableRow
+        hover
+        selected={p.open}
+        onClick={p.onOpen}
+        aria-expanded={p.open}
+        sx={{ cursor: 'pointer', '& td': isGroup ? { fontWeight: 600, bgcolor: p.open ? undefined : 'action.hover' } : {} }}
+      >
+        <TableCell sx={{ pl: { xs: `${p.depth * INDENT / 2}px !important`, sm: `${p.depth * INDENT}px !important` } }}>
+          <Stack direction="row" sx={{ alignItems: 'center' }}>
+            <Box sx={{ width: 26, flexShrink: 0 }}>
+              {p.fold && (
+                <IconButton
+                  size="small"
+                  aria-label={t(p.fold.open ? 'myDay.team.collapse' : 'myDay.team.expand')}
+                  onClick={(e) => { e.stopPropagation(); p.fold!.onToggle(); }}
+                >
+                  {p.fold.open ? <ExpandMore fontSize="small" /> : <ChevronRight fontSize="small" />}
+                </IconButton>
+              )}
+            </Box>
+            {/* Picking is for the payroll export, done at a desk: no ticks at phone width. */}
+            {p.pick ? (
+              <Checkbox
+                size="small"
+                sx={{ p: 0.5, display: { xs: 'none', sm: 'inline-flex' } }}
+                checked={p.pick.checked}
+                indeterminate={p.pick.indeterminate}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => p.pick!.onChange(e.target.checked)}
+                slotProps={{ input: { 'aria-label': p.pick.label } }}
+              />
+            ) : <Box sx={{ width: 30, flexShrink: 0, display: { xs: 'none', sm: 'block' } }} />}
+            <Box sx={{ ml: 0.5, minWidth: 0, flexGrow: 1 }}>{p.label}</Box>
+            {p.action}
           </Stack>
-        </Stack>
-      </TableCell>
-      <MetricCells cells={personCells(m)} />
-      <TableCell align="right">
-        {p.onPickTeam && (
-          <Tooltip title={t(p.teamPicked ? 'myDay.team.unpickTeam' : 'myDay.team.pickTeam')}>
-            <IconButton size="small" color={p.teamPicked ? 'primary' : 'default'} onClick={p.onPickTeam}>
-              <GroupAdd fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        )}
-        {m.direct && (employee.email === null ? (
-          <Tooltip title={t('team.restore')}>
-            <IconButton size="small" onClick={() => p.onRestore(employee)}><PersonAdd fontSize="small" /></IconButton>
-          </Tooltip>
-        ) : (
-          <Tooltip title={t('team.dismiss')}>
-            <IconButton size="small" disabled={dismiss.isPending} onClick={confirmDismiss}><PersonRemove fontSize="small" /></IconButton>
-          </Tooltip>
-        ))}
-      </TableCell>
-    </TableRow>
+        </TableCell>
+        <MetricCells group={p.group} m={metrics(p.group)} />
+      </TableRow>
+      <TableRow>
+        <TableCell colSpan={5} sx={{ py: 0, borderBottom: p.open ? undefined : 'none' }}>
+          <Collapse in={p.open} unmountOnExit>
+            {/* Takes the table's width, never widens it: the charts fit the columns, not the other way round. */}
+            <Box sx={{ width: 0, minWidth: '100%' }}>
+              <TeamDetails group={p.group} onRestore={p.onRestore} onChanged={p.onChanged} />
+            </Box>
+          </Collapse>
+        </TableCell>
+      </TableRow>
+    </>
   );
 }

@@ -21,7 +21,13 @@ test.describe('at phone width', () => {
     await expect(page.getByRole('heading', { name: 'Показатели' })).toBeVisible();
     await fits(page);
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'Моя команда' })).toBeVisible(); // the table scrolls inside its block
+    await expect(page.getByRole('heading', { name: 'Моя команда' })).toBeVisible();
+    await fits(page);
+    // The team table fits its block, its details open too: no scroll inside either.
+    const table = page.getByRole('table').filter({ has: page.getByRole('columnheader', { name: 'Задержка' }) });
+    await table.getByRole('row').filter({ hasText: 'Марина Соколова' }).first().getByRole('cell').last().click();
+    await expect(page.getByText('Время', { exact: true })).toBeVisible();
+    expect(await table.evaluate((el) => el.parentElement!.scrollWidth - el.parentElement!.clientWidth)).toBeLessThanOrEqual(1);
     await fits(page);
   });
 });

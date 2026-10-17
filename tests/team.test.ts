@@ -231,6 +231,25 @@ describe('team', () => {
     expect(member.unanswered).toBe(0);
     expect(member.days).toHaveLength(7);
     expect(member.days.find((d) => d.day === day)).toMatchObject({ workMinutes: 8 * 60 });
+    // The same day by day, for the charts: the shift's day was written late, today's mentions answered at once.
+    expect(member.days.find((d) => d.day === day)!.recordDelayMinutes).toBeGreaterThan(24 * 60);
+    expect(member.days.at(-1)!.replyMinutes).toBeLessThan(5);
+    expect(member.days.at(-1)!.recordDelayMinutes).toBeNull();
+  });
+
+  test('someone dismissed before the range is not in the summary; coming back clears the date', async () => {
+    const lead = await createEmployee();
+    const dev = await createEmployee({ managerId: lead.id });
+    const leadApi = await client(lead.id);
+    await leadApi.Employee.dismiss({ id: dev.id });
+    const ids = async (days: number) => (await leadApi.Team.summary(await lastDays(lead.id, days))).map((m) => m.employeeId);
+    expect(await ids(7)).toEqual([lead.id, dev.id]); // dismissed today: worked in the range
+    await sql`UPDATE employee SET dismissed_at = NOW() - INTERVAL '20 days' WHERE id = ${dev.id}`;
+    expect(await ids(7)).toEqual([lead.id]);
+    expect(await ids(30)).toEqual([lead.id, dev.id]);
+    await leadApi.Employee.restore({ id: dev.id, email: `back-${randomUUID()}@example.com` });
+    expect((await leadApi.Employee.list()).find((e) => e.id === dev.id)!.dismissedAt).toBeNull();
+    expect(await ids(7)).toEqual([lead.id, dev.id]);
   });
 
   test('reaction counts working time only: a mention after the shift, answered as the next began, took nothing', async () => {

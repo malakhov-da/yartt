@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { History } from '#shared/myDay.ts';
-import type { DayStats, Member, PeriodStats, ScoreInput, Stats } from '#shared/team.ts';
+import type { DayStats, Member, MemberDay, PeriodStats, ScoreInput, Stats } from '#shared/team.ts';
 import { AppError } from '../errors.ts';
 import { sql, type Sql } from '../pg.ts';
 import * as MyDay from './MyDay.ts';
@@ -36,6 +36,12 @@ const MemberDayRow = z.object({
   spentMinutes: z.number(),
   score: z.number().nullable(),
   backlogMinutes: z.number(),
+});
+const DelayRow = z.object({
+  kind: z.enum(['record', 'reply', 'scoreWait']),
+  employeeId: z.number(),
+  day: z.string(),
+  minutes: z.number(),
 });
 
 /** An employee's days are seen by themselves and every manager above them (decision 12). */
@@ -132,8 +138,55 @@ async function memberDays(ids: number[], from: string, to: string): Promise<z.in
 }
 
 /**
+ * The delays of each day of a range, for the charts under My team: the
+ * median lateness of the day's timesheet, of replies to the day's mentions
+ * (working time only), and of the person's scores of their reports for
+ * that day. The same measures as the summary's, day by day.
+ */
+async function delaysByDay(ids: number[], from: string, to: string): Promise<z.infer<typeof DelayRow>[]> {
+  return DelayRow.array().parse(await sql`
+    WITH e AS (SELECT id, time_zone FROM employee WHERE id = ANY(${ids})),
+         rec AS (
+           SELECT w.employee_id, (w.started_at AT TIME ZONE e.time_zone)::date AS day,
+                  percentile_cont(0.5) WITHIN GROUP (ORDER BY GREATEST(0,
+                    extract(epoch FROM w.updated_at - (w.started_at + w.spent_minutes * INTERVAL '1 minute')) / 60)) AS minutes
+             FROM work w JOIN e ON e.id = w.employee_id
+            WHERE w.spent_minutes IS NOT NULL
+              AND w.started_at >= (${from}::date - 2)::timestamptz AND w.started_at < (${to}::date + 2)::timestamptz
+            GROUP BY 1, 2
+         ),
+         rep AS (
+           SELECT m.value AS employee_id, (c.created_at AT TIME ZONE e.time_zone)::date AS day,
+                  percentile_cont(0.5) WITHIN GROUP (ORDER BY working_minutes(m.value, c.created_at, r.replied_at)) AS minutes
+             FROM mention m
+             JOIN comment c ON c.task_id = m.task_id AND c.id = m.comment_id
+             JOIN e ON e.id = m.value
+             CROSS JOIN LATERAL (SELECT min(r.created_at) AS replied_at FROM comment r
+                                  WHERE r.task_id = m.task_id AND r.id > m.comment_id AND r.created_by = m.value) r
+            WHERE r.replied_at IS NOT NULL
+              AND c.created_at >= (${from}::date - 2)::timestamptz AND c.created_at < (${to}::date + 2)::timestamptz
+              AND EXISTS (SELECT 1 FROM work w WHERE w.employee_id = m.value)
+            GROUP BY 1, 2
+         ),
+         sw AS (
+           SELECT s."by" AS employee_id, s.day,
+                  percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM
+                    s.added_at - ((s.day + 1)::timestamp AT TIME ZONE r.time_zone)) / 60) AS minutes
+             FROM score s JOIN employee r ON r.id = s.employee_id
+            WHERE s."by" = ANY(${ids}) AND s.day BETWEEN ${from}::date AND ${to}::date
+            GROUP BY 1, 2
+         )
+    SELECT 'record' AS kind, employee_id, day::text, minutes::float8 FROM rec WHERE day BETWEEN ${from}::date AND ${to}::date
+    UNION ALL
+    SELECT 'reply', employee_id, day::text, minutes::float8 FROM rep WHERE day BETWEEN ${from}::date AND ${to}::date
+    UNION ALL
+    SELECT 'scoreWait', employee_id, day::text, minutes::float8 FROM sw
+  `);
+}
+
+/**
  * The team summary: me first (my own report), then the whole subtree of my
- * reports, direct ones first, for a range of their days — workload and
+ * reports, direct ones first — without those dismissed before the range — for a range of their days — workload and
  * score, days waiting for a score, tasks closed by hand and automatically
  * (decision 32). Nobody's hours are added up (decision 38).
  */
@@ -141,7 +194,9 @@ export async function summary(viewerId: number, from: string, to: string): Promi
   const rows = MemberRow.array().parse(await sql`
     SELECT e.id, COALESCE(e.manager_id = ${viewerId}, FALSE) AS direct, e.id = ${viewerId} AS self
       FROM employee e
-     WHERE e.id IN (SELECT subordinates(${viewerId})) OR e.id = ${viewerId}
+     WHERE (e.id IN (SELECT subordinates(${viewerId})) OR e.id = ${viewerId})
+       -- Someone dismissed before the range did not work in it.
+       AND (e.dismissed_at IS NULL OR (e.dismissed_at AT TIME ZONE e.time_zone)::date >= ${from}::date)
      ORDER BY (e.id = ${viewerId}) DESC, (e.manager_id = ${viewerId}) DESC, e.email IS NULL, e.full_name, e.id
   `);
   const ids = rows.map((r) => r.id);
@@ -219,9 +274,14 @@ export async function summary(viewerId: number, from: string, to: string): Promi
              - backlog_minutes(e.id, ${from}::date::timestamp AT TIME ZONE e.time_zone) AS backlog_growth_minutes
       FROM e
   `).map(({ employeeId, ...rest }) => [employeeId, rest]));
-  const days = await memberDays(ids, from, to);
-  const daysOf = new Map<number, DayStats[]>();
-  for (const { employeeId, ...day } of days) daysOf.set(employeeId, [...(daysOf.get(employeeId) ?? []), day]);
+  const [days, delays] = await Promise.all([memberDays(ids, from, to), delaysByDay(ids, from, to)]);
+  const delayOf = new Map(delays.map((d) => [`${d.employeeId}/${d.day}/${d.kind}`, d.minutes]));
+  const daysOf = new Map<number, MemberDay[]>();
+  for (const { employeeId, ...day } of days) {
+    const delay = (kind: z.infer<typeof DelayRow>['kind']) => delayOf.get(`${employeeId}/${day.day}/${kind}`) ?? null;
+    const item = { ...day, recordDelayMinutes: delay('record'), replyMinutes: delay('reply'), scoreWaitMinutes: delay('scoreWait') };
+    daysOf.set(employeeId, [...(daysOf.get(employeeId) ?? []), item]);
+  }
   return rows.map((r) => ({
     employeeId: r.id, direct: r.direct, self: r.self, stats: byId.get(r.id)!, ...extra.get(r.id)!, days: daysOf.get(r.id) ?? [],
   }));

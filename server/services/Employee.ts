@@ -3,7 +3,7 @@ import { Employee, type InviteInput, type ProfileInput, type SettingsInput } fro
 import { AppError } from '../errors.ts';
 import { sql } from '../pg.ts';
 
-const COLUMNS = 'id, email, full_name, about, manager_id, next_day, time_zone, locale, pronoun, keyboards::text[] AS keyboards, '
+const COLUMNS = 'id, email, dismissed_at, full_name, about, manager_id, next_day, time_zone, locale, pronoun, keyboards::text[] AS keyboards, '
   + '(SELECT updated_at FROM avatar a WHERE a.employee_id = employee.id) AS avatar_at';
 const Exists = z.object({ exists: z.boolean() });
 

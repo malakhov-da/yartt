@@ -30,13 +30,12 @@ export default function () {
         <Stack spacing={2} sx={{ flex: '999 1 560px', minWidth: 0 }}>
           <Todo />
           <CurrentTasks />
+          {isManager && <Team />}
         </Stack>
         <Box sx={{ flex: '1 1 400px', minWidth: 0 }}>
           <History />
         </Box>
       </Box>
-      {/* The team table is wide: the whole width, under both columns. */}
-      {isManager && <Team />}
       <Typography component="footer" variant="caption" color="text.secondary" align="center">
         {t('app.name')} {__APP_VERSION__} · © 2026
       </Typography>

@@ -466,7 +466,7 @@ and blocked tasks (it discourages linking tasks) — each would push people
 to game the tracker instead of doing the work.
 
 *Implemented:* `working_minutes()`, `backlog_minutes()` in `db.sql`;
-`Team.summary`; `client/components/App/Sparkline.tsx`.
+`Team.summary`; the charts in `client/components/MyDayPage/TeamDetails.tsx`.
 
 ### 40. A deadline at risk is one person's plan against their own time
 
@@ -539,3 +539,33 @@ on the same browser starts with an empty outbox.
 
 *Implemented:* `client/hooks/offline.ts` (the offline link, the outbox,
 the saved cache), `client/public/sw.js`, `manifest.webmanifest`.
+
+### 44. My team: a narrow table of what compares, teams fold, details on a click
+
+The first My team was a wide table: thirteen columns, sparklines under the
+numbers, a horizontal scroll that hid the actions, managers who unfolded
+into their reports. Managers read it as a wall: which number matters, what
+a dotted sparkline says, where to bring back a dismissed person.
+
+Now the table has only what compares across rows — time in tasks, score,
+tasks, delay — and everything else goes to the details under a line, with
+real charts (axes, a legend, the day in a tooltip) instead of sparklines.
+Tasks closed by hand and automatically, open, at risk and the backlog are
+one column; the three delays are one column showing the delay furthest
+past its limit (a day for the timesheet, a working day for a reply, three
+days for a score) and naming it. Teams fold, not managers: a manager is
+a person in the list, and their team is a line of its own under them; my
+own team is never folded, its total on top.
+
+A team's score is its manager's score: how well the team works is what its
+manager answers for, and an average or an hours-weighted mix of its
+people's scores would either repeat the people's own lines or add up
+hours of different people (decision 38). For the same reason a team has
+no backlog — a dash, not a sum of hours. A dismissed person shows only
+for ranges they worked in (dismissed on or after its first day:
+`employee.dismissed_at`); the others are named under the table, where their
+direct manager can bring them back.
+
+*Implemented:* `client/components/MyDayPage/Team.tsx`, `TeamDetails.tsx`,
+`TeamChart.tsx`, `teamMetrics.ts`; `employee.dismissed_at`;
+`Member.days` with the delays of each day.

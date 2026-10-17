@@ -56,7 +56,7 @@ someone with reports:
   "others" for everyone: there should be few of them (decision 14).
   **New task** in the "I own" tab opens the form (2a). A task whose
   plan does not fit before its deadline says "At risk" (decision 40).
-- **My team** — only for someone with reports; see 4.
+- **My team** — only for someone with reports, under Current tasks; see 4.
 - **History** — my days, from today back into the past, with pages. A day shows the shift (work) if the team keeps a timesheet, the
   time logged to tasks (spent_minutes), and the visits: which tasks I
   opened and when I came into the system. Next to each task I opened is
@@ -208,38 +208,50 @@ form (2a).
 
 ## 4. My team — "how is my team doing?" (managers only)
 
-A block of My day across its whole width, shown only to someone who has
-reports: the tree of
-the whole subtree for a range (the last 7, 30, 90 days or any dates) —
-me at the root (my own report: there is no other place to see it), each
-manager's reports nested under them, collapsible. A person's row:
+A block of My day under Current tasks, shown only to someone who has
+reports, for a range (the last 7, 30, 90 days or any dates). The table is
+narrow — four columns that compare across rows, no horizontal scroll
+(decision 44):
 
-- workload (timesheet hours and days);
-- time in tasks — the share of their own timesheet logged to tasks;
-- the score weighted by their own hours, with the number of scored days;
-- days waiting for my score (direct reports only);
-- tasks closed by hand and closed automatically — a deadline set in
-  advance came (decision 32); open tasks now;
-- how late the timesheet is written — the median time from a shift's end
-  to its record (a day or more: written after the fact);
-- reaction to mentions — the median of their working time (shifts only)
-  to the first reply in the task, and how many are left unanswered;
-- for a manager, how long their reports' days wait for a score;
-- backlog — planned work in hours (their "time left" on open tasks), its
-  growth over the range and a sparkline.
+- **in tasks** — the share of their own timesheet logged to tasks;
+- **score** — weighted by their own hours; under it, the days waiting
+  for my score (my direct reports);
+- **tasks** — open now; a warning sign with how many are at risk; under
+  it, the planned hours (their "time left" on open tasks);
+- **delay** — the one of three delays furthest past its limit, named
+  under it: writing the timesheet (median from a shift's end to its
+  record; a day is the limit), replying to mentions (median of their
+  working time to the first reply; a working day), scoring reports' days
+  (median from the day's end to the score; three days).
 
-Time in tasks and the score have a sparkline of the range's days under
-them (hover tells a day). Under a manager's reports is the line of their team: counts add up,
-shares and scores are averaged over people, hours are never added up
-(decision 38). "With managers" counts the manager in their team's line.
-Ticks pick people for a line of their own ("Picked"); one click on a
-manager picks their whole team. **Export** saves the picked people (or
+On top, the line of all my team; then me (my own report: there is no
+other place to see it) and my direct reports, always shown. Under a report
+who manages others comes the line of their team, folded; it unfolds into
+its people, with their own teams folded the same way. A team's line
+combines everyone under its manager: counts add up, shares and delays are
+averaged over people, its score is its manager's, its backlog is not
+shown (hours are never added up — decision 38).
+
+A click on a line opens its details under it: the timesheet hours and
+days, logged time, scored days, tasks closed by hand and automatically
+(decision 32), the backlog and its growth, each delay and the unanswered
+mentions — with charts over the range (time in tasks, score, backlog,
+the three delays; a team's are the averages of its people, its score
+chart is its manager's). A person's details let their direct manager
+dismiss them or bring them back.
+
+Someone dismissed before the range is not in the table: they are named
+under it, with "Bring back" for their direct manager. Ticks pick people
+for a line of their own ("Picked", the score averaged over them); a
+team's tick picks the whole team. **Export** saves the picked people (or
 everyone) for payroll: an Excel file with a summary per person and a
 sheet per person-day (timesheet, logged time, score), or the days as
-CSV — built in the browser, with no total of hours across people.
+CSV — built in the browser, with no total of hours across people. At
+phone width the "in tasks" column and the ticks give way; the details
+keep everything.
 
-Direct reports can be dismissed and brought back here. A name opens the
-person's page. Inviting is not here — anyone invites from the top line.
+A name opens the person's page. Inviting is not here — anyone invites
+from the top line.
 
 ## 4a. Employee page — "how are this person's days?"
 

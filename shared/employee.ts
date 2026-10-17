@@ -23,6 +23,8 @@ export const Employee = z.object({
   id: Id,
   /** NULL = dismissed. */
   email: z.string().nullable(),
+  /** When dismissed; NULL — working. */
+  dismissedAt: z.date().nullable(),
   fullName: z.string(),
   about: z.string().nullable(),
   managerId: Id.nullable(),

@@ -40,7 +40,18 @@ export const DayStats = z.object({
 });
 export type DayStats = z.infer<typeof DayStats>;
 
-/** One person of the team summary for a range. */
+/** A day of a person in My team: also the delays of that day, for the charts (medians, as in Member). */
+export const MemberDay = DayStats.extend({
+  /** The day's shifts: from a shift's end to its record. */
+  recordDelayMinutes: z.number().nullable(),
+  /** Mentions of the day: working minutes to the first reply. */
+  replyMinutes: z.number().nullable(),
+  /** As a manager: the reports' scores of this day, from its end to the score. */
+  scoreWaitMinutes: z.number().nullable(),
+});
+export type MemberDay = z.infer<typeof MemberDay>;
+
+/** One person of the team summary for a range; someone dismissed before it is not there. */
 export const Member = z.object({
   employeeId: Id,
   /** A direct report (the signed-in employee is their manager). */
@@ -76,8 +87,8 @@ export const Member = z.object({
   backlogGrowthMinutes: z.number().int(),
   /** Mentions of them in the range with no reply yet. */
   unanswered: z.number().int(),
-  /** Every day of the range, oldest first: for the sparklines. */
-  days: DayStats.array(),
+  /** Every day of the range, oldest first: for the charts of the details. */
+  days: MemberDay.array(),
 });
 export type Member = z.infer<typeof Member>;
 

@@ -36,6 +36,7 @@ persona goal it serves. Status: **now** — stage one, **next** — stage two,
 | Shifts of any day not scored are added, corrected and deleted; the manager withdraws a score to let a day be fixed | Pavel: a mistyped shift is fixed; Marina: lets it be fixed without losing the reason | now (done) |
 | My team: my own row; time in tasks as a share of each timesheet; the team line averages people, never adds hours | Marina: compare people fairly, see her own report | now (done) |
 | My team as a tree with each team's line, ticks and one-click teams; sparklines; how late the timesheet is written; how fast mentions are answered | Marina: see where a sub-team is heading and which habits slip | now (done) |
+| My team narrowed to four comparable columns (in tasks, score, tasks, delay), teams that fold, details with charts on a click; a team's score is its manager's; dismissed people only for ranges they worked in | Marina: read the team at a glance and dig in only where something stands out | now (done) |
 | Deadline at risk: a person's plan does not fit their working time before the deadline — marked on the task and counted in My team | Marina: learn about a slip while it can still be avoided | now (done) |
 | A shift suggested for activity outside the written shifts of a past day | Pavel: an evening of work is not lost from the timesheet | now (done) |
 | Export for payroll: timesheet, logged time and scores of the picked people for a range, as Excel or CSV | Marina: hand the month to accounting without retyping | now (done) |

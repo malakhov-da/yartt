@@ -294,6 +294,8 @@ await I.Observer.add({ taskId: site, employeeId: bot });
 await as(bot).Comment.create(comment(site, '<p>Сборка #512 упала на этапе e2e: форма заявки не отвечает.</p>', { mentionIds: [me] }));
 
 await M.Employee.dismiss({ id: sergey });
+// He left three weeks ago: My team shows him for 30 days, not for 7.
+await sql`UPDATE employee SET dismissed_at = NOW() - INTERVAL '20 days' WHERE id = ${sergey}`;
 
 // --- days: visits, time logged, shifts ----------------------------------
 
