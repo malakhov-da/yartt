@@ -33,18 +33,19 @@ test.describe('Team and the employee page', () => {
 
     // Pavel writes his timesheet the next day (the demo data): the Delay column says so.
     await expect(pavel.getByRole('cell').last()).toHaveText(/^2\dч\s*табель$/);
-    // A click opens the details: the numbers behind the columns, with charts.
-    await pavel.getByRole('cell').last().click();
+    // The chart sign opens the details: the numbers behind the columns, with charts.
+    await pavel.getByRole('button', { name: 'Подробнее и графики' }).click();
+    await expect(pavel.getByRole('button', { name: 'Скрыть подробности' })).toHaveAttribute('aria-expanded', 'true');
     await expect(team.getByText(/^Табель \d+ч/)).toBeVisible();
     await expect(team.getByText(/^Запись табеля: 2\dч/)).toBeVisible();
     await expect(team.getByText(/^Бэклог \d+ч/)).toBeVisible();
-    await pavel.getByRole('cell').last().click();
+    await pavel.getByRole('button', { name: /^(Подробнее и графики|Скрыть подробности)$/ }).click();
 
     // A team's details: its manager's score, no backlog (hours of different people are not added up).
-    await marinaTeam.getByRole('cell').last().click();
+    await marinaTeam.getByRole('button', { name: /^(Подробнее и графики|Скрыть подробности)$/ }).click();
     await expect(team.getByText('Оценка руководителя')).toBeVisible();
     await expect(team.getByText(/^Бэклог группы не считается/)).toBeVisible();
-    await marinaTeam.getByRole('cell').last().click();
+    await marinaTeam.getByRole('button', { name: /^(Подробнее и графики|Скрыть подробности)$/ }).click();
 
     // The team's tick picks all of it; a tick adds one more person.
     await team.getByLabel('Выбрать всю команду: Марина Соколова').check();
@@ -76,7 +77,7 @@ test.describe('Team and the employee page', () => {
     await expect(sergey.getByText(/^Уволен/)).toHaveCount(0);
     await expect(team.getByRole('button', { name: /Мои уволенные/ })).toHaveCount(0);
 
-    await sergey.getByRole('cell').last().click();
+    await sergey.getByRole('button', { name: /^(Подробнее и графики|Скрыть подробности)$/ }).click();
     page.once('dialog', (d) => void d.accept());
     await team.getByRole('button', { name: 'Уволить' }).click();
     await expect(sergey.getByText(/^Уволен/)).toBeVisible();

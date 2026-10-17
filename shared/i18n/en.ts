@@ -153,6 +153,8 @@ export const en: Translation = {
       pickTeam: 'Pick the whole team: {{name}}',
       expand: 'Show the team',
       collapse: 'Collapse the team',
+      showDetails: 'Details and charts',
+      hideDetails: 'Hide the details',
     },
     shift: {
       open: 'Shift since {{from}} · {{time}}',

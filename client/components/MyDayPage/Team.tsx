@@ -1,4 +1,4 @@
-import { ChevronRight, Close, Download, ExpandMore, WarningAmber } from '@mui/icons-material';
+import { ChevronRight, Close, Download, ExpandMore, ShowChart, WarningAmber } from '@mui/icons-material';
 import {
   Box, Button, Checkbox, Chip, Collapse, IconButton, Link as MuiLink, Menu, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead,
   TableRow, Tooltip, Typography,
@@ -240,7 +240,7 @@ export default function () {
           <Table
             size="small"
             sx={{
-              '& td, & th': { px: { xs: 0.5, sm: 0.75 } },
+              '& td, & th': { px: { xs: 0.25, sm: 0.75 } },
               '& th': { color: 'text.secondary', fontSize: 12 },
               '& th, & td:not(:first-of-type)': { whiteSpace: 'nowrap' },
               '& td:nth-of-type(2), & th:nth-of-type(2)': { display: { xs: 'none', sm: 'table-cell' } },
@@ -377,7 +377,7 @@ function Row(p: {
       >
         <TableCell sx={{ pl: { xs: `${p.depth * INDENT / 2}px !important`, sm: `${p.depth * INDENT}px !important` } }}>
           <Stack direction="row" sx={{ alignItems: 'center' }}>
-            <Box sx={{ width: 26, flexShrink: 0 }}>
+            <Box sx={{ width: { xs: 22, sm: 26 }, flexShrink: 0 }}>
               {p.fold && (
                 <IconButton
                   size="small"
@@ -401,6 +401,19 @@ function Row(p: {
               />
             ) : <Box sx={{ width: 30, flexShrink: 0, display: { xs: 'none', sm: 'block' } }} />}
             <Box sx={{ ml: 0.5, minWidth: 0, flexGrow: 1 }}>{p.label}</Box>
+            {/* The details are behind a visible sign, not only a click on the row. */}
+            <Tooltip title={t(p.open ? 'myDay.team.hideDetails' : 'myDay.team.showDetails')}>
+              <IconButton
+                size="small"
+                sx={{ p: { xs: 0.25, sm: 0.625 } }}
+                color={p.open ? 'primary' : 'default'}
+                aria-label={t(p.open ? 'myDay.team.hideDetails' : 'myDay.team.showDetails')}
+                aria-expanded={p.open}
+                onClick={(e) => { e.stopPropagation(); p.onOpen(); }}
+              >
+                <ShowChart fontSize="small" />
+              </IconButton>
+            </Tooltip>
             {p.action}
           </Stack>
         </TableCell>

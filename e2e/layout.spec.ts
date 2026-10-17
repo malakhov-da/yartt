@@ -25,7 +25,7 @@ test.describe('at phone width', () => {
     await fits(page);
     // The team table fits its block, its details open too: no scroll inside either.
     const table = page.getByRole('table').filter({ has: page.getByRole('columnheader', { name: 'Задержка' }) });
-    await table.getByRole('row').filter({ hasText: 'Марина Соколова' }).first().getByRole('cell').last().click();
+    await table.getByRole('row').filter({ hasText: 'Марина Соколова' }).first().getByRole('button', { name: /^(Подробнее и графики|Скрыть подробности)$/ }).click();
     await expect(page.getByText('Время', { exact: true })).toBeVisible();
     expect(await table.evaluate((el) => el.parentElement!.scrollWidth - el.parentElement!.clientWidth)).toBeLessThanOrEqual(1);
     await fits(page);

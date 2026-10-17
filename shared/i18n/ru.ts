@@ -202,6 +202,8 @@ export const ru = {
       pickTeam: 'Выбрать всю команду: {{name}}',
       expand: 'Показать команду',
       collapse: 'Свернуть команду',
+      showDetails: 'Подробнее и графики',
+      hideDetails: 'Скрыть подробности',
     },
     shift: {
       open: 'Смена идёт с {{from}} · {{time}}',

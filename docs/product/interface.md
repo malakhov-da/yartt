@@ -244,7 +244,7 @@ shown (hours are never added up — decision 38). Only people who were
 there in the range are shown: not someone invited after it or dismissed
 before it.
 
-A click on a line opens its details under it: the timesheet hours and
+The chart sign at the end of a line (or a click on the line) opens its details under it: the timesheet hours and
 days, logged time, scored days, tasks closed by hand and automatically
 (decision 32), the backlog and its growth, each delay and the unanswered
 mentions — with charts over the range (time in tasks, score, backlog,
