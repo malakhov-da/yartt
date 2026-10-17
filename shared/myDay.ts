@@ -14,8 +14,8 @@ export const TodoMention = z.object({
   at: z.date(),
   /** The beginning of the comment as plain text. */
   excerpt: z.string(),
-  /** My answer in the task; NULL — none yet. With one "Done" is allowed. */
-  reply: MentionReply.nullable(),
+  /** My answers, oldest first; empty — none yet. With one "Done" is allowed. */
+  replies: MentionReply.array(),
 });
 export type TodoMention = z.infer<typeof TodoMention>;
 

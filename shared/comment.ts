@@ -12,10 +12,7 @@ export const FileRef = z.object({
 });
 export type FileRef = z.infer<typeof FileRef>;
 
-/**
- * The answer to a mention: the mentioned employee's first comment after it
- * in the task, a direct reply to it first. Shown inside the mention.
- */
+/** An answer to a mention: a reply to the mentioning comment by the mentioned employee. Shown inside the mention. */
 export const MentionReply = z.object({
   id: Id,
   at: z.date(),
@@ -28,8 +25,8 @@ export const Mention = z.object({
   employeeId: Id,
   /** NULL — open. */
   closedAt: z.date().nullable(),
-  /** NULL — not answered yet; with an answer "Done" is allowed. */
-  reply: MentionReply.nullable(),
+  /** Oldest first; empty — not answered yet. With an answer "Done" is allowed. */
+  replies: MentionReply.array(),
 });
 export type Mention = z.infer<typeof Mention>;
 

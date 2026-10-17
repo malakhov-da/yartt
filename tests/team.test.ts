@@ -225,10 +225,10 @@ describe('team', () => {
 
     const member = (await (await client(lead.id)).Team.summary({ from, to })).find((m) => m.employeeId === dev.id)!;
     expect(member.recordDelayMinutes).toBeGreaterThan(24 * 60);
-    // Both mentions are answered by the one reply after them, at once.
+    // The reply answers the mention it replies to, at once; the other one waits for its own.
     expect(member.replyMinutes).toBeGreaterThanOrEqual(0);
     expect(member.replyMinutes).toBeLessThan(5);
-    expect(member.unanswered).toBe(0);
+    expect(member.unanswered).toBe(1);
     expect(member.days).toHaveLength(7);
     expect(member.days.find((d) => d.day === day)).toMatchObject({ workMinutes: 8 * 60 });
     // The same day by day, for the charts: the shift's day was written late, today's mentions answered at once.

@@ -475,7 +475,7 @@ INVARIANTS (forbidden; all checked in the database)
 
   Mentions:
     - Closing a mention the mentioned employee has not replied to (no
-      comment of theirs in the task after it).
+      reply of theirs to the mentioning comment).
 
   Tags:
     - Deleting a tag that is in use.
@@ -2624,7 +2624,7 @@ CREATE OR REPLACE FUNCTION trg_mention_close_check()
 RETURNS TRIGGER AS $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM comment
-                    WHERE task_id = NEW.task_id AND id > NEW.comment_id AND created_by = NEW.value) THEN
+                    WHERE task_id = NEW.task_id AND reply_to_id = NEW.comment_id AND created_by = NEW.value) THEN
         RAISE EXCEPTION 'mention in comment % of task % is closed without a reply', NEW.comment_id, NEW.task_id
             USING HINT = 'mention_needs_reply';
     END IF;
@@ -2633,8 +2633,10 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION trg_mention_close_check() IS
-'A mention is closed only after the mentioned employee commented in the
-task after it: "Done" without a word would leave the author guessing.';
+'A mention is closed only after the mentioned employee replied to the
+mentioning comment ("Reply"): "Done" without a word would leave the
+author guessing, and a comment elsewhere in the task is not an answer to
+this request.';
 
 CREATE TRIGGER mention_close_check
 BEFORE UPDATE OF closed_at ON mention

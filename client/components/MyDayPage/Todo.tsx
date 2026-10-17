@@ -61,18 +61,22 @@ function Item(p: { item: TodoItem }) {
           {t('myDay.todo.mention', { name: name(item.authorId), ...pronoun(item.authorId) })} · {format.relative(item.at)}
         </Typography>
         {item.excerpt && <Typography variant="body2" sx={{ color: 'text.secondary' }}>«{item.excerpt}»</Typography>}
-        {item.reply && <Box sx={{ mt: 0.5 }}><MentionReply who={t('myDay.todo.myReply')} reply={item.reply} /></Box>}
+        {item.replies.length > 0 && (
+          <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+            {item.replies.map((r) => <MentionReply key={r.id} who={t('myDay.todo.myReply')} reply={r} />)}
+          </Stack>
+        )}
       </>
     );
     actions = (
       <>
         <Button size="small" onClick={() => setReplying((v) => !v)}>{t('task.feed.reply')}</Button>
-        <Tooltip title={item.reply ? '' : t('task.feed.replyFirst')}>
+        <Tooltip title={item.replies.length ? '' : t('task.feed.replyFirst')}>
           <span>
             <Button
               size="small"
               variant="contained"
-              disabled={!item.reply || closeMention.isPending}
+              disabled={!item.replies.length || closeMention.isPending}
               onClick={() => closeMention.mutate({ taskId: item.task.id, commentId: item.commentId })}
             >
               {t('task.feed.done')}

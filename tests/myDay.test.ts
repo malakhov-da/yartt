@@ -19,12 +19,16 @@ describe('todo', () => {
 
     const api = await client(helper.id);
     expect(await api.MyDay.todo()).toMatchObject([
-      { kind: 'mention', task: { id }, commentId, authorId: owner.id, excerpt: 'Please look', reply: null },
+      { kind: 'mention', task: { id }, commentId, authorId: owner.id, excerpt: 'Please look', replies: [] },
     ]);
+    // A comment elsewhere in the task is not an answer: "Done" still waits.
     await api.Comment.create(comment(id, '<p>Something else</p>'));
-    const replyId = await api.Comment.create({ ...comment(id, '<p>On it</p>'), replyToId: commentId });
-    // The mention shows its answer: the direct reply to it, before an earlier comment.
-    expect(await api.MyDay.todo()).toMatchObject([{ kind: 'mention', reply: { id: replyId, excerpt: 'On it' } }]);
+    expect(await api.MyDay.todo()).toMatchObject([{ kind: 'mention', replies: [] }]);
+    await expect(api.Comment.closeMention({ taskId: id, commentId })).rejects.toMatchObject({ message: 'mention_needs_reply' });
+    // Every reply to it shows inside the mention, oldest first.
+    const first = await api.Comment.create({ ...comment(id, '<p>On it</p>'), replyToId: commentId });
+    const second = await api.Comment.create({ ...comment(id, '<p>Done, see the file</p>'), replyToId: commentId });
+    expect((await api.MyDay.todo())[0]).toMatchObject({ replies: [{ id: first, excerpt: 'On it' }, { id: second, excerpt: 'Done, see the file' }] });
     await api.Comment.closeMention({ taskId: id, commentId });
     expect(await api.MyDay.todo()).toEqual([]);
   });

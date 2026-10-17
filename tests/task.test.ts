@@ -134,7 +134,7 @@ describe('mentions', () => {
     await expect(devApi.Comment.closeMention({ taskId: id, commentId: asked })).rejects.toMatchObject({ message: 'mention_needs_reply' });
     await devApi.Comment.create({ ...comment(id, '<p>Checked</p>'), replyToId: asked });
     const mention = (await devApi.Comment.list({ taskId: id, filter: 'mentions', page: 1 })).items[0];
-    expect(mention?.kind === 'comment' && mention.mentions[0]).toMatchObject({ employeeId: dev.id, reply: { excerpt: expect.any(String) } });
+    expect(mention?.kind === 'comment' && mention.mentions[0]).toMatchObject({ employeeId: dev.id, replies: [{ excerpt: expect.any(String) }] });
     await devApi.Comment.closeMention({ taskId: id, commentId: asked });
     expect((await api.Comment.list({ taskId: id, filter: 'mentions', page: 1 })).items).toEqual([]);
   });

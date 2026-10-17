@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Comment, CreateCommentInput, Feed, FeedFilter, FeedItem } from '#shared/comment.ts';
+import type { Comment, CreateCommentInput, Feed, FeedFilter, FeedItem, MentionReply } from '#shared/comment.ts';
 import { AppError } from '../errors.ts';
 import { cleanHtml, plainText } from '../html.ts';
 import { sql, type Sql } from '../pg.ts';
@@ -37,10 +37,8 @@ const MentionRow = z.object({
   commentId: z.number(),
   value: z.number(),
   closedAt: z.date().nullable(),
-  replyId: z.number().nullable(),
-  replyAt: z.date().nullable(),
-  replyValue: z.string().nullable(),
 });
+const ReplyRow = z.object({ taskId: z.number(), commentId: z.number(), employeeId: z.number(), id: z.number(), createdAt: z.date(), value: z.string() });
 const TaskMentionRow = z.object({ commentId: z.number(), value: z.number() });
 const Id = z.object({ id: z.number() });
 
@@ -174,17 +172,11 @@ async function load(viewerId: number, taskId: number, ids: number[]): Promise<Ma
     FileRow.array().parse(await sql`SELECT id, size, mime FROM attachment WHERE id = ANY(${fileIds})`).map((f) => [f.id, f]),
   );
   const mentions = MentionRow.array().parse(await sql`
-    SELECT m.comment_id, m.value, m.closed_at, r.id AS reply_id, r.created_at AS reply_at, r.value AS reply_value
+    SELECT m.comment_id, m.value, m.closed_at
       FROM mention m
-      -- The answer: their first comment after it, a direct reply to it first.
-      LEFT JOIN LATERAL (
-        SELECT r.id, r.created_at, r.value FROM comment r
-         WHERE r.task_id = m.task_id AND r.id > m.comment_id AND r.created_by = m.value
-         ORDER BY r.reply_to_id IS NOT DISTINCT FROM m.comment_id DESC, r.id
-         LIMIT 1
-      ) r ON TRUE
      WHERE m.task_id = ${taskId} AND m.comment_id = ANY(${ids}) ORDER BY m.value
   `);
+  const answers = await mentionReplies(mentions.map((m) => ({ taskId, commentId: m.commentId, employeeId: m.value })));
   const taskMentions = TaskMentionRow.array().parse(await sql`
     SELECT comment_id, value FROM task_mention WHERE task_id = ${taskId} AND comment_id = ANY(${ids})
   `);
@@ -206,7 +198,7 @@ async function load(viewerId: number, taskId: number, ids: number[]): Promise<Ma
     mentions: mentions.filter((m) => m.commentId === r.id).map((m) => ({
       employeeId: m.value,
       closedAt: m.closedAt,
-      reply: m.replyId === null ? null : { id: m.replyId, at: m.replyAt!, excerpt: plainText(m.replyValue ?? '').slice(0, EXCERPT) },
+      replies: answers.get(replyKey(taskId, m.commentId, m.value)) ?? [],
     })),
     tasks: taskMentions.filter((m) => m.commentId === r.id).flatMap((m) => tasks.get(m.value) ?? []),
     isNew: r.isNew,
@@ -266,4 +258,27 @@ export async function closeMention(employeeId: number, taskId: number, commentId
     RETURNING value
   `;
   if (rows.length === 0) throw new AppError('not_found');
+}
+
+export const replyKey = (taskId: number, commentId: number, employeeId: number) => `${taskId}/${commentId}/${employeeId}`;
+
+/**
+ * The answers of each mention, oldest first: the replies to the mentioning
+ * comment by the person mentioned. Keyed by replyKey().
+ */
+export async function mentionReplies(keys: { taskId: number; commentId: number; employeeId: number }[]): Promise<Map<string, MentionReply[]>> {
+  if (keys.length === 0) return new Map();
+  const rows = ReplyRow.array().parse(await sql`
+    SELECT m.task_id, m.comment_id, m.employee_id, r.id, r.created_at, r.value
+      FROM unnest(${keys.map((k) => k.taskId)}::int[], ${keys.map((k) => k.commentId)}::int[], ${keys.map((k) => k.employeeId)}::int[])
+           AS m(task_id, comment_id, employee_id)
+      JOIN comment r ON r.task_id = m.task_id AND r.reply_to_id = m.comment_id AND r.created_by = m.employee_id
+     ORDER BY r.id
+  `);
+  const result = new Map<string, MentionReply[]>();
+  for (const r of rows) {
+    const key = replyKey(r.taskId, r.commentId, r.employeeId);
+    result.set(key, [...(result.get(key) ?? []), { id: r.id, at: r.createdAt, excerpt: plainText(r.value).slice(0, EXCERPT) }]);
+  }
+  return result;
 }

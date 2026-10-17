@@ -36,9 +36,10 @@ someone with reports:
 - **TODO** — what waits for my reaction, newest first:
   - mentions of me that are still open. A mention closes only explicitly
     ("Done"): a reply alone does not mean the request is handled — but
-    "Done" needs a reply: until I comment in the task after the mention
-    the button waits, so whoever asked always gets an answer. Once given,
-    the answer shows inside the mention ("My reply: …"). This is
+    "Done" needs a reply: until I reply to the mentioning comment
+    ("Reply"; a comment elsewhere in the task does not count) the button
+    waits, so whoever asked always gets an answer. Every reply shows
+    inside the mention ("My reply: …"), oldest first. This is
     the only way a task I merely observe gets here — its other comments
     stay quiet;
   - my own tasks with comments by others since I last confirmed that no
@@ -116,10 +117,9 @@ Left, top to bottom:
   text; other files become attachments; people and tasks are attached
   explicitly. After "Send" the comment waits a few seconds with "Back to
   editing" and then goes out. By default the feed shows only the comments
-  with open mentions — what still waits for someone; a mention shows the
-  answer of the person mentioned (their direct reply first, otherwise
-  their next comment), so a request and its answer read together even
-  when only mentions are shown; "All events" shows
+  with open mentions — what still waits for someone; a mention shows every
+  reply to it by the person mentioned, so a request and its answers read
+  together even when only mentions are shown; "All events" shows
   every comment and event, with pages. Events appear between the comments
   as grey lines: deadline moves, a comment of another task attaching this
   one ("Mentioned in #7"), time logged ("Pavel logged 2h for Oct 14") and
@@ -225,7 +225,7 @@ narrow — four columns that compare across rows, no horizontal scroll
 - **delay** — the one of three delays furthest past its limit, named
   under it: writing the timesheet (median from a shift's end to its
   record; a day is the limit), replying to mentions (median of their
-  working time to the first reply; a working day), scoring reports' days
+  working time to the first reply to it; a working day), scoring reports' days
   (median from the day's end to the score; three days).
 
 On top, the line of all my team — me included; then me (my own report:

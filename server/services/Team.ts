@@ -162,7 +162,7 @@ async function delaysByDay(ids: number[], from: string, to: string): Promise<z.i
              JOIN comment c ON c.task_id = m.task_id AND c.id = m.comment_id
              JOIN e ON e.id = m.value
              CROSS JOIN LATERAL (SELECT min(r.created_at) AS replied_at FROM comment r
-                                  WHERE r.task_id = m.task_id AND r.id > m.comment_id AND r.created_by = m.value) r
+                                  WHERE r.task_id = m.task_id AND r.reply_to_id = m.comment_id AND r.created_by = m.value) r
             WHERE r.replied_at IS NOT NULL
               AND c.created_at >= (${from}::date - 2)::timestamptz AND c.created_at < (${to}::date + 2)::timestamptz
               AND EXISTS (SELECT 1 FROM work w WHERE w.employee_id = m.value)
@@ -226,7 +226,7 @@ export async function summary(viewerId: number, from: string, to: string): Promi
          asked AS (
            SELECT m.value AS employee_id, c.created_at AS asked_at,
                   (SELECT min(r.created_at) FROM comment r
-                    WHERE r.task_id = m.task_id AND r.id > m.comment_id AND r.created_by = m.value) AS replied_at
+                    WHERE r.task_id = m.task_id AND r.reply_to_id = m.comment_id AND r.created_by = m.value) AS replied_at
              FROM mention m
              JOIN comment c ON c.task_id = m.task_id AND c.id = m.comment_id
              JOIN e ON e.id = m.value

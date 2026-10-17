@@ -53,12 +53,12 @@ export default function (p: { taskId: number; comment: Comment; onReply: () => v
                   label={`@${name(m.employeeId)} · ${m.closedAt ? t('task.feed.closed') : t('task.feed.open')}`}
                 />
                 {m.employeeId === me.id && !m.closedAt && (
-                  <Tooltip title={m.reply ? '' : t('task.feed.replyFirst')}>
+                  <Tooltip title={m.replies.length ? '' : t('task.feed.replyFirst')}>
                     <span>
                       <Button
                         size="small"
                         variant="contained"
-                        disabled={!m.reply || close.isPending}
+                        disabled={!m.replies.length || close.isPending}
                         onClick={() => close.mutate({ taskId: p.taskId, commentId: c.id })}
                       >
                         {t('task.feed.done')}
@@ -83,7 +83,7 @@ export default function (p: { taskId: number; comment: Comment; onReply: () => v
           </Box>
         )}
         {/* Each mention shows its answer, so a mention and its reply read together. */}
-        {c.mentions.flatMap((m) => (m.reply ? [<MentionReply key={`r${m.employeeId}`} who={name(m.employeeId)} reply={m.reply} />] : []))}
+        {c.mentions.flatMap((m) => m.replies.map((r) => <MentionReply key={r.id} who={name(m.employeeId)} reply={r} />))}
         {c.tasks.map((task) => <TaskLine key={task.id} task={task} />)}
       </Stack>
     </Stack>

@@ -92,7 +92,10 @@ managers above only look.
 ### 9. A mention is closed only explicitly
 
 A reply to the comment does not close the mention: answering is not the
-same as doing what was asked. The mentioned employee presses "Done". An
+same as doing what was asked. The mentioned employee presses "Done" —
+and only after replying to that comment: a reply is an answer to this
+request, a comment elsewhere in the task is not. The replies show inside
+the mention, all of them, so the request and its answers read together. An
 open mention is also the only way a task one merely observes reaches their
 TODO — the rest of its comments stay quiet, so Marina's sixty observed
 tasks do not flood her day.
@@ -446,7 +449,7 @@ from data already kept and that cannot be gamed by working worse:
   reconstruction, and a score built on it is weaker.
 - **Reaction to mentions** — the median of the person's *working* time
   (their shifts, `working_minutes()`) from a mention to their first
-  reply, and the mentions left unanswered. Time off is not theirs to
+  reply to it, and the mentions left unanswered. Time off is not theirs to
   answer for: a mention a minute after the shift, answered as the next
   shift began, took 0. Without a timesheet there is nothing to measure
   against, so no value.
