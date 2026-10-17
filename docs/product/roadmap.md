@@ -12,8 +12,6 @@ it is decided. Proposals wait for a decision in their own section.
   in through a test SMTP, check the webhook signature on a real receiver.
 - [ ] **A manual pass in English** and a check that every error code
   reachable from the interface shows its message.
-- [ ] **Performance.** Current tasks, search and the team summary on
-  ~10 000 tasks and ~300 people; indexes for `can_see()`.
 - [ ] **Contributions with a signed assignment.** Once the repository is
   on GitHub: install CLA Assistant, give it [legal/CAA-individual.md](../../legal/CAA-individual.md)
   as the agreement and check on a test pull request that it blocks

@@ -64,25 +64,40 @@ export async function stats(ids: number[], range: Range, db: Sql = sql): Promise
       SELECT id, time_zone, ${bounds}
         FROM employee WHERE id = ANY(${ids})
     ),
+    -- Each person's closed shifts by day, within the range only.
     w AS (
       SELECT e.id AS employee_id, (w.started_at AT TIME ZONE e.time_zone)::date AS day, sum(w.spent_minutes) AS minutes
         FROM work w JOIN e ON e.id = w.employee_id
        WHERE w.spent_minutes IS NOT NULL
+         -- Two days of margin for time zones; the exact days are cut below.
+         AND w.started_at >= (e.since - 2)::timestamptz AND w.started_at < (e.until + 2)::timestamptz
        GROUP BY 1, 2
+    ),
+    wr AS (SELECT w.* FROM w JOIN e ON e.id = w.employee_id WHERE w.day BETWEEN e.since AND e.until),
+    -- Grouped once per person, not a subquery per person: the summary has hundreds.
+    wa AS (SELECT employee_id, sum(minutes)::int AS minutes, count(*)::int AS days FROM wr GROUP BY 1),
+    sa AS (
+      SELECT s."by" AS employee_id, sum(s.value)::int AS minutes
+        FROM spent_minutes s JOIN e ON e.id = s."by"
+       WHERE s.day BETWEEN e.since AND e.until
+       GROUP BY 1
+    ),
+    sc AS (
+      SELECT s.employee_id, count(*)::int AS days,
+             (sum(s.value * wr.minutes) / NULLIF(sum(wr.minutes), 0))::float8 AS weighted
+        FROM score s JOIN e ON e.id = s.employee_id
+        LEFT JOIN wr ON wr.employee_id = s.employee_id AND wr.day = s.day
+       WHERE s.day BETWEEN e.since AND e.until AND s.value IS NOT NULL
+       GROUP BY 1
     )
     SELECT e.id AS employee_id,
-           (SELECT COALESCE(sum(minutes), 0)::int FROM w
-             WHERE w.employee_id = e.id AND w.day BETWEEN e.since AND e.until) AS work_minutes,
-           (SELECT count(*)::int FROM w
-             WHERE w.employee_id = e.id AND w.day BETWEEN e.since AND e.until) AS work_days,
-           (SELECT COALESCE(sum(value), 0)::int FROM spent_minutes s
-             WHERE s."by" = e.id AND s.day BETWEEN e.since AND e.until) AS spent_minutes,
-           (SELECT count(*)::int FROM score s
-             WHERE s.employee_id = e.id AND s.day BETWEEN e.since AND e.until AND s.value IS NOT NULL) AS scored_days,
-           (SELECT (sum(s.value * w.minutes) / NULLIF(sum(w.minutes), 0))::float8
-              FROM score s JOIN w ON w.employee_id = s.employee_id AND w.day = s.day
-             WHERE s.employee_id = e.id AND s.day BETWEEN e.since AND e.until AND s.value IS NOT NULL) AS weighted_score
+           COALESCE(wa.minutes, 0) AS work_minutes, COALESCE(wa.days, 0) AS work_days,
+           COALESCE(sa.minutes, 0) AS spent_minutes,
+           COALESCE(sc.days, 0) AS scored_days, sc.weighted AS weighted_score
       FROM e
+      LEFT JOIN wa ON wa.employee_id = e.id
+      LEFT JOIN sa ON sa.employee_id = e.id
+      LEFT JOIN sc ON sc.employee_id = e.id
   `);
   return new Map(rows.map(({ employeeId, ...rest }) => [employeeId, rest]));
 }
@@ -106,8 +121,9 @@ async function memberDays(ids: number[], from: string, to: string): Promise<z.in
          s AS (SELECT "by" AS employee_id, day, sum(value) AS minutes FROM spent_minutes WHERE "by" = ANY(${ids}) GROUP BY 1, 2)
     SELECT d.id AS employee_id, d.day::text, COALESCE(w.minutes, 0)::int AS work_minutes,
            COALESCE(s.minutes, 0)::int AS spent_minutes, sc.value AS score,
-           backlog_minutes(d.id, LEAST(NOW(), (d.day + 1)::timestamp AT TIME ZONE d.time_zone)) AS backlog_minutes
+           b.minutes AS backlog_minutes
       FROM d
+      JOIN backlog_by_day(${ids}, ${from}::date, ${to}::date) b ON b.employee_id = d.id AND b.day = d.day
       LEFT JOIN w ON w.employee_id = d.id AND w.day = d.day
       LEFT JOIN s ON s.employee_id = d.id AND s.day = d.day
       LEFT JOIN score sc ON sc.employee_id = d.id AND sc.day = d.day
@@ -134,11 +150,21 @@ export async function summary(viewerId: number, from: string, to: string): Promi
   // by hand ("Finish" or moved to the past); set in advance and then reached — automatically.
   const extra = new Map(ExtraRow.array().parse(await sql`
     WITH e AS (SELECT id, time_zone, local_today(id) AS today FROM employee WHERE id = ANY(${ids})),
+         -- Days of the range with shifts, all closed and before today, not scored: grouped once.
          days AS (
            SELECT w.employee_id, (w.started_at AT TIME ZONE e.time_zone)::date AS day,
                   bool_and(w.spent_minutes IS NOT NULL) AS closed
              FROM work w JOIN e ON e.id = w.employee_id
+            WHERE w.started_at >= (${from}::date - 2)::timestamptz AND w.started_at < (${to}::date + 2)::timestamptz
             GROUP BY 1, 2
+         ),
+         unscored AS (
+           SELECT d.employee_id, count(*)::int AS n
+             FROM days d JOIN e ON e.id = d.employee_id
+            WHERE d.closed AND d.day < e.today AND d.day BETWEEN ${from}::date AND ${to}::date
+              AND NOT EXISTS (SELECT 1 FROM score s
+                               WHERE s.employee_id = d.employee_id AND s.day = d.day AND s.value IS NOT NULL)
+            GROUP BY 1
          ),
          asked AS (
            SELECT m.value AS employee_id, c.created_at AS asked_at,
@@ -163,17 +189,14 @@ export async function summary(viewerId: number, from: string, to: string): Promi
             WHERE f.value <= NOW() AND (f.value AT TIME ZONE e.time_zone)::date BETWEEN ${from}::date AND ${to}::date
          )
     SELECT e.id AS employee_id,
-           (SELECT count(*)::int FROM days d
-             WHERE d.employee_id = e.id AND d.closed AND d.day < e.today
-               AND d.day BETWEEN ${from}::date AND ${to}::date
-               AND NOT EXISTS (SELECT 1 FROM score s
-                                WHERE s.employee_id = e.id AND s.day = d.day AND s.value IS NOT NULL)) AS unscored_days,
+           COALESCE((SELECT n FROM unscored u WHERE u.employee_id = e.id), 0) AS unscored_days,
            (SELECT count(*)::int FROM closed c WHERE c.owner_id = e.id AND NOT c.automatic) AS finished,
            (SELECT count(*)::int FROM closed c WHERE c.owner_id = e.id AND c.automatic) AS expired,
            (SELECT count(*)::int FROM task k
               LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
              WHERE k.owner_id = e.id AND (f.value IS NULL OR f.value > NOW())) AS open_tasks,
            (SELECT count(*)::int FROM task k
+              JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL AND f.value > NOW()
              WHERE k.owner_id = e.id AND EXISTS (SELECT 1 FROM deadline_risk(k.id))) AS at_risk,
            (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY GREATEST(0,
                      extract(epoch FROM w.updated_at - (w.started_at + w.spent_minutes * INTERVAL '1 minute')) / 60))

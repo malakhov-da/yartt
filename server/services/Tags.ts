@@ -66,8 +66,8 @@ const VARIANTS = 5;
 const Candidate = z.object({ ord: z.number(), id: z.number(), name: z.string(), color: z.string().nullable(), score: z.number() });
 type Candidate = z.infer<typeof Candidate>;
 
-/** Trigram similarity a tag needs to be looked at at all (the index lookup). */
-const MIN_TRIGRAMS = 0.15;
+/** How many nearest tags by trigrams each phrase looks at (the KNN index lookup). */
+const KNN = 40;
 
 /**
  * Tags close to each phrase, best first. Exact name — 1, exact in another
@@ -77,7 +77,8 @@ const MIN_TRIGRAMS = 0.15;
  * Each phrase comes with `variants`: the same keys read with the viewer's
  * other layouts. A phrase of `words` words is compared only with tags of as
  * many words (0 — any): otherwise a long phrase would pass for a short tag
- * it merely contains. Candidates come from the trigram index first.
+ * it merely contains. Candidates come from the indexes first: the nearest
+ * by trigrams (KNN), the exact name, names starting with the word.
  */
 async function candidates(
   viewerId: number,
@@ -87,9 +88,7 @@ async function candidates(
   if (phrases.length === 0) return [];
   const esc = (v: string) => v.replace(/[\\%_]/g, '\\$&');
   const rows = phrases.flatMap((p, i) => [p.text, ...p.variants].map((variant) => ({ ...p, ord: i + 1, variant })));
-  return sql.begin(async (tx) => {
-    await tx`SELECT set_config('pg_trgm.similarity_threshold', ${String(MIN_TRIGRAMS)}, true)`;
-    return Candidate.array().parse(await tx`
+  return Candidate.array().parse(await sql`
       WITH q AS (
         SELECT ord::int, phrase, variant, prefix::bool AS prefix, words::int AS words, pattern, translit(variant) AS a
           FROM unnest(${rows.map((r) => String(r.ord))}::text[], ${rows.map((r) => r.text)}::text[],
@@ -108,8 +107,17 @@ async function candidates(
                      similarity(q.a, t.latin))
                  END) AS score
           FROM q
-          JOIN tag t ON t.latin % q.a OR t.name = q.variant
-                     OR (q.prefix AND (t.latin LIKE translit(q.pattern) || '%' OR t.name LIKE '%' || q.pattern || '%'))
+          -- Candidates first, by the indexes: the nearest by trigrams (GiST, KNN),
+          -- the exact name, and names starting with or containing the word typed.
+          JOIN LATERAL (
+            (SELECT c.id FROM tag c ORDER BY c.latin <-> q.a LIMIT ${KNN})
+            UNION (SELECT c.id FROM tag c WHERE c.name = q.variant)
+            UNION (SELECT c.id FROM tag c
+                    WHERE q.prefix AND (c.name LIKE q.pattern || '%' OR c.latin LIKE translit(q.pattern) || '%') LIMIT ${KNN})
+            UNION (SELECT c.id FROM tag c
+                    WHERE q.prefix AND length(q.variant) >= 3 AND c.name LIKE '%' || q.pattern || '%' LIMIT ${KNN})
+          ) candidate ON TRUE
+          JOIN tag t ON t.id = candidate.id
          WHERE q.words = 0 OR q.words = array_length(string_to_array(t.name, ' '), 1)
          GROUP BY q.ord, t.id, t.name
       ), ranked AS (
@@ -126,7 +134,6 @@ async function candidates(
        WHERE r.rn <= ${limit}
        ORDER BY r.ord, r.rn
     `);
-  });
 }
 
 const KeyboardsRow = z.object({ keyboards: Keyboard.array().nullable(), locale: Locale });

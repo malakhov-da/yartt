@@ -282,8 +282,9 @@ SEARCH
     in the application), are transliterated the same way and compared
     with Levenshtein and trigrams. Comparing in Latin also keeps trigrams
     working when the database locale is C, where pg_trgm ignores non-ASCII
-    letters. Candidates are picked by the trigram index on tag.latin
-    first, so the cost does not grow with every tag.
+    letters. Candidates are picked by the indexes on tag.latin first — the
+    nearest by trigrams (GiST, KNN), the exact name, names starting with
+    the word — so the cost does not grow with every tag.
     Then tasks WHERE tag_ids @> ARRAY[...] (GIN).
   - By text: task.context and comment.value with ILIKE / similarity
     (trigrams work for any language and for substrings).
@@ -895,6 +896,8 @@ CREATE TABLE tag (
 );
 CREATE INDEX idx_tag_name_trgm ON tag USING GIN (name gin_trgm_ops);
 CREATE INDEX idx_tag_latin_trgm ON tag USING GIN (latin gin_trgm_ops);
+-- KNN: the nearest tags to what is typed (ORDER BY latin <-> ...), for suggestions.
+CREATE INDEX idx_tag_latin_trgm_knn ON tag USING GIST (latin gist_trgm_ops);
 
 COMMENT ON TABLE tag IS
 'A tag. Name only. Color and weight are personal settings (user_tag).
@@ -1265,6 +1268,7 @@ CREATE TABLE estimate_minutes (
 CREATE UNIQUE INDEX uq_estimate_minutes_active
     ON estimate_minutes(task_id, by) WHERE expired_at IS NULL;
 CREATE INDEX idx_estimate_minutes_task ON estimate_minutes(task_id);
+CREATE INDEX idx_estimate_minutes_by ON estimate_minutes("by", entered_at);
 
 COMMENT ON TABLE estimate_minutes IS
 'History of each observer''s estimate of the time left: how much more
@@ -1306,6 +1310,32 @@ COMMENT ON FUNCTION backlog_minutes(INT, TIMESTAMPTZ) IS
 'The employee''s backlog at a moment: how many more minutes they planned
 to spend (their estimates current then) on tasks still open then. Its
 change over a range is whether planned work grows faster than it is done.';
+
+
+CREATE OR REPLACE FUNCTION backlog_by_day(p_employee_ids INT[], p_from DATE, p_to DATE)
+RETURNS TABLE (employee_id INT, day DATE, minutes INT) AS $$
+    WITH d AS (
+        SELECT e.id, g::date AS day,
+               LEAST(NOW(), (g::date + 1)::timestamp AT TIME ZONE e.time_zone) AS at
+          FROM employee e, generate_series(p_from, p_to, INTERVAL '1 day') g
+         WHERE e.id = ANY(p_employee_ids)
+    )
+    SELECT d.id, d.day, COALESCE(sum(es.value), 0)::int
+      FROM d
+      LEFT JOIN estimate_minutes es
+             ON es."by" = d.id AND es.entered_at <= d.at AND (es.expired_at IS NULL OR es.expired_at > d.at)
+            AND NOT EXISTS (
+                SELECT 1 FROM finished_at f
+                 WHERE f.task_id = es.task_id
+                   AND f.entered_at <= d.at AND (f.expired_at IS NULL OR f.expired_at > d.at)
+                   AND f.value <= d.at)
+     GROUP BY d.id, d.day
+$$ LANGUAGE sql STABLE;
+
+COMMENT ON FUNCTION backlog_by_day(INT[], DATE, DATE) IS
+'backlog_minutes() at the end of every day of a range (now for today), for
+several people at once — one set-based query instead of a call per
+person and day, for the sparklines of My team.';
 
 
 -- ============================================================================
