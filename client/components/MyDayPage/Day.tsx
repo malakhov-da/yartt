@@ -115,8 +115,9 @@ export default function (p: {
 
   // Today: a shift starts from an arrival — the first visit, or one after a
   // pause — that no shift already written down covers; the others are offered
-  // as if there were no shifts at all.
-  const spans = day.shifts.map((s) => [s.startedAt.getTime(), s.startedAt.getTime() + (s.spentMinutes ?? 0) * 60_000] as const);
+  // as if there were no shifts at all. An open shift covers everything after
+  // its start.
+  const spans = day.shifts.map((s) => [s.startedAt.getTime(), s.spentMinutes === null ? Infinity : s.startedAt.getTime() + s.spentMinutes * 60_000] as const);
   const visits = [...day.visits].sort((a, b) => a.at.getTime() - b.at.getTime());
   const arrivals = visits.filter((v, i) => (i === 0 || v.at.getTime() - visits[i - 1]!.at.getTime() >= ARRIVAL_GAP_MS)
     && !spans.some(([a, b]) => v.at.getTime() >= a && v.at.getTime() < b));
@@ -129,7 +130,10 @@ export default function (p: {
     const last = visits.filter((v) => v.at > at && v.at.getTime() < next).at(-1)?.at;
     setDialog({ mode: 'add', from: at, to: last ?? new Date(next) });
   };
-  const canStart = mine && p.isToday && !p.hasOpenShift && !scored;
+  // With today's shift open, only the arrivals before it remain (as closed
+  // shifts); one left open on another day leaves no room for any.
+  const openToday = day.shifts.some((s) => s.spentMinutes === null);
+  const canStart = mine && p.isToday && !scored && (!p.hasOpenShift || (openToday && arrivals.length > 0));
   // A past day: what the first and last activity suggest.
   const suggestion = p.isToday ? null
     : day.shifts.length === 0
@@ -270,7 +274,7 @@ export default function (p: {
               </Stack>
             );
           })}
-          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+          {!p.hasOpenShift && <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
             <Button size="small" variant={arrivals.length ? 'text' : 'outlined'} disabled={start.isPending} onClick={() => start.mutate({ startedAt: new Date() })}>
               {t('myDay.shift.startNow')}
             </Button>
@@ -279,7 +283,7 @@ export default function (p: {
                 <Edit fontSize="small" />
               </IconButton>
             </Tooltip>
-          </Stack>
+          </Stack>}
         </Stack>
       )}
 
