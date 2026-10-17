@@ -37,7 +37,8 @@ someone with reports:
   - mentions of me that are still open. A mention closes only explicitly
     ("Done"): a reply alone does not mean the request is handled — but
     "Done" needs a reply: until I comment in the task after the mention
-    the button waits, so whoever asked always gets an answer. This is
+    the button waits, so whoever asked always gets an answer. Once given,
+    the answer shows inside the mention ("My reply: …"). This is
     the only way a task I merely observe gets here — its other comments
     stay quiet;
   - my own tasks with comments by others since I last confirmed that no
@@ -115,7 +116,10 @@ Left, top to bottom:
   text; other files become attachments; people and tasks are attached
   explicitly. After "Send" the comment waits a few seconds with "Back to
   editing" and then goes out. By default the feed shows only the comments
-  with open mentions — what still waits for someone; "All events" shows
+  with open mentions — what still waits for someone; a mention shows the
+  answer of the person mentioned (their direct reply first, otherwise
+  their next comment), so a request and its answer read together even
+  when only mentions are shown; "All events" shows
   every comment and event, with pages. Events appear between the comments
   as grey lines: deadline moves, a comment of another task attaching this
   one ("Mentioned in #7"), time logged ("Pavel logged 2h for Oct 14") and

@@ -33,7 +33,14 @@ const CommentRow = z.object({
   isNew: z.boolean(),
 });
 const FileRow = z.object({ id: z.number(), size: z.number(), mime: z.string() });
-const MentionRow = z.object({ commentId: z.number(), value: z.number(), closedAt: z.date().nullable(), replied: z.boolean() });
+const MentionRow = z.object({
+  commentId: z.number(),
+  value: z.number(),
+  closedAt: z.date().nullable(),
+  replyId: z.number().nullable(),
+  replyAt: z.date().nullable(),
+  replyValue: z.string().nullable(),
+});
 const TaskMentionRow = z.object({ commentId: z.number(), value: z.number() });
 const Id = z.object({ id: z.number() });
 
@@ -167,10 +174,15 @@ async function load(viewerId: number, taskId: number, ids: number[]): Promise<Ma
     FileRow.array().parse(await sql`SELECT id, size, mime FROM attachment WHERE id = ANY(${fileIds})`).map((f) => [f.id, f]),
   );
   const mentions = MentionRow.array().parse(await sql`
-    SELECT m.comment_id, m.value, m.closed_at,
-           EXISTS (SELECT 1 FROM comment r
-                    WHERE r.task_id = m.task_id AND r.id > m.comment_id AND r.created_by = m.value) AS replied
+    SELECT m.comment_id, m.value, m.closed_at, r.id AS reply_id, r.created_at AS reply_at, r.value AS reply_value
       FROM mention m
+      -- The answer: their first comment after it, a direct reply to it first.
+      LEFT JOIN LATERAL (
+        SELECT r.id, r.created_at, r.value FROM comment r
+         WHERE r.task_id = m.task_id AND r.id > m.comment_id AND r.created_by = m.value
+         ORDER BY r.reply_to_id IS NOT DISTINCT FROM m.comment_id DESC, r.id
+         LIMIT 1
+      ) r ON TRUE
      WHERE m.task_id = ${taskId} AND m.comment_id = ANY(${ids}) ORDER BY m.value
   `);
   const taskMentions = TaskMentionRow.array().parse(await sql`
@@ -191,7 +203,11 @@ async function load(viewerId: number, taskId: number, ids: number[]): Promise<Ma
       const f = files.get(id);
       return f ? [{ id, name: r.attachmentNames[i] ?? '', size: f.size, mime: f.mime }] : [];
     }),
-    mentions: mentions.filter((m) => m.commentId === r.id).map((m) => ({ employeeId: m.value, closedAt: m.closedAt, replied: m.replied })),
+    mentions: mentions.filter((m) => m.commentId === r.id).map((m) => ({
+      employeeId: m.value,
+      closedAt: m.closedAt,
+      reply: m.replyId === null ? null : { id: m.replyId, at: m.replyAt!, excerpt: plainText(m.replyValue ?? '').slice(0, EXCERPT) },
+    })),
     tasks: taskMentions.filter((m) => m.commentId === r.id).flatMap((m) => tasks.get(m.value) ?? []),
     isNew: r.isNew,
   } satisfies Comment]));

@@ -34,6 +34,7 @@ export const en: Translation = {
     todo: {
       title: 'Waiting for me',
       mention: '{{name}} mentioned you',
+      myReply: 'My reply',
       mention_he: '{{name}} mentioned you',
       mention_she: '{{name}} mentioned you',
       review: 'New comments: {{count}}, from {{authors}}',

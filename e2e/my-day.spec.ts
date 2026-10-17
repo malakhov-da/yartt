@@ -27,6 +27,7 @@ test.describe('My day', () => {
     await page.keyboard.type('Подпишу сегодня');
     await page.getByRole('button', { name: 'Отправить' }).click();
     await expect(item.getByRole('button', { name: 'Готово' })).toBeEnabled({ timeout: 15_000 });
+    await expect(item.getByText(/Мой ответ · .*«Подпишу сегодня»/)).toBeVisible(); // the answer shows inside its mention
     await item.getByRole('button', { name: 'Готово' }).click();
     await expect(todo.getByText('Нужна ваша подпись')).toHaveCount(0);
   });

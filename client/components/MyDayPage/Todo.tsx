@@ -8,6 +8,7 @@ import { useFormat } from '#client/hooks/format.ts';
 import { POLL_MS, useEmployees, usePronoun, useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import Composer from '../TaskPage/Composer.tsx';
+import MentionReply from '../TaskPage/MentionReply.tsx';
 import TaskLine from '../TaskPage/TaskLine.tsx';
 
 /** What waits for my reaction, each item with its action right there. Empty is the goal. */
@@ -60,17 +61,18 @@ function Item(p: { item: TodoItem }) {
           {t('myDay.todo.mention', { name: name(item.authorId), ...pronoun(item.authorId) })} · {format.relative(item.at)}
         </Typography>
         {item.excerpt && <Typography variant="body2" sx={{ color: 'text.secondary' }}>«{item.excerpt}»</Typography>}
+        {item.reply && <Box sx={{ mt: 0.5 }}><MentionReply who={t('myDay.todo.myReply')} reply={item.reply} /></Box>}
       </>
     );
     actions = (
       <>
         <Button size="small" onClick={() => setReplying((v) => !v)}>{t('task.feed.reply')}</Button>
-        <Tooltip title={item.replied ? '' : t('task.feed.replyFirst')}>
+        <Tooltip title={item.reply ? '' : t('task.feed.replyFirst')}>
           <span>
             <Button
               size="small"
               variant="contained"
-              disabled={!item.replied || closeMention.isPending}
+              disabled={!item.reply || closeMention.isPending}
               onClick={() => closeMention.mutate({ taskId: item.task.id, commentId: item.commentId })}
             >
               {t('task.feed.done')}

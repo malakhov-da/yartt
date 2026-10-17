@@ -19,10 +19,12 @@ describe('todo', () => {
 
     const api = await client(helper.id);
     expect(await api.MyDay.todo()).toMatchObject([
-      { kind: 'mention', task: { id }, commentId, authorId: owner.id, excerpt: 'Please look', replied: false },
+      { kind: 'mention', task: { id }, commentId, authorId: owner.id, excerpt: 'Please look', reply: null },
     ]);
-    await api.Comment.create({ ...comment(id, '<p>On it</p>'), replyToId: commentId });
-    expect(await api.MyDay.todo()).toMatchObject([{ kind: 'mention', replied: true }]);
+    await api.Comment.create(comment(id, '<p>Something else</p>'));
+    const replyId = await api.Comment.create({ ...comment(id, '<p>On it</p>'), replyToId: commentId });
+    // The mention shows its answer: the direct reply to it, before an earlier comment.
+    expect(await api.MyDay.todo()).toMatchObject([{ kind: 'mention', reply: { id: replyId, excerpt: 'On it' } }]);
     await api.Comment.closeMention({ taskId: id, commentId });
     expect(await api.MyDay.todo()).toEqual([]);
   });

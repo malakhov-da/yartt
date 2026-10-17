@@ -15,7 +15,9 @@ const MentionRow = z.object({
   createdBy: z.number(),
   createdAt: z.date(),
   value: z.string(),
-  replied: z.boolean(),
+  replyId: z.number().nullable(),
+  replyAt: z.date().nullable(),
+  replyValue: z.string().nullable(),
 });
 const ReviewRow = z.object({
   taskId: z.number(),
@@ -41,10 +43,16 @@ export async function todo(me: number): Promise<TodoItem[]> {
   // A mention in a task I no longer see cannot be answered: it is not shown.
   const mentions = MentionRow.array().parse(await sql`
     SELECT m.task_id, m.comment_id, c.created_by, c.created_at, c.value,
-           EXISTS (SELECT 1 FROM comment r
-                    WHERE r.task_id = m.task_id AND r.id > m.comment_id AND r.created_by = m.value) AS replied
+           r.id AS reply_id, r.created_at AS reply_at, r.value AS reply_value
       FROM mention m
       JOIN comment c ON c.task_id = m.task_id AND c.id = m.comment_id
+      -- The answer: their first comment after it, a direct reply to it first.
+      LEFT JOIN LATERAL (
+        SELECT r.id, r.created_at, r.value FROM comment r
+         WHERE r.task_id = m.task_id AND r.id > m.comment_id AND r.created_by = m.value
+         ORDER BY r.reply_to_id IS NOT DISTINCT FROM m.comment_id DESC, r.id
+         LIMIT 1
+      ) r ON TRUE
      WHERE m.value = ${me} AND m.closed_at IS NULL AND can_see(m.task_id, ${me})
   `);
   const reviews = ReviewRow.array().parse(await sql`
@@ -67,7 +75,8 @@ export async function todo(me: number): Promise<TodoItem[]> {
       return task
         ? [{
             kind: 'mention' as const, task, commentId: m.commentId, authorId: m.createdBy, at: m.createdAt,
-            excerpt: plainText(m.value).slice(0, EXCERPT), replied: m.replied,
+            excerpt: plainText(m.value).slice(0, EXCERPT),
+            reply: m.replyId === null ? null : { id: m.replyId, at: m.replyAt!, excerpt: plainText(m.replyValue ?? '').slice(0, EXCERPT) },
           }]
         : [];
     }),

@@ -84,6 +84,7 @@ export const ru = {
     todo: {
       title: 'Ждёт меня',
       mention: '{{name}} упомянул(а) вас',
+      myReply: 'Мой ответ',
       mention_he: '{{name}} упомянул вас',
       mention_she: '{{name}} упомянула вас',
       review: 'Новые комментарии: {{count}}, от {{authors}}',

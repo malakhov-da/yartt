@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Day, Id } from './employee.ts';
+import { MentionReply } from './comment.ts';
 import { TaskHeader } from './task.ts';
 
 // My day (docs/product/interface.md, 1): TODO, current tasks, history of my days.
@@ -13,8 +14,8 @@ export const TodoMention = z.object({
   at: z.date(),
   /** The beginning of the comment as plain text. */
   excerpt: z.string(),
-  /** I commented in the task after it: "Done" is allowed. */
-  replied: z.boolean(),
+  /** My answer in the task; NULL — none yet. With one "Done" is allowed. */
+  reply: MentionReply.nullable(),
 });
 export type TodoMention = z.infer<typeof TodoMention>;
 
