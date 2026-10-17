@@ -73,28 +73,38 @@ export function offlineLink(): TRPCLink<AppRouter> {
 
 let flushing = false;
 
-/** Sends the outbox in order; stops at the first change the network does not take. */
+/**
+ * Sends the outbox in order; stops at the first change the network does not
+ * take. One tab at a time (a lock across tabs), reading the outbox afresh:
+ * two open tabs must not send the same change twice.
+ */
 async function flush(client: TRPCUntypedClient<AppRouter>, queryClient: QueryClient): Promise<void> {
   if (flushing || !navigator.onLine) return;
   flushing = true;
-  let sent = 0;
   try {
-    for (const item of useOutboxStore.getState().items) {
-      try {
-        await client.mutation(item.path, superjson.parse(item.input));
-        sent++;
-      } catch (error) {
-        if (unreachable(error)) {
-          // Not the network but a bug would wait here forever: say so in the console.
-          if (!(error instanceof TRPCClientError)) console.error('outbox:', error);
-          break;
-        }
-        showError(error); // refused now: the reason, and the change is dropped
-      }
-      useOutboxStore.setState((s) => ({ items: s.items.filter((i) => i.id !== item.id) }));
-    }
+    if (navigator.locks) await navigator.locks.request('yartt-outbox', () => send(client, queryClient));
+    else await send(client, queryClient);
   } finally {
     flushing = false;
+  }
+}
+
+async function send(client: TRPCUntypedClient<AppRouter>, queryClient: QueryClient): Promise<void> {
+  await useOutboxStore.persist.rehydrate(); // what another tab sent or added
+  let sent = 0;
+  for (const item of useOutboxStore.getState().items) {
+    try {
+      await client.mutation(item.path, superjson.parse(item.input));
+      sent++;
+    } catch (error) {
+      if (unreachable(error)) {
+        // Not the network but a bug would wait here forever: say so in the console.
+        if (!(error instanceof TRPCClientError)) console.error('outbox:', error);
+        break;
+      }
+      showError(error); // refused now: the reason, and the change is dropped
+    }
+    useOutboxStore.setState((s) => ({ items: s.items.filter((i) => i.id !== item.id) }));
   }
   if (sent > 0) {
     showInfo(i18n.t('offline.sent', { count: sent }));
@@ -106,8 +116,14 @@ const CACHE_KEY = 'yartt-cache';
 /** Beyond this the saved cache is skipped: localStorage is small and shared with drafts. */
 const CACHE_LIMIT = 2_000_000;
 
-/** What was last loaded comes back on start, so the screens open without a connection. */
+/**
+ * What was last loaded comes back on a start without a connection, so the
+ * screens open offline. Online it is not used: fresh data comes at once,
+ * and a saved state must not stand in for it — on a shared computer it
+ * might be someone else's.
+ */
 export function restoreCache(queryClient: QueryClient): void {
+  if (navigator.onLine) return;
   try {
     const saved = localStorage.getItem(CACHE_KEY);
     if (saved) hydrate(queryClient, superjson.parse(saved));

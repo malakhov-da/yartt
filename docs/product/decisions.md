@@ -523,8 +523,11 @@ kept in the browser, to go out in order at the first chance (when the
 connection is back, and every 30 seconds while anything waits). The
 server stays the judge: a change it refuses when it finally arrives is
 dropped with its reason shown; anything short of the server's answer is
-tried again, never dropped. What was last loaded is saved too, so the
-screens open offline; a service worker serves the app itself.
+tried again, never dropped. What was last loaded is saved too and comes
+back when the app starts without a connection (online, fresh data is
+used — a saved state might be someone else's on a shared computer); a
+service worker serves the app itself. With several tabs open, one sends
+the outbox at a time, so no change goes out twice.
 
 Deliberately not queued: signing in and out, a token shown once, and
 visits (sent later, they would be logged at the wrong time). A queued
