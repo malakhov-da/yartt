@@ -1,0 +1,22 @@
+# Weekly updates of dependencies, actions and the base image. Major versions
+# are pinned on purpose (AGENTS.md, Stack): moving to one is a task of its
+# own, so they are not proposed here.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly }
+    groups:
+      minor-and-patch: { update-types: [minor, patch] }
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+  - package-ecosystem: docker
+    directory: /
+    schedule: { interval: weekly }
+    ignore:
+      - dependency-name: node
+        update-types: ['version-update:semver-major']

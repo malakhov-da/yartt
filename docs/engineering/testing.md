@@ -27,14 +27,26 @@ traces and screenshots of failures is in `e2e-report/`
 | Area | Spec | Scenarios |
 |---|---|---|
 | Sign-in | `auth` | requesting a link without telling whether the email exists; the link signs in once; log out; a dismissed employee gets no link; a link switches to its person when someone else is signed in |
-| My day | `my-day` | TODO: approve a request, close a mention ("Done"), pronoun forms and a bot's neutral ones, reply in place; current tasks: tabs, pages, state kept after a task (the logo leads home); history: start and close a shift, confirm a suggested one |
-| Task | `task` | created from search; priority, deadline, context in place; a comment held with "Back to editing", `c` focuses the composer; a mention makes an observer and says why; reply and cancel; time logged and planned, both as feed events; observers added and hidden; public and private again; a dependency added and removed; a reminder; finish; hand-over; no access → request → withdraw |
-| Search | `search` | `/` focuses; a tag narrows the tasks; text in comments; the same set of tags refused with its message |
-| My team, employee page | `team` | the team block in My day: the subtree for a range with every column and a total, away and dismissed marks; no block without reports; the employee page with a range and a chart; scoring, a correction, a reason for a low score; a manager higher up only looks; a stranger is refused |
-| Profile | `profile` | avatar upload and removal; language switches the interface and the name (яртт / yartt); pronoun |
+| My day | `my-day` | TODO: approve a request, "Done" only after a reply made right there, pronoun forms and a bot's neutral ones; current tasks: tabs, pages, state kept after a task (the logo leads home); history: start a shift from an arrival and close it, confirm a suggested one, a shift for activity after a written one, add/correct/delete a shift of a past day, log time to an opened task |
+| Task | `task` | created in the form; priority, deadline, context in place; a comment held with "Back to editing", `c` focuses the composer; a mention makes an observer and says why; reply and cancel; time logged and planned, both as feed events; observers added and hidden; public and private again; a dependency added and removed; a reminder; finish; hand-over; no access → request → withdraw |
+| Search | `search` | in My day: `/` focuses from a task too; a tag narrows both tabs; typos and the other layout, words as a set of tags; only existing tags, Enter takes the best; "New task" takes the picked tags; the same set refused |
+| New task | `newTask` | from "I own": tags as the title, a new tag created only on saving, priority; from "Waited on by": the new task waits for this one |
+| Drafts | `drafts` | a comment, a context being edited and a new task survive going elsewhere; "Cancel" forgets |
+| Top line | `topLine` | how much waits for me, from a task; an open shift with its time, closed from there |
+| Hints | `hints` | "I own" and the deadline explain themselves; a task at risk says whose plan |
+| Offline | `offline` | a comment written offline waits in the outbox, survives a reload, goes out when online |
+| My team, employee page | `team` | the tree: me at the root, each team with its line, "with managers", collapsing, ticks and a whole team in one click, how late the timesheet is written; payroll export as Excel and CSV; away and dismissed marks; no block without reports; the employee page with a range and a chart; scoring, a correction, a reason for a low score; a manager higher up only looks; a stranger is refused |
+| Profile | `profile` | an API token issued, shown once, revoked; avatar upload and removal; language switches the interface and the name (яртт / yartt); pronoun |
 | My tags | `tags` | in the profile: a personal color shows on the chip; weight; a tag closes the profile and opens the search |
 | Interface walk-through | `interface` | docs/product/interface.md item by item: Invite; no raw translation keys on any screen in Russian and English; "No intervention needed" from TODO; history pages, deleting a time entry and the open shift, a shift at another time; tags edited in place; clearing a deadline; a hard dependency that does not fit explained; "Back to editing" restores the text, Ctrl+Enter, a file and an image (opens in full); made private again → "Bring back all"; an observer leaves; time for a past day lands on that day; no score without a closed timesheet; profile saved, manager applied at once, log out everywhere |
 | Layout | `layout` | no horizontal scroll at phone width on My day with the team table, a task, an employee page |
+
+## On GitHub
+
+`.github/workflows/ci.yml` runs all three layers on every push to
+`master` and every pull request, against PostgreSQL 17 in a service
+container, and attaches the end-to-end report when it fails
+([release.md](release.md)).
 
 ## What is checked by hand
 

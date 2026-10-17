@@ -9,7 +9,8 @@ everyone else is invited by an employee.
 
 - PostgreSQL 16 or newer, a database and a user that owns it. On the first
   start yartt creates the extensions `citext`, `pgcrypto`, `btree_gist`,
-  `pg_trgm` — the user needs the right to do that (or create them first).
+  `pg_trgm`, `fuzzystrmatch` (all in PostgreSQL's standard contrib) — the
+  user needs the right to do that (or create them first).
 - A host for the container, reachable by employees over HTTPS (put any
   TLS-terminating proxy or load balancer in front: the container speaks
   plain HTTP).
