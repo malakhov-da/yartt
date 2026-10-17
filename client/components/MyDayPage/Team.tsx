@@ -1,6 +1,6 @@
-import { ChevronRight, Close, ExpandMore, GroupAdd, PersonAdd, PersonRemove } from '@mui/icons-material';
+import { ChevronRight, Close, Download, ExpandMore, GroupAdd, PersonAdd, PersonRemove } from '@mui/icons-material';
 import {
-  Box, Checkbox, Chip, FormControlLabel, IconButton, Paper, Stack, Switch, Table, TableBody, TableCell, TableHead,
+  Box, Button, Checkbox, Chip, FormControlLabel, IconButton, Menu, MenuItem, Paper, Stack, Switch, Table, TableBody, TableCell, TableHead,
   TableRow, Tooltip, Typography,
 } from '@mui/material';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -12,6 +12,7 @@ import type { Member } from '#shared/team.ts';
 import { fromDay, today, useFormat } from '#client/hooks/format.ts';
 import { POLL_MS, useEmployees } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
+import { csv, download, xlsx, type Cell } from '#client/hooks/xlsx.ts';
 import EmployeeAvatar from '../App/EmployeeAvatar.tsx';
 import Sparkline from '../App/Sparkline.tsx';
 import RangePicker, { useRange } from '../App/RangePicker.tsx';
@@ -112,6 +113,7 @@ export default function () {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   const [withManagers, setWithManagers] = useState(false);
+  const [exportMenu, setExportMenu] = useState<HTMLElement | null>(null);
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: trpc.Employee.list.queryKey() });
     void queryClient.invalidateQueries({ queryKey: trpc.Team.pathKey() });
@@ -140,6 +142,43 @@ export default function () {
     return next;
   });
   const picked = members.filter((m) => selected.has(m.employeeId));
+
+  // Payroll export: the picked people, or everyone; one row per person and per
+  // person-day — never a total of hours across people (decision 38).
+  const hours = (minutes: number) => Math.round((minutes / 60) * 100) / 100;
+  const exported = picked.length ? picked : members;
+  const name = (id: number) => employees.get(id)?.fullName ?? `#${id}`;
+  const summaryRows = (): Cell[][] => [
+    [t('myDay.team.export.person'), t('myDay.team.export.email'), t('myDay.team.export.manager'),
+      t('myDay.team.export.workHours'), t('myDay.team.export.workDays'), t('myDay.team.export.spentHours'),
+      t('myDay.team.export.share'), t('myDay.team.export.score'), t('myDay.team.export.scoredDays')],
+    ...exported.map((m) => {
+      const e = employees.get(m.employeeId);
+      const s = share(m);
+      return [name(m.employeeId), e?.email ?? null, e?.managerId ? name(e.managerId) : null,
+        hours(m.stats.workMinutes), m.stats.workDays, hours(m.stats.spentMinutes),
+        s === null ? null : Math.round(s), m.stats.weightedScore === null ? null : Math.round(m.stats.weightedScore), m.stats.scoredDays];
+    }),
+  ];
+  const dayRows = (): Cell[][] => [
+    [t('myDay.team.export.person'), t('myDay.team.export.day'), t('myDay.team.export.workHours'),
+      t('myDay.team.export.spentHours'), t('myDay.team.export.score')],
+    ...exported.flatMap((m) => m.days
+      .filter((d) => d.workMinutes > 0 || d.spentMinutes > 0 || d.score !== null)
+      .map((d): Cell[] => [name(m.employeeId), d.day, hours(d.workMinutes), hours(d.spentMinutes), d.score])),
+  ];
+  const fileName = `yartt-${range.from}-${range.to}`;
+  const exportXlsx = () => {
+    setExportMenu(null);
+    download(`${fileName}.xlsx`, xlsx([
+      { name: t('myDay.team.export.summarySheet'), rows: summaryRows() },
+      { name: t('myDay.team.export.daysSheet'), rows: dayRows() },
+    ]), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  };
+  const exportCsv = () => {
+    setExportMenu(null);
+    download(`${fileName}.csv`, csv(dayRows()), 'text/csv;charset=utf-8');
+  };
 
   const head = [
     { key: 'person', label: t('myDay.team.person') },
@@ -202,6 +241,13 @@ export default function () {
       <Typography variant="h3" sx={{ fontWeight: 600 }}>{t('myDay.team.title')}</Typography>
       <Stack direction="row" sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
         <Box sx={{ flexGrow: 1 }}><RangePicker range={range} onChange={setRange} /></Box>
+        <Button size="small" startIcon={<Download />} onClick={(e) => setExportMenu(e.currentTarget)} disabled={members.length === 0}>
+          {t(picked.length ? 'myDay.team.export.picked' : 'myDay.team.export.all', { count: picked.length })}
+        </Button>
+        <Menu anchorEl={exportMenu} open={!!exportMenu} onClose={() => setExportMenu(null)}>
+          <MenuItem onClick={exportXlsx}>{t('myDay.team.export.xlsx')}</MenuItem>
+          <MenuItem onClick={exportCsv}>{t('myDay.team.export.csv')}</MenuItem>
+        </Menu>
         <Tooltip title={t('myDay.team.withManagersHint')} describeChild>
           <FormControlLabel
             control={<Switch size="small" checked={withManagers} onChange={(e) => setWithManagers(e.target.checked)} />}

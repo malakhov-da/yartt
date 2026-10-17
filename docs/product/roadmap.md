@@ -31,9 +31,6 @@ it is decided. Proposals wait for a decision in their own section.
 
 In this order after stage 6 (S — a day, M — a few days, L — a week or more).
 
-- [ ] **Export for payroll** (S). Timesheet, logged time and scores of the
-  subtree for a range — an Excel file (`.xlsx`), built in the browser so
-  the server image gets no new dependency; CSV as a fallback.
 - [ ] **Bots through the API** (M). An employee without a pronoun (a bot)
   gets a token; CI and monitoring comment and mention through it.
 - [ ] **A weekly email for managers** (M). Monday morning: days waiting for

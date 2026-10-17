@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { employeeId, signIn } from './helpers.ts';
 
@@ -81,6 +82,24 @@ test.describe('Team and the employee page', () => {
     await expect(page.getByText('Оценка снята: сотрудник может поправить табель').first()).toBeVisible();
     await page.getByRole('button', { name: 'Оценить' }).first().click();
     await expect(page.getByLabel('Почему')).toHaveValue('Слишком поздно начали');
+  });
+
+  test('payroll export: everyone or the picked, as Excel or CSV, one row per person and day', async ({ page }) => {
+    const team = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Моя команда' }) });
+    await expect(team.getByRole('row').nth(2)).toBeVisible();
+    await team.getByRole('button', { name: 'Выгрузить' }).click();
+    const [xlsxFile] = await Promise.all([page.waitForEvent('download'), page.getByRole('menuitem', { name: /Excel/ }).click()]);
+    expect(xlsxFile.suggestedFilename()).toMatch(/^yartt-\d{4}-\d{2}-\d{2}-\d{4}-\d{2}-\d{2}\.xlsx$/);
+    const bytes = readFileSync((await xlsxFile.path())!);
+    expect(bytes.subarray(0, 2).toString()).toBe('PK'); // a ZIP, as .xlsx is
+
+    await team.getByLabel('Выбрать: Павел Орлов').check();
+    await team.getByRole('button', { name: 'Выгрузить выбранных · 1' }).click();
+    const [csvFile] = await Promise.all([page.waitForEvent('download'), page.getByRole('menuitem', { name: /CSV/ }).click()]);
+    const text = readFileSync((await csvFile.path())!, 'utf8');
+    expect(text).toContain('Сотрудник,Дата,"Табель, ч"');
+    expect(text).toContain('Павел Орлов,');
+    expect(text).not.toContain('Марина Соколова');
   });
 
   test('a manager higher up sees the days but does not score', async ({ page }) => {

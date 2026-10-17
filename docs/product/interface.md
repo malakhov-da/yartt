@@ -230,7 +230,10 @@ them (hover tells a day). Under a manager's reports is the line of their team: c
 shares and scores are averaged over people, hours are never added up
 (decision 38). "With managers" counts the manager in their team's line.
 Ticks pick people for a line of their own ("Picked"); one click on a
-manager picks their whole team.
+manager picks their whole team. **Export** saves the picked people (or
+everyone) for payroll: an Excel file with a summary per person and a
+sheet per person-day (timesheet, logged time, score), or the days as
+CSV — built in the browser, with no total of hours across people.
 
 Direct reports can be dismissed and brought back here. A name opens the
 person's page. Inviting is not here — anyone invites from the top line.

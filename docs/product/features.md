@@ -38,6 +38,7 @@ persona goal it serves. Status: **now** — stage one, **next** — stage two,
 | My team as a tree with each team's line, ticks and one-click teams; sparklines; how late the timesheet is written; how fast mentions are answered | Marina: see where a sub-team is heading and which habits slip | now (done) |
 | Deadline at risk: a person's plan does not fit their working time before the deadline — marked on the task and counted in My team | Marina: learn about a slip while it can still be avoided | now (done) |
 | A shift suggested for activity outside the written shifts of a past day | Pavel: an evening of work is not lost from the timesheet | now (done) |
+| Export for payroll: timesheet, logged time and scores of the picked people for a range, as Excel or CSV | Marina: hand the month to accounting without retyping | now (done) |
 | The top line: how many TODO items wait for me, the open shift and closing it, from any page | Pavel: notice a mention and close the day without going back to My day | now (done) |
 | Personal tag colors and weights — in the profile | Pavel: scan lists faster | now (done) |
 
