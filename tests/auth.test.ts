@@ -86,3 +86,15 @@ describe('auth', () => {
     await expect((await client()).Employee.list()).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
   });
 });
+
+describe('sign-in links are limited', () => {
+  test('five links in 15 minutes; the sixth is refused like an unknown address', async () => {
+    const me = await createEmployee();
+    for (let i = 0; i < 5; i++) {
+      const [row] = await sql<{ token: string | null }[]>`SELECT issue_token(${me.email}) AS token`;
+      expect(row!.token).not.toBeNull();
+    }
+    const [sixth] = await sql<{ token: string | null }[]>`SELECT issue_token(${me.email}) AS token`;
+    expect(sixth!.token).toBeNull();
+  });
+});

@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import express from 'express';
+import express, { type NextFunction, type Request, type Response } from 'express';
 import api from './api.ts';
 import { bootstrap } from './bootstrap.ts';
 import env from './env.ts';
@@ -21,8 +21,27 @@ try {
 
 const stops: (() => void)[] = [];
 
+/**
+ * The page may load only its own scripts, connect only to its own server and
+ * never be framed by another site. Styles inline: MUI writes them at run
+ * time. Files and avatars set their own, stricter policy.
+ */
+function securityHeaders(_req: Request, res: Response, next: NextFunction): void {
+  res.set({
+    'Content-Security-Policy': [
+      "default-src 'self'", "script-src 'self'", "style-src 'self' 'unsafe-inline'", "img-src 'self' data: blob:",
+      "font-src 'self' data:", "connect-src 'self'", "worker-src 'self'", "manifest-src 'self'",
+      "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'",
+    ].join('; '),
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'same-origin',
+  });
+  next();
+}
+
 if (env.ROLE === 'all' || env.ROLE === 'api') {
-  const app = express().disable('x-powered-by').use('/api', api);
+  const app = express().disable('x-powered-by').use(securityHeaders).use('/api', api);
 
   // Built client: static files + SPA fallback.
   const clientDist = env.CLIENT_DIST ?? join(import.meta.dirname, '..', 'client', 'dist');

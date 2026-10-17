@@ -551,7 +551,7 @@ WHAT THE APPLICATION DOES ITSELF (not in the database)
     config) and/or posts it to the webhook (URL and secret in the config,
     body signed with HMAC-SHA256), then sets sent_at = NOW().
   - The close_delay metric (delay in closing a shift) — on the frontend.
-  - Rate limiting of issue_token — if ever needed.
+  - Rate limiting of issue_token: 5 links per employee in 15 minutes.
 
 
 ============================================================================
@@ -2826,6 +2826,12 @@ BEGIN
     IF NOT FOUND THEN
         RETURN NULL;
     END IF;
+    -- At most 5 links in 15 minutes: beyond that, silently as for an unknown
+    -- address, so an inbox cannot be flooded and nothing is revealed.
+    IF (SELECT count(*) FROM token
+         WHERE employee_id = v_employee_id AND sent_at > NOW() - INTERVAL '15 minutes') >= 5 THEN
+        RETURN NULL;
+    END IF;
 
     v_token := encode(gen_random_bytes(32), 'hex');
     INSERT INTO token (hash, employee_id)
@@ -2836,7 +2842,8 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION issue_token(CITEXT) IS
 'Issues a magic token for the sign-in link (sent to the webhook directly).
-NULL — no such employee (or dismissed).
+NULL — no such employee (or dismissed), or 5 links in the last 15 minutes
+already (the same answer, so the limit reveals nothing).
 The application should not reveal to the user that the email is unknown.';
 
 
