@@ -57,9 +57,9 @@ test.describe('My day', () => {
     const time = (await first.getAttribute('aria-label'))!.slice(-5);
     await first.click();
     await expect(page.getByText(new RegExp(`Смена идёт с ${time}`))).toBeVisible();
-    await page.getByRole('button', { name: 'Закрыть смену' }).click();
+    await page.getByRole('button', { name: 'Закрыть', exact: true }).click();
     await page.getByLabel('Что сделано').fill('Проверка e2e');
-    await page.getByRole('dialog').getByRole('button', { name: 'Закрыть смену' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Закрыть', exact: true }).click();
     await expect(page.getByText('Проверка e2e')).toBeVisible();
 
     await page.getByRole('button', { name: 'Подтвердить' }).first().click();

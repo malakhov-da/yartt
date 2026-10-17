@@ -217,7 +217,7 @@ export const ru = {
       confirm: 'Подтвердить',
       remove: 'Удалить открытую смену',
       start: 'Начать',
-      close: 'Закрыть смену',
+      close: 'Закрыть',
       add: 'Сохранить',
       startTitle: 'Начать смену',
       closeTitle: 'Закрыть смену',

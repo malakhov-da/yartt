@@ -168,7 +168,7 @@ export const en: Translation = {
       confirm: 'Confirm',
       remove: 'Delete the open shift',
       start: 'Start',
-      close: 'Close the shift',
+      close: 'Close',
       add: 'Save',
       startTitle: 'Start a shift',
       closeTitle: 'Close the shift',

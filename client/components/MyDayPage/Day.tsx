@@ -179,13 +179,14 @@ export default function (p: {
       )}
 
       {day.shifts.map((shift) => shift.spentMinutes === null && mine ? (
-        <Stack key={shift.startedAt.getTime()} direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          <Typography variant="body2" sx={{ flexGrow: 1 }}>
+        <Stack key={shift.startedAt.getTime()} direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          <Typography variant="body2" sx={{ flexGrow: 1, minWidth: 0 }}>
             {t('myDay.shift.open', { from: format.time(shift.startedAt), time: format.minutes(Math.max(0, Math.floor((Date.now() - shift.startedAt.getTime()) / 60_000))) })}
           </Typography>
           <Button
             size="small"
             variant="contained"
+            sx={{ flexShrink: 0 }}
             onClick={() => setDialog({
               mode: 'close',
               from: shift.startedAt,
@@ -195,7 +196,7 @@ export default function (p: {
             {t('myDay.shift.close')}
           </Button>
           <Tooltip title={t('myDay.shift.remove')}>
-            <IconButton size="small" disabled={removeShift.isPending} onClick={() => removeShift.mutate({ startedAt: shift.startedAt })}>
+            <IconButton size="small" sx={{ flexShrink: 0 }} disabled={removeShift.isPending} onClick={() => removeShift.mutate({ startedAt: shift.startedAt })}>
               <DeleteOutline fontSize="small" />
             </IconButton>
           </Tooltip>

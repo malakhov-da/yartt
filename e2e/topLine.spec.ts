@@ -38,7 +38,7 @@ test.describe('the top line', () => {
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByRole('heading', { name: 'Закрыть смену' })).toBeVisible();
     await dialog.getByLabel('Что сделано').fill('Проверка верхней строки');
-    await dialog.getByRole('button', { name: 'Закрыть смену' }).click();
+    await dialog.getByRole('button', { name: 'Закрыть', exact: true }).click();
     await expect(shift).toHaveCount(0);
   });
 });
