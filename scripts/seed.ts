@@ -163,6 +163,8 @@ await invite(olga, 'anna@example.com', 'Анна Петрова'); // invited, n
 
 // A team bot: no pronoun, so verbs about it keep both endings ("упомянул(а)").
 const bot = await invite(me, 'ci-bot@example.com', 'CI-бот');
+// It posts through the API with a token of its own (the token itself is not kept anywhere).
+await sql`SELECT issue_api_token(${bot}, ${bot}, 'GitHub Actions')`;
 
 // Pronouns pick verb forms ("упомянула"); the first employee keeps none.
 for (const [id, pronoun] of [[marina, 'she'], [pavel, 'he'], [ivan, 'he'], [olga, 'she'], [oleg, 'he'], [sergey, 'he']] as const) {

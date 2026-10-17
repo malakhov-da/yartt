@@ -482,3 +482,20 @@ schedule.
 
 *Implemented:* `deadline_risk()` in `db.sql`; `TaskHeader.risk`,
 `Member.atRisk`; `RiskChip`.
+
+### 41. A bot is an employee with a token
+
+CI and monitoring need to write into tasks — a failed build as a comment
+that mentions whoever must react. Rather than a separate kind of account
+with its own rights, a bot is an ordinary employee (invited, without a
+pronoun) and a program acts as it with an API token: the same rights, the
+same visibility, the same history. The bot cannot sign in, so its direct
+manager issues and revokes its tokens; anyone can issue tokens for
+themselves. A token is shown once and kept only as a hash; dismissal
+revokes them all. The API is the one the interface uses — tRPC over HTTP
+with `Authorization: Bearer` — documented for administrators in
+`docs/admin/api.md`.
+
+*Implemented:* `api_token`, `issue_api_token()`, `authenticate_token()`,
+`revoke_api_token()` in `db.sql`; `server/ctx.ts`; `ApiToken` router;
+`ApiTokens` in the profile and on the employee page.

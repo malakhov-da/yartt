@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { parse as parseCookie } from 'cookie';
 import env from './env.ts';
+import * as ApiTokens from './services/ApiToken.ts';
 import * as Auth from './services/Auth.ts';
 
 const SESSION_COOKIE = 'yartt_session';
@@ -16,8 +17,11 @@ export type Context = {
 };
 
 export default async function ctx(req: Request, res: Response): Promise<Context> {
-  const sessionToken = parseCookie(req.headers.cookie ?? '')[SESSION_COOKIE] ?? null;
-  const employeeId = sessionToken ? await Auth.authenticate(sessionToken) : null;
+  // A program (a bot) sends an API token; a browser has the session cookie.
+  const bearer = /^Bearer (\S+)$/.exec(req.headers.authorization ?? '')?.[1] ?? null;
+  const sessionToken = bearer ? null : parseCookie(req.headers.cookie ?? '')[SESSION_COOKIE] ?? null;
+  const employeeId = bearer ? await ApiTokens.authenticate(bearer)
+    : sessionToken ? await Auth.authenticate(sessionToken) : null;
 
   const cookieOptions = {
     httpOnly: true,

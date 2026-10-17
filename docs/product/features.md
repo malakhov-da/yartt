@@ -39,6 +39,7 @@ persona goal it serves. Status: **now** — stage one, **next** — stage two,
 | Deadline at risk: a person's plan does not fit their working time before the deadline — marked on the task and counted in My team | Marina: learn about a slip while it can still be avoided | now (done) |
 | A shift suggested for activity outside the written shifts of a past day | Pavel: an evening of work is not lost from the timesheet | now (done) |
 | Export for payroll: timesheet, logged time and scores of the picked people for a range, as Excel or CSV | Marina: hand the month to accounting without retyping | now (done) |
+| Bots through the API: tokens issued by the employee or their manager; CI and monitoring comment and mention | Pavel: a failed build lands in the task as a mention | now (done) |
 | The top line: how many TODO items wait for me, the open shift and closing it, from any page | Pavel: notice a mention and close the day without going back to My day | now (done) |
 | Personal tag colors and weights — in the profile | Pavel: scan lists faster | now (done) |
 

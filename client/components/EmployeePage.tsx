@@ -1,9 +1,11 @@
-import { Box, Chip, CircularProgress, Paper, Stack, Typography } from '@mui/material';
+import { ExpandMore } from '@mui/icons-material';
+import { Accordion, AccordionDetails, AccordionSummary, Box, Chip, CircularProgress, Paper, Stack, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { fromDay, today, useFormat } from '#client/hooks/format.ts';
 import { useMe } from '#client/hooks/me.ts';
 import { useEmployees } from '#client/hooks/task.ts';
 import EmployeeAvatar from './App/EmployeeAvatar.tsx';
+import ApiTokens from './App/ApiTokens.tsx';
 import Stats from './EmployeePage/Stats.tsx';
 import History from './MyDayPage/History.tsx';
 
@@ -43,6 +45,15 @@ export default function (p: { id: number }) {
       <Box sx={{ flex: '1 1 100%', minWidth: 0 }}>
         <History employeeId={p.id === me.id ? undefined : p.id} canScore={employee.managerId === me.id} onEmployeePage />
       </Box>
+      {/* A bot cannot sign in: its direct manager issues its tokens here, folded away. */}
+      {employee.managerId === me.id && employee.email !== null && (
+        <Accordion disableGutters sx={{ flex: '1 1 100%', minWidth: 0 }}>
+          <AccordionSummary expandIcon={<ExpandMore />}>
+            <Typography sx={{ fontWeight: 600 }}>{t('apiTokens.title')}</Typography>
+          </AccordionSummary>
+          <AccordionDetails><ApiTokens employeeId={employee.id} /></AccordionDetails>
+        </Accordion>
+      )}
     </Box>
   );
 }

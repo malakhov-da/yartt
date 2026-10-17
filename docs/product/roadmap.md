@@ -31,8 +31,6 @@ it is decided. Proposals wait for a decision in their own section.
 
 In this order after stage 6 (S — a day, M — a few days, L — a week or more).
 
-- [ ] **Bots through the API** (M). An employee without a pronoun (a bot)
-  gets a token; CI and monitoring comment and mention through it.
 - [ ] **A weekly email for managers** (M). Monday morning: days waiting for
   a score, tasks closed automatically, tasks at risk in the subtree.
 - [ ] **A dark theme; installable on a phone (PWA)** (M).

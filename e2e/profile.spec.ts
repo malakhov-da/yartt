@@ -15,6 +15,16 @@ test.describe('profile', () => {
     await page.getByRole('menuitem', { name: 'Профиль' }).click();
   });
 
+  test('API: a token is issued, shown once, and revoked', async ({ page }) => {
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('tab', { name: 'API' }).click();
+    await dialog.getByLabel('Для чего').fill('Мониторинг');
+    await dialog.getByRole('button', { name: 'Выпустить' }).click();
+    await expect(dialog.getByText(/^yartt_[0-9a-f]{64}$/)).toBeVisible();
+    await dialog.getByRole('button', { name: 'Отозвать' }).first().click();
+    await expect(dialog.getByText('отозван').first()).toBeVisible();
+  });
+
   test('avatar: uploaded, shown, removed', async ({ page }) => {
     const dialog = page.getByRole('dialog');
     await dialog.locator('input[type=file]').setInputFiles({ name: 'me.png', mimeType: 'image/png', buffer: PNG });

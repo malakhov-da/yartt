@@ -1,4 +1,5 @@
 import { router } from '../trpc.ts';
+import ApiToken from './ApiToken.ts';
 import Auth from './Auth.ts';
 import Comment from './Comment.ts';
 import Dependency from './Dependency.ts';
@@ -14,7 +15,7 @@ import Visit from './Visit.ts';
 import Work from './Work.ts';
 
 // Root router: keys are the namespaces on the client (trpc.Employee.list).
-const trpc = router({ Auth, Comment, Dependency, Employee, MyDay, Observer, Remind, Tags, Task, Team, Time, Visit, Work });
+const trpc = router({ ApiToken, Auth, Comment, Dependency, Employee, MyDay, Observer, Remind, Tags, Task, Team, Time, Visit, Work });
 
 export default trpc;
 export type AppRouter = typeof trpc;

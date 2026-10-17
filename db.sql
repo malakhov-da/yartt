@@ -823,6 +823,42 @@ Updated by authenticate() when older than 5 minutes.
 Cron deletes sessions where last_seen_at < NOW() - INTERVAL ''30 days''.';
 
 
+-- ----------------------------------------------------------------------------
+-- api_token — bots and scripts
+-- ----------------------------------------------------------------------------
+CREATE TABLE api_token (
+    id SERIAL PRIMARY KEY,
+    employee_id INT NOT NULL REFERENCES employee(id),
+    name VARCHAR(100) NOT NULL CHECK (btrim(name) <> ''),
+    hash BYTEA NOT NULL UNIQUE,
+    created_by INT NOT NULL REFERENCES employee(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_used_at TIMESTAMPTZ,
+    revoked_at TIMESTAMPTZ
+);
+CREATE INDEX idx_api_token_employee ON api_token(employee_id);
+
+COMMENT ON TABLE api_token IS
+'A token a program uses to act as an employee through the API
+(Authorization: Bearer): a bot — CI, monitoring — that comments and
+mentions like a person. Issued by the employee themselves or by their
+direct manager (a bot cannot sign in to issue its own), shown once,
+stored as a hash. Acts with exactly the employee''s rights. Revoked by
+the same people, never deleted; dismissal revokes all of them.';
+
+COMMENT ON COLUMN api_token.name IS
+'What it is for ("GitHub Actions"), to tell tokens apart when revoking.';
+
+COMMENT ON COLUMN api_token.hash IS
+'SHA-256 of the token; the token itself is shown only when issued.';
+
+COMMENT ON COLUMN api_token.last_used_at IS
+'Last request with it, written at most once every 5 minutes.';
+
+COMMENT ON COLUMN api_token.revoked_at IS
+'When it stopped working. NULL — it works.';
+
+
 -- ============================================================================
 -- 3. tag / user_tag
 -- ============================================================================
@@ -2847,6 +2883,69 @@ COMMENT ON FUNCTION authenticate(TEXT) IS
 (last_seen_at is written at most once every 5 minutes).';
 
 
+CREATE OR REPLACE FUNCTION issue_api_token(p_employee_id INT, p_actor_id INT, p_name TEXT)
+RETURNS TEXT AS $$
+DECLARE
+    v_token TEXT := 'yartt_' || encode(gen_random_bytes(32), 'hex');
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM employee WHERE id = p_employee_id AND email IS NOT NULL) THEN
+        RAISE EXCEPTION 'employee % is unknown or dismissed', p_employee_id
+            USING HINT = 'not_found';
+    END IF;
+    IF p_actor_id <> p_employee_id
+       AND p_actor_id IS DISTINCT FROM (SELECT manager_id FROM employee WHERE id = p_employee_id) THEN
+        RAISE EXCEPTION 'only the employee or their direct manager issues tokens for %', p_employee_id
+            USING HINT = 'forbidden';
+    END IF;
+    INSERT INTO api_token (employee_id, name, hash, created_by)
+    VALUES (p_employee_id, btrim(p_name), digest(v_token, 'sha256'), p_actor_id);
+    RETURN v_token;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION issue_api_token(INT, INT, TEXT) IS
+'Issues an API token for an employee: by themselves or their direct
+manager, for an active employee. Returns the token — the only time it is
+seen.';
+
+CREATE OR REPLACE FUNCTION authenticate_token(p_token TEXT)
+RETURNS INT AS $$
+DECLARE
+    v_employee_id INT;
+BEGIN
+    UPDATE api_token SET last_used_at = NOW()
+     WHERE hash = digest(p_token, 'sha256') AND revoked_at IS NULL
+       AND (last_used_at IS NULL OR last_used_at < NOW() - INTERVAL '5 minutes');
+
+    SELECT t.employee_id INTO v_employee_id
+      FROM api_token t JOIN employee e ON e.id = t.employee_id
+     WHERE t.hash = digest(p_token, 'sha256') AND t.revoked_at IS NULL AND e.email IS NOT NULL;
+    RETURN v_employee_id;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION revoke_api_token(p_token_id INT, p_actor_id INT)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE api_token t SET revoked_at = NOW()
+      FROM employee e
+     WHERE t.id = p_token_id AND e.id = t.employee_id AND t.revoked_at IS NULL
+       AND (t.employee_id = p_actor_id OR e.manager_id = p_actor_id);
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'no working token % that % may revoke', p_token_id, p_actor_id
+            USING HINT = 'not_found';
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION revoke_api_token(INT, INT) IS
+'Revokes a token: by the employee it acts as or their direct manager.';
+
+COMMENT ON FUNCTION authenticate_token(TEXT) IS
+'Employee id for an API token, or NULL (unknown, revoked, or the
+employee dismissed). Notes the use at most once every 5 minutes.';
+
+
 -- ----------------------------------------------------------------------------
 -- dismiss_employee — dismissal
 -- ----------------------------------------------------------------------------
@@ -2887,6 +2986,7 @@ BEGIN
 
     DELETE FROM token WHERE employee_id = p_employee_id;
     DELETE FROM session WHERE employee_id = p_employee_id;
+    UPDATE api_token SET revoked_at = NOW() WHERE employee_id = p_employee_id AND revoked_at IS NULL;
     DELETE FROM remind WHERE employee_id = p_employee_id;
 END;
 $$ LANGUAGE plpgsql;
@@ -2899,7 +2999,8 @@ an employee without a manager cannot be dismissed.
   2. Reports move to the manager (who is notified: new_report).
   3. email = NULL — signing in is impossible. manager_id is kept, so the
      same manager can bring the employee back.
-  4. Sessions, magic tokens and reminders are deleted.
+  4. Sessions, magic tokens and reminders are deleted; API tokens are
+     revoked.
 History (scores, time entries, comments) is kept.';
 
 
