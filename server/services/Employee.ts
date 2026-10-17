@@ -58,7 +58,9 @@ export async function updateSettings(id: number, input: SettingsInput): Promise<
            time_zone = COALESCE(${input.timeZone ?? null}, time_zone),
            locale = COALESCE(${input.locale ?? null}, locale),
            pronoun = ${input.pronoun === undefined ? sql`pronoun` : input.pronoun},
-           keyboards = ${input.keyboards === undefined ? sql`keyboards` : sql`${input.keyboards}::keyboard[]`}
+           -- An explicit text[] parameter: a one-element array is otherwise sent as a plain string.
+           keyboards = ${input.keyboards === undefined ? sql`keyboards`
+             : input.keyboards === null ? null : sql`${sql.array(input.keyboards)}::text[]::keyboard[]`}
      WHERE id = ${id}
     RETURNING ${sql.unsafe(COLUMNS)}
   `);
