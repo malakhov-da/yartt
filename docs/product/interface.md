@@ -12,6 +12,9 @@ with its running time (a click closes it — the end of the day is often
 spent on a task page; a shift is started in My day, where the first
 visit suggests its start), a bell with how many TODO items wait for me
 (a click brings My day — so a new mention is noticed on any page),
+**I'll be away** (a calendar: the day I'm back — tomorrow, Monday, in a
+week or any date; while away it reads "Back Oct 24", and my
+notifications are copied to my manager; "I'm back at work" clears it),
 **Invite** (a person with a plus: a small dialog with a name and an
 email) and my avatar (a photo, or the initials in a circle). The avatar
 opens a menu: Profile, Log out. The search lives in My day (3). Without a connection

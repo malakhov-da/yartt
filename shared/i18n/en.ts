@@ -11,6 +11,16 @@ export const en: Translation = {
     saved: 'Saved',
     loading: 'Loading…',
   },
+  away: {
+    set: 'I’ll be away…',
+    title: 'I’m away — back at work on:',
+    until: 'Back {{day}}',
+    hint: 'While you are away, notifications are copied to your manager. Click to change',
+    tomorrow: 'Tomorrow',
+    monday: 'On Monday',
+    week: 'In a week',
+    back: 'I’m back at work',
+  },
   nav: {
     myDay: 'My day',
     invite: 'Invite an employee',

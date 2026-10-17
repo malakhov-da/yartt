@@ -15,6 +15,18 @@ test.describe('the top line', () => {
     await expect(page).toHaveURL(/\/$/);
   });
 
+  test('away from the top line: the day I am back in one click, and back at work again', async ({ page }) => {
+    await signIn(page, 'oleg@example.com');
+    await page.getByRole('button', { name: 'Меня не будет…' }).click();
+    await page.getByRole('button', { name: 'Через неделю' }).click();
+    const away = page.getByRole('button', { name: /^Вернусь \d+/ });
+    await expect(away).toBeVisible();
+    await away.click();
+    await page.getByRole('button', { name: 'Я уже на работе' }).click();
+    await expect(away).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Меня не будет…' })).toBeVisible();
+  });
+
   test('an open shift shows its time and is closed from there', async ({ page }) => {
     const id = await employeeId('oleg@example.com');
     await sql`DELETE FROM work WHERE employee_id = ${id} AND spent_minutes IS NULL`;

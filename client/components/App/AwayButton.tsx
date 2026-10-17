@@ -1,0 +1,97 @@
+import { EventBusy } from '@mui/icons-material';
+import { Button, Chip, IconButton, Popover, Stack, TextField, Tooltip, Typography } from '@mui/material';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { fromDay, today, useFormat } from '#client/hooks/format.ts';
+import { useMe } from '#client/hooks/me.ts';
+import { useTRPC } from '#client/hooks/trpc.ts';
+import { fieldErrors } from '#client/i18n/errors.ts';
+
+const pad = (n: number) => String(n).padStart(2, '0');
+/** A day `n` days after `d`, YYYY-MM-DD. */
+const plus = (d: Date, n: number) => {
+  const r = new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+  return `${r.getFullYear()}-${pad(r.getMonth() + 1)}-${pad(r.getDate())}`;
+};
+
+/**
+ * "I'm away" from the top line: vacation, sick leave, a day off — the day
+ * I'm back, in one click. Until then my notifications are copied to my
+ * manager (employee.next_day), so it is worth setting, and seeing, from
+ * every page; the profile keeps the same field.
+ */
+export default function () {
+  const { t } = useTranslation();
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const format = useFormat();
+  const me = useMe();
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const settings = useMutation(trpc.Employee.updateSettings.mutationOptions({
+    onSuccess: async () => {
+      await queryClient.invalidateQueries();
+      setAnchor(null);
+    },
+  }));
+  const errors = fieldErrors(settings.error);
+  const away = me.nextDay !== null && me.nextDay > today();
+  const now = fromDay(today());
+  const set = (nextDay: string | null) => settings.mutate({ nextDay });
+  const quick = [
+    { label: t('away.tomorrow'), day: plus(now, 1) },
+    { label: t('away.monday'), day: plus(now, (8 - now.getDay()) % 7 || 7) },
+    { label: t('away.week'), day: plus(now, 7) },
+  ];
+
+  return (
+    <>
+      {away ? (
+        <Tooltip title={t('away.hint')} describeChild>
+          <Chip
+            color="warning"
+            size="small"
+            icon={<EventBusy />}
+            label={t('away.until', { day: format.date(fromDay(me.nextDay!)) })}
+            onClick={(e) => setAnchor(e.currentTarget)}
+          />
+        </Tooltip>
+      ) : (
+        <Tooltip title={t('away.set')}>
+          <IconButton aria-label={t('away.set')} onClick={(e) => setAnchor(e.currentTarget)}>
+            <EventBusy />
+          </IconButton>
+        </Tooltip>
+      )}
+      <Popover
+        open={!!anchor}
+        anchorEl={anchor}
+        onClose={() => setAnchor(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Stack spacing={1.5} sx={{ p: 2, width: 300 }}>
+          <Typography variant="subtitle2">{t('away.title')}</Typography>
+          <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
+            {quick.map((q) => (
+              <Chip key={q.label} label={q.label} variant={me.nextDay === q.day ? 'filled' : 'outlined'} onClick={() => set(q.day)} disabled={settings.isPending} />
+            ))}
+          </Stack>
+          <TextField
+            size="small"
+            type="date"
+            label={t('profile.nextDay')}
+            value={me.nextDay ?? ''}
+            onChange={(e) => e.target.value && set(e.target.value)}
+            error={!!errors.nextDay}
+            helperText={errors.nextDay ?? t('profile.nextDayHint')}
+            slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: plus(now, 1) } }}
+          />
+          {away && (
+            <Button variant="outlined" onClick={() => set(null)} disabled={settings.isPending}>{t('away.back')}</Button>
+          )}
+        </Stack>
+      </Popover>
+    </>
+  );
+}

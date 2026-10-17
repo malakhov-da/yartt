@@ -32,7 +32,7 @@ traces and screenshots of failures is in `e2e-report/`
 | Search | `search` | in My day: `/` focuses from a task too; a tag narrows both tabs; typos and the other layout, words as a set of tags; only existing tags, Enter takes the best; "New task" takes the picked tags; the same set refused |
 | New task | `newTask` | from "I own": tags as the title, a new tag created only on saving, priority; from "Waited on by": the new task waits for this one |
 | Drafts | `drafts` | a comment, a context being edited and a new task survive going elsewhere; "Cancel" forgets |
-| Top line | `topLine` | how much waits for me, from a task; an open shift with its time, closed from there |
+| Top line | `topLine` | how much waits for me, from a task; "I'll be away" set and cleared; an open shift with its time, closed from there |
 | Hints | `hints` | "I own" and the deadline explain themselves; a task at risk says whose plan |
 | Offline | `offline` | a comment written offline waits in the outbox, survives a reload, goes out when online |
 | My team, employee page | `team` | all my team on top, me and my reports, a report's team folded and unfolded, the four columns, a row's details (a person's, a team's), ticks and a whole team in one tick, the delay of a late timesheet, a manager inside their team's line, a dismissed person hidden for a range before the dismissal, the folded list of my dismissed and bringing back, dismissing from the details; payroll export as Excel and CSV; away and dismissed marks; no block without reports; the employee page with a range and a chart; scoring, a correction, a reason for a low score; a manager higher up only looks; a stranger is refused |

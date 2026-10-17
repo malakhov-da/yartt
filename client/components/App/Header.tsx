@@ -8,6 +8,7 @@ import { useSignedOut } from '#client/hooks/session.ts';
 import { useMe } from '#client/hooks/me.ts';
 import { showInfo } from '#client/hooks/store.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
+import AwayButton from './AwayButton.tsx';
 import EmployeeAvatar from './EmployeeAvatar.tsx';
 import InviteDialog from './InviteDialog.tsx';
 import Logo from './Logo.tsx';
@@ -16,7 +17,7 @@ import TopStatus from './TopStatus.tsx';
 
 // The top line: the logo (home — My day, which keeps its state while a task
 // or a person is open), what waits for me and the open shift (TopStatus),
-// invite and my avatar. No tabs (decision 31); the search is in My day,
+// "I'm away" (AwayButton), invite and my avatar. No tabs (decision 31); the search is in My day,
 // over Current tasks.
 export default function () {
   const { t } = useTranslation();
@@ -45,6 +46,7 @@ export default function () {
         <Logo />
         <Box sx={{ flexGrow: 1 }} />
         <TopStatus />
+        <AwayButton />
         <Tooltip title={t('nav.invite')}>
           <IconButton onClick={() => setInviteOpen(true)}>
             <PersonAddAlt1 />
