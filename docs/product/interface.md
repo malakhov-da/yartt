@@ -245,8 +245,8 @@ dismiss them or hand them the team: they take my place, get my reports
 and become my manager (decision 45).
 
 Under the table, folded, **My dismissed**: my own dismissed reports,
-whatever the range — only I can bring them back, under me or at once
-under another manager. Ticks pick people
+whatever the range — only I can bring them back, under me; moving to
+another manager is then their own choice (decision 45). Ticks pick people
 for a line of their own ("Picked", the score averaged over them); a
 team's tick picks the whole team. **Export** saves the picked people (or
 everyone) for payroll: an Excel file with a summary per person and a

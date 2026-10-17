@@ -129,18 +129,16 @@ describe('employee', () => {
       .rejects.toMatchObject({ constraint_name: 'chk_employee_dismissed_manager' });
   });
 
-  test('bringing back may hand the employee to another manager, who is notified', async () => {
+  test('brought back under the same manager; another manager is then the employee\'s own choice', async () => {
     const boss = await createEmployee();
     const peer = await createEmployee();
     const dev = await createEmployee({ managerId: boss.id });
     const api = await client(boss.id);
     await api.Employee.dismiss({ id: dev.id });
-    // Not under someone dismissed — themselves included.
-    await expect(api.Employee.restore({ id: dev.id, email: dev.email, managerId: dev.id })).rejects.toMatchObject({ message: 'not_found' });
-    expect(await api.Employee.restore({ id: dev.id, email: dev.email, managerId: peer.id }))
-      .toMatchObject({ email: dev.email, managerId: peer.id, dismissedAt: null });
-    const rows = await sql<{ payload: unknown }[]>`SELECT payload FROM notification WHERE employee_id = ${peer.id}`;
-    expect(rows.map((r) => r.payload)).toContainEqual({ kind: 'new_report', employeeId: dev.id });
+    expect(await api.Employee.restore({ id: dev.id, email: dev.email }))
+      .toMatchObject({ email: dev.email, managerId: boss.id, dismissedAt: null });
+    await (await client(dev.id)).Employee.setManager({ managerId: peer.id });
+    expect((await api.Employee.list()).find((e) => e.id === dev.id)?.managerId).toBe(peer.id);
   });
 
   test('someone at the top hands the team to a report, who then may dismiss them', async () => {

@@ -71,7 +71,6 @@ test.describe('Team and the employee page', () => {
     await team.getByRole('button', { name: 'Мои уволенные · 1' }).click();
     await team.getByRole('button', { name: 'Вернуть' }).click();
     const dialog = page.getByRole('dialog');
-    await expect(dialog.getByLabel('Руководитель')).toHaveValue('Марина Соколова'); // under me unless I pick another
     await dialog.getByLabel('Email').fill('sergey.back@example.com');
     await dialog.getByRole('button', { name: 'Вернуть' }).click();
     await expect(sergey.getByText(/^Уволен/)).toHaveCount(0);

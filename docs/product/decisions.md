@@ -574,13 +574,15 @@ dismissed reports, whatever the range (decision 45).
 
 ### 45. A dismissed employee always has a manager who can bring them back
 
-Only the direct manager brings a dismissed employee back, so a dismissed
-employee without one could never return. The database keeps that from
-happening (`chk_employee_dismissed_manager`): nobody is dismissed without
-a manager, and when a manager is dismissed their reports — the dismissed
-ones too — move to the manager above, who can bring them back. Bringing
-back may hand the person to another manager at once (they are notified),
-so a returning employee lands in the right team without a second step.
+Nobody dismisses themselves: to leave, you need a manager, who dismisses
+you and gets your team — your dismissed reports too. Only that manager
+brings you back, and under themselves: moving on to another manager is
+then your own choice (`manager_id` is yours to set), never the manager's
+— nobody hands people around. A dismissed employee without a manager
+could never return, so the database keeps that from happening
+(`chk_employee_dismissed_manager`): nobody is dismissed without a
+manager, and when a manager is dismissed their reports, the dismissed
+included, move to the manager above.
 
 Someone at the top has no manager and cannot be dismissed; setting their
 successor — usually their own report — as their manager would be a cycle.
@@ -588,9 +590,8 @@ So they hand the team over (`hand_over_team`): the successor takes their
 place, gets their other reports, the dismissed included, and becomes
 their manager, who may then dismiss them. It works the same for any
 manager who steps down in favour of a report. Deliberately not added:
-moving a dismissed employee to another manager without bringing them
-back — the list stays with whoever answers for the team.
+a manager moving a report, dismissed or brought back, to another manager.
 
-*Implemented:* `hand_over_team()`, `restore_employee()` with a manager,
+*Implemented:* `hand_over_team()`, `restore_employee()`,
 `chk_employee_dismissed_manager` in `db.sql`; `Employee.handOver`; the
 "My dismissed" list and the restore dialog in `client/components/MyDayPage/`.

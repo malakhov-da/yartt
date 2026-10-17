@@ -61,17 +61,15 @@ export default router({
 
   /**
    * Brings a dismissed direct report back with the given email, under the
-   * signed-in manager or, when `managerId` is given, under another active
-   * employee (who is notified).
+   * signed-in manager; moving to another manager is then their own choice.
    * @throws not_manager — the signed-in employee is not their direct manager.
-   * @throws not_found — unknown or not dismissed, or the manager is unknown or dismissed.
+   * @throws not_found — unknown or not dismissed.
    * @throws email_taken
-   * @throws manager_cycle
    */
   restore: authedProcedure
-    .input(z.object({ id: Id, email: Email, managerId: Id.optional() }))
+    .input(z.object({ id: Id, email: Email }))
     .output(Employee)
-    .mutation(({ input, ctx }) => Employees.restore(input.id, input.email, ctx.employeeId, input.managerId ?? ctx.employeeId)),
+    .mutation(({ input, ctx }) => Employees.restore(input.id, input.email, ctx.employeeId)),
 
   /**
    * Hands the signed-in employee's team to one of their active direct

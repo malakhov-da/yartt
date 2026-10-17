@@ -90,7 +90,7 @@ export const en: Translation = {
       mine: 'All my team · {{count}}',
       pickAll: 'Pick all my team',
       dismissedList: 'My dismissed · {{count}}',
-      dismissedHint: 'Your dismissed reports — only you can bring them back, under you or another manager. If you leave, they move to your manager.',
+      dismissedHint: 'Your dismissed reports — only you can bring them back, under you. If you leave, they move to your manager.',
       dismissedOn: 'Dismissed {{day}}',
       dismissedOn_he: 'Dismissed {{day}}',
       dismissedOn_she: 'Dismissed {{day}}',
@@ -372,8 +372,7 @@ export const en: Translation = {
     dismissConfirm: 'Dismiss {{name}}? Their tasks and reports will move to you.',
     restore: 'Restore',
     restoreTitle: 'Restore {{name}}',
-    restoreManager: 'Manager',
-    restoreHint: 'You may hand them to another manager at once — they will be notified.',
+    restoreHint: 'They come back under you; moving to another manager is their own choice, in their profile.',
     email: 'Email',
   },
   tags: {

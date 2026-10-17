@@ -89,9 +89,9 @@ export async function dismiss(id: number, actorId: number): Promise<void> {
   await sql`SELECT dismiss_employee(${id}, ${actorId})`;
 }
 
-/** See restore_employee() in db.sql: only the direct manager; under them or another manager. */
-export async function restore(id: number, email: string, actorId: number, managerId: number): Promise<Employee> {
-  await sql`SELECT restore_employee(${id}, ${email}, ${actorId}, ${managerId})`;
+/** See restore_employee() in db.sql: only the direct manager, under themselves. */
+export async function restore(id: number, email: string, actorId: number): Promise<Employee> {
+  await sql`SELECT restore_employee(${id}, ${email}, ${actorId})`;
   const employee = await get(id);
   if (!employee) throw new AppError('not_found');
   return employee;

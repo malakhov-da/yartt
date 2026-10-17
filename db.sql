@@ -451,8 +451,10 @@ ACCESS RULES
     - manager_id — the employee themselves (own profile). No confirmation
       from the manager: such a substitution is too noticeable.
     - Dismiss / bring back — the direct manager only. An employee with no
-      manager cannot be dismissed; a dismissed one always has a manager.
-      Bringing back may hand the employee to another manager at once.
+      manager cannot be dismissed (nobody dismisses themselves); a
+      dismissed one always has a manager, and only that manager brings
+      them back — under themselves: the employee then moves to another
+      manager on their own.
     - Hand the team over (hand_over_team) — the employee themselves, to
       one of their direct reports, who takes their place and becomes
       their manager: the way out for someone at the top.
@@ -3076,7 +3078,7 @@ an employee without a manager cannot be dismissed.
 History (scores, time entries, comments) is kept.';
 
 
-CREATE OR REPLACE FUNCTION restore_employee(p_employee_id INT, p_email CITEXT, p_actor_id INT, p_manager_id INT)
+CREATE OR REPLACE FUNCTION restore_employee(p_employee_id INT, p_email CITEXT, p_actor_id INT)
 RETURNS VOID AS $$
 DECLARE
     v_email CITEXT;
@@ -3096,22 +3098,17 @@ BEGIN
                   DETAIL = json_build_object('employeeId', p_employee_id)::text;
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM employee WHERE id = p_manager_id AND email IS NOT NULL) THEN
-        RAISE EXCEPTION 'manager % is unknown or dismissed', p_manager_id
-            USING HINT = 'not_found';
-    END IF;
-
-    UPDATE employee SET email = p_email, dismissed_at = NULL, manager_id = p_manager_id
-     WHERE id = p_employee_id;
+    UPDATE employee SET email = p_email, dismissed_at = NULL WHERE id = p_employee_id;
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION restore_employee(INT, CITEXT, INT, INT) IS
-'Brings a dismissed employee back with the given email under p_manager_id
-— the actor or another active employee (who is notified: new_report).
-Only their direct manager (p_actor_id) can do it: the one at the time of
-dismissal, or the manager above when that one left too. History was kept;
-tasks and reports that were handed over stay where they went.';
+COMMENT ON FUNCTION restore_employee(INT, CITEXT, INT) IS
+'Brings a dismissed employee back with the given email, under the same
+manager. Only their direct manager (p_actor_id) can do it: the one at the
+time of dismissal, or the manager above when that one left too. Moving to
+another manager is then the employee''s own choice (manager_id is theirs
+to set), never the manager''s. History was kept; tasks and reports that
+were handed over stay where they went.';
 
 
 -- ----------------------------------------------------------------------------
