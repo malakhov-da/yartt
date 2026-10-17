@@ -41,6 +41,25 @@ traces and screenshots of failures is in `e2e-report/`
 | Interface walk-through | `interface` | docs/product/interface.md item by item: Invite; no raw translation keys on any screen in Russian and English; "No intervention needed" from TODO; history pages, deleting a time entry and the open shift, a shift at another time; tags edited in place; clearing a deadline; a hard dependency that does not fit explained; "Back to editing" restores the text, Ctrl+Enter, a file and an image (opens in full); made private again → "Bring back all"; an observer leaves; time for a past day lands on that day; no score without a closed timesheet; profile saved, manager applied at once, log out everywhere |
 | Layout | `layout` | no horizontal scroll at phone width on My day with the team table, a task, an employee page |
 
+## Migrations: the schema and the data
+
+`tests/schema.test.ts` takes every release tag `v*` from git:
+
+- `db.sql` at the tag, migrated with today's migrations, must give exactly
+  the schema of today's `db.sql` (the same version means the same schema);
+- the test data at the tag (`tests/fixtures/data.sql`), loaded as it was
+  (triggers off), migrated, must equal today's test data. What only
+  appeared in a later version — a new feature's rows the old data could
+  not have — is added by that step's asymmetry script
+  `tests/fixtures/<from>-<to>.sql` (explicit values for every column);
+  everything else must come through the migration.
+
+Today's test data is made by `npm run fixture`: from scratch (the demo
+data, dumped — for the first version), or with `-- --migrate` from the
+last release through the migrations and asymmetry scripts — then the
+diff is reviewed: it is what the migration does to real data. The data
+also has to load into today's `db.sql` and dump back unchanged.
+
 ## On GitHub
 
 `.github/workflows/ci.yml` runs all three layers on every push to

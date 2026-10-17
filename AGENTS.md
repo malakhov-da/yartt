@@ -123,6 +123,13 @@ and a `matchPath` in `client/components/App.tsx`.
   at the tag, migrated with today's migrations, must give exactly the
   schema of a fresh `db.sql` (the same version means the same schema).
   Nothing is kept frozen by hand: the released schema is in git.
+- Data migrates too, so it is checked too: `tests/fixtures/data.sql` is the
+  test data of the current version (the demo data dumped). For every
+  release tag, its data, migrated, must equal today's data — except what
+  only appeared later, which `tests/fixtures/<from>-<to>.sql` adds with
+  explicit values for every column. Before a release, after a schema
+  change: `npm run fixture`; after a release, with a migration:
+  `npm run fixture -- --migrate`, then review the diff.
 - Business rules live in the database (triggers, functions). A rule error:
   `RAISE EXCEPTION '<message for logs>' USING HINT = '<code>'
   [, DETAIL = json_build_object(...)::text]`. The code is added to
@@ -208,6 +215,8 @@ and a `matchPath` in `client/components/App.tsx`.
 
 - `npm run dev` — server (:3000, `node --watch`) and client (:5173, proxy `/api`).
 - `npm run typecheck` — `tsconfig.json` (server + shared + tests + scripts + e2e) and `client/tsconfig.json`.
+- `TEST_DATABASE_URL=… npm run fixture` — the test data of the current schema version
+  (`-- --migrate`: the last release's data through the migrations).
 - `npm run seed -- --reset` — wipes the database in `DATABASE_URL` and fills it with demo data that
   touches every screen (`scripts/seed.ts`, not in the image). Keep it in step with new features.
 - `TEST_DATABASE_URL=postgres://postgres@localhost:5432/postgres npm test`

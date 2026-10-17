@@ -1,12 +1,14 @@
 import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import postgres from 'postgres';
-import { afterAll, describe, expect, inject, test } from 'vitest';
+import { describe, expect, inject, test } from 'vitest';
 import { connect, sql } from '../server/pg.ts';
 import {
-  MIGRATIONS_DIR, checkMigrationSql, migrate, parseMigrations, parseVersion, planMigrations,
+  DB_SQL_PATH, MIGRATIONS_DIR, checkMigrationSql, migrate, parseMigrations, parseVersion, planMigrations, versionOfDbSql,
 } from '../server/migrate.ts';
+import { dataOf, dumpData, loadData } from '../scripts/data.ts';
 
 // Schema fingerprint: everything db.sql defines except data.
 const FINGERPRINT = `
@@ -83,9 +85,10 @@ describe('migration chain rules', () => {
 // version at a tag and now means the same schema — a change without a new
 // version and a migration fails here. Nothing released, nothing to check.
 const files = await readdir(MIGRATIONS_DIR);
+const git = (...args: string[]) => execFileSync('git', args, { encoding: 'utf8' });
 const releases = (() => {
   try {
-    return execFileSync('git', ['tag', '--list', 'v*'], { encoding: 'utf8' }).split('\n').filter(Boolean);
+    return git('tag', '--list', 'v*').split('\n').filter(Boolean);
   } catch {
     return []; // no git (an unpacked tree): nothing to compare with
   }
@@ -97,27 +100,76 @@ test('released migrations are transactional', async () => {
   }
 });
 
-describe.skipIf(releases.length === 0)('db.sql', () => {
-  const name = `yartt_release_${process.pid}`;
-  const admin = postgres(inject('adminUrl'), { onnotice: () => {} });
+const FIXTURES = join(import.meta.dirname, 'fixtures');
 
-  afterAll(async () => {
+/** A fresh database for one check, dropped afterwards. */
+async function scratch(name: string, use: (db: ReturnType<typeof connect>) => Promise<void>) {
+  const admin = postgres(inject('adminUrl'), { onnotice: () => {} });
+  await admin.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
+  await admin.unsafe(`CREATE DATABASE ${name}`);
+  const url = new URL(inject('adminUrl'));
+  url.pathname = `/${name}`;
+  const db = connect(url.toString());
+  try {
+    await use(db);
+  } finally {
+    await db.end();
     await admin.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
     await admin.end();
+  }
+}
+
+// The test data of this version (npm run fixture) fits this schema and comes
+// back exactly as it went in.
+test('the test data loads into db.sql and dumps back the same', async () => {
+  const text = await readFile(join(FIXTURES, 'data.sql'), 'utf8');
+  await scratch(`yartt_data_${process.pid}`, async (db) => {
+    await db.unsafe(await readFile(DB_SQL_PATH, 'utf8'));
+    await loadData(db, text);
+    expect(await dumpData(db)).toBe(text);
+  });
+});
+
+describe.skipIf(releases.length === 0)('releases', () => {
+  test.each(releases)('%s becomes the schema of db.sql by the migrations', async (tag) => {
+    await scratch(`yartt_release_${process.pid}`, async (db) => {
+      await db.unsafe(git('show', `${tag}:db.sql`));
+      await migrate(db);
+      expect(await db.unsafe(FINGERPRINT)).toEqual(await sql.unsafe(FINGERPRINT));
+    });
   });
 
-  test.each(releases)('is what %s becomes by the migrations', async (tag) => {
-    await admin.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const url = new URL(inject('adminUrl'));
-    url.pathname = `/${name}`;
-    const released = connect(url.toString());
+  // The data of a release, migrated, is the data of today — but for what only
+  // appeared later, which the asymmetry scripts of the steps between add
+  // (tests/fixtures/<from>-<to>.sql). Everything else must come through the
+  // migrations.
+  test.each(releases)('%s carries its test data to the test data of today', async (tag) => {
+    const oldSchema = git('show', `${tag}:db.sql`);
+    let oldData: string;
     try {
-      await released.unsafe(execFileSync('git', ['show', `${tag}:db.sql`], { encoding: 'utf8' }));
-      await migrate(released);
-      expect(await released.unsafe(FINGERPRINT)).toEqual(await sql.unsafe(FINGERPRINT));
-    } finally {
-      await released.end();
+      oldData = git('show', `${tag}:tests/fixtures/data.sql`);
+    } catch {
+      return; // released before there was test data
     }
+    const target = versionOfDbSql(await readFile(DB_SQL_PATH, 'utf8'));
+    const steps = planMigrations(parseMigrations(files), versionOfDbSql(oldSchema), target);
+    let migrated: Record<string, string[]> = {};
+    await scratch(`yartt_from_${process.pid}`, async (db) => {
+      await db.unsafe(oldSchema);
+      await loadData(db, oldData);
+      await migrate(db);
+      for (const step of steps) {
+        const asymmetry = join(FIXTURES, step.file);
+        if (existsSync(asymmetry)) await loadData(db, await readFile(asymmetry, 'utf8'));
+      }
+      migrated = await dataOf(db);
+    });
+    let expected: Record<string, string[]> = {};
+    await scratch(`yartt_to_${process.pid}`, async (db) => {
+      await db.unsafe(await readFile(DB_SQL_PATH, 'utf8'));
+      await loadData(db, await readFile(join(FIXTURES, 'data.sql'), 'utf8'));
+      expected = await dataOf(db);
+    });
+    expect(migrated).toEqual(expected);
   });
 });
