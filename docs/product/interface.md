@@ -245,8 +245,7 @@ days, logged time, scored days, tasks closed by hand and automatically
 mentions — with charts over the range (time in tasks, score, backlog,
 the three delays; a team's are the averages of its people, its score
 chart is its manager's). A person's details let their direct manager
-dismiss them or hand them the team: they take my place, get my reports
-and become my manager (decision 45).
+dismiss them (decision 45).
 
 Under the table, folded, **My dismissed**: my own dismissed reports,
 whatever the range — only I can bring them back, under me; moving to

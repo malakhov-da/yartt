@@ -77,7 +77,6 @@ test.describe('Team and the employee page', () => {
     await expect(team.getByRole('button', { name: /Мои уволенные/ })).toHaveCount(0);
 
     await sergey.getByRole('cell').last().click();
-    await expect(team.getByRole('button', { name: 'Передать руководство' })).toBeVisible();
     page.once('dialog', (d) => void d.accept());
     await team.getByRole('button', { name: 'Уволить' }).click();
     await expect(sergey.getByText(/^Уволен/)).toBeVisible();

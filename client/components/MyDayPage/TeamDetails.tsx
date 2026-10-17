@@ -1,4 +1,4 @@
-import { PersonRemove, SupervisorAccount } from '@mui/icons-material';
+import { PersonRemove } from '@mui/icons-material';
 import { Box, Button, Stack, Typography, useTheme } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -35,7 +35,7 @@ function Line(p: { children: ReactNode; warn?: boolean }) {
 /**
  * What a row of My team does not fit: every number behind the four columns
  * and how it went over the range, as charts. A person's actions — dismiss
- * or hand them my team (the direct manager) — are here too.
+ * (the direct manager) — is here too.
  */
 export default function (p: { group: Group; onChanged: () => void }) {
   const { t } = useTranslation();
@@ -45,7 +45,6 @@ export default function (p: { group: Group; onChanged: () => void }) {
   const duration = useDuration();
   const employees = useEmployees();
   const dismiss = useMutation(trpc.Employee.dismiss.mutationOptions({ onSuccess: p.onChanged }));
-  const handOver = useMutation(trpc.Employee.handOver.mutationOptions({ onSuccess: p.onChanged }));
   const { group } = p;
   const m = metrics(group);
   const people = peopleOf(group);
@@ -57,10 +56,6 @@ export default function (p: { group: Group; onChanged: () => void }) {
   const colors = { record: palette.primary.main, reply: palette.success.main, scoreWait: palette.warning.main };
   const percent = (v: number) => `${Math.round(v)}%`;
 
-  // Handing the team over puts me under them at once: confirm it.
-  const confirmHandOver = (e: Employee) => {
-    if (window.confirm(t('myDay.team.details.handOverConfirm', { name: e.fullName }))) handOver.mutate({ successorId: e.id });
-  };
   // Dismissal cannot be undone by the person dismissed and hurts them: confirm it.
   const confirmDismiss = (e: Employee) => {
     if (window.confirm(t('team.dismissConfirm', { name: e.fullName }))) dismiss.mutate({ id: e.id });
@@ -159,16 +154,11 @@ export default function (p: { group: Group; onChanged: () => void }) {
       {employee && (
         <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
           <Button size="small" component={Link} to={`/employees/${employee.id}`}>{t('myDay.team.details.page')}</Button>
-          {/* My active direct report: hand them my team, or dismiss them. A dismissed one comes back from the list under the table. */}
+          {/* My active direct report; a dismissed one comes back from the list under the table. */}
           {person!.direct && employee.email !== null && (
-            <>
-              <Button size="small" startIcon={<SupervisorAccount />} disabled={handOver.isPending} onClick={() => confirmHandOver(employee)}>
-                {t('myDay.team.details.handOver')}
-              </Button>
-              <Button size="small" color="error" startIcon={<PersonRemove />} disabled={dismiss.isPending} onClick={() => confirmDismiss(employee)}>
-                {t('team.dismiss')}
-              </Button>
-            </>
+            <Button size="small" color="error" startIcon={<PersonRemove />} disabled={dismiss.isPending} onClick={() => confirmDismiss(employee)}>
+              {t('team.dismiss')}
+            </Button>
           )}
         </Stack>
       )}

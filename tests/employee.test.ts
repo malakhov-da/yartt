@@ -141,22 +141,25 @@ describe('employee', () => {
     expect((await api.Employee.list()).find((e) => e.id === dev.id)?.managerId).toBe(peer.id);
   });
 
-  test('someone at the top hands the team to a report, who then may dismiss them', async () => {
+  test('someone at the top leaves through their own people: the successor steps out, becomes their manager, dismisses them', async () => {
     const top = await createEmployee();
     const heir = await createEmployee({ managerId: top.id });
     const other = await createEmployee({ managerId: top.id });
     const gone = await createEmployee({ managerId: top.id });
-    const topApi = await client(top.id);
-    await topApi.Employee.dismiss({ id: gone.id });
-    await expect(topApi.Employee.handOver({ successorId: gone.id }))
-      .rejects.toMatchObject({ message: 'not_direct_report', cause: { params: { employeeId: gone.id } } });
-    await expect((await client(heir.id)).Employee.handOver({ successorId: top.id })).rejects.toMatchObject({ message: 'not_direct_report' });
+    await (await client(top.id)).Employee.dismiss({ id: gone.id });
+    // While the heir is under the top, the top cannot pick them: a cycle.
+    await expect((await client(top.id)).Employee.setManager({ managerId: heir.id })).rejects.toMatchObject({ message: 'manager_cycle' });
 
-    await topApi.Employee.handOver({ successorId: heir.id });
-    const managers = new Map((await topApi.Employee.list()).map((e) => [e.id, e.managerId]));
+    await (await client(heir.id)).Employee.setManager({ managerId: null });
+    await (await client(top.id)).Employee.setManager({ managerId: heir.id });
+    const heirApi = await client(heir.id);
+    await heirApi.Employee.dismiss({ id: top.id });
+    const managers = new Map((await heirApi.Employee.list()).map((e) => [e.id, e.managerId]));
     expect([managers.get(heir.id), managers.get(top.id), managers.get(other.id), managers.get(gone.id)])
       .toEqual([null, heir.id, heir.id, heir.id]);
-    await (await client(heir.id)).Employee.dismiss({ id: top.id });
+    // Only the heir brings back the top and the one dismissed before.
+    await expect((await client(other.id)).Employee.restore({ id: top.id, email: top.email })).rejects.toMatchObject({ message: 'not_manager' });
+    await heirApi.Employee.restore({ id: gone.id, email: gone.email });
   });
 
   test('the new manager is notified', async () => {

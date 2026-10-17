@@ -584,14 +584,15 @@ could never return, so the database keeps that from happening
 manager, and when a manager is dismissed their reports, the dismissed
 included, move to the manager above.
 
-Someone at the top has no manager and cannot be dismissed; setting their
-successor — usually their own report — as their manager would be a cycle.
-So they hand the team over (`hand_over_team`): the successor takes their
-place, gets their other reports, the dismissed included, and becomes
-their manager, who may then dismiss them. It works the same for any
-manager who steps down in favour of a report. Deliberately not added:
-a manager moving a report, dismissed or brought back, to another manager.
+Someone at the top has no manager and cannot be dismissed. They leave
+through their own people, each acting for themselves: the successor
+steps out from under them (clears their manager, or picks the leaver's),
+the leaver picks the successor as their manager — no cycle any more —
+and the successor dismisses them, getting the team. No special "hand
+over" operation: it would have the leaver move the successor, and a
+manager does not move people. Deliberately not added: a manager moving a
+report, dismissed or brought back, to another manager.
 
-*Implemented:* `hand_over_team()`, `restore_employee()`,
-`chk_employee_dismissed_manager` in `db.sql`; `Employee.handOver`; the
+*Implemented:* `restore_employee()`, `chk_employee_dismissed_manager` in
+`db.sql`; the
 "My dismissed" list and the restore dialog in `client/components/MyDayPage/`.

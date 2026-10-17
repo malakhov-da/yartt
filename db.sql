@@ -455,9 +455,9 @@ ACCESS RULES
       dismissed one always has a manager, and only that manager brings
       them back — under themselves: the employee then moves to another
       manager on their own.
-    - Hand the team over (hand_over_team) — the employee themselves, to
-      one of their direct reports, who takes their place and becomes
-      their manager: the way out for someone at the top.
+    - Someone at the top leaves in three steps of their own people:
+      the successor clears their manager (or picks the one above), the
+      leaver picks the successor as manager, the successor dismisses them.
     - Setting a manager notifies the new manager (new_report).
 
 
@@ -737,8 +737,9 @@ COMMENT ON CONSTRAINT chk_employee_dismissed ON employee IS
 
 COMMENT ON CONSTRAINT chk_employee_dismissed_manager ON employee IS
 'A dismissed employee always has a manager — the one who can bring them
-back. Someone without a manager cannot be dismissed (they first hand
-their team over: hand_over_team), and a dismissed manager''s reports,
+back. Someone without a manager cannot be dismissed (they first pick a
+manager — their successor, once that one stepped out from under them),
+and a dismissed manager''s reports,
 dismissed ones included, move to the manager above.';
 
 
@@ -3109,45 +3110,6 @@ time of dismissal, or the manager above when that one left too. Moving to
 another manager is then the employee''s own choice (manager_id is theirs
 to set), never the manager''s. History was kept; tasks and reports that
 were handed over stay where they went.';
-
-
--- ----------------------------------------------------------------------------
--- hand_over_team — a manager steps down in favour of a direct report
--- ----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION hand_over_team(p_actor_id INT, p_successor_id INT)
-RETURNS VOID AS $$
-DECLARE
-    v_manager_id INT;
-BEGIN
-    PERFORM pg_advisory_xact_lock(hashtext('yartt.hierarchy'));
-    SELECT manager_id INTO v_manager_id FROM employee WHERE id = p_actor_id AND email IS NOT NULL;
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'employee % is unknown or dismissed', p_actor_id
-            USING HINT = 'not_found';
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM employee
-                    WHERE id = p_successor_id AND manager_id = p_actor_id AND email IS NOT NULL) THEN
-        RAISE EXCEPTION 'employee % is not an active direct report of %', p_successor_id, p_actor_id
-            USING HINT = 'not_direct_report',
-                  DETAIL = json_build_object('employeeId', p_successor_id)::text;
-    END IF;
-
-    -- In this order no step makes a cycle: the successor climbs first.
-    UPDATE employee SET manager_id = v_manager_id WHERE id = p_successor_id;
-    UPDATE employee SET manager_id = p_successor_id WHERE manager_id = p_actor_id;
-    UPDATE employee SET manager_id = p_successor_id WHERE id = p_actor_id;
-END;
-$$ LANGUAGE plpgsql;
-
-COMMENT ON FUNCTION hand_over_team(INT, INT) IS
-'The actor hands their team to one of their active direct reports: the
-successor takes the actor''s place (under the actor''s manager, or at the
-top), gets the actor''s other reports — dismissed ones included — and
-becomes the actor''s manager, who may then dismiss them. The only way to
-dismiss someone at the top: an employee without a manager cannot be
-dismissed, and their successor is in their own subtree, so setting them
-as the manager would be a cycle. Everyone whose manager changed is
-announced to the new one (new_report). Tasks stay with their owners.';
 
 
 -- ----------------------------------------------------------------------------

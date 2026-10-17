@@ -96,8 +96,3 @@ export async function restore(id: number, email: string, actorId: number): Promi
   if (!employee) throw new AppError('not_found');
   return employee;
 }
-
-/** See hand_over_team() in db.sql: a direct report takes my place and becomes my manager. */
-export async function handOver(actorId: number, successorId: number): Promise<void> {
-  await sql`SELECT hand_over_team(${actorId}, ${successorId})`;
-}

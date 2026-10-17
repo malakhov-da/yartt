@@ -71,15 +71,4 @@ export default router({
     .output(Employee)
     .mutation(({ input, ctx }) => Employees.restore(input.id, input.email, ctx.employeeId)),
 
-  /**
-   * Hands the signed-in employee's team to one of their active direct
-   * reports: the successor takes their place, gets their other reports
-   * (dismissed ones too) and becomes their manager — who may then dismiss
-   * them. The way out for someone at the top.
-   * @throws not_direct_report
-   */
-  handOver: authedProcedure
-    .input(z.object({ successorId: Id }))
-    .output(z.void())
-    .mutation(({ input, ctx }) => Employees.handOver(ctx.employeeId, input.successorId)),
 });

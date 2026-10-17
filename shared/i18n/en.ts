@@ -113,8 +113,6 @@ export const en: Translation = {
           scoreWait: 'Scoring reports',
         },
         page: 'Employee page',
-        handOver: 'Hand the team over',
-        handOverConfirm: 'Hand the team over to {{name}}? The successor takes your place, gets all your reports (the dismissed too) and becomes your manager — who may then dismiss you.',
         noData: 'No data for the range',
       },
       export: {
@@ -535,7 +533,6 @@ export const en: Translation = {
     day_scored: 'The day is already scored — no changes allowed.',
     score_final: 'A score cannot be deleted or moved to another day.',
     not_manager: 'Only the direct manager of employee #{{employeeId}} can do this.',
-    not_direct_report: 'Only your direct report (#{{employeeId}}) can be your successor.',
     score_day_not_past: 'Only past days can be scored.',
     no_work_for_day: 'There are no closed shifts for this day.',
   },
