@@ -38,6 +38,36 @@ function defaultShift(day: string, shifts: { startedAt: Date; spentMinutes: numb
   return { from: start, to: new Date(start.getTime() + HOUR) };
 }
 
+/** Visits outside the shifts that span at least this long look like a forgotten shift. */
+const GAP_SHIFT_MS = 30 * 60_000;
+
+/**
+ * A past day with shifts and activity outside them — before the first,
+ * between two, after the last: the longest such stretch of visits (30
+ * minutes or more) is offered as the shift that was not written down.
+ * Never with an open shift: that day is not over.
+ */
+function gapShift(shifts: { startedAt: Date; spentMinutes: number | null }[], visits: Date[]): { from: Date; to: Date } | null {
+  if (shifts.some((s) => s.spentMinutes === null)) return null;
+  const spans = shifts.map((s) => [s.startedAt.getTime(), s.startedAt.getTime() + s.spentMinutes! * 60_000] as const)
+    .sort((a, b) => a[0] - b[0]);
+  const gaps = new Map<number, number[]>();
+  for (const at of visits.map((v) => v.getTime())) {
+    if (spans.some(([a, b]) => at >= a && at <= b)) continue;
+    const gap = spans.filter(([, b]) => b < at).length; // how many shifts ended before it
+    gaps.set(gap, [...(gaps.get(gap) ?? []), at]);
+  }
+  let best: { from: Date; to: Date } | null = null;
+  for (const times of gaps.values()) {
+    const from = Math.min(...times);
+    const to = Math.max(...times);
+    if (to - from >= GAP_SHIFT_MS && (!best || to - from > best.to.getTime() - best.from.getTime())) {
+      best = { from: new Date(from), to: new Date(to) };
+    }
+  }
+  return best;
+}
+
 /** A pause after which a visit counts as coming back to work. */
 const ARRIVAL_GAP_MS = 10 * 60_000;
 
@@ -91,10 +121,11 @@ export default function (p: {
     && v.at.getTime() >= workedUntil);
   const canStart = mine && p.isToday && !p.hasOpenShift && !scored;
   // A past day: what the first and last activity suggest.
-  const suggestion = !p.isToday && day.shifts.length === 0 && day.firstActivity && day.lastActivity
-    && day.lastActivity.getTime() - day.firstActivity.getTime() >= 60_000
-    ? { from: day.firstActivity, to: day.lastActivity }
-    : null;
+  const suggestion = p.isToday ? null
+    : day.shifts.length === 0
+      ? (day.firstActivity && day.lastActivity && day.lastActivity.getTime() - day.firstActivity.getTime() >= 60_000
+        ? { from: day.firstActivity, to: day.lastActivity } : null)
+      : gapShift(day.shifts, day.visits.map((v) => v.at));
   const quiet = day.shifts.length === 0 && day.entries.length === 0 && day.visits.length === 0 && !(mine && suggestion);
   const task = (id: number) => p.tasks.get(id);
 

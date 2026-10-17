@@ -324,6 +324,11 @@ for (const [i, d] of pavelDays.entries()) {
   await visit(pavel, null, await at(pavel, d, '09:20'));
   await visit(pavel, site, await at(pavel, d, '09:25'));
   await visit(pavel, auth, await at(pavel, d, '15:00'));
+  // One evening he came back and worked without writing it down: History suggests that shift.
+  if (i === 4) {
+    await visit(pavel, site, await at(pavel, d, '20:10'));
+    await visit(pavel, null, await at(pavel, d, '21:05'));
+  }
   await P.Time.log({ taskId: site, day: await day(pavel, d), minutes: 300 + (i % 3) * 30 });
   await P.Time.log({ taskId: auth, day: await day(pavel, d), minutes: 90 });
   if (i === pavelDays.length - 1) await P.Work.start({ startedAt: await at(pavel, d, '09:20') });

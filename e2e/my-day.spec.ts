@@ -101,4 +101,18 @@ test.describe('My day', () => {
     await row.getByRole('button', { name: 'Удалить смену' }).click();
     await expect(history.getByText('Забытая смена, поправлено')).toHaveCount(0);
   });
+
+  test('history: activity after a written shift is offered as the shift that was not written down', async ({ page }) => {
+    await signIn(page, 'pavel@example.com');
+    const history = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Мои дни' }) });
+    const hint = history.getByText('Похоже на смену 20:10–21:05');
+    for (let page2 = 2; page2 <= 3; page2++) {
+      await page.waitForLoadState('networkidle');
+      if (await hint.isVisible()) break;
+      await history.getByRole('button', { name: `Go to page ${page2}` }).click();
+    }
+    const row = history.locator('.MuiStack-root').filter({ hasText: 'Похоже на смену 20:10–21:05' }).last();
+    await row.getByRole('button', { name: 'Подтвердить' }).click();
+    await expect(history.getByText(/Смена 20:10–21:05/)).toBeVisible();
+  });
 });

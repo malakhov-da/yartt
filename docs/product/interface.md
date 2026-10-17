@@ -63,7 +63,10 @@ someone with reports:
   minutes or more — has its own "Start" opposite it, so a shift begun
   after lunch starts from that return, not from the morning; "Start now"
   and another time are there too. The open shift is closed here or from
-  the top line; past days suggest a shift from the same visits. Any day
+  the top line; past days suggest a shift from the same visits — a day
+  without shifts, or activity outside its shifts (30 minutes or more
+  before the first, between two or after the last) as the shift that
+  was not written down. Any day
   not scored is mine to fix: "Add a shift" (a forgotten or a second one),
   and each closed shift can be corrected or deleted (decision 37).
 

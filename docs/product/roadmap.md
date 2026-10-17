@@ -31,8 +31,6 @@ it is decided. Proposals wait for a decision in their own section.
 
 In this order after stage 6 (S — a day, M — a few days, L — a week or more).
 
-- [ ] **Suggested shift for a gap** (S). A day with a shift and more
-  activity later: "Looks like a shift 14:10–18:30".
 - [ ] **Export for payroll** (S). Timesheet, logged time and scores of the
   subtree for a range — an Excel file (`.xlsx`), built in the browser so
   the server image gets no new dependency; CSV as a fallback.
