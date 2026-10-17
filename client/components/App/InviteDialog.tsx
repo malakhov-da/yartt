@@ -13,7 +13,8 @@ export default function (p: { open: boolean; onClose: () => void; onDone: (email
   const invite = useMutation(
     trpc.Employee.invite.mutationOptions({
       onSuccess: (employee) => {
-        p.onDone(employee.email ?? '');
+        // Offline the invite waits in the outbox: no employee yet, the typed address is it.
+        p.onDone((employee as typeof employee | undefined)?.email ?? email);
         setFullName('');
         setEmail('');
         p.onClose();

@@ -3,7 +3,8 @@ import { AppBar, Box, ButtonBase, IconButton, Menu, MenuItem, Toolbar, Tooltip, 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { clearDrafts } from '#client/hooks/drafts.ts';
+import { useOutbox } from '#client/hooks/offline.ts';
+import { useSignedOut } from '#client/hooks/session.ts';
 import { useMe } from '#client/hooks/me.ts';
 import { showInfo } from '#client/hooks/store.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
@@ -25,9 +26,16 @@ export default function () {
   const [menu, setMenu] = useState<HTMLElement | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const signedOut = useSignedOut();
   const logout = useMutation(trpc.Auth.logout.mutationOptions({
-    onSuccess: () => { clearDrafts(); void queryClient.resetQueries(); },
+    onSuccess: signedOut,
   }));
+  const outbox = useOutbox();
+  // Unsent changes would be lost: logging out asks first.
+  const logOut = () => {
+    if (outbox.length && !window.confirm(t('offline.logoutConfirm', { count: outbox.length }))) return;
+    logout.mutate();
+  };
   // Keeps the employee list warm for the profile and the team screen.
   useQuery(trpc.Employee.list.queryOptions());
 
@@ -53,7 +61,7 @@ export default function () {
 
       <Menu anchorEl={menu} open={!!menu} onClose={() => setMenu(null)}>
         <MenuItem onClick={() => { setMenu(null); setProfileOpen(true); }}>{t('nav.profile')}</MenuItem>
-        <MenuItem onClick={() => logout.mutate()} disabled={logout.isPending}>{t('nav.logout')}</MenuItem>
+        <MenuItem onClick={logOut} disabled={logout.isPending}>{t('nav.logout')}</MenuItem>
       </Menu>
       <InviteDialog
         open={inviteOpen}

@@ -411,6 +411,14 @@ export const en: Translation = {
     submit: 'Invite',
     sent: 'Invitation sent to {{email}}',
   },
+  offline: {
+    queued: 'No connection — the change is saved and goes out when the connection is back',
+    sent: 'Back online — changes sent: {{count}}',
+    pending: 'Not sent · {{count}}',
+    offline: 'Offline',
+    hint: 'Changes are kept in this browser and go out in order as soon as there is a connection. Screens show what was loaded last.',
+    logoutConfirm: '{{count}} changes are not sent yet and will be lost on logging out. Log out?',
+  },
   apiTokens: {
     title: 'API tokens',
     hint: 'A token lets a program — a CI bot, monitoring — act as the employee through the API: comment, mention, log time. It has the employee’s rights, no more.',

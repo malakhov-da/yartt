@@ -40,7 +40,7 @@ export default function (p: { task: TaskPage }) {
   const reject = useMutation(trpc.Observer.reject.mutationOptions(done));
   const leave = useMutation(trpc.Observer.leave.mutationOptions(done));
   const makePublic = useMutation(trpc.Task.makePublic.mutationOptions(done));
-  const makePrivate = useMutation(trpc.Task.makePrivate.mutationOptions({ onSuccess: (ids) => { setLeftOut(ids); refresh(); } }));
+  const makePrivate = useMutation(trpc.Task.makePrivate.mutationOptions({ onSuccess: (ids) => { setLeftOut((ids as number[] | undefined) ?? []); refresh(); } }));
 
   const name = (id: number | null) => (id === null ? '' : (employees.get(id)?.fullName ?? `#${id}`));
   const total = people.data?.total ?? 0;

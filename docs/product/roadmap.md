@@ -31,8 +31,6 @@ it is decided. Proposals wait for a decision in their own section.
 
 In this order after stage 6 (S — a day, M — a few days, L — a week or more).
 
-- [ ] **Installable on a phone, working offline (PWA)** (M). Any change
-  made without a connection is kept and sent at the first chance.
 
 ## Decided against
 

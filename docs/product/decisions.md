@@ -513,3 +513,26 @@ webhook like every notification.
 
 *Implemented:* `send_weekly_digests()`, `employee.weekly_digest_on` in
 `db.sql`; the `weekly_digests` cron job; `weekly_digest` notifications.
+
+### 43. Offline, a change is accepted and sent later
+
+yartt installs on a phone and keeps working without a connection — in a
+train, in a basement. A change made offline is accepted at once: the
+screen moves on as if it was sent, and the change waits in an outbox
+kept in the browser, to go out in order at the first chance (when the
+connection is back, and every 30 seconds while anything waits). The
+server stays the judge: a change it refuses when it finally arrives is
+dropped with its reason shown; anything short of the server's answer is
+tried again, never dropped. What was last loaded is saved too, so the
+screens open offline; a service worker serves the app itself.
+
+Deliberately not queued: signing in and out, a token shown once, and
+visits (sent later, they would be logged at the wrong time). A queued
+change has no result yet — a new task has no number until it is sent —
+so screens that use a result handle its absence. There is no merging:
+a change applies as of when it arrives, like one made a moment late.
+Logging out with unsent changes asks first; another person signing in
+on the same browser starts with an empty outbox.
+
+*Implemented:* `client/hooks/offline.ts` (the offline link, the outbox,
+the saved cache), `client/public/sw.js`, `manifest.webmanifest`.

@@ -1,0 +1,43 @@
+// The service worker: the app opens without a connection. The page and its
+// assets come from the cache when the network does not answer; the API is
+// never cached here — data offline comes from the app's own saved cache,
+// and changes wait in its outbox (client/hooks/offline.ts).
+const CACHE = 'yartt-shell-v1';
+const SHELL = ['/', '/manifest.webmanifest', '/favicon.svg', '/icon-192.png', '/icon-512.png'];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(caches.keys()
+    .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
+    .then(() => self.clients.claim()));
+});
+
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+  if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
+
+  // Pages: the network first (a new release), the cached shell offline.
+  if (request.mode === 'navigate') {
+    event.respondWith(fetch(request)
+      .then((response) => {
+        const copy = response.clone();
+        void caches.open(CACHE).then((cache) => cache.put('/', copy));
+        return response;
+      })
+      .catch(() => caches.match('/')));
+    return;
+  }
+
+  // Assets have hashed names: the cache first, filled as they are fetched.
+  event.respondWith(caches.match(request).then((cached) => cached ?? fetch(request).then((response) => {
+    if (response.ok) {
+      const copy = response.clone();
+      void caches.open(CACHE).then((cache) => cache.put(request, copy));
+    }
+    return response;
+  })));
+});

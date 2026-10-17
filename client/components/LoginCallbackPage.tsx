@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import { errorMessage } from '#client/i18n/errors.ts';
+import { clearOfflineData } from '#client/hooks/offline.ts';
 
 export default function () {
   const { t } = useTranslation();
@@ -18,6 +19,8 @@ export default function () {
       // The page itself explains a bad link; no snackbar on top.
       meta: { quiet: true },
       onSuccess: async () => {
+        // Possibly someone else now: what the previous person had saved here goes.
+        clearOfflineData();
         await queryClient.invalidateQueries();
         void navigate('/', { replace: true });
       },

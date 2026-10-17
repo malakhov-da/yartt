@@ -14,7 +14,10 @@ visit suggests its start), a bell with how many TODO items wait for me
 (a click brings My day — so a new mention is noticed on any page),
 **Invite** (a person with a plus: a small dialog with a name and an
 email) and my avatar (a photo, or the initials in a circle). The avatar
-opens a menu: Profile, Log out. The search lives in My day (3). The product name and its release are in a quiet footer at the bottom
+opens a menu: Profile, Log out. The search lives in My day (3). Without a connection
+the top line says "Offline" or how many changes wait to be sent; the
+app installs on a phone and opens offline with what was loaded last
+(decision 43). The product name and its release are in a quiet footer at the bottom
 of My day.
 
 The logo is the way back: there is no "Back" line on a page. My day keeps

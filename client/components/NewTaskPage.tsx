@@ -62,7 +62,8 @@ export default function () {
     onSuccess: (id) => {
       clearDraft();
       refresh();
-      void navigate(`/tasks/${id}`, { replace: true });
+      // Offline the task waits in the outbox and has no number yet: back to My day.
+      void navigate((id as number | undefined) === undefined ? '/' : `/tasks/${id}`, { replace: true });
     },
   }));
   const submit = () => names.length > 0 && create.mutate({

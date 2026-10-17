@@ -42,6 +42,7 @@ persona goal it serves. Status: **now** — stage one, **next** — stage two,
 | Bots through the API: tokens issued by the employee or their manager; CI and monitoring comment and mention | Pavel: a failed build lands in the task as a mention | now (done) |
 | A weekly email for managers: Monday morning, days waiting for a score, tasks closed automatically, tasks at risk | Marina: the week starts with what needs her | now (done) |
 | A dark theme: as the system, or chosen in the profile | Pavel: My day open all evening without glare | now (done) |
+| Installable (PWA) and working offline: changes made without a connection are kept and sent at the first chance | everyone: a train or a basement does not stop work | now (done) |
 | The top line: how many TODO items wait for me, the open shift and closing it, from any page | Pavel: notice a mention and close the day without going back to My day | now (done) |
 | Personal tag colors and weights — in the profile | Pavel: scan lists faster | now (done) |
 
