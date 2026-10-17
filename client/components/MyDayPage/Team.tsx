@@ -31,6 +31,8 @@ type Cells = {
   finished: number;
   expired: number;
   open: number;
+  /** Open tasks whose deadline a plan does not fit. */
+  atRisk: number;
   /** Median minutes from a shift's end to its record; a group — the average of people. */
   recordDelay: number | null;
   /** Median minutes to answer a mention, and mentions left without an answer. */
@@ -57,6 +59,7 @@ const personCells = (m: Member): Cells => ({
   finished: m.finished,
   expired: m.expired,
   open: m.openTasks,
+  atRisk: m.atRisk,
   recordDelay: m.recordDelayMinutes,
   reply: m.replyMinutes,
   unanswered: m.unanswered,
@@ -77,6 +80,7 @@ function groupCells(members: Member[]): Cells {
     finished: members.reduce((n, m) => n + m.finished, 0),
     expired: members.reduce((n, m) => n + m.expired, 0),
     open: members.reduce((n, m) => n + m.openTasks, 0),
+    atRisk: members.reduce((n, m) => n + m.atRisk, 0),
     recordDelay: average(members.flatMap((m) => (m.recordDelayMinutes === null ? [] : [m.recordDelayMinutes]))),
     reply: average(members.flatMap((m) => (m.replyMinutes === null ? [] : [m.replyMinutes]))),
     unanswered: members.reduce((n, m) => n + m.unanswered, 0),
@@ -146,6 +150,7 @@ export default function () {
     { key: 'finished', label: t('myDay.team.finished'), hint: t('myDay.team.finishedHint') },
     { key: 'expired', label: t('myDay.team.expired'), hint: t('myDay.team.expiredHint') },
     { key: 'open', label: t('myDay.team.open') },
+    { key: 'atRisk', label: t('myDay.team.atRisk'), hint: t('myDay.team.atRiskHint') },
     { key: 'record', label: t('myDay.team.record'), hint: t('myDay.team.recordHint') },
     { key: 'reply', label: t('myDay.team.reply'), hint: t('myDay.team.replyHint') },
     { key: 'scoreWait', label: t('myDay.team.scoreWait'), hint: t('myDay.team.scoreWaitHint') },
@@ -287,6 +292,9 @@ function MetricCells(p: { cells: Cells }) {
         {c.expired}
       </TableCell>
       <TableCell align="right">{c.open}</TableCell>
+      <TableCell align="right" sx={{ color: c.atRisk > 0 ? 'warning.dark' : undefined, fontWeight: c.atRisk > 0 ? 600 : undefined }}>
+        {c.atRisk}
+      </TableCell>
       <TableCell align="right" sx={{ color: (c.recordDelay ?? 0) >= 1440 ? 'warning.dark' : undefined }}>{duration(c.recordDelay)}</TableCell>
       <TableCell align="right">
         {duration(c.reply)}

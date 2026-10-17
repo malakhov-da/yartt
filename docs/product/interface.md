@@ -51,7 +51,8 @@ someone with reports:
   the end. For a director "others" is hundreds of tasks — pages keep it
   usable, the search on top narrows it (3). Public tasks of others are in
   "others" for everyone: there should be few of them (decision 14).
-  **New task** in the "I own" tab opens the form (2a).
+  **New task** in the "I own" tab opens the form (2a). A task whose
+  plan does not fit before its deadline says "At risk" (decision 40).
 - **My team** — only for someone with reports; see 4.
 - **History** — my days, from today back into the past, with pages. A day shows the shift (work) if the team keeps a timesheet, the
   time logged to tasks (spent_minutes), and the visits: which tasks I

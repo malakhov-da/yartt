@@ -16,6 +16,7 @@ import TagChip from '../App/TagChip.tsx';
 import RichEditor, { type RichEditorHandle } from '../App/RichEditor.tsx';
 import RichView from '../App/RichView.tsx';
 import PriorityChip from './PriorityChip.tsx';
+import RiskChip from './RiskChip.tsx';
 import Dependencies from './Dependencies.tsx';
 import TransferDialog from './TransferDialog.tsx';
 
@@ -154,6 +155,7 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
               )}
             </Tooltip>
             {task.deadline && <span>{closed ? t('task.closed') : format.relative(task.deadline)}</span>}
+            {!closed && <RiskChip task={task} />}
             <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
               {task.isPublic ? <Public fontSize="small" /> : <Lock fontSize="small" />}
               <span>{task.isPublic ? t('task.public') : t('task.private')}</span>

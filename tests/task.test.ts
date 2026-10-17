@@ -337,6 +337,32 @@ describe('creating with details', () => {
   });
 });
 
+describe('deadline at risk', () => {
+  test("a plan that does not fit the person's working time before the deadline marks the task", async () => {
+    const owner = await createEmployee();
+    const dev = await createEmployee();
+    const api = await client(owner.id);
+    const id = await createTask(owner.id);
+    await api.Observer.add({ taskId: id, employeeId: dev.id });
+    await api.Task.setDeadline({ id, deadline: new Date(Date.now() + 2 * 86_400_000) });
+    expect((await api.Task.get({ id })).risk).toBeNull(); // nobody planned it
+
+    // No timesheet: a 40-hour week, so two days give about 11.4 hours.
+    await (await client(dev.id)).Time.setLeft({ taskId: id, minutes: 5 * 60 });
+    expect((await api.Task.get({ id })).risk).toBeNull();
+    await (await client(dev.id)).Time.setLeft({ taskId: id, minutes: 20 * 60 });
+    const { risk } = await api.Task.get({ id });
+    expect(risk).toMatchObject({ employeeId: dev.id, plannedMinutes: 20 * 60 });
+    expect(risk!.capacityMinutes).toBeGreaterThan(11 * 60);
+    expect(risk!.capacityMinutes).toBeLessThan(12 * 60);
+
+    const { from, to } = { from: new Date().toISOString().slice(0, 10), to: new Date().toISOString().slice(0, 10) };
+    await sql`UPDATE employee SET manager_id = ${owner.id} WHERE id = ${dev.id}`;
+    const me = (await api.Team.summary({ from, to })).find((m) => m.self)!;
+    expect(me.atRisk).toBe(1);
+  });
+});
+
 describe('reminders', () => {
   test('for oneself, in the future; delivered once due, then gone; leaving the task drops them', async () => {
     const owner = await createEmployee();

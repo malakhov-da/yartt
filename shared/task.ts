@@ -34,6 +34,12 @@ export const TaskHeader = z.object({
   /** NULL — an ownerless task (its owner was dismissed without a manager). */
   ownerId: Id.nullable(),
   isPublic: z.boolean(),
+  /**
+   * The deadline will not be met by plans (db.sql, deadline_risk): the person
+   * whose time left exceeds most their working time until the deadline;
+   * NULL — it fits, or nothing to measure.
+   */
+  risk: z.object({ employeeId: Id, plannedMinutes: z.number().int(), capacityMinutes: z.number().int() }).nullable(),
 });
 export type TaskHeader = z.infer<typeof TaskHeader>;
 

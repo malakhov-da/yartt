@@ -2612,6 +2612,40 @@ for: a mention a minute after the shift ended, answered as the next
 shift began, took 0 working minutes.';
 
 
+CREATE OR REPLACE FUNCTION deadline_risk(p_task_id INT)
+RETURNS TABLE (employee_id INT, planned_minutes INT, capacity_minutes INT) AS $$
+    WITH f AS (
+        SELECT value FROM finished_at WHERE task_id = p_task_id AND expired_at IS NULL AND value > NOW()
+    ),
+    people AS (
+        SELECT es."by" AS employee_id, es.value AS planned,
+               -- Their usual working minutes per calendar day: the last 28 days of
+               -- the timesheet; without one, a 40-hour week.
+               COALESCE(NULLIF((SELECT sum(w.spent_minutes) FROM work w
+                                 WHERE w.employee_id = es."by" AND w.spent_minutes IS NOT NULL
+                                   AND w.started_at > NOW() - INTERVAL '28 days'), 0) / 28.0,
+                        40 * 60 / 7.0) AS per_day
+          FROM estimate_minutes es
+         WHERE es.task_id = p_task_id AND es.expired_at IS NULL
+    )
+    SELECT p.employee_id, p.planned,
+           (p.per_day * extract(epoch FROM f.value - NOW()) / 86400)::int AS capacity
+      FROM people p, f
+     WHERE p.planned > p.per_day * extract(epoch FROM f.value - NOW()) / 86400
+     ORDER BY p.planned - p.per_day * extract(epoch FROM f.value - NOW()) / 86400 DESC
+     LIMIT 1
+$$ LANGUAGE sql STABLE;
+
+COMMENT ON FUNCTION deadline_risk(INT) IS
+'An open task whose deadline will not be met by its people''s plans: the
+person whose "time left" (estimate_minutes) exceeds most their working
+time until the deadline — their usual minutes per day (the last 28 days
+of their timesheet, or a 40-hour week without one) times the days left.
+No row — the task fits, has no deadline ahead or nobody planned it.
+Each person is measured against their own time only; hours of different
+people are never added up.';
+
+
 -- ----------------------------------------------------------------------------
 -- spent_minutes: for oneself, by an observer, not in the future, not scored
 -- ----------------------------------------------------------------------------

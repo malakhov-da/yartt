@@ -17,6 +17,9 @@ const HeaderRow = z.object({
   deadline: z.date().nullable(),
   ownerId: z.number().nullable(),
   isPublic: z.boolean(),
+  riskEmployeeId: z.number().nullable(),
+  riskPlanned: z.number().nullable(),
+  riskCapacity: z.number().nullable(),
 });
 const TagRow = z.object({ id: z.number(), name: z.string(), color: z.string().nullable() });
 const Id = z.object({ id: z.number() });
@@ -31,9 +34,11 @@ export async function headers(viewerId: number, ids: number[], db: Sql = sql): P
   if (ids.length === 0) return [];
   const rows = HeaderRow.array().parse(await db`
     SELECT k.id, ordered_tags(${viewerId}, k.tag_ids) AS tag_ids, k.priority, k.owner_id,
-           f.value AS deadline, is_public(k.id) AS is_public
+           f.value AS deadline, is_public(k.id) AS is_public,
+           r.employee_id AS risk_employee_id, r.planned_minutes AS risk_planned, r.capacity_minutes AS risk_capacity
       FROM task k
       LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
+      LEFT JOIN LATERAL deadline_risk(k.id) r ON TRUE
      WHERE k.id = ANY(${ids})
   `);
   const tagIds = [...new Set(rows.flatMap((r) => r.tagIds))];
@@ -48,8 +53,11 @@ export async function headers(viewerId: number, ids: number[], db: Sql = sql): P
   return ids.flatMap((id) => {
     const r = byId.get(id);
     if (!r) return [];
-    const { tagIds: rowTags, ...rest } = r;
-    return [{ ...rest, tags: rowTags.map((t) => tags.get(t)).filter((t): t is Tag => !!t) }];
+    const { tagIds: rowTags, riskEmployeeId, riskPlanned, riskCapacity, ...rest } = r;
+    const risk = riskEmployeeId === null
+      ? null
+      : { employeeId: riskEmployeeId, plannedMinutes: riskPlanned ?? 0, capacityMinutes: riskCapacity ?? 0 };
+    return [{ ...rest, risk, tags: rowTags.map((t) => tags.get(t)).filter((t): t is Tag => !!t) }];
   });
 }
 

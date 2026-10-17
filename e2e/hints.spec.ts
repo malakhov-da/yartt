@@ -11,3 +11,12 @@ test('"I own" and a deadline explain what they mean', async ({ page }) => {
   await page.getByLabel('Дедлайн').hover();
   await expect(page.getByRole('tooltip')).toHaveText(/Когда он наступит, задача закроется сама/);
 });
+
+test('a task whose plan does not fit the deadline is marked at risk, and says whose plan', async ({ page }) => {
+  await signIn(page);
+  await page.goto(`/tasks/${await taskId('сайт', 'редизайн', 'главная')}`);
+  const chip = page.getByText('Под угрозой').first();
+  await expect(chip).toBeVisible();
+  await chip.hover();
+  await expect(page.getByRole('tooltip')).toHaveText(/Павел Орлов в плане/);
+});

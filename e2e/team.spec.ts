@@ -31,7 +31,7 @@ test.describe('Team and the employee page', () => {
 
     // Pavel writes his timesheet the next day (the demo data): the "Written" column says so.
     const pavelRow = team.getByRole('row').filter({ hasText: 'Павел Орлов' });
-    await expect(pavelRow.getByRole('cell').nth(8)).toHaveText(/^2\dч/);
+    await expect(pavelRow.getByRole('cell').nth(9)).toHaveText(/^2\dч/);
 
     // One click picks Marina's whole team; a tick adds one more person.
     const pavel = team.getByRole('row').filter({ hasText: 'Павел Орлов' });

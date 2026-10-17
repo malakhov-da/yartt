@@ -7,6 +7,7 @@ import { useEmployees } from '#client/hooks/task.ts';
 import EmployeeAvatar from '../App/EmployeeAvatar.tsx';
 import TagChip from '../App/TagChip.tsx';
 import PriorityChip from './PriorityChip.tsx';
+import RiskChip from './RiskChip.tsx';
 
 /**
  * A task as a line: number, tags, priority, a note, deadline, owner. A closed
@@ -35,6 +36,7 @@ export default function (p: { task: TaskHeader; note?: string; noteHint?: string
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, flex: '1 1 160px', minWidth: 0, textDecoration: closed ? 'line-through' : 'none' }}>
         {p.task.tags.map((tag) => <TagChip key={tag.id} size="small" tag={tag} />)}
       </Box>
+      {!p.dense && !closed && <RiskChip task={p.task} />}
       {!p.dense && <PriorityChip priority={p.task.priority} />}
       {p.note && (
         <Tooltip title={p.noteHint ?? ''} describeChild>

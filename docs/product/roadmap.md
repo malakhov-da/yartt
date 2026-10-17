@@ -31,10 +31,6 @@ it is decided. Proposals wait for a decision in their own section.
 
 In this order after stage 6 (S — a day, M — a few days, L — a week or more).
 
-- [ ] **Deadline at risk** (S). An open task whose time left — the plans of
-  its people — does not fit before the deadline is marked in Current tasks
-  and counted in the team summary: "4 days left, 30 h planned". Marina
-  learns about a slip while it can still be avoided.
 - [ ] **Suggested shift for a gap** (S). A day with a shift and more
   activity later: "Looks like a shift 14:10–18:30".
 - [ ] **Export for payroll** (S). Timesheet, logged time and scores of the

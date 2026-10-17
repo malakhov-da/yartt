@@ -467,3 +467,18 @@ to game the tracker instead of doing the work.
 
 *Implemented:* `working_minutes()`, `backlog_minutes()` in `db.sql`;
 `Team.summary`; `client/components/App/Sparkline.tsx`.
+
+### 40. A deadline at risk is one person's plan against their own time
+
+An open task is at risk when someone's "time left" on it does not fit
+their working time before the deadline: their usual minutes per day
+(the last 28 days of their timesheet, or a 40-hour week without one)
+times the days left. The task line and card say "At risk" with whose
+plan and by how much; My team counts such tasks per owner. The plans of
+different people are never added up (decision 38) — each is measured
+against their own time — and other tasks competing for the same hours
+are deliberately left out: the signal is early and simple, not a
+schedule.
+
+*Implemented:* `deadline_risk()` in `db.sql`; `TaskHeader.risk`,
+`Member.atRisk`; `RiskChip`.
