@@ -68,11 +68,12 @@ function gapShift(shifts: { startedAt: Date; spentMinutes: number | null }[], vi
 }
 
 /**
- * One day of History: its shifts with the visits inside them, the visits
- * outside any shift — each can become a shift (today the open one) — and
- * the time logged to tasks, the tasks opened but not logged to at 0. The
- * open shift is closed in its own day; a past day offers the shift its
- * activity suggests, confirmed with one click. Someone else's day
+ * One day of History: the time logged to tasks, every task opened that day
+ * among them (at 0 if nothing was logged), then its shifts with the visits
+ * inside them and the visits outside any shift — each can become a shift
+ * (today the open one). The open shift is closed in its own day; a past
+ * day offers the shift its activity suggests, confirmed with one click.
+ * Someone else's day
  * (`employeeId`) is read-only; their direct manager scores it (`canScore`).
  */
 export default function (p: {
@@ -213,6 +214,61 @@ export default function (p: {
         </Typography>
       )}
 
+      {(day.entries.length > 0 || unlogged.length > 0) && (
+        <Stack spacing={0.5}>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            {t('myDay.history.logged', { time: format.minutes(loggedMinutes) })}
+          </Typography>
+          {closedMinutes > 0 && loggedMinutes > closedMinutes && (
+            <Alert severity="warning" sx={{ py: 0 }}>
+              {t('myDay.history.overLogged', { logged: format.minutes(loggedMinutes), worked: format.minutes(closedMinutes) })}
+            </Alert>
+          )}
+          {day.entries.map((entry) => {
+            const header = task(entry.taskId);
+            return header && (
+              <Stack key={entry.id} direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                  <TaskLine dense task={header} note={format.minutes(entry.minutes)} />
+                </Box>
+                {mine && !scored && (
+                  <Tooltip title={t('task.myTime.log')}>
+                    <IconButton size="small" onClick={() => setLogging(header)}>
+                      <MoreTime fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                {mine && !scored && (
+                  <Tooltip title={t('myDay.history.removeEntry')}>
+                    <IconButton size="small" disabled={removeEntry.isPending} onClick={() => removeEntry.mutate({ id: entry.id })}>
+                      <DeleteOutline fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Stack>
+            );
+          })}
+          {/* Opened that day and nothing logged yet: 0, a click from logging. */}
+          {unlogged.map((id) => {
+            const header = task(id);
+            return header && (
+              <Stack key={`opened-${id}`} direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                  <TaskLine dense task={header} note={format.minutes(0)} />
+                </Box>
+                {mine && !scored && (
+                  <Tooltip title={t('task.myTime.log')}>
+                    <IconButton size="small" onClick={() => setLogging(header)}>
+                      <MoreTime fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Stack>
+            );
+          })}
+        </Stack>
+      )}
+
       {timeline.map(({ shift, visit }) => visit ? visitRow(visit, canShift(visit.at)) : (
         <Stack key={shift.startedAt.getTime()} spacing={0.5}>
           {shift.spentMinutes === null && mine ? (
@@ -321,61 +377,6 @@ export default function (p: {
               <Edit fontSize="small" />
             </IconButton>
           </Tooltip>
-        </Stack>
-      )}
-
-      {(day.entries.length > 0 || unlogged.length > 0) && (
-        <Stack spacing={0.5}>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            {t('myDay.history.logged', { time: format.minutes(loggedMinutes) })}
-          </Typography>
-          {closedMinutes > 0 && loggedMinutes > closedMinutes && (
-            <Alert severity="warning" sx={{ py: 0 }}>
-              {t('myDay.history.overLogged', { logged: format.minutes(loggedMinutes), worked: format.minutes(closedMinutes) })}
-            </Alert>
-          )}
-          {day.entries.map((entry) => {
-            const header = task(entry.taskId);
-            return header && (
-              <Stack key={entry.id} direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                  <TaskLine dense task={header} note={format.minutes(entry.minutes)} />
-                </Box>
-                {mine && !scored && (
-                  <Tooltip title={t('task.myTime.log')}>
-                    <IconButton size="small" onClick={() => setLogging(header)}>
-                      <MoreTime fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                )}
-                {mine && !scored && (
-                  <Tooltip title={t('myDay.history.removeEntry')}>
-                    <IconButton size="small" disabled={removeEntry.isPending} onClick={() => removeEntry.mutate({ id: entry.id })}>
-                      <DeleteOutline fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                )}
-              </Stack>
-            );
-          })}
-          {/* Opened that day and nothing logged yet: 0, a click from logging. */}
-          {unlogged.map((id) => {
-            const header = task(id);
-            return header && (
-              <Stack key={`opened-${id}`} direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                  <TaskLine dense task={header} note={format.minutes(0)} />
-                </Box>
-                {mine && !scored && (
-                  <Tooltip title={t('task.myTime.log')}>
-                    <IconButton size="small" onClick={() => setLogging(header)}>
-                      <MoreTime fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                )}
-              </Stack>
-            );
-          })}
         </Stack>
       )}
 

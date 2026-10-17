@@ -63,9 +63,9 @@ someone with reports:
   plan does not fit before its deadline says "At risk" (decision 40).
 - **My team** — only for someone with reports, under Current tasks; see 4.
 - **History** — my days, from today back into the past, with pages. A
-  day shows the shifts (work) if the team keeps a timesheet, the log of
-  visits (the tasks I opened and My day, with times) and the time logged
-  to tasks (spent_minutes). The log is laid out as if there were no
+  day shows first the time logged to tasks (spent_minutes), then the
+  shifts (work) if the team keeps a timesheet with the log of visits (the
+  tasks I opened and My day, with times). The log is laid out as if there were no
   shifts and is wrapped by the shifts written down: the visits inside a
   shift are under it, the ones outside any shift stand alone, each with
   a button that makes a shift from it — today, with no shift open or
