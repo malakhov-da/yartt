@@ -100,7 +100,11 @@ describe('history', () => {
     await api.Visit.log({ taskId: null });
     await api.Visit.log({ taskId: id });
     await api.Time.log({ taskId: id, day: empty.today, minutes: 30 });
-    const startedAt = new Date(Date.now() - 3_600_000);
+    // An hour ago, but not before today began in their time zone: the shift must be today's.
+    const [midnight] = await sql<{ at: Date }[]>`
+      SELECT local_today(id)::timestamp AT TIME ZONE time_zone AS at FROM employee WHERE id = ${me.id}
+    `;
+    const startedAt = new Date(Math.max(Date.now() - 3_600_000, midnight!.at.getTime()));
     await api.Work.start({ startedAt });
     await expect(api.Work.start({ startedAt: new Date() })).rejects.toMatchObject({ message: 'shift_overlap' });
 
@@ -112,7 +116,8 @@ describe('history', () => {
 
     await api.Work.close({ startedAt, endedAt: new Date(), about: 'Done' });
     const [closed] = (await api.MyDay.history({ page: 1 })).days;
-    expect(closed!.shifts).toMatchObject([{ spentMinutes: 60, about: 'Done' }]);
+    expect(closed!.shifts).toMatchObject([{ about: 'Done' }]);
+    expect(closed!.shifts[0]!.spentMinutes).toBe(Math.floor(Date.now() / 60_000) - Math.floor(startedAt.getTime() / 60_000));
     await expect(api.Work.remove({ startedAt: new Date(0) })).rejects.toMatchObject({ message: 'not_found' });
 
     await api.Time.remove({ id: today!.entries[0]!.id });
