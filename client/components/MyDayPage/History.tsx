@@ -40,7 +40,7 @@ export default function (p: { employeeId?: number; canScore?: boolean; onEmploye
       day={day}
       isToday={day.day === data!.today}
       tasks={tasks}
-      hasOpenShift={data!.hasOpenShift}
+      openShiftFrom={data!.openShiftFrom}
       employeeId={p.employeeId}
       canScore={p.canScore ?? false}
     />

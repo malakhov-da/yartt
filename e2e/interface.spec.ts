@@ -74,7 +74,7 @@ test.describe('My day', () => {
 
     // Pavel's last shift is open: deleting it brings "Start the shift" back today.
     await history.getByRole('button', { name: 'Удалить открытую смену' }).click();
-    await expect(history.getByRole('button', { name: /Начать смену с/ })).toBeVisible();
+    await expect(history.getByRole('button', { name: 'Начать сейчас' })).toBeVisible();
     await history.getByRole('button', { name: 'Указать другое время' }).first().click();
     const start = page.getByRole('dialog').getByLabel('Начало');
     const d = new Date(Date.now() - 2 * 3_600_000);

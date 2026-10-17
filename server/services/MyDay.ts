@@ -153,9 +153,9 @@ export async function history(me: number, page: number): Promise<History> {
      ORDER BY day DESC
      LIMIT ${DAYS_PER_PAGE} OFFSET ${(page - 1) * DAYS_PER_PAGE}
   `).map((r) => r.day);
-  const [count] = z.object({ n: z.number(), open: z.boolean() }).array().parse(await sql`
+  const [count] = z.object({ n: z.number(), open: z.date().nullable() }).array().parse(await sql`
     SELECT count(*)::int AS n,
-           EXISTS (SELECT 1 FROM work WHERE employee_id = ${me} AND spent_minutes IS NULL) AS open
+           (SELECT started_at FROM work WHERE employee_id = ${me} AND spent_minutes IS NULL) AS open
       FROM (${all}) d
   `);
 
@@ -210,5 +210,5 @@ export async function history(me: number, page: number): Promise<History> {
     ...entries.map((e) => e.taskId),
     ...visits.flatMap((v) => (v.taskId === null ? [] : [v.taskId])),
   ])];
-  return { today, days: result, tasks: await headers(me, taskIds), hasOpenShift: count?.open ?? false, total: count?.n ?? 1 };
+  return { today, days: result, tasks: await headers(me, taskIds), openShiftFrom: count?.open ?? null, total: count?.n ?? 1 };
 }

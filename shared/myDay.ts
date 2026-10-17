@@ -112,8 +112,8 @@ export const History = z.object({
   days: DayHistory.array(),
   /** Headers of the tasks the days refer to. */
   tasks: TaskHeader.array(),
-  /** An open shift exists, maybe on another page: then today offers no start. */
-  hasOpenShift: z.boolean(),
+  /** When the open shift started, maybe on another page: no shift can begin after it. */
+  openShiftFrom: z.date().nullable(),
   /** Days with activity in all (today included), for the pages. */
   total: z.number().int(),
 });

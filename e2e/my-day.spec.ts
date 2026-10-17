@@ -113,7 +113,15 @@ test.describe('My day', () => {
       await history.getByRole('button', { name: `Go to page ${page2}` }).click();
     }
     const row = history.locator('.MuiStack-root').filter({ hasText: 'Похоже на смену 20:10–21:05' }).last();
+    // The visits outside the shift are in the log, each one can become a shift.
+    await expect(history.getByRole('button', { name: 'Начать смену с 20:10' })).toBeVisible();
     await row.getByRole('button', { name: 'Подтвердить' }).click();
     await expect(history.getByText(/Смена 20:10–21:05/)).toBeVisible();
+    // Nothing is left outside the shifts: the log is a click away.
+    await expect(history.getByRole('button', { name: 'Начать смену с 20:10' })).toHaveCount(0);
+    const day = history.locator('.MuiStack-root').filter({ hasText: /Смена 20:10–21:05/ })
+      .filter({ has: page.getByRole('button', { name: 'Подробнее' }) }).last();
+    await day.getByRole('button', { name: 'Подробнее' }).click();
+    await expect(day.getByText('20:10', { exact: true })).toBeVisible();
   });
 });

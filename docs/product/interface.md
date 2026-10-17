@@ -62,24 +62,30 @@ someone with reports:
   **New task** in the "I own" tab opens the form (2a). A task whose
   plan does not fit before its deadline says "At risk" (decision 40).
 - **My team** — only for someone with reports, under Current tasks; see 4.
-- **History** — my days, from today back into the past, with pages. A day shows the shift (work) if the team keeps a timesheet, the
-  time logged to tasks (spent_minutes), and the visits: which tasks I
-  opened and when I came into the system. Next to each task I opened is
-  "Log time" for that day (15m, 30m, 1h, 2h a click away), so time is
-  logged where the day is reviewed, without opening every task. Today's day is where the shift
-  is started: each arrival — the first visit, or one after a pause of 10
-  minutes or more — has its own "Start" opposite it, so a shift begun
-  after lunch starts from that return, not from the morning; "Start now"
-  and another time are there too. A shift already written down hides
-  only the arrivals inside it (an open one — everything after its
-  start); an arrival before it adds a closed shift up to the last
-  activity before it (an open shift would run into it). The open shift is closed here or from
-  the top line; past days suggest a shift from the same visits — a day
-  without shifts, or activity outside its shifts (30 minutes or more
-  before the first, between two or after the last) as the shift that
-  was not written down. Any day
-  not scored is mine to fix: "Add a shift" (a forgotten or a second one),
-  and each closed shift can be corrected or deleted (decision 37).
+- **History** — my days, from today back into the past, with pages. A
+  day shows the shifts (work) if the team keeps a timesheet, the log of
+  visits (the tasks I opened and My day, with times) and the time logged
+  to tasks (spent_minutes). The log is laid out as if there were no
+  shifts and is wrapped by the shifts written down: the visits inside a
+  shift are under it, the ones outside any shift stand alone, each with
+  a button that makes a shift from it — today, with no shift open or
+  after it, it starts the open shift ("Start"), otherwise it adds a
+  closed one up to the last visit before the next shift (an open shift
+  lasts until infinity and would run into it). Nothing after the open
+  shift's start, on any day, can become a shift. When every visit is
+  inside a shift, only the shifts are shown, the log a "Details" click
+  away. Every task opened that day is in the time logged, at 0 if
+  nothing was logged to it, with "Log time" (15m, 30m, 1h, 2h a click
+  away), so time is logged where the day is reviewed, without opening
+  every task. Today also has "Start now" and another time. The open
+  shift is closed here or from the top line; past days suggest a shift
+  from the same visits — a day without shifts, or activity outside its
+  shifts (30 minutes or more before the first, between two or after the
+  last) as the shift that was not written down. Any day not scored is
+  mine to fix: "Add a shift" (a forgotten or a second one), and each
+  closed shift can be corrected or deleted (decision 37). The log speaks
+  of visits, not of what someone did, so it needs no verb forms
+  (decision 29).
 
 There is no separate "closed by its deadline" item: a passed deadline
 closes the task like a manual close does, and the task simply leaves
