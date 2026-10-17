@@ -116,17 +116,19 @@ Left, top to bottom:
   (mui-tiptap): images are pasted, dropped or picked and shown in the
   text; other files become attachments; people and tasks are attached
   explicitly. After "Send" the comment waits a few seconds with "Back to
-  editing" and then goes out. By default the feed shows only the comments
-  with open mentions — what still waits for someone; a mention shows every
-  reply to it by the person mentioned, so a request and its answers read
-  together even when only mentions are shown; "All events" shows
-  every comment and event, with pages. Events appear between the comments
-  as grey lines: deadline moves, a comment of another task attaching this
-  one ("Mentioned in #7"), time logged ("Pavel logged 2h for Oct 14") and
-  time left set or cleared. Time entries of one person in a row, with
-  nothing else between them, are one line ("logged 16h over 8 days,
-  Oct 5 — Oct 14"); a click shows the days. A reply shows a
-  quote of its parent; the feed stays flat. Who read a comment is not
+  editing" and then goes out. Replies live in threads (decision 46): under
+  the first comment, oldest first, replies to replies too (those quote
+  what they answer). Anyone may reply; a mention counts as answered only
+  by a reply of the person mentioned. By default the feed shows only the
+  threads with an open mention — what still waits for someone, with its
+  answers; "All events" shows every thread and event, with pages. Events
+  appear between the comments as grey lines: a reply at its moment
+  ("Pavel → Marina: «…»", a click unfolds the thread in place), deadline
+  moves, a comment of another task attaching this one ("Mentioned in
+  #7"), time logged ("Pavel logged 2h for Oct 14") and time left set or
+  cleared. Time entries of one person in a row, with nothing else between
+  them, are one line ("logged 16h over 8 days, Oct 5 — Oct 14"); a click
+  shows the days. Who read a comment is not
   shown: in a public task that would be the whole company.
 
 Right, the side panel:

@@ -1,9 +1,9 @@
-import { Event, ExpandLess, ExpandMore, HourglassBottom, Link as LinkIcon, TaskAlt } from '@mui/icons-material';
+import { Event, ExpandLess, ExpandMore, HourglassBottom, Link as LinkIcon, Reply as ReplyIcon, TaskAlt } from '@mui/icons-material';
 import { Box, Button, ButtonBase, Chip, Pagination, Paper, Stack, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { FeedFilter, FeedItem } from '#shared/comment.ts';
+import type { CommentBase, FeedFilter, FeedItem } from '#shared/comment.ts';
 import { useFormat } from '#client/hooks/format.ts';
 import { fromDay } from '#client/hooks/format.ts';
 import { POLL_MS, useEmployees } from '#client/hooks/task.ts';
@@ -26,6 +26,7 @@ export default function (p: { taskId: number }) {
   const [chosen, setChosen] = useState<FeedFilter | null>(null);
   const [page, setPage] = useState(1);
   const [replyTo, setReplyTo] = useState<ReplyTo | null>(null);
+  const reply = (c: CommentBase) => setReplyTo({ id: c.id, authorId: c.authorId });
 
   // Until the reader picks, an empty "open mentions" falls back to everything.
   const counts = useQuery(trpc.Comment.list.queryOptions({ taskId: p.taskId, filter: 'mentions', page: 1 }, { refetchInterval: POLL_MS }));
@@ -61,9 +62,14 @@ export default function (p: { taskId: number }) {
 
       {feed.data?.items.map((item) =>
         item.kind === 'comment' ? (
-          <CommentItem key={`c${item.id}`} taskId={p.taskId} comment={item} onReply={() => setReplyTo({ id: item.id, authorId: item.authorId })} />
+          <CommentItem key={`c${item.id}`} taskId={p.taskId} comment={item} onReply={reply} />
         ) : (
-          <EventLine key={`${item.kind}${item.at.getTime()}${'employeeId' in item ? item.employeeId : ''}`} item={item} />
+          <EventLine
+            key={`${item.kind}${item.at.getTime()}${'employeeId' in item ? item.employeeId : ''}${'commentId' in item ? item.commentId : ''}`}
+            taskId={p.taskId}
+            item={item}
+            onReply={reply}
+          />
         ),
       )}
 
@@ -89,7 +95,7 @@ export default function (p: { taskId: number }) {
 }
 
 /** A grey line between the comments: something happened to the task. */
-function EventLine(p: { item: Exclude<FeedItem, { kind: 'comment' }> }) {
+function EventLine(p: { taskId: number; item: Exclude<FeedItem, { kind: 'comment' }>; onReply: (c: CommentBase) => void }) {
   const { t } = useTranslation();
   const format = useFormat();
   const employees = useEmployees();
@@ -99,6 +105,27 @@ function EventLine(p: { item: Exclude<FeedItem, { kind: 'comment' }> }) {
 
   let icon, text;
   switch (item.kind) {
+    case 'reply':
+      // The reply lives in its thread; here it marks the moment, and unfolds the thread in place.
+      icon = <ReplyIcon fontSize="small" />;
+      text = (
+        <>
+          <ButtonBase
+            onClick={() => setOpen(!open)}
+            aria-expanded={open}
+            sx={{ font: 'inherit', color: 'inherit', textAlign: 'left', gap: 0.5, borderRadius: 0.5 }}
+          >
+            {t('task.feed.replied', { name: name(item.authorId), to: name(item.toAuthorId), excerpt: item.excerpt })}
+            {open ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
+          </ButtonBase>
+          {open && (
+            <Box sx={{ mt: 1, mx: -2, color: 'text.primary' }}>
+              <CommentItem taskId={p.taskId} comment={item.thread} onReply={p.onReply} />
+            </Box>
+          )}
+        </>
+      );
+      break;
     case 'deadline':
       icon = <Event fontSize="small" />;
       text = item.from === null && item.to !== null ? t('task.feed.deadlineSet', { to: format.dateTime(item.to) })

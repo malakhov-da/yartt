@@ -305,6 +305,7 @@ export const ru = {
       onlyMentions: 'Показаны только комментарии с открытыми упоминаниями.',
       empty: 'Пока ничего нет.',
       reply: 'Ответить',
+      replied: '{{name}} → {{to}}: «{{excerpt}}»',
       isNew: 'новый',
       open: 'открыто',
       closed: 'закрыто',

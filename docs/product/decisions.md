@@ -607,3 +607,24 @@ installation already holds its database.
 *Implemented:* `restore_employee()`, `dismiss_with_heir()`,
 `chk_employee_dismissed_manager` in `db.sql`; `server/admin.ts`; the
 "My dismissed" list and the restore dialog in `client/components/MyDayPage/`.
+
+### 46. Replies live in threads; the feed keeps a line at their moment
+
+A flat feed scattered the answers to a request among later comments,
+each with a quote of its parent, and "open mentions" showed the request
+without what was answered. Now a reply lives under the first comment of
+its thread — replies to replies too, one level deep, oldest first — so a
+request and its answers read together, in "open mentions" as well.
+
+The feed is newest first, so a fresh reply to an old comment would sink
+with its thread; instead the feed keeps a grey line at the moment of the
+reply ("Pavel → Marina: «…»") that unfolds the thread in place. Anyone
+may reply, but a mention counts as answered only by a reply of the person
+mentioned, to the comment that mentions them: a word elsewhere in the
+task, or someone answering for them, does not let them press "Done"
+(decision 9) and does not count in My team's reaction to mentions.
+
+*Implemented:* `Comment.replies`, `ReplyEvent` in `shared/comment.ts`;
+`threads()` in `server/services/Comment.ts`; `trg_mention_close_check()`;
+`client/components/TaskPage/CommentItem.tsx`, `Feed.tsx`.
+

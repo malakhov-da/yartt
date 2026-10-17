@@ -256,6 +256,7 @@ export const en: Translation = {
       onlyMentions: 'Only comments with open mentions are shown.',
       empty: 'Nothing yet.',
       reply: 'Reply',
+      replied: '{{name}} → {{to}}: “{{excerpt}}”',
       isNew: 'new',
       open: 'open',
       closed: 'closed',

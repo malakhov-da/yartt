@@ -113,6 +113,32 @@ describe('mentions', () => {
     await expect(api.Comment.create(comment(id, '<p>me</p>', [owner.id]))).rejects.toMatchObject({ message: 'self_mention' });
   });
 
+  test('replies live in the thread of the first comment; the feed marks each with a line in time', async () => {
+    const owner = await createEmployee();
+    const dev = await createEmployee();
+    const other = await createEmployee();
+    const id = await createTask(owner.id);
+    const api = await client(owner.id);
+    await api.Task.makePublic({ id });
+    const root = await api.Comment.create(comment(id, '<p>Who takes it?</p>', [dev.id]));
+    // Someone else answers first: the mention stays open, it is not theirs.
+    const byOther = await (await client(other.id)).Comment.create({ ...comment(id, '<p>Not me</p>'), replyToId: root });
+    const byDev = await (await client(dev.id)).Comment.create({ ...comment(id, '<p>I do</p>'), replyToId: byOther });
+
+    const all = await api.Comment.list({ taskId: id, filter: 'all', page: 1 });
+    expect(all.items.map((i) => i.kind)).toEqual(['reply', 'reply', 'comment']);
+    const thread = all.items[2]!;
+    expect(thread.kind === 'comment' && thread.replies.map((r) => r.id)).toEqual([byOther, byDev]);
+    expect(all.items[0]).toMatchObject({ kind: 'reply', commentId: byDev, authorId: dev.id, toAuthorId: other.id, excerpt: 'I do' });
+    // A reply to a reply is not a reply to the mention.
+    expect(thread.kind === 'comment' && thread.mentions[0]).toMatchObject({ employeeId: dev.id, replies: [] });
+
+    // An open mention in a reply brings its whole thread under "open mentions".
+    await (await client(dev.id)).Comment.create({ ...comment(id, '<p>Owner, ok?</p>', [owner.id]), replyToId: root });
+    const open = await api.Comment.list({ taskId: id, filter: 'mentions', page: 1 });
+    expect(open.items.map((i) => (i.kind === 'comment' ? i.id : i.kind))).toEqual([root]);
+  });
+
   test('the mentioned employee closes the mention; the feed filters by open mentions', async () => {
     const owner = await createEmployee();
     const dev = await createEmployee();

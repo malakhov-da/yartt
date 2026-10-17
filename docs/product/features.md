@@ -63,7 +63,7 @@ persona goal it serves. Status: **now** — stage one, **next** — stage two,
 | Feature | Serves | Status |
 |---|---|---|
 | Comments in rich text with images, never edited or deleted, with a few seconds to take one back | everyone: a reliable record | now (done) |
-| Reply to a comment | everyone: keep threads readable | now (done) |
+| Reply to a comment; replies live in a thread under the first comment, a line in the feed marks each | everyone: keep threads readable | now (done) |
 | Attach a colleague (mention); in a private task it makes them an observer; it stays in their TODO until they close it | Pavel: ask the right person | now (done) |
 | Attach another task | everyone: link related work without dependencies | now (done) |
 | Attachments with deduplication | everyone: share files where the discussion is | now (done) |

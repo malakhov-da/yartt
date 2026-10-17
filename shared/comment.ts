@@ -30,7 +30,8 @@ export const Mention = z.object({
 });
 export type Mention = z.infer<typeof Mention>;
 
-export const Comment = z.object({
+/** One comment: a thread's first one, or a reply in it. */
+export const CommentBase = z.object({
   kind: z.literal('comment'),
   id: Id,
   authorId: Id,
@@ -44,7 +45,33 @@ export const Comment = z.object({
   /** Written by someone else after the owner's last "No intervention needed"; only for the owner. */
   isNew: z.boolean(),
 });
+export type CommentBase = z.infer<typeof CommentBase>;
+
+/**
+ * A thread: the first comment and every reply under it — replies to its
+ * replies too — oldest first. Replies are read under what they answer, not
+ * scattered over the feed.
+ */
+export const Comment = CommentBase.extend({ replies: CommentBase.array() });
 export type Comment = z.infer<typeof Comment>;
+
+/**
+ * Someone replied in a thread: a line at the moment of the reply, so the
+ * feed keeps its order of time while the reply itself lives in its thread.
+ */
+export const ReplyEvent = z.object({
+  kind: z.literal('reply'),
+  at: z.date(),
+  /** The reply. */
+  commentId: Id,
+  authorId: Id,
+  /** Whom it answers: the author of the comment replied to. */
+  toAuthorId: Id,
+  excerpt: z.string(),
+  /** The whole thread, to unfold in place. */
+  thread: Comment,
+});
+export type ReplyEvent = z.infer<typeof ReplyEvent>;
 
 /** A deadline set, moved or cleared. */
 export const DeadlineEvent = z.object({
@@ -90,12 +117,13 @@ export const PlanEvent = z.object({
 });
 export type PlanEvent = z.infer<typeof PlanEvent>;
 
-export const FeedItem = z.discriminatedUnion('kind', [Comment, DeadlineEvent, MentionedInEvent, SpentEvent, PlanEvent]);
+export const FeedItem = z.discriminatedUnion('kind', [Comment, ReplyEvent, DeadlineEvent, MentionedInEvent, SpentEvent, PlanEvent]);
 export type FeedItem = z.infer<typeof FeedItem>;
 
 /**
- * 'mentions' — only comments with open mentions; 'all' — every comment and
- * event: deadline moves, mentions in other tasks, time logged and planned.
+ * 'mentions' — only threads with open mentions; 'all' — every thread and
+ * event: replies, deadline moves, mentions in other tasks, time logged and
+ * planned.
  */
 export const FeedFilter = z.enum(['mentions', 'all']);
 export type FeedFilter = z.infer<typeof FeedFilter>;

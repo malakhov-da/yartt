@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Comment, CreateCommentInput, Feed, FeedFilter, FeedItem, MentionReply } from '#shared/comment.ts';
+import type { Comment, CommentBase, CreateCommentInput, Feed, FeedFilter, FeedItem, MentionReply } from '#shared/comment.ts';
 import { AppError } from '../errors.ts';
 import { cleanHtml, plainText } from '../html.ts';
 import { sql, type Sql } from '../pg.ts';
@@ -9,7 +9,7 @@ export const PAGE_SIZE = 20;
 const EXCERPT = 140;
 
 const FeedRow = z.object({
-  kind: z.enum(['comment', 'deadline', 'mentioned_in', 'spent', 'plan']),
+  kind: z.enum(['comment', 'reply', 'deadline', 'mentioned_in', 'spent', 'plan']),
   at: z.date(),
   commentId: z.number().nullable(),
   from: z.date().nullable(),
@@ -41,25 +41,40 @@ const MentionRow = z.object({
 const ReplyRow = z.object({ taskId: z.number(), commentId: z.number(), employeeId: z.number(), id: z.number(), createdAt: z.date(), value: z.string() });
 const TaskMentionRow = z.object({ commentId: z.number(), value: z.number() });
 const Id = z.object({ id: z.number() });
+const ThreadRow = z.object({ id: z.number(), rootId: z.number() });
+
+/** Every comment of the task with the first comment of its thread: replies to replies hang under the same one. */
+const tree = (taskId: number) => sql`
+  WITH RECURSIVE t AS (
+    SELECT id, id AS root_id FROM comment WHERE task_id = ${taskId} AND reply_to_id IS NULL
+    UNION ALL
+    SELECT c.id, t.root_id FROM comment c JOIN t ON c.task_id = ${taskId} AND c.reply_to_id = t.id
+  )`;
 
 /**
- * Every event of a task: comments, deadline moves (a row of finished_at; a
+ * Every event of a task: threads (by their first comment) and replies in
+ * them, deadline moves (a row of finished_at; a
  * clear is a row closed without a successor), comments of other tasks that
  * attach this one, time logged, and time left set or cleared (a row of
  * estimate_minutes; a clear is a row closed without a successor).
- * 'mentions' keeps only the comments with open mentions.
+ * 'mentions' keeps only the threads with an open mention.
  */
 function rawEvents(taskId: number, filter: FeedFilter) {
   const all = filter === 'all';
   const none = sql`NULL::timestamptz AS "from", NULL::timestamptz AS "to", NULL::int AS employee_id,
                    NULL::int AS minutes, NULL::text AS day, NULL::int AS source_task_id`;
   return sql`
+    ${tree(taskId)}
     SELECT 'comment' AS kind, c.created_at AS at, c.id AS comment_id, ${none}
       FROM comment c
-     WHERE c.task_id = ${taskId}
+     WHERE c.task_id = ${taskId} AND c.reply_to_id IS NULL
        AND (${all}
-            OR EXISTS (SELECT 1 FROM mention m
-                        WHERE m.task_id = c.task_id AND m.comment_id = c.id AND m.closed_at IS NULL))
+            OR EXISTS (SELECT 1 FROM t JOIN mention m ON m.task_id = ${taskId} AND m.comment_id = t.id
+                        WHERE t.root_id = c.id AND m.closed_at IS NULL))
+    UNION ALL
+    SELECT 'reply', c.created_at, c.id, ${none}
+      FROM comment c
+     WHERE c.task_id = ${taskId} AND c.reply_to_id IS NOT NULL AND ${all}
     UNION ALL
     SELECT 'deadline', f.entered_at, NULL, prev.value, f.value, NULL, NULL, NULL, NULL
       FROM finished_at f
@@ -132,13 +147,23 @@ export async function list(viewerId: number, taskId: number, filter: FeedFilter,
     SELECT count(DISTINCT comment_id)::int AS n FROM mention WHERE task_id = ${taskId} AND closed_at IS NULL
   `);
 
-  const comments = await load(viewerId, taskId, rows.flatMap((r) => (r.commentId === null ? [] : [r.commentId])));
+  const comments = await threads(viewerId, taskId, rows.flatMap((r) => (r.commentId === null ? [] : [r.commentId])));
   const sources = new Map((await headers(viewerId, [...new Set(rows.flatMap((r) => r.sourceTaskId ?? []))])).map((h) => [h.id, h]));
   const items: FeedItem[] = rows.flatMap((r): FeedItem[] => {
     switch (r.kind) {
       case 'comment': {
-        const comment = comments.get(r.commentId!);
+        const comment = comments.threads.get(r.commentId!);
         return comment ? [comment] : [];
+      }
+      case 'reply': {
+        const thread = comments.threads.get(comments.rootOf.get(r.commentId!) ?? -1);
+        const reply = thread?.replies.find((c) => c.id === r.commentId);
+        if (!thread || !reply) return [];
+        const to = reply.replyTo?.authorId ?? thread.authorId;
+        return [{
+          kind: 'reply', at: r.at, commentId: reply.id, authorId: reply.authorId, toAuthorId: to,
+          excerpt: plainText(reply.html).slice(0, EXCERPT), thread,
+        }];
       }
       case 'deadline':
         return [{ kind: 'deadline', at: r.at, from: r.from, to: r.to }];
@@ -155,7 +180,31 @@ export async function list(viewerId: number, taskId: number, filter: FeedFilter,
   return { items, total: total?.n ?? 0, openMentions: mentions?.n ?? 0, all: all?.n ?? 0 };
 }
 
-async function load(viewerId: number, taskId: number, ids: number[]): Promise<Map<number, Comment>> {
+/**
+ * The threads these comments are in, keyed by their first comment, and the
+ * first comment of each of them: replies come under it, oldest first.
+ */
+async function threads(viewerId: number, taskId: number, ids: number[]) {
+  const members = ThreadRow.array().parse(await sql`
+    ${tree(taskId)}
+    SELECT id, root_id FROM t WHERE root_id IN (SELECT root_id FROM t WHERE id = ANY(${ids}))
+  `);
+  const loaded = await load(viewerId, taskId, members.map((m) => m.id));
+  const rootOf = new Map(members.map((m) => [m.id, m.rootId]));
+  const result = new Map<number, Comment>();
+  for (const m of [...members].sort((a, b) => a.id - b.id)) {
+    const comment = loaded.get(m.id);
+    if (!comment) continue;
+    if (m.id === m.rootId) result.set(m.id, { ...comment, replies: result.get(m.id)?.replies ?? [] });
+  }
+  for (const m of [...members].sort((a, b) => a.id - b.id)) {
+    const comment = loaded.get(m.id);
+    if (comment && m.id !== m.rootId) result.get(m.rootId)?.replies.push(comment);
+  }
+  return { threads: result, rootOf };
+}
+
+async function load(viewerId: number, taskId: number, ids: number[]): Promise<Map<number, CommentBase>> {
   if (ids.length === 0) return new Map();
   const rows = CommentRow.array().parse(await sql`
     SELECT c.id, c.created_by, c.created_at, c.value, c.attachment_ids, c.attachment_names, c.reply_to_id,
@@ -202,7 +251,7 @@ async function load(viewerId: number, taskId: number, ids: number[]): Promise<Ma
     })),
     tasks: taskMentions.filter((m) => m.commentId === r.id).flatMap((m) => tasks.get(m.value) ?? []),
     isNew: r.isNew,
-  } satisfies Comment]));
+  } satisfies CommentBase]));
 }
 
 /**

@@ -143,3 +143,16 @@ test('someone without access sees the header and asks for it', async ({ page }) 
   await page.getByRole('button', { name: 'Отозвать заявку' }).click();
   await expect(page.getByRole('button', { name: 'Запросить доступ' })).toBeVisible();
 });
+
+test('a reply lives in its thread; the feed marks its moment with a line that unfolds the thread', async ({ page }) => {
+  await signIn(page);
+  await page.goto(`/tasks/${await taskId('склад', 'инвентаризация')}`);
+  await page.getByRole('button', { name: /^Все события/ }).last().click();
+  const request = page.locator('[id^="comment-"]').filter({ hasText: 'Иван, пересчитай' });
+  const thread = page.locator('div').filter({ has: request }).filter({ hasText: 'Пересчитал, расхождений нет.' }).first();
+  await expect(thread).toBeVisible(); // the answer is under the request
+  const line = page.getByRole('button', { name: /Иван Кузнецов → Марина Соколова: «Пересчитал/ });
+  await expect(line).toHaveAttribute('aria-expanded', 'false');
+  await line.click();
+  await expect(page.getByText('Иван, пересчитай, пожалуйста, стеллаж B.')).toHaveCount(2); // unfolded in place too
+});
