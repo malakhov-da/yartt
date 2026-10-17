@@ -67,12 +67,9 @@ function gapShift(shifts: { startedAt: Date; spentMinutes: number | null }[], vi
   return best;
 }
 
-/** A pause after which a visit counts as coming back to work. */
-const ARRIVAL_GAP_MS = 10 * 60_000;
-
 /**
  * One day of History: its shifts with the visits inside them, the visits
- * outside any shift — an arrival among them can become a shift (today the open one) — and
+ * outside any shift — each can become a shift (today the open one) — and
  * the time logged to tasks, the tasks opened but not logged to at 0. The
  * open shift is closed in its own day; a past day offers the shift its
  * activity suggests, confirmed with one click. Someone else's day
@@ -118,9 +115,6 @@ export default function (p: {
     s.spentMinutes === null ? Infinity : s.startedAt.getTime() + s.spentMinutes * 60_000;
   const covers = (s: (typeof shifts)[number], at: Date) => at.getTime() >= s.startedAt.getTime() && at.getTime() <= endOf(s);
   const outside = day.visits.filter((v) => !shifts.some((s) => covers(s, v.at)));
-  // A shift begins at an arrival: the first visit, or one after a pause.
-  const arrivals = new Set(day.visits.filter((v, i, all) => i === 0
-    || v.at.getTime() - all[i - 1]!.at.getTime() >= ARRIVAL_GAP_MS).map((v) => v.at.getTime()));
   const [expanded, setExpanded] = useState(false);
   const showLog = outside.length > 0 || expanded;
   const timeline = [
@@ -134,7 +128,7 @@ export default function (p: {
   const nextShift = (at: Date) => Math.min(...shifts.map((s) => s.startedAt.getTime()).filter((a) => a > at.getTime()));
   const opensShift = (at: Date) => p.isToday && !p.openShiftFrom && nextShift(at) === Infinity;
   // The open shift, wherever it is, lasts until infinity: nothing after its start.
-  const canShift = (at: Date) => mine && !scored && arrivals.has(at.getTime()) && (!p.openShiftFrom || at < p.openShiftFrom);
+  const canShift = (at: Date) => mine && !scored && (!p.openShiftFrom || at < p.openShiftFrom);
   const shiftFrom = (at: Date) => {
     if (opensShift(at)) return start.mutate({ startedAt: at });
     const until = Math.min(nextShift(at), p.openShiftFrom?.getTime() ?? Infinity, Date.now());

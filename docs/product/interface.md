@@ -67,9 +67,8 @@ someone with reports:
   visits (the tasks I opened and My day, with times) and the time logged
   to tasks (spent_minutes). The log is laid out as if there were no
   shifts and is wrapped by the shifts written down: the visits inside a
-  shift are under it, the ones outside any shift stand alone, and each
-  arrival among them (the first visit of the day, or one after a pause of
-  10 minutes or more) has a button that makes a shift from it — today, with no shift open or
+  shift are under it, the ones outside any shift stand alone, each with
+  a button that makes a shift from it — today, with no shift open or
   after it, it starts the open shift ("Start"), otherwise it adds a
   closed one up to the last visit before the next shift (an open shift
   lasts until infinity and would run into it). Nothing after the open
