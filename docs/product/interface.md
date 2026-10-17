@@ -266,6 +266,7 @@ A dialog behind my avatar, not a screen.
   leave, a day off; until that day my notifications are copied to my
   manager.
 - **Pronoun** — he, she or not given (a bot): verb forms follow.
+- **Appearance** — as the system, light or dark; kept in this browser.
 - **Keyboard layouts** I switch between (by default the interface
   language's and the US one): tag search reads a word typed with the
   wrong one in each of them (decision 33).

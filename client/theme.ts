@@ -1,6 +1,14 @@
 import { colors, createTheme } from '@mui/material';
 
+// Light and dark: the dark scheme is its own palette, not an inversion. The
+// mode follows the system unless chosen in the profile (useColorScheme keeps
+// the choice in this browser). CSS variables switch it without a re-render.
 export default createTheme({
+  cssVariables: { colorSchemeSelector: 'class' },
+  colorSchemes: {
+    light: { palette: { background: { default: colors.grey[100] } } },
+    dark: { palette: { background: { default: '#121417', paper: '#1c1f24' } } },
+  },
   // Breakpoints fit work monitors: md — two windows side by side on 1920x1080,
   // lg — laptops and small monitors.
   breakpoints: {
@@ -15,7 +23,6 @@ export default createTheme({
     MuiCssBaseline: {
       styleOverrides: {
         'html, body, #root': { height: '100%' },
-        body: { backgroundColor: colors.grey[100] },
       },
     },
     MuiPaper: { defaultProps: { elevation: 2 } },

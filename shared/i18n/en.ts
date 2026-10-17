@@ -445,6 +445,9 @@ export const en: Translation = {
     avatarDelete: 'Remove',
     pronoun: 'Pronoun',
     pronounHint: 'Picks verb forms in languages that have them. Leave it empty for a team bot.',
+    theme: 'Appearance',
+    themeHint: 'In this browser only',
+    themes: { system: 'As the system', light: 'Light', dark: 'Dark' },
     keyboards: 'Keyboard layouts',
     keyboardsHint: 'The ones you switch between: tag search understands a word typed with the wrong one.',
     keyboardNames: {

@@ -1,6 +1,7 @@
 import {
   Autocomplete, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, MenuItem, Stack, Tab, Tabs, TextField,
 } from '@mui/material';
+import { useColorScheme } from '@mui/material/styles';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -63,6 +64,8 @@ export default function (p: { onClose: () => void }) {
   const errors = fieldErrors(update.error);
   const settingErrors = fieldErrors(settings.error);
   const apply = (input: SettingsInput) => settings.mutate(input);
+  // Light or dark is a matter of this screen, not of the account: kept in this browser.
+  const { mode, setMode } = useColorScheme();
 
   const employees = useQuery(trpc.Employee.list.queryOptions());
   const candidates = (employees.data ?? []).filter((e) => e.email !== null && e.id !== me.id);
@@ -175,6 +178,17 @@ export default function (p: { onClose: () => void }) {
             <MenuItem value="">{t('profile.pronouns.none')}</MenuItem>
             {PRONOUNS.map((value) => (
               <MenuItem key={value} value={value}>{t(`profile.pronouns.${value}`)}</MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            label={t('profile.theme')}
+            value={mode ?? 'system'}
+            onChange={(e) => setMode(e.target.value as 'system' | 'light' | 'dark')}
+            helperText={t('profile.themeHint')}
+          >
+            {(['system', 'light', 'dark'] as const).map((value) => (
+              <MenuItem key={value} value={value}>{t(`profile.themes.${value}`)}</MenuItem>
             ))}
           </TextField>
           <Autocomplete

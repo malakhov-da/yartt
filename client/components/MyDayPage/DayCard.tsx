@@ -34,7 +34,7 @@ export default function (p: { children: ReactNode; dialog: ReactNode }) {
         <Box
           sx={{
             position: 'absolute', left: 0, right: 0, bottom: 0, pt: 4, pb: 0.5, display: 'flex', justifyContent: 'center',
-            background: (theme) => `linear-gradient(to bottom, transparent, ${theme.palette.background.paper} 60%)`,
+            background: (theme) => `linear-gradient(to bottom, transparent, ${(theme.vars ?? theme).palette.background.paper} 60%)`,
           }}
         >
           <Button size="small" onClick={() => setOpen(true)}>{t('employee.dayDetails')}</Button>

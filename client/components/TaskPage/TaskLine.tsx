@@ -29,7 +29,7 @@ export default function (p: { task: TaskHeader; note?: string; noteHint?: string
       sx={{
         alignItems: 'center', flexWrap: 'wrap', gap: 1, px: 1.25, py: p.dense ? 0.25 : 0.75, border: 1, borderColor: 'divider',
         borderRadius: 1, color: closed ? 'text.secondary' : 'text.primary', textDecoration: 'none',
-        bgcolor: closed ? 'grey.50' : 'background.paper', '&:hover': { borderColor: 'primary.light' },
+        bgcolor: closed ? 'action.hover' : 'background.paper', '&:hover': { borderColor: 'primary.light' },
       }}
     >
       <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>#{p.task.id}</Typography>

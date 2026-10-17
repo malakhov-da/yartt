@@ -36,7 +36,7 @@ export default function (p: { taskId: number; comment: Comment; onReply: () => v
           <Button size="small" onClick={p.onReply}>{t('task.feed.reply')}</Button>
         </Stack>
         {c.replyTo && (
-          <Typography variant="body2" sx={{ px: 1.25, py: 0.5, borderRadius: 1, bgcolor: 'grey.100', color: 'text.secondary' }}>
+          <Typography variant="body2" sx={{ px: 1.25, py: 0.5, borderRadius: 1, bgcolor: 'action.selected', color: 'text.secondary' }}>
             <b>{name(c.replyTo.authorId)}:</b> {c.replyTo.excerpt}
           </Typography>
         )}

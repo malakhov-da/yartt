@@ -24,8 +24,10 @@ export default function (p: {
   if (n === 0 || p.values.every((v) => v === null)) return null;
   const x = (i: number) => PAD + (n === 1 ? (WIDTH - 2 * PAD) / 2 : (i * (WIDTH - 2 * PAD)) / (n - 1));
   const y = (v: number) => HEIGHT - PAD - (v / top) * (HEIGHT - 2 * PAD);
-  const muted = theme.palette.text.disabled;
-  const accent = theme.palette.primary.main;
+  // CSS variables follow the light or dark scheme; SVG takes them in style, not in attributes.
+  const palette = (theme.vars ?? theme).palette;
+  const muted = palette.text.disabled;
+  const accent = palette.primary.main;
   const lastIndex = p.values.reduce<number>((last, v, i) => (v === null ? last : i), -1);
 
   // A line breaks where a day has no value.
@@ -44,10 +46,10 @@ export default function (p: {
   return (
     <Box component="svg" width={WIDTH} height={HEIGHT} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} sx={{ display: 'block', ml: 'auto', mt: 0.25 }} aria-hidden>
       {p.kind === 'line' && segments.map((d, i) => (
-        <path key={i} d={d} fill="none" stroke={muted} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+        <path key={i} d={d} fill="none" style={{ stroke: muted }} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
       ))}
       {p.values.map((v, i) => v !== null && (p.kind === 'dots' || i === lastIndex) && (
-        <circle key={i} cx={x(i)} cy={y(v)} r={i === lastIndex ? 2.5 : 2} fill={i === lastIndex ? accent : muted} />
+        <circle key={i} cx={x(i)} cy={y(v)} r={i === lastIndex ? 2.5 : 2} style={{ fill: i === lastIndex ? accent : muted }} />
       ))}
       {/* Hit targets wider than the marks: a column per day. */}
       {p.values.map((v, i) => v !== null && (
