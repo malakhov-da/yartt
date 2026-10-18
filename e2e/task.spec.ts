@@ -27,7 +27,8 @@ test.describe.serial('a task from creation to hand-over', () => {
     await expect(page.getByRole('combobox').filter({ hasText: 'Высокий' })).toBeVisible();
 
     await page.getByLabel('Дедлайн').fill(`${new Date().getFullYear() + 1}-03-15T18:00`);
-    await expect(page.getByText(/через \d+ (день|дня|дней|месяц|месяца|месяцев)/)).toBeVisible();
+    // Anchored: the deadline's tooltip says it too, after "Дедлайн —".
+    await expect(page.getByText(/^через \d+ (день|дня|дней|месяц|месяца|месяцев)/)).toBeVisible();
     await expect(page.getByText(/Дедлайн: 15 мар\./)).toBeVisible(); // the move is an event in the feed
 
     // The deadline's tooltip stays while the field has focus or the pointer, and covers the context's button.
