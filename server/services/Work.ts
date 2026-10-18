@@ -8,12 +8,16 @@ import { sql, type Sql } from '../pg.ts';
 // cut to the minute and never later than now, so a clock a few seconds
 // ahead in the browser does not make a shift "future".
 const at = (db: Sql, value: Date) => db`LEAST(date_trunc('minute', ${value}::timestamptz), date_trunc('minute', NOW()))`;
+// An end may be the end of the current minute: closing rounds it up, so a
+// shift started a moment ago is one minute, not zero.
+const endAt = (db: Sql, value: Date) =>
+  db`LEAST(date_trunc('minute', ${value}::timestamptz), date_trunc('minute', NOW()) + INTERVAL '1 minute')`;
 
 const Minutes = z.object({ minutes: z.number() });
 
 async function minutesBetween(from: Date, to: Date, db: Sql): Promise<number> {
   const [row] = Minutes.array().parse(await db`
-    SELECT (extract(epoch FROM ${at(db, to)} - ${at(db, from)}) / 60)::int AS minutes
+    SELECT (extract(epoch FROM ${endAt(db, to)} - ${at(db, from)}) / 60)::int AS minutes
   `);
   if (!row || row.minutes <= 0) throw new AppError('invalid_data');
   return row.minutes;

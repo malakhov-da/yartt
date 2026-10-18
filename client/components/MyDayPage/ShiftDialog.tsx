@@ -13,6 +13,14 @@ import { useTRPC } from '#client/hooks/trpc.ts';
  */
 export type ShiftDialogMode = 'start' | 'close' | 'add' | 'edit';
 
+/**
+ * The latest end a shift may have: now rounded up to the minute (the
+ * timesheet is kept in minutes), so a shift just started closes as one minute.
+ */
+export function shiftEnd(): Date {
+  return new Date(Math.floor(Date.now() / 60_000) * 60_000 + 60_000);
+}
+
 export default function (p: { mode: ShiftDialogMode; from: Date; to: Date; about?: string | null; onClose: () => void }) {
   const { t } = useTranslation();
   const trpc = useTRPC();
@@ -29,7 +37,8 @@ export default function (p: { mode: ShiftDialogMode; from: Date; to: Date; about
   const [about, setAbout] = useState(p.about ?? '');
   const startedAt = fromLocalInput(from);
   const endedAt = fromLocalInput(to);
-  const now = toLocalInput(new Date());
+  const latestStart = toLocalInput(new Date());
+  const latestEnd = toLocalInput(shiftEnd());
   const minutes = startedAt && endedAt ? Math.floor((endedAt.getTime() - startedAt.getTime()) / 60_000) : 0;
   const valid = startedAt !== null && (p.mode === 'start' || minutes > 0);
   const pending = start.isPending || close.isPending || add.isPending || update.isPending;
@@ -51,7 +60,7 @@ export default function (p: { mode: ShiftDialogMode; from: Date; to: Date; about
           label={t('myDay.shift.from')}
           value={from}
           onChange={(e) => setFrom(e.target.value)}
-          slotProps={{ htmlInput: { max: now }, inputLabel: { shrink: true } }}
+          slotProps={{ htmlInput: { max: latestStart }, inputLabel: { shrink: true } }}
         />
         {p.mode !== 'start' && (
           <>
@@ -62,7 +71,7 @@ export default function (p: { mode: ShiftDialogMode; from: Date; to: Date; about
               onChange={(e) => setTo(e.target.value)}
               error={!valid}
               helperText={minutes > 0 ? format.minutes(minutes) : t('myDay.shift.endAfterStart')}
-              slotProps={{ htmlInput: { max: now }, inputLabel: { shrink: true } }}
+              slotProps={{ htmlInput: { max: latestEnd }, inputLabel: { shrink: true } }}
             />
             <TextField
               autoFocus

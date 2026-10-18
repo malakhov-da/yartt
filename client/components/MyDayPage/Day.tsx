@@ -11,7 +11,7 @@ import { useTRPC } from '#client/hooks/trpc.ts';
 import ScoreDialog from '../EmployeePage/ScoreDialog.tsx';
 import TaskLine from '../TaskPage/TaskLine.tsx';
 import LogTimeDialog from './LogTimeDialog.tsx';
-import ShiftDialog, { type ShiftDialogMode } from './ShiftDialog.tsx';
+import ShiftDialog, { shiftEnd, type ShiftDialogMode } from './ShiftDialog.tsx';
 
 type Dialog = { mode: ShiftDialogMode; from: Date; to: Date; about?: string | null };
 
@@ -283,7 +283,7 @@ export default function (p: {
                 onClick={() => setDialog({
                   mode: 'close',
                   from: shift.startedAt,
-                  to: p.isToday || !day.lastActivity || day.lastActivity <= shift.startedAt ? new Date() : day.lastActivity,
+                  to: p.isToday || !day.lastActivity || day.lastActivity <= shift.startedAt ? shiftEnd() : day.lastActivity,
                 })}
               >
                 {t('myDay.shift.close')}

@@ -130,6 +130,29 @@ describe('history', () => {
     expect((await api.MyDay.history({ page: 1 })).days[0]!.entries).toEqual([]);
   });
 
+  test('a shift just started closes as one minute: its end may be the end of the current minute', async () => {
+    const me = await createEmployee();
+    const api = await client(me.id);
+    await api.Work.start({ startedAt: new Date() });
+    const open = (await api.Work.open())!;
+    // What the close dialog offers: now rounded up to the minute.
+    const endedAt = new Date(Math.floor(Date.now() / 60_000) * 60_000 + 60_000);
+    await api.Work.close({ startedAt: open.startedAt, endedAt, about: null });
+    const [today] = (await api.MyDay.history({ page: 1 })).days;
+    expect(today!.shifts[0]!.spentMinutes).toBe((endedAt.getTime() - open.startedAt.getTime()) / 60_000);
+
+    // Past the current minute is the future.
+    const other = await createEmployee();
+    await expect(sql`
+      INSERT INTO work (employee_id, started_at, spent_minutes)
+      VALUES (${other.id}, date_trunc('minute', NOW()) - INTERVAL '10 minutes', 12)
+    `).rejects.toMatchObject({ hint: 'shift_in_future' });
+    await sql`
+      INSERT INTO work (employee_id, started_at, spent_minutes)
+      VALUES (${other.id}, date_trunc('minute', NOW()) - INTERVAL '10 minutes', 11)
+    `;
+  });
+
   test('days without activity are skipped; earlier days are on further pages', async () => {
     const me = await createEmployee();
     const api = await client(me.id);

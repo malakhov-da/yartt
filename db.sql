@@ -506,7 +506,7 @@ INVARIANTS (forbidden; all checked in the database)
   Timesheet:
     - Overlapping shifts of one employee (including two open ones).
     - spent_minutes <= 0.
-    - A shift in the future.
+    - A shift that starts in the future or ends after the current minute.
     - Changing or deleting a closed shift.
     - Any timesheet change for a scored day.
 
@@ -1441,7 +1441,10 @@ The employee always closes the shift themselves, with whatever time
 they consider right.
 Shift end = started_at + spent_minutes. Shift day = local_day(started_at).
 Shifts of one employee never overlap (EXCLUDE).
-A shift cannot be in the future.
+A shift cannot start in the future, nor end after the end of the current
+minute: the timesheet is kept in whole minutes, so closing rounds the end
+up — a shift closed at 17:59:40 ends at 18:00, and one started a moment
+ago can be closed as one minute.
 
 Any shift of a day without a standing score can be added, changed or
 deleted, closed ones included, and a day may have several shifts. A
@@ -2664,8 +2667,10 @@ BEGIN
         RETURN OLD;
     END IF;
 
+    -- The end may be the end of the current minute: closing rounds it up.
     IF NEW.started_at > NOW()
-       OR NEW.started_at + NEW.spent_minutes * INTERVAL '1 minute' > NOW() THEN
+       OR NEW.started_at + NEW.spent_minutes * INTERVAL '1 minute'
+          > date_trunc('minute', NOW()) + INTERVAL '1 minute' THEN
         RAISE EXCEPTION 'shift cannot be in the future'
             USING HINT = 'shift_in_future';
     END IF;
@@ -2691,7 +2696,8 @@ COMMENT ON FUNCTION trg_work_check() IS
 'The timesheet of a day is the employee''s until the day is scored:
   - any shift of a day without a standing score can be added, changed
     or deleted, an open or a closed one;
-  - a shift is not in the future (neither its start nor its end);
+  - a shift does not start in the future nor end after the current minute
+    (closing rounds the end up to the minute);
   - nothing changes on a scored day — neither the shift''s old day nor
     its new one; a withdrawn score (value NULL) frees the day.
 Updates updated_at on UPDATE.';

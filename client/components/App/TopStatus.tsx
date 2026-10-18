@@ -8,7 +8,7 @@ import { useFormat } from '#client/hooks/format.ts';
 import { useOutbox } from '#client/hooks/offline.ts';
 import { POLL_MS } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
-import ShiftDialog from '../MyDayPage/ShiftDialog.tsx';
+import ShiftDialog, { shiftEnd } from '../MyDayPage/ShiftDialog.tsx';
 
 /**
  * What the top line shows on every page, a task page included: whether
@@ -79,7 +79,7 @@ export default function () {
         </IconButton>
       </Tooltip>
       {closing && startedAt && (
-        <ShiftDialog mode="close" from={startedAt} to={new Date()} onClose={() => setClosing(false)} />
+        <ShiftDialog mode="close" from={startedAt} to={shiftEnd()} onClose={() => setClosing(false)} />
       )}
     </>
   );
