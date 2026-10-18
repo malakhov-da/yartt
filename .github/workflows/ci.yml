@@ -44,7 +44,7 @@ jobs:
       - run: npm test
       # The runner has Google Chrome; the suite uses it (playwright.config.ts, channel: chrome).
       - run: npm run e2e
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: e2e-report
