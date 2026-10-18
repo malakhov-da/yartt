@@ -1,25 +1,59 @@
 import { AlternateEmail, ChatBubbleOutline, LockOpen } from '@mui/icons-material';
 import { Box, Button, Paper, Stack, Tooltip, Typography } from '@mui/material';
+import { keyframes } from '@mui/material/styles';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TodoItem } from '#shared/myDay.ts';
 import { useFormat } from '#client/hooks/format.ts';
 import { POLL_MS, useEmployees, usePronoun, useTaskRefresh } from '#client/hooks/task.ts';
+import { useStore } from '#client/hooks/store.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import Composer from '../TaskPage/Composer.tsx';
 import MentionReply from '../TaskPage/MentionReply.tsx';
 import TaskLine from '../TaskPage/TaskLine.tsx';
 
-/** What waits for my reaction, each item with its action right there. Empty is the goal. */
+/** The title lights up three times, so the eye finds the block after the scroll. */
+const flash = keyframes`
+  0%, 100% { background-color: transparent; }
+  50% { background-color: rgba(245, 124, 0, 0.28); }
+`;
+
+/**
+ * What waits for my reaction, each item with its action right there. Empty is
+ * the goal. The bell in the top line brings it into view and flashes its title.
+ */
 export default function () {
   const { t } = useTranslation();
   const trpc = useTRPC();
   const todo = useQuery(trpc.MyDay.todo.queryOptions(undefined, { refetchInterval: POLL_MS }));
+  const focus = useStore((s) => s.todoFocus);
+  const block = useRef<HTMLDivElement>(null);
+  const title = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    if (!focus) return;
+    // After the route change has shown My day (it is hidden under a task or a person).
+    const timer = setTimeout(() => {
+      const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      block.current?.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
+      title.current?.focus({ preventScroll: true });
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [focus]);
 
   return (
-    <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-      <Typography variant="h3" sx={{ fontWeight: 600 }}>
+    <Paper ref={block} sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5, scrollMarginTop: 16 }}>
+      <Typography
+        key={focus}
+        ref={title}
+        tabIndex={-1}
+        variant="h3"
+        sx={{
+          fontWeight: 600, borderRadius: 1, mx: -0.5, px: 0.5, outline: 'none',
+          ...(focus > 0 && { animation: `${flash} 0.6s ease-in-out 3`, '@media (prefers-reduced-motion: reduce)': { animation: 'none' } }),
+        }}
+      >
         {t('myDay.todo.title')}
         {todo.data && todo.data.length > 0 && ` · ${todo.data.length}`}
       </Typography>

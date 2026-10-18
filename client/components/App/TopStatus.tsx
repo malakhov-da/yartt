@@ -8,12 +8,14 @@ import { useFormat } from '#client/hooks/format.ts';
 import { useOutbox } from '#client/hooks/offline.ts';
 import { POLL_MS } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
+import { focusTodo } from '#client/hooks/store.ts';
 import ShiftDialog, { shiftEnd } from '../MyDayPage/ShiftDialog.tsx';
 
 /**
  * What the top line shows on every page, a task page included: whether
  * there is a connection and how many changes wait to be sent; how much
- * waits for me in TODO (a click brings My day), and the open shift with its
+ * waits for me in TODO (a click brings My day and shows the TODO block, even
+ * when My day is already open), and the open shift with its
  * running time — closed from here at the end of the day. A shift is started
  * in My day, where the first visit suggests its start.
  */
@@ -72,7 +74,7 @@ export default function () {
         </Tooltip>
       )}
       <Tooltip title={t('nav.todo', { count })}>
-        <IconButton onClick={() => void navigate('/')} aria-label={t('nav.todo', { count })}>
+        <IconButton onClick={() => { void navigate('/'); focusTodo(); }} aria-label={t('nav.todo', { count })}>
           <Badge badgeContent={count} color="error" max={99}>
             <NotificationsNone />
           </Badge>

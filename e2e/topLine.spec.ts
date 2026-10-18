@@ -13,6 +13,14 @@ test.describe('the top line', () => {
     await expect(todo).toBeVisible();
     await todo.click();
     await expect(page).toHaveURL(/\/$/);
+
+    // Already in My day, scrolled away from TODO: the bell brings the block back into view.
+    const heading = page.getByRole('heading', { name: /^Ждёт меня/ });
+    await page.getByText(/^(яртт|yartt) /).scrollIntoViewIfNeeded(); // the footer
+    await expect(heading).not.toBeInViewport();
+    await todo.click();
+    await expect(heading).toBeInViewport();
+    await expect(heading).toBeFocused();
   });
 
   test('away from the top line: the day I am back in one click, and back at work again', async ({ page }) => {

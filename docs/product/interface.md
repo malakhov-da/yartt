@@ -11,7 +11,8 @@ screen in the interface language — Мой день / My day), my open shift
 with its running time (a click closes it — the end of the day is often
 spent on a task page; a shift is started in My day, where the first
 visit suggests its start), a bell with how many TODO items wait for me
-(a click brings My day — so a new mention is noticed on any page),
+(a click brings My day and scrolls to TODO, flashing its title — so a
+new mention is noticed on any page, My day itself included),
 **I'll be away** (a calendar: the day I'm back — tomorrow, Monday, in a
 week or any date; while away it reads "Back Oct 24", and my
 notifications are copied to my manager; "I'm back at work" clears it),
