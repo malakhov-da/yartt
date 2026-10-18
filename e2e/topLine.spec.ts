@@ -16,6 +16,8 @@ test.describe('the top line', () => {
 
     // Already in My day, scrolled away from TODO: the bell brings the block back into view.
     const heading = page.getByRole('heading', { name: /^Ждёт меня/ });
+    // A short window: however little My day holds, the footer is out of sight of TODO.
+    await page.setViewportSize({ width: 1400, height: 500 });
     await page.getByText(/^(яртт|yartt) /).scrollIntoViewIfNeeded(); // the footer
     await expect(heading).not.toBeInViewport();
     await todo.click();
