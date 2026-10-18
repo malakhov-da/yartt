@@ -43,7 +43,7 @@ traces and screenshots of failures is in `e2e-report/`
 
 ## Migrations: the schema and the data
 
-`tests/schema.test.ts` takes every release tag `v*` from git:
+`tests/schema.test.ts` takes every release tag (`1.2.3`) from git:
 
 - `db.sql` at the tag, migrated with today's migrations, must give exactly
   the schema of today's `db.sql` (the same version means the same schema);

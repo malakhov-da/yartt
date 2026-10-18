@@ -9,7 +9,7 @@ release becomes an image on Docker Hub that a company runs
 | File | What it does |
 |---|---|
 | `.github/workflows/ci.yml` | every push to `master` and every pull request: `npm run typecheck`, `npm test`, `npm run e2e` against PostgreSQL 17 in a service container; the end-to-end report is attached when it fails |
-| `.github/workflows/release.yml` | a tag `v1.2.3`: the same checks, then the image for `linux/amd64` and `linux/arm64` pushed to Docker Hub as `1.2.3`, `1.2`, `1` and `latest`, and a GitHub release with notes generated from the commits |
+| `.github/workflows/release.yml` | a tag `1.2.3` (no `v`): the same checks, then the image for `linux/amd64` and `linux/arm64` pushed to Docker Hub as `1.2.3`, `1.2`, `1` and `latest`, and a GitHub release with notes generated from the commits |
 | `.github/dependabot.yml` | weekly minor and patch updates of npm packages, actions and the base image; major versions are not proposed (they are pinned on purpose) |
 
 ## Once: the repository on GitHub
@@ -62,8 +62,8 @@ release becomes an image on Docker Hub that a company runs
    push:
 
    ```sh
-   git tag v1.0.0
-   git push origin master v1.0.0
+   git tag 1.0.0
+   git push origin master 1.0.0
    ```
 
 4. Watch **Actions → Release**. When it is green the image is on Docker

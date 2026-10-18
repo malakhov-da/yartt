@@ -20,10 +20,11 @@ it is decided. Proposals wait for a decision in their own section.
   signed copies. Before the first outside pull request a lawyer in
   Kazakhstan checks both agreements, in particular that signing through
   GitHub counts as the written form (CONTRIBUTING.md).
-- [ ] **Release 1.0.** After the delivery check, tag `v1.0.0` and push it —
+- [ ] **Release 1.0.** After the delivery check, tag `1.0.0` and push it —
   the release workflow publishes the image
-  ([release.md](../engineering/release.md)); from then on every change
-  of the schema (version 0.0) is a migration, checked against the tag.
+  ([release.md](../engineering/release.md)). The schema is already
+  frozen: 0.0.0, the first published image, released schema 0.0, so
+  every change of it is a migration, checked against the tag.
 
 ## Next — approved features
 

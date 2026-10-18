@@ -38,7 +38,7 @@ await server.unsafe(`CREATE DATABASE ${name}`);
 
 try {
   if (process.argv.includes('--migrate')) {
-    const tags = execFileSync('git', ['tag', '--list', 'v*', '--sort=-v:refname'], { cwd: root, encoding: 'utf8' }).split('\n').filter(Boolean);
+    const tags = execFileSync('git', ['tag', '--list', '[0-9]*.[0-9]*.[0-9]*', '--sort=-v:refname'], { cwd: root, encoding: 'utf8' }).split('\n').filter(Boolean);
     const tag = tags[0];
     if (!tag) throw new Error('No release tag: use `npm run fixture` without --migrate');
     const db = connect(url.toString());

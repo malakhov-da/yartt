@@ -88,7 +88,7 @@ const files = await readdir(MIGRATIONS_DIR);
 const git = (...args: string[]) => execFileSync('git', args, { encoding: 'utf8' });
 const releases = (() => {
   try {
-    return git('tag', '--list', 'v*').split('\n').filter(Boolean);
+    return git('tag', '--list', '[0-9]*.[0-9]*.[0-9]*').split('\n').filter(Boolean);
   } catch {
     return []; // no git (an unpacked tree): nothing to compare with
   }

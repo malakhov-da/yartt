@@ -120,7 +120,7 @@ and a `matchPath` in `client/components/App.tsx`.
   administrator's job, not the application's.
 - A migration of an unreleased version is a draft and may be edited (local
   databases are recreated). Released migrations never change.
-- `tests/schema.test.ts`: for every release tag `v*`, `db.sql` as it was
+- `tests/schema.test.ts`: for every release tag (`1.2.3`), `db.sql` as it was
   at the tag, migrated with today's migrations, must give exactly the
   schema of a fresh `db.sql` (the same version means the same schema).
   Nothing is kept frozen by hand: the released schema is in git.
