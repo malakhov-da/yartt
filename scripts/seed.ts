@@ -75,6 +75,17 @@ async function visit(employeeId: number, taskId: number | null, moment: Date): P
 }
 
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000);
+
+/**
+ * `minutes` ago, but not before the employee's local midnight: today's activity
+ * stays in today even when the seed runs just after midnight (a shift started
+ * from it at 00:00 belongs to the new day).
+ */
+async function todayAgo(employeeId: number, minutes: number): Promise<Date> {
+  const midnight = await at(employeeId, 0, '00:00');
+  const moment = minutesAgo(minutes);
+  return moment < midnight ? midnight : moment;
+}
 const daysAhead = (days: number) => new Date(Date.now() + days * 86_400_000);
 
 const comment = (taskId: number, html: string, extra: { mentionIds?: number[]; taskIds?: number[]; replyToId?: number; files?: { id: number; name: string }[] } = {}) => ({
@@ -318,8 +329,8 @@ for (const [i, d] of myDays.entries()) {
   });
 }
 // Today: came in, opened a task, logged time — the shift is not started yet.
-await visit(me, null, minutesAgo(95));
-await visit(me, site, minutesAgo(70));
+await visit(me, null, await todayAgo(me, 95));
+await visit(me, site, await todayAgo(me, 70));
 await I.Time.log({ taskId: report, day: await day(me, 0), minutes: 45 });
 
 // Pavel: closed shifts, and the last workday's shift is still open.
