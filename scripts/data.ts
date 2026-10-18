@@ -36,8 +36,9 @@ async function writable(sql: Sql, table: string): Promise<string[]> {
  * row), values carried as JSON so every type comes back exactly.
  */
 export async function dumpData(db: Sql): Promise<string> {
-  // Moments are written in UTC: the text must not depend on the time zone of
-  // the PostgreSQL server it was dumped on (a developer's vs CI's).
+  // Moments are written in UTC and rows sorted bytewise: the text must not
+  // depend on the time zone or the collation of the PostgreSQL server it was
+  // dumped on (a developer's vs CI's).
   return db.begin(async (sql) => {
     await sql`SET LOCAL TIME ZONE 'UTC'`;
     const out = ['-- Test data (scripts/data.ts). Loaded with triggers off: the rows are as they were.', ''];
@@ -49,7 +50,7 @@ export async function dumpData(db: Sql): Promise<string> {
                       '${table}', '${list.replace(/'/g, "''")}', '${list.replace(/'/g, "''")}', '${table}',
                       json_build_object(${cols.map((c) => `'${c}', t."${c}"`).join(', ')})::text) AS line
           FROM public."${table}" t
-         ORDER BY to_jsonb(t)::text
+         ORDER BY to_jsonb(t)::text COLLATE "C"
       `));
       if (rows.length === 0) continue;
       out.push(`-- ${table}`, ...rows.map((r) => r.line), '');
