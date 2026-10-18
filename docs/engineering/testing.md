@@ -79,7 +79,7 @@ container, and attaches the end-to-end report when it fails
 1. Rules in the database → a vitest test in `tests/` for every rule and
    every error code the feature adds.
 2. A new screen or action → a scenario in `e2e/`, using the demo data
-   (extend `scripts/seed.ts` so the feature shows up there too).
+   (extend `server/demo.ts`, in both languages of `server/demoTexts.ts`, so the feature shows up there too).
 3. Prefer roles and visible texts in selectors (`getByRole`, `getByLabel`):
    a test that cannot find a control by its name is usually an
    accessibility bug in the interface, not in the test.

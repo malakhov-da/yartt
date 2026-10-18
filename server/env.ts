@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Locale } from '#shared/employee.ts';
+import { DEMO_LANGUAGES } from './demoTexts.ts';
 
 // Node reads .env itself (--env-file-if-exists in package.json scripts);
 // in Docker variables come from the environment.
@@ -20,6 +21,8 @@ const EnvSchema = z.object({
   FIRST_EMPLOYEE_NAME: z.string().min(1).optional(),
   FIRST_EMPLOYEE_LOCALE: Locale.default('ru'),
   FIRST_EMPLOYEE_TIME_ZONE: z.string().default('UTC'),
+  // Demo data in this language on the first start (an empty database); unset for production.
+  DEMO_DATA: z.enum(DEMO_LANGUAGES).optional().or(z.literal('').transform(() => undefined)),
 });
 
 const result = EnvSchema.safeParse(process.env);

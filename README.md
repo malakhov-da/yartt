@@ -33,6 +33,10 @@ docker build -t yartt .
 docker run -d --name yartt -p 3000:3000 --env-file .env yartt
 ```
 
+For a trial, add `-e DEMO_DATA=en` (or `ru`) on an empty database: demo
+people and tasks in that language
+([install guide](docs/admin/install.md#a-trial-with-demo-data)).
+
 Environment variables are listed in [.env.example](.env.example). Set
 at least:
 

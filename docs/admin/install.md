@@ -33,6 +33,7 @@ Everything is set with environment variables.
 | `COOKIE_SECURE` | no | `true` (default) — keep it unless you test over plain HTTP |
 | `FIRST_EMPLOYEE_EMAIL`, `FIRST_EMPLOYEE_NAME` | first start | the first employee, created only while there are no employees |
 | `FIRST_EMPLOYEE_LOCALE`, `FIRST_EMPLOYEE_TIME_ZONE` | no | `ru` / `en`; an IANA zone such as `Europe/Moscow`. Invited employees inherit them from whoever invites |
+| `DEMO_DATA` | no | `ru` / `en` — a trial: demo people and tasks in that language on the first start; leave it unset for work ([below](#a-trial-with-demo-data)) |
 
 With neither `SMTP_URL` nor `WEBHOOK_URL` messages are only written to the
 log — useful for a trial, not for work.
@@ -60,6 +61,29 @@ others from the top line.
 
 To run the worker apart from the API, start the same image twice with
 `ROLE=api` and `ROLE=worker`; several workers are safe.
+
+## A trial with demo data
+
+To look around before inviting anyone, start the image against an empty
+database with `DEMO_DATA=en` (or `ru`): a small company in that language —
+managers, tasks, comments, shifts, scores — written relative to today.
+
+```sh
+docker run -d --name yartt-demo -p 3000:3000 \
+  -e DATABASE_URL=postgres://yartt:secret@db:5432/yartt_demo \
+  -e PUBLIC_URL=http://localhost:3000 \
+  -e COOKIE_SECURE=false \
+  -e DEMO_DATA=en \
+  yartt
+docker logs yartt-demo   # the employees and a sign-in link valid for 10 minutes
+```
+
+The first employee is `FIRST_EMPLOYEE_*` if set, otherwise
+`first@example.com`; anyone else signs in by email, and without SMTP the
+link is in the log. The demo is added only while the database has no
+employees: restarts never add it twice, and a database in use is never
+touched. Do not use a demo database for work — start the real one on a
+fresh database without `DEMO_DATA`.
 
 ## Dismissing someone who will not hand over
 

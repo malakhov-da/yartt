@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import api from './api.ts';
 import { bootstrap } from './bootstrap.ts';
+import { seedDemoOnce } from './demo.ts';
 import env from './env.ts';
 import { migrate } from './migrate.ts';
 import { sql } from './pg.ts';
@@ -12,7 +13,8 @@ try {
   const migration = await migrate(sql);
   if (migration.action === 'installed') console.log(`Installed schema ${migration.version}`);
   if (migration.action === 'migrated') console.log(`Migrated schema to ${migration.version}: ${migration.files.join(', ')}`);
-  await bootstrap(sql);
+  if (env.DEMO_DATA) await seedDemoOnce(env.DEMO_DATA);
+  else await bootstrap(sql);
 } catch (error) {
   console.error(`Startup failed: ${error instanceof Error ? error.message : String(error)}`);
   await sql.end({ timeout: 5 });

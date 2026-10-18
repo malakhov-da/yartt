@@ -73,6 +73,7 @@ server/
   services/Mail.ts  — renders an email in the recipient's language
   migrate.ts, migrations/, bootstrap.ts, worker.ts
   admin.ts          — installation administrator commands (dismiss with an heir), outside the API
+  demo.ts, demoTexts.ts — the demo data (ru/en): `npm run seed`, or on start with DEMO_DATA
 shared/
   <entity>.ts       — zod schemas shared by the client and the server
   errors.ts         — error codes and the error.data shape
@@ -218,8 +219,9 @@ and a `matchPath` in `client/components/App.tsx`.
 - `npm run typecheck` — `tsconfig.json` (server + shared + tests + scripts + e2e) and `client/tsconfig.json`.
 - `TEST_DATABASE_URL=… npm run fixture` — the test data of the current schema version
   (`-- --migrate`: the last release's data through the migrations).
-- `npm run seed -- --reset` — wipes the database in `DATABASE_URL` and fills it with demo data that
-  touches every screen (`scripts/seed.ts`, not in the image). Keep it in step with new features.
+- `npm run seed -- --reset [--lang en]` — wipes the database in `DATABASE_URL` and fills it with demo data that
+  touches every screen (`server/demo.ts`; in the image — `DEMO_DATA=ru|en` on an empty database).
+  Keep it in step with new features, in both languages (`server/demoTexts.ts`).
 - `TEST_DATABASE_URL=postgres://postgres@localhost:5432/postgres npm test`
 - `TEST_DATABASE_URL=… npm run e2e` — end-to-end tests in Chrome over the demo data
   (`e2e/`, Playwright). How the suites divide the work: `docs/engineering/testing.md`.
