@@ -35,22 +35,27 @@ async function writable(sql: Sql, table: string): Promise<string[]> {
  * Every row of every table as an INSERT, in a stable order (by the whole
  * row), values carried as JSON so every type comes back exactly.
  */
-export async function dumpData(sql: Sql): Promise<string> {
-  const out = ['-- Test data (scripts/data.ts). Loaded with triggers off: the rows are as they were.', ''];
-  for (const table of await tables(sql)) {
-    const cols = await writable(sql, table);
-    const list = cols.map((c) => `"${c}"`).join(', ');
-    const rows = Line.array().parse(await sql.unsafe(`
-      SELECT format('INSERT INTO %I (%s) SELECT %s FROM json_populate_record(NULL::%I, %L);',
-                    '${table}', '${list.replace(/'/g, "''")}', '${list.replace(/'/g, "''")}', '${table}',
-                    json_build_object(${cols.map((c) => `'${c}', t."${c}"`).join(', ')})::text) AS line
-        FROM public."${table}" t
-       ORDER BY to_jsonb(t)::text
-    `));
-    if (rows.length === 0) continue;
-    out.push(`-- ${table}`, ...rows.map((r) => r.line), '');
-  }
-  return out.join('\n');
+export async function dumpData(db: Sql): Promise<string> {
+  // Moments are written in UTC: the text must not depend on the time zone of
+  // the PostgreSQL server it was dumped on (a developer's vs CI's).
+  return db.begin(async (sql) => {
+    await sql`SET LOCAL TIME ZONE 'UTC'`;
+    const out = ['-- Test data (scripts/data.ts). Loaded with triggers off: the rows are as they were.', ''];
+    for (const table of await tables(db)) {
+      const cols = await writable(db, table);
+      const list = cols.map((c) => `"${c}"`).join(', ');
+      const rows = Line.array().parse(await sql.unsafe(`
+        SELECT format('INSERT INTO %I (%s) SELECT %s FROM json_populate_record(NULL::%I, %L);',
+                      '${table}', '${list.replace(/'/g, "''")}', '${list.replace(/'/g, "''")}', '${table}',
+                      json_build_object(${cols.map((c) => `'${c}', t."${c}"`).join(', ')})::text) AS line
+          FROM public."${table}" t
+         ORDER BY to_jsonb(t)::text
+      `));
+      if (rows.length === 0) continue;
+      out.push(`-- ${table}`, ...rows.map((r) => r.line), '');
+    }
+    return out.join('\n');
+  });
 }
 
 /** Loads dumped data as it is: triggers and foreign key checks off, then sequences moved past the rows. */
