@@ -8,8 +8,8 @@ release becomes an image on Docker Hub that a company runs
 
 | File | What it does |
 |---|---|
-| `.github/workflows/ci.yml` | every push to `master` and every pull request: `npm run typecheck`, `npm test`, `npm run e2e` against PostgreSQL 17 in a service container; the end-to-end report is attached when it fails |
-| `.github/workflows/release.yml` | a tag `1.2.3` (no `v`) on a commit of `master` whose CI passed (it waits for a CI still running; nothing is checked twice), then the image for `linux/amd64` and `linux/arm64` pushed to Docker Hub as `1.2.3`, `1.2`, `1` and `latest`, and a GitHub release with notes generated from the commits |
+| `.github/workflows/ci.yml` | every push to `master` or a maintenance branch `v1.2` and every pull request: `npm run typecheck`, `npm test`, `npm run e2e` against PostgreSQL 17 in a service container; the end-to-end report is attached when it fails |
+| `.github/workflows/release.yml` | a tag `1.2.3` (no `v`) on a commit of `master` or of `v1.2` whose CI passed there (it waits for a CI still running; nothing is checked twice), then the image for `linux/amd64` and `linux/arm64` pushed to Docker Hub as `1.2.3`, and as `1.2`, `1` (not for `0.x`) and `latest` while it is the newest of them, and a GitHub release with notes generated from the commits |
 | `.github/dependabot.yml` | weekly minor and patch updates of npm packages, actions and the base image; major versions are not proposed (they are pinned on purpose) |
 
 ## Once: the repository on GitHub
@@ -76,6 +76,26 @@ release becomes an image on Docker Hub that a company runs
 5. Check the image as a company would: `docker pull yartt/yartt:1.0.0`
    and start it against an empty PostgreSQL by
    [admin/install.md](../admin/install.md).
+
+## A fix for an older line
+
+When a company stays on an older major version (say 1.x while `master`
+is at 2.x) and needs a fix, it comes as a patch from a maintenance
+branch named after the last minor of that line, `v1.4`:
+
+```sh
+git switch -c v1.4 1.4.2        # once: the branch from the last release of the line
+git cherry-pick <the fix>       # or fix it there; then the version in package.json
+git push origin v1.4            # CI runs on the branch
+git tag 1.4.3 && git push origin 1.4.3
+```
+
+The release requires the tag to be on `master` or on `v<major>.<minor>`
+of its own line, with CI passed there. It moves `1.4` and `1` to the
+patch but never `latest`, and the GitHub release is not marked latest:
+both stay with the newest version. A maintenance branch gets patches
+only — never a schema change (patches never change the schema), so
+its releases stay on the migration chain of `master`.
 
 A broken release is not re-tagged: fix forward with the next patch
 version, so nobody runs two different images under one number.

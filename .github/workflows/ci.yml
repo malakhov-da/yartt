@@ -1,4 +1,4 @@
-# Every push to master and every pull request: types, the API and database
+# Every push to master or a maintenance branch (v1.2) and every pull request: types, the API and database
 # suite, and the end-to-end suite in Chrome — the same three checks every
 # commit must pass (AGENTS.md, Commits). A release tag does not run them
 # again: release.yml requires this workflow to have passed for the commit.
@@ -6,7 +6,8 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    # master and the maintenance branches of older lines (v1.2), released from too.
+    branches: [master, 'v[0-9]+.[0-9]+']
   pull_request:
 
 permissions:
