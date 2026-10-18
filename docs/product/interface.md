@@ -63,13 +63,15 @@ someone with reports:
   plan does not fit before its deadline says "At risk" (decision 40).
 - **My team** — only for someone with reports, under Current tasks; see 4.
 - **History** — my days, from today back into the past, with pages. A
-  day shows first the time logged to tasks (spent_minutes), then the
-  shifts (work) if the team keeps a timesheet with the log of visits (the
-  tasks I opened and My day, with times). The log is laid out as if there were no
+  day shows first its totals side by side — the time logged to tasks
+  (spent_minutes) and the time in its closed shifts (work), each when
+  there is any — then the tasks, then the shifts if the team keeps a
+  timesheet with the log of visits (the tasks I opened and My day, with
+  times). The log is laid out as if there were no
   shifts and is wrapped by the shifts written down: the visits inside a
   shift are under it, the ones outside any shift stand alone, each with
-  a button that makes a shift from it — today, with no shift open or
-  after it, it starts the open shift ("Start"), otherwise it adds a
+  a clock icon that makes a shift from it — today, with no shift open or
+  after it, it starts the open shift, otherwise it adds a
   closed one up to the last visit before the next shift (an open shift
   lasts until infinity and would run into it). Nothing after the open
   shift's start, on any day, can become a shift. When every visit is
@@ -77,8 +79,9 @@ someone with reports:
   away. Every task opened that day is in the time logged, at 0 if
   nothing was logged to it, with "Log time" (15m, 30m, 1h, 2h a click
   away), so time is logged where the day is reviewed, without opening
-  every task. Today also has "Start now" and another time. The open
-  shift is closed here or from the top line; past days suggest a shift
+  every task. Any other shift is added with the clock in the day's
+  header. The open shift is closed here or from the top line (the end
+  offered is now rounded up to the minute); past days suggest a shift
   from the same visits — a day without shifts, or activity outside its
   shifts (30 minutes or more before the first, between two or after the
   last) as the shift that was not written down. Any day not scored is

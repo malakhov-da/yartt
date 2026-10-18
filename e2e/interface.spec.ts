@@ -60,7 +60,7 @@ test.describe('My day', () => {
     await expect(page.getByText(/от Иван Кузнецов/)).toHaveCount(0);
   });
 
-  test('history: pages; an entry deleted; the open shift deleted; a shift started at another time', async ({ page }) => {
+  test('history: pages; an entry deleted; the open shift deleted; a shift started from a visit', async ({ page }) => {
     await signIn(page, 'pavel@example.com');
     const history = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Мои дни' }) });
     await history.getByRole('button', { name: 'Go to page 2' }).click();
@@ -72,16 +72,12 @@ test.describe('My day', () => {
     await entries.first().click();
     await expect(entries).toHaveCount(before - 1);
 
-    // Pavel's last shift is open: deleting it brings "Start the shift" back today.
+    // Pavel's last shift is open: deleting it lets today's visits start a shift again.
     await history.getByRole('button', { name: 'Удалить открытую смену' }).click();
-    await expect(history.getByRole('button', { name: 'Начать сейчас' })).toBeVisible();
-    await history.getByRole('button', { name: 'Указать другое время' }).first().click();
-    const start = page.getByRole('dialog').getByLabel('Начало');
-    const d = new Date(Date.now() - 2 * 3_600_000);
-    const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
-    await start.fill(local);
-    await page.getByRole('dialog').getByRole('button', { name: 'Начать' }).click();
-    await expect(history.getByText(/Смена идёт с/)).toBeVisible();
+    const start = history.getByRole('button', { name: /^Начать смену с \d\d:\d\d$/ }).first();
+    const time = (await start.getAttribute('aria-label'))!.slice(-5);
+    await start.click();
+    await expect(history.getByText(new RegExp(`Смена идёт с ${time}`))).toBeVisible();
   });
 });
 

@@ -1,4 +1,4 @@
-import { AlarmAdd, DeleteOutline, Edit, MoreTime, PlayArrow } from '@mui/icons-material';
+import { AlarmAdd, DeleteOutline, Edit, MoreTime } from '@mui/icons-material';
 import { Alert, Box, Button, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -136,7 +136,6 @@ export default function (p: {
     const last = outside.filter((v) => v.at > at && v.at.getTime() < until).at(-1)?.at;
     setDialog({ mode: 'add', from: at, to: last ?? new Date(Math.min(at.getTime() + 30 * 60_000, until)) });
   };
-  const canStart = mine && p.isToday && !p.openShiftFrom && !scored;
   // A past day: what the first and last activity suggest.
   const suggestion = p.isToday ? null
     : day.shifts.length === 0
@@ -159,17 +158,11 @@ export default function (p: {
           )}
         </Box>
         {canShift && (
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={opensShift(visit.at) ? <PlayArrow /> : <AlarmAdd />}
-            disabled={start.isPending}
-            aria-label={t('myDay.shift.startAt', { time: format.time(visit.at) })}
-            onClick={() => shiftFrom(visit.at)}
-            sx={{ flexShrink: 0 }}
-          >
-            {t(opensShift(visit.at) ? 'myDay.shift.start' : 'myDay.shift.create')}
-          </Button>
+          <Tooltip title={t(opensShift(visit.at) ? 'myDay.shift.startAt' : 'myDay.shift.addAt', { time: format.time(visit.at) })}>
+            <IconButton size="small" disabled={start.isPending} onClick={() => shiftFrom(visit.at)} sx={{ flexShrink: 0 }}>
+              <AlarmAdd fontSize="small" />
+            </IconButton>
+          </Tooltip>
         )}
       </Stack>
     );
@@ -214,11 +207,23 @@ export default function (p: {
         </Typography>
       )}
 
+      {/* The day's totals side by side: logged to tasks, and worked in closed shifts. */}
+      {(day.entries.length > 0 || unlogged.length > 0 || closedMinutes > 0) && (
+        <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
+          {(day.entries.length > 0 || unlogged.length > 0) && (
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              {t('myDay.history.logged', { time: format.minutes(loggedMinutes) })}
+            </Typography>
+          )}
+          {closedMinutes > 0 && (
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              {t('myDay.history.worked', { time: format.minutes(closedMinutes) })}
+            </Typography>
+          )}
+        </Stack>
+      )}
       {(day.entries.length > 0 || unlogged.length > 0) && (
         <Stack spacing={0.5}>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            {t('myDay.history.logged', { time: format.minutes(loggedMinutes) })}
-          </Typography>
           {closedMinutes > 0 && loggedMinutes > closedMinutes && (
             <Alert severity="warning" sx={{ py: 0 }}>
               {t('myDay.history.overLogged', { logged: format.minutes(loggedMinutes), worked: format.minutes(closedMinutes) })}
@@ -344,19 +349,6 @@ export default function (p: {
             {t(expanded ? 'myDay.history.less' : 'myDay.history.more')}
           </Button>
         </Box>
-      )}
-
-      {canStart && (
-        <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-          <Button size="small" variant="outlined" disabled={start.isPending} onClick={() => start.mutate({ startedAt: new Date() })}>
-            {t('myDay.shift.startNow')}
-          </Button>
-          <Tooltip title={t('myDay.shift.otherTime')}>
-            <IconButton size="small" onClick={() => setDialog({ mode: 'start', from: new Date(), to: new Date() })}>
-              <Edit fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Stack>
       )}
 
       {mine && suggestion && !scored && (

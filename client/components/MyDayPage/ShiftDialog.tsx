@@ -7,11 +7,11 @@ import { useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 
 /**
- * 'start' — open a shift; 'close' — close the open one (its start may be
- * corrected); 'add' — a closed shift at once, to any day not scored;
- * 'edit' — correct a closed shift (`from` finds it).
+ * 'close' — close the open one (its start may be corrected); 'add' — a
+ * closed shift at once, to any day not scored; 'edit' — correct a closed
+ * shift (`from` finds it). A shift is opened from a visit, without a dialog.
  */
-export type ShiftDialogMode = 'start' | 'close' | 'add' | 'edit';
+export type ShiftDialogMode = 'close' | 'add' | 'edit';
 
 /**
  * The latest end a shift may have: now rounded up to the minute (the
@@ -27,7 +27,6 @@ export default function (p: { mode: ShiftDialogMode; from: Date; to: Date; about
   const format = useFormat();
   const refresh = useTaskRefresh();
   const done = { onSuccess: () => { refresh(); p.onClose(); } };
-  const start = useMutation(trpc.Work.start.mutationOptions(done));
   const close = useMutation(trpc.Work.close.mutationOptions(done));
   const add = useMutation(trpc.Work.add.mutationOptions(done));
   const update = useMutation(trpc.Work.update.mutationOptions(done));
@@ -40,14 +39,12 @@ export default function (p: { mode: ShiftDialogMode; from: Date; to: Date; about
   const latestStart = toLocalInput(new Date());
   const latestEnd = toLocalInput(shiftEnd());
   const minutes = startedAt && endedAt ? Math.floor((endedAt.getTime() - startedAt.getTime()) / 60_000) : 0;
-  const valid = startedAt !== null && (p.mode === 'start' || minutes > 0);
-  const pending = start.isPending || close.isPending || add.isPending || update.isPending;
+  const valid = startedAt !== null && minutes > 0;
+  const pending = close.isPending || add.isPending || update.isPending;
 
   const save = () => {
-    if (!startedAt) return;
-    if (p.mode === 'start') start.mutate({ startedAt });
-    else if (!endedAt) return;
-    else if (p.mode === 'edit') update.mutate({ startedAt: p.from, newStartedAt: startedAt, endedAt, about: about.trim() || null });
+    if (!startedAt || !endedAt) return;
+    if (p.mode === 'edit') update.mutate({ startedAt: p.from, newStartedAt: startedAt, endedAt, about: about.trim() || null });
     else (p.mode === 'close' ? close : add).mutate({ startedAt, endedAt, about: about.trim() || null });
   };
 
@@ -62,28 +59,24 @@ export default function (p: { mode: ShiftDialogMode; from: Date; to: Date; about
           onChange={(e) => setFrom(e.target.value)}
           slotProps={{ htmlInput: { max: latestStart }, inputLabel: { shrink: true } }}
         />
-        {p.mode !== 'start' && (
-          <>
-            <TextField
-              type="datetime-local"
-              label={t('myDay.shift.to')}
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              error={!valid}
-              helperText={minutes > 0 ? format.minutes(minutes) : t('myDay.shift.endAfterStart')}
-              slotProps={{ htmlInput: { max: latestEnd }, inputLabel: { shrink: true } }}
-            />
-            <TextField
-              autoFocus
-              multiline
-              minRows={2}
-              label={t('myDay.shift.about')}
-              value={about}
-              onChange={(e) => setAbout(e.target.value)}
-            />
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.shift.untilScored')}</Typography>
-          </>
-        )}
+        <TextField
+          type="datetime-local"
+          label={t('myDay.shift.to')}
+          value={to}
+          onChange={(e) => setTo(e.target.value)}
+          error={!valid}
+          helperText={minutes > 0 ? format.minutes(minutes) : t('myDay.shift.endAfterStart')}
+          slotProps={{ htmlInput: { max: latestEnd }, inputLabel: { shrink: true } }}
+        />
+        <TextField
+          autoFocus
+          multiline
+          minRows={2}
+          label={t('myDay.shift.about')}
+          value={about}
+          onChange={(e) => setAbout(e.target.value)}
+        />
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.shift.untilScored')}</Typography>
       </DialogContent>
       <DialogActions>
         <Button onClick={p.onClose}>{t('common.cancel')}</Button>
