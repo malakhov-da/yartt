@@ -30,6 +30,10 @@ test.describe.serial('a task from creation to hand-over', () => {
     await expect(page.getByText(/через \d+ (день|дня|дней|месяц|месяца|месяцев)/)).toBeVisible();
     await expect(page.getByText(/Дедлайн: 15 мар\./)).toBeVisible(); // the move is an event in the feed
 
+    // The deadline's tooltip stays while the field has focus or the pointer, and covers the context's button.
+    await page.getByLabel('Дедлайн').blur();
+    await page.mouse.move(0, 0);
+    await expect(page.getByRole('tooltip')).toHaveCount(0);
     await page.getByRole('button', { name: 'Изменить' }).nth(1).click();
     await editable(page).first().fill('Проверить всё от начала до конца.');
     await page.getByRole('button', { name: 'Сохранить' }).first().click();
