@@ -1,5 +1,7 @@
 # A tag 1.2.3 publishes the image to Docker Hub as 1.2.3, 1.2, 1 and latest,
-# for amd64 and arm64, after the same checks as CI. Needs the repository
+# for amd64 and arm64. Nothing is checked twice: the tagged commit must be
+# on master with CI passed there (waiting for it if it is still running).
+# Needs the repository
 # secrets DOCKERHUB_USERNAME and DOCKERHUB_TOKEN and the variable
 # DOCKERHUB_REPOSITORY (e.g. yartt/yartt) — docs/engineering/release.md.
 name: Release
@@ -13,7 +15,35 @@ permissions:
 
 jobs:
   check:
-    uses: ./.github/workflows/ci.yml
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: The tagged commit is on master
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/master
+      # CI of a push to master, for this very commit. A tag pushed right after
+      # the commit waits for it; a failed, cancelled or missing run stops here.
+      - name: CI passed on master for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in $(seq 80); do
+            run=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&branch=master&event=push" \
+              --jq '.workflow_runs | sort_by(.run_started_at) | last | "\(.status) \(.conclusion) \(.html_url)"')
+            echo "$run"
+            case "$run" in
+              "completed success "*) exit 0 ;;
+              completed*) echo "::error::CI did not pass for $GITHUB_SHA on master"; exit 1 ;;
+              "null null null") [ "$attempt" -ge 6 ] && { echo "::error::No CI run for $GITHUB_SHA on master (a later push may have cancelled it: tag the latest commit)"; exit 1; } ;;
+            esac
+            sleep 30
+          done
+          echo "::error::CI is still running after 40 minutes"; exit 1
 
   image:
     needs: check
