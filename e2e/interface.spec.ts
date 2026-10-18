@@ -166,14 +166,23 @@ test.describe('a task', () => {
 
   test("one person's time entries in a row are one line in the feed, the days on a click", async ({ page }) => {
     await signIn(page, 'marina@example.com');
-    await page.goto(`/tasks/${await taskId('склад', 'инвентаризация')}`);
+    const stock = await taskId('склад', 'инвентаризация');
+    // How many days the seed gave Marina depends on the calendar (her days are
+    // among the last ten), so the number comes from the data, as the feed counts it.
+    const [row] = await sql<{ days: number }[]>`
+      SELECT count(DISTINCT day)::int AS days FROM spent_minutes
+       WHERE task_id = ${stock} AND by = ${await employeeId('marina@example.com')}
+    `;
+    const days = row!.days;
+    expect(days).toBeGreaterThan(1);
+    await page.goto(`/tasks/${stock}`);
     await page.getByRole('button', { name: 'Все события', exact: true }).click();
-    const run = page.getByRole('button', { name: /Марина Соколова: списано 16ч за 8 дн\./ });
+    const run = page.getByRole('button', { name: new RegExp(`Марина Соколова: списано .+ за ${days} дн\\.`) });
     await expect(run).toBeVisible();
     await expect(page.getByText(/Марина Соколова: списано 2ч за/)).toHaveCount(0);
     await run.click();
     await expect(run).toHaveAttribute('aria-expanded', 'true');
-    await expect(page.getByRole('listitem').filter({ hasText: /— 2ч$/ })).toHaveCount(8);
+    await expect(page.getByRole('listitem').filter({ hasText: /— 2ч$/ })).toHaveCount(days);
   });
 
   test('time logged for a past day lands on that day in My day', async ({ page }) => {
