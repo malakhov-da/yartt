@@ -109,12 +109,15 @@ function png(width: number, height: number, base: [number, number, number] = [40
   ]);
 }
 
-/** Working days among the last `n` calendar days, oldest first (Saturdays and Sundays skipped). */
+/**
+ * The last `n` working days before today, oldest first (Saturdays and Sundays
+ * skipped): as many whatever the day of the week the demo is seeded on.
+ */
 async function workdays(employeeId: number, n: number): Promise<number[]> {
   const result: number[] = [];
-  for (let daysAgo = n; daysAgo >= 1; daysAgo--) {
+  for (let daysAgo = 1; result.length < n; daysAgo++) {
     const weekday = new Date(`${await day(employeeId, daysAgo)}T12:00:00Z`).getUTCDay();
-    if (weekday !== 0 && weekday !== 6) result.push(daysAgo);
+    if (weekday !== 0 && weekday !== 6) result.unshift(daysAgo);
   }
   return result;
 }
@@ -310,7 +313,7 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
   // --- days: visits, time logged, shifts ----------------------------------
 
   // Me: shifts on most days; two days left without one — they show a suggested shift.
-  const myDays = await workdays(me, 14);
+  const myDays = await workdays(me, 10);
   for (const [i, d] of myDays.entries()) {
     await visit(me, null, await at(me, d, `09:0${i % 6}`));
     await visit(me, site, await at(me, d, '10:15'));
@@ -333,7 +336,7 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
   await I.Time.log({ taskId: report, day: await day(me, 0), minutes: 45 });
 
   // Pavel: closed shifts, and the last workday's shift is still open.
-  const pavelDays = await workdays(pavel, 10);
+  const pavelDays = await workdays(pavel, 7);
   for (const [i, d] of pavelDays.entries()) {
     await visit(pavel, null, await at(pavel, d, '09:20'));
     await visit(pavel, site, await at(pavel, d, '09:25'));
@@ -350,7 +353,7 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
   }
 
   // Marina: closed shifts.
-  const marinaDays = await workdays(marina, 10);
+  const marinaDays = await workdays(marina, 7);
   for (const d of marinaDays) {
     await visit(marina, null, await at(marina, d, '08:50'));
     await visit(marina, stock, await at(marina, d, '11:00'));

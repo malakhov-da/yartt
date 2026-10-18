@@ -97,9 +97,16 @@ test.describe('Team and the employee page', () => {
     await expect(page.getByText('Табель', { exact: true })).toBeVisible();
 
     await page.getByRole('button', { name: 'Оценить' }).first().click();
+    // Everything below is about this day: the demo has scores of its own on other days.
+    const title = await page.getByRole('dialog').getByRole('heading').textContent();
+    const day = title!.replace('Оценка за ', '');
+    const row = page.locator('div')
+      .filter({ has: page.getByText(day, { exact: true }) })
+      .filter({ has: page.getByRole('button') })
+      .last();
     await page.getByRole('button', { name: '90%' }).click();
     await page.getByRole('button', { name: 'Поставить оценку' }).click();
-    const chip = page.getByRole('button', { name: 'Оценка 90%' }).first();
+    const chip = row.getByRole('button', { name: 'Оценка 90%' });
     await expect(chip).toBeVisible();
 
     await chip.click();
@@ -108,13 +115,13 @@ test.describe('Team and the employee page', () => {
     await expect(page.getByRole('button', { name: 'Поставить оценку' })).toBeDisabled(); // a low score needs a reason
     await page.getByLabel('Почему').fill('Слишком поздно начали');
     await page.getByRole('button', { name: 'Поставить оценку' }).click();
-    await expect(page.getByRole('button', { name: 'Оценка 50%' }).first()).toBeVisible();
+    await expect(row.getByRole('button', { name: 'Оценка 50%' })).toBeVisible();
 
     // Withdrawn: the day is open again for the employee, the reason waits for the next score.
-    await page.getByRole('button', { name: 'Оценка 50%' }).first().click();
+    await row.getByRole('button', { name: 'Оценка 50%' }).click();
     await page.getByRole('button', { name: 'Снять оценку' }).click();
     await expect(page.getByText('Оценка снята: сотрудник может поправить табель').first()).toBeVisible();
-    await page.getByRole('button', { name: 'Оценить' }).first().click();
+    await row.getByRole('button', { name: 'Оценить' }).click();
     await expect(page.getByLabel('Почему')).toHaveValue('Слишком поздно начали');
   });
 
