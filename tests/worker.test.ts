@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { Message } from '../server/delivery.ts';
+import env from '../server/env.ts';
 import { sql } from '../server/pg.ts';
 import { deliverNotifications } from '../server/worker.ts';
 import { createEmployee } from './helpers.ts';
@@ -40,6 +41,22 @@ describe('notification delivery', () => {
       },
     ]);
     expect(await unsent()).toBe(0);
+  });
+
+  test('the demo sends nothing: its people are made up, the queue is only marked sent', async () => {
+    const boss = await createEmployee();
+    const dev = await createEmployee();
+    await sql`UPDATE employee SET manager_id = ${boss.id} WHERE id = ${dev.id}`;
+    env.DEMO_DATA = 'ru';
+    try {
+      await deliverNotifications(sql);
+    } finally {
+      env.DEMO_DATA = undefined;
+    }
+    expect(sent).toEqual([]);
+    expect(await unsent()).toBe(0);
+    const [left] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM notification WHERE employee_id = ${boss.id} AND closed_at IS NULL`;
+    expect(left!.n).toBe(1); // still in the bell
   });
 
   test('a failed delivery stays in the queue, an invalid payload is skipped', async () => {

@@ -78,7 +78,9 @@ docker run -d --name yartt-demo -p 3000:3000 --env-file demo.env yartt/public:<v
 There is no sign-in: the first page lists the company's people, and you
 pick whose eyes to see it through; the profile menu switches to someone
 else at any moment, and "Demo" in the top line reminds everyone it is not
-real. No SMTP or `FIRST_EMPLOYEE_*` is needed.
+real. No SMTP or `FIRST_EMPLOYEE_*` is needed: its people are made up, so
+the demo sends nothing — notifications still come to the bell in the
+interface.
 
 Every start and every night (after 03:00 in the demo company's time zone)
 seed the demo afresh, so its days stay around today; it is never

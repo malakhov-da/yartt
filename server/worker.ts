@@ -99,8 +99,14 @@ const BATCH_SIZE = 20;
 // processed. FOR UPDATE SKIP LOCKED: several workers never take the same
 // notification. A delivery error stops the batch: delivered ones are
 // committed, the rest stay in the queue. A payload that does not parse is
-// logged and skipped, so it cannot block the queue.
+// logged and skipped, so it cannot block the queue. The demo's people are
+// made up: there nothing goes out, the queue is only marked sent (the bell
+// in the interface reads closed_at, not sent_at).
 export async function deliverNotifications(sql: Sql): Promise<number> {
+  if (env.DEMO_DATA) {
+    await sql`UPDATE notification SET sent_at = NOW() WHERE sent_at IS NULL`;
+    return 0;
+  }
   return sql.begin(async (tx) => {
     const rows = PendingNotification.array().parse(await tx`
       SELECT n.id, n.employee_id, n.task_id, n.payload, e.email, e.full_name, e.locale, e.time_zone
