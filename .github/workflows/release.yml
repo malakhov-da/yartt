@@ -1,6 +1,7 @@
 # A tag 1.2.3 publishes the image to Docker Hub for amd64 and arm64 as 1.2.3,
-# and moves 1.2, 1 (not for 0.x) and latest only when it is the newest of
-# them: a patch of an old line does not take latest from the current one.
+# and moves 1.2, 1 and latest only when it is the newest of them: a patch of
+# an old line does not take latest from the current one. 0 is moved too: a
+# minor of 0.x breaks nothing either, its migrations run by themselves.
 # Nothing is checked twice: the tagged commit must be on master, or on the
 # maintenance branch of its line (v1.2), with CI passed there — waiting for
 # it if it is still running. Needs the repository secrets DOCKERHUB_USERNAME
@@ -76,7 +77,7 @@ jobs:
           newest() { git tag --list "$1" | sort -V | tail -1; }
           {
             echo "minor=$([ "$(newest "$minor.*")" = "$tag" ] && echo true || echo false)"
-            echo "major=$([ "$major" != 0 ] && [ "$(newest "$major.*.*")" = "$tag" ] && echo true || echo false)"
+            echo "major=$([ "$(newest "$major.*.*")" = "$tag" ] && echo true || echo false)"
             echo "latest=$([ "$(newest '[0-9]*.[0-9]*.[0-9]*')" = "$tag" ] && echo true || echo false)"
           } >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
