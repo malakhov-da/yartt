@@ -222,7 +222,7 @@ and a `matchPath` in `client/components/App.tsx`.
 - `npm run seed -- --reset [--lang en]` — wipes the database in `DATABASE_URL` and fills it with demo data that
   touches every screen (`server/demo.ts`; in the image — `DEMO_DATA=ru|en` on an empty database).
   Keep it in step with new features, in both languages (`server/demoTexts.ts`).
-- `TEST_DATABASE_URL=postgres://postgres@localhost:5432/postgres npm test`
+- `TEST_DATABASE_URL=postgres://<user>:<password>@localhost:5432/postgres npm test`
 - `TEST_DATABASE_URL=… npm run e2e` — end-to-end tests in Chrome over the demo data
   (`e2e/`, Playwright). How the suites divide the work: `docs/engineering/testing.md`.
 

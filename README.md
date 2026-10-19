@@ -107,7 +107,7 @@ log — take the sign-in link from there.
 
 ```sh
 npm run typecheck
-TEST_DATABASE_URL=postgres://postgres@localhost:5432/postgres npm test
+TEST_DATABASE_URL=postgres://<user>:<password>@localhost:5432/postgres npm test
 ```
 
 Tests create and drop their own database on the given server.
