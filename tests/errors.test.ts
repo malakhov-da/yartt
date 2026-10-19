@@ -39,6 +39,12 @@ describe('error format over HTTP', () => {
     return { status: response.status, error: body.error.json };
   }
 
+  test('health: up and the database answers, with no sign-in', async () => {
+    const response = await fetch(url.replace(/\/trpc$/, '/health'));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true });
+  });
+
   test('validation issues come without server-side messages', async () => {
     const { status, error } = await call('Auth.requestLogin', { email: 'not-an-email' });
     expect(status).toBe(400);

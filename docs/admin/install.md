@@ -56,6 +56,13 @@ others from the top line.
 To run the worker apart from the API, start the same image twice with
 `ROLE=api` and `ROLE=worker`; several workers are safe.
 
+The image checks itself: `GET /api/health` answers 200 while the server
+is up and the database answers, 503 otherwise, and Docker's
+`HEALTHCHECK` calls it every 30 seconds — `docker ps` shows the container
+healthy or unhealthy, and an orchestrator or a load balancer can use the
+same address. A `ROLE=worker` container serves no HTTP and counts as
+healthy while it runs.
+
 ## A trial with demo data
 
 To look around before inviting anyone, start the image with
