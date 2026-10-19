@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { Email, Employee } from '#shared/employee.ts';
+import env from '../env.ts';
+import { AppError } from '../errors.ts';
 import * as Auth from '../services/Auth.ts';
 import * as Employees from '../services/Employee.ts';
 import { authedProcedure, procedure, router } from '../trpc.ts';
@@ -36,6 +38,29 @@ export default router({
     await Auth.logoutEverywhere(ctx.employeeId);
     ctx.clearSessionCookie();
   }),
+
+  /**
+   * The demo (DEMO_DATA): who can be picked to see the interface as —
+   * everyone who can sign in. Null for a real installation. Anyone may call it.
+   */
+  demo: procedure.output(Employee.array().nullable()).query(() => {
+    return env.DEMO_DATA ? Auth.demoPeople() : null;
+  }),
+
+  /**
+   * The demo only: signs in as the picked employee without a link, ending
+   * the current session if there is one. Anyone may call it.
+   * @throws forbidden — not a demo.
+   * @throws not_found — no such employee, or they cannot sign in (dismissed).
+   */
+  demoSignIn: procedure
+    .input(z.object({ employeeId: z.number().int() }))
+    .output(z.void())
+    .mutation(async ({ input, ctx }) => {
+      if (!env.DEMO_DATA) throw new AppError('forbidden');
+      if (ctx.sessionToken) await Auth.logout(ctx.sessionToken);
+      ctx.setSessionCookie(await Auth.demoSignIn(input.employeeId));
+    }),
 
   /** The signed-in employee, or null without a valid session. */
   me: procedure.output(Employee.nullable()).query(({ ctx }) => {

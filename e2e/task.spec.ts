@@ -17,7 +17,7 @@ test.describe.serial('a task from creation to hand-over', () => {
 
   test('a new task is private, owned by its creator', async () => {
     await expect(page.getByText('Приватная')).toBeVisible();
-    await expect(page.getByText('First Employee').filter({ visible: true }).first()).toBeVisible();
+    await expect(page.getByText('Алексей Громов').filter({ visible: true }).first()).toBeVisible();
     await expect(page.getByText('Владелец ещё не описал задачу.')).toBeVisible();
   });
 
@@ -79,8 +79,8 @@ test.describe.serial('a task from creation to hand-over', () => {
     await expect(page.getByText('В плане ещё 2ч').filter({ visible: true }).first()).toBeVisible();
 
     await page.getByRole('button', { name: 'Все события', exact: true }).click();
-    await expect(page.getByText(/First Employee: списано 1ч 30м/)).toBeVisible();
-    await expect(page.getByText(/First Employee: в плане ещё 2ч/)).toBeVisible();
+    await expect(page.getByText(/Алексей Громов: списано 1ч 30м/)).toBeVisible();
+    await expect(page.getByText(/Алексей Громов: в плане ещё 2ч/)).toBeVisible();
   });
 
   test('observers: add, hide, public and private again', async () => {

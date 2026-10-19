@@ -1,12 +1,13 @@
 import express, { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import ctx from './ctx.ts';
+import env from './env.ts';
 import { sql } from './pg.ts';
 
 // Avatars go around tRPC, like attachments: raw bytes.
 //   PUT    /api/avatars        (body: the image)  — mine, replaces it
 //   DELETE /api/avatars                           — mine, back to the initials
-//   GET    /api/avatars/:employeeId[?v=<time>]    — anyone signed in
+//   GET    /api/avatars/:employeeId[?v=<time>]    — anyone signed in; in the demo anyone (the picker shows them)
 // The client crops and scales the picture; the server only checks the type
 // and the size. SVG is refused: it can carry scripts.
 
@@ -42,7 +43,7 @@ export default Router()
     res.status(204).end();
   })
   .get('/:employeeId', async (req, res) => {
-    if ((await employeeId(req, res)) === null) return;
+    if (!env.DEMO_DATA && (await employeeId(req, res)) === null) return;
     const target = Number(req.params.employeeId);
     const [row] = Number.isInteger(target)
       ? AvatarRow.array().parse(await sql`SELECT value, mime, updated_at FROM avatar WHERE employee_id = ${target}`)

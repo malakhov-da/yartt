@@ -3,21 +3,23 @@
 // employee, an invite, pronouns and a bot without one),
 // tasks private and public, open and closed, handed over and ownerless,
 // with comments, replies, mentions, attached tasks and files, access
-// requests, a dependency, reminders, avatars, personal tag colors and
+// requests, a dependency, reminders, drawn avatars, personal tag colors and
 // weights, time left and logged, shifts (closed, open,
 // suggested), visits and scores (one of them corrected).
 //
 // Seeded by `npm run seed` (scripts/seed.ts) and, in the image, on start
-// with DEMO_DATA=ru|en into a database with no employees (seedDemoOnce).
+// with DEMO_DATA=ru|en, afresh on every start and every night (refreshDemo).
+// The company is its own, CEO included — FIRST_EMPLOYEE_* plays no part —
+// and the database's schema version is demo (schema_version).
 //
 // Data goes through the API procedures wherever one exists, so the triggers
 // and checks run as in real use. Moments are relative to today, so the
 // demo looks fresh whenever it is seeded.
-import { deflateSync, crc32 } from 'node:zlib';
 import { z } from 'zod';
 import type { Context } from './ctx.ts';
+import { gradient, portrait, robot, type Look } from './demoImages.ts';
 import { demoTexts, type DemoLanguage } from './demoTexts.ts';
-import env from './env.ts';
+import { migrate } from './migrate.ts';
 import { sql } from './pg.ts';
 import * as Attachments from './services/Attachment.ts';
 import { createCallerFactory } from './trpc.ts';
@@ -32,7 +34,6 @@ const as = (employeeId: number) => {
 const Row = z.object({ id: z.number() });
 const Moment = z.object({ value: z.date() });
 const Text = z.object({ value: z.string() });
-const Count = z.object({ n: z.number() });
 const Exists = z.object({ exists: z.boolean() });
 
 // --- helpers ---------------------------------------------------------------
@@ -80,35 +81,6 @@ const comment = (taskId: number, html: string, extra: { mentionIds?: number[]; t
   taskIds: extra.taskIds ?? [],
 });
 
-/** A small PNG: a gradient from `base` (RGB), made without dependencies. */
-function png(width: number, height: number, base: [number, number, number] = [40, 110, 220]): Buffer {
-  const chunk = (type: string, data: Buffer) => {
-    const length = Buffer.alloc(4);
-    length.writeUInt32BE(data.length);
-    const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
-    const crc = Buffer.alloc(4);
-    crc.writeUInt32BE(crc32(body));
-    return Buffer.concat([length, body, crc]);
-  };
-  const header = Buffer.alloc(13);
-  header.writeUInt32BE(width, 0);
-  header.writeUInt32BE(height, 4);
-  header.set([8, 2, 0, 0, 0], 8); // 8-bit RGB
-  const rows: number[] = [];
-  for (let y = 0; y < height; y++) {
-    rows.push(0);
-    for (let x = 0; x < width; x++) {
-      rows.push(...base.map((c, i) => Math.max(0, Math.min(255, c + [(x * 180) / width, (y * 100) / height, -(x * 120) / width][i]!))));
-    }
-  }
-  return Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-    chunk('IHDR', header),
-    chunk('IDAT', deflateSync(Buffer.from(rows))),
-    chunk('IEND', Buffer.alloc(0)),
-  ]);
-}
-
 /**
  * The last `n` working days before today, oldest first (Saturdays and Sundays
  * skipped): as many whatever the day of the week the demo is seeded on.
@@ -122,35 +94,68 @@ async function workdays(employeeId: number, n: number): Promise<number[]> {
   return result;
 }
 
+const Tables = z.object({ hasTables: z.boolean(), hasVersion: z.boolean() });
+const Seeded = z.object({ enteredAt: z.date() });
+
 /**
- * Fills a database that has no data but, at most, the first employee. The
- * first employee comes from FIRST_EMPLOYEE_* (or a demo default) and speaks
- * the demo's language; everyone invited inherits it.
+ * Whether the database holds anything, and when the demo seeded it: its
+ * current schema_version is demo (null: not a demo — an empty database, or
+ * a real one).
+ */
+async function demoState(): Promise<{ hasTables: boolean; seededAt: Date | null }> {
+  const [tables] = Tables.array().parse(await sql`
+    SELECT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public') AS has_tables,
+           to_regclass('public.schema_version') IS NOT NULL AS has_version
+  `);
+  if (!tables?.hasVersion) return { hasTables: tables?.hasTables ?? false, seededAt: null };
+  const [demo] = Seeded.array().parse(await sql`
+    SELECT entered_at FROM schema_version WHERE expired_at IS NULL AND version = 'demo'
+  `);
+  return { hasTables: true, seededAt: demo?.enteredAt ?? null };
+}
+
+/** Marks the database as the demo, seeded now: demo closes the installed version (schema_version). */
+async function mark(): Promise<void> {
+  await sql.begin(async (tx) => {
+    await tx`UPDATE schema_version SET expired_at = clock_timestamp() WHERE expired_at IS NULL`;
+    await tx`INSERT INTO schema_version (version, entered_at) VALUES ('demo', clock_timestamp())`;
+  });
+}
+
+/** How the people look on their avatars (the bot is a robot; Anna never signed in, so has none). */
+const LOOKS = {
+  first: { background: [92, 107, 192], skin: [241, 194, 160], hair: [90, 90, 96], shirt: [38, 50, 56] },
+  marina: { background: [236, 64, 122], skin: [248, 208, 180], hair: [160, 82, 45], shirt: [255, 255, 255], long: true },
+  pavel: { background: [38, 166, 154], skin: [224, 172, 135], hair: [30, 30, 30], shirt: [255, 152, 0] },
+  ivan: { background: [66, 165, 245], skin: [245, 205, 170], hair: [222, 184, 135], shirt: [69, 90, 100] },
+  olga: { background: [255, 167, 38], skin: [141, 85, 36], hair: [20, 20, 20], shirt: [33, 150, 243], long: true },
+  oleg: { background: [120, 144, 156], skin: [232, 180, 150], hair: [110, 70, 40], shirt: [121, 85, 72] },
+  sergey: { background: [171, 71, 188], skin: [250, 215, 190], hair: [60, 40, 30], shirt: [96, 125, 139] },
+} satisfies Record<string, Look>;
+
+/**
+ * Fills a database with no employees with the demo company in `lang` and
+ * marks it as a demo. Everyone speaks the demo's language and lives in its
+ * time zone (the CEO's, inherited by whoever is invited).
  */
 export async function seedDemo(lang: DemoLanguage): Promise<void> {
   const t = demoTexts[lang];
 
-  const [count] = Count.array().parse(await sql`SELECT count(*)::int AS n FROM employee`);
-  const [tasks] = Count.array().parse(await sql`SELECT count(*)::int AS n FROM task`);
-  if ((count?.n ?? 0) > 1 || (tasks?.n ?? 0) > 0) throw new Error('The database already has data');
+  const [row] = Exists.array().parse(await sql`SELECT EXISTS (SELECT 1 FROM employee) OR EXISTS (SELECT 1 FROM task) AS exists`);
+  if (row?.exists) throw new Error('The database already has data');
 
   // --- people --------------------------------------------------------------
 
-  const firstEmail = env.FIRST_EMPLOYEE_EMAIL ?? 'first@example.com';
-  const firstName = env.FIRST_EMPLOYEE_NAME ?? t.firstName;
-  if (count?.n === 0) {
-    await sql`
-      INSERT INTO employee (email, full_name, locale, time_zone)
-      VALUES (${firstEmail}, ${firstName}, ${lang}, ${env.FIRST_EMPLOYEE_TIME_ZONE})
-    `;
-  }
-  const [first] = Row.array().parse(await sql`SELECT id FROM employee ORDER BY id LIMIT 1`);
-  const me = first!.id;
-  await sql`UPDATE employee SET locale = ${lang} WHERE id = ${me}`;
-  const I = as(me);
-  await I.Employee.updateProfile({ fullName: firstName, email: firstEmail, about: t.firstAbout });
-
   const p = t.people;
+  const [first] = Row.array().parse(await sql`
+    INSERT INTO employee (email, full_name, about, locale, time_zone)
+    VALUES (${p.first.email}, ${p.first.name}, ${p.first.about}, ${lang}, ${t.timeZone})
+    RETURNING id
+  `);
+  const me = first!.id;
+  await mark();
+  const I = as(me);
+
   const invite = async (by: number, person: { email: string; name: string }) =>
     (await as(by).Employee.invite({ email: person.email, fullName: person.name })).id;
   const profile = (id: number, person: { email: string; name: string; about: string }) =>
@@ -184,8 +189,8 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
   // It posts through the API with a token of its own (the token itself is not kept anywhere).
   await sql`SELECT issue_api_token(${bot}, ${bot}, 'GitHub Actions')`;
 
-  // Pronouns pick verb forms ("упомянула"); the first employee keeps none.
-  for (const [id, pronoun] of [[marina, 'she'], [pavel, 'he'], [ivan, 'he'], [olga, 'she'], [oleg, 'he'], [sergey, 'he']] as const) {
+  // Pronouns pick verb forms ("упомянула"); the bot keeps none.
+  for (const [id, pronoun] of [[me, 'he'], [marina, 'she'], [pavel, 'he'], [ivan, 'he'], [olga, 'she'], [oleg, 'he'], [sergey, 'he']] as const) {
     await as(id).Employee.updateSettings({ pronoun });
   }
 
@@ -281,7 +286,7 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
   // --- comments ------------------------------------------------------------
 
   const c = t.comments;
-  const image = await Attachments.upload(pavel, png(480, 200), 'image/png');
+  const image = await Attachments.upload(pavel, gradient(480, 200), 'image/png');
   const file = await Attachments.upload(pavel, Buffer.from(c.csv), 'text/csv');
   const mockup = await P.Comment.create(comment(site, c.mockup(`/api/attachments/${image}`), { files: [{ id: file, name: c.csvName }] }));
   await I.Comment.create(comment(site, c.carouselAsk, { replyToId: mockup }));
@@ -386,9 +391,14 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
 
   // --- personal touches --------------------------------------------------
 
-  // Avatars (the HTTP endpoint is for browsers; the bytes are the same): Marina and Pavel have photos.
-  for (const [id, base] of [[marina, [200, 60, 140]], [pavel, [30, 120, 90]]] as const) {
-    await sql`INSERT INTO avatar (employee_id, value, mime) VALUES (${id}, ${png(64, 64, [...base])}, 'image/png')`;
+  // Avatars (the HTTP endpoint is for browsers; the bytes are the same): everyone who signed in.
+  const avatars = [
+    [me, portrait(LOOKS.first)], [marina, portrait(LOOKS.marina)], [pavel, portrait(LOOKS.pavel)],
+    [ivan, portrait(LOOKS.ivan)], [olga, portrait(LOOKS.olga)], [oleg, portrait(LOOKS.oleg)],
+    [sergey, portrait(LOOKS.sergey)], [bot, robot()],
+  ] as const;
+  for (const [id, image] of avatars) {
+    await sql`INSERT INTO avatar (employee_id, value, mime) VALUES (${id}, ${image}, 'image/png')`;
   }
 
   // My tag colors and weights: the site and the report first and colored, support sinks.
@@ -403,36 +413,65 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
   await I.Remind.add({ taskId: site, at: daysAhead(2), text: null });
 }
 
-/** Who is in the demo and a sign-in link for the first employee (valid for 10 minutes). */
+/** Who is in the demo. */
 export async function printDemoSummary(): Promise<void> {
   const people = z.object({ fullName: z.string(), email: z.string().nullable() }).array().parse(await sql`
     SELECT full_name, email FROM employee ORDER BY id
   `);
   console.log('\nSeeded the demo data. Employees:');
-  for (const p of people) console.log(`  ${p.fullName.padEnd(18)} ${p.email ?? '(dismissed)'}`);
-  const [token] = Text.array().parse(await sql`SELECT issue_token(${people[0]!.email}) AS value`);
-  console.log(`\nSign in as ${people[0]!.fullName} within 10 minutes: ${env.PUBLIC_URL}/login/${token!.value}`);
-  console.log('Anyone else: request a link on the sign-in page; without SMTP_URL it is printed in the server log.\n');
+  for (const person of people) console.log(`  ${person.fullName.padEnd(18)} ${person.email ?? '(dismissed)'}`);
+  console.log('');
 }
 
+/** Seeded this recently, the demo is not seeded again: another instance has just done it. */
+const FRESH_MS = 10 * 60_000;
+
 /**
- * On start with DEMO_DATA: seeds a database that has no employees yet and
- * leaves any other alone, so a restart never adds a second demo. Several
- * instances starting at once wait for each other (the bootstrap lock).
+ * DEMO_DATA, instead of migrating and the first employee: a fresh demo,
+ * so its days are always around today. A database marked as the demo is
+ * wiped and installed from db.sql — never migrated: nothing in it is worth
+ * keeping — and an empty one installed; then the demo is seeded and marked.
+ * A database with tables and no mark holds real data: it is refused and
+ * left untouched. Several instances starting at once wait for each other
+ * (the bootstrap lock), and a demo seeded minutes ago by one of them stays.
+ *
+ * `night`: the worker's nightly run — only a marked demo seeded before
+ * today, after 03:00 in the demo company's time zone; anything else stays.
  */
-export async function seedDemoOnce(lang: DemoLanguage): Promise<void> {
+export async function refreshDemo(lang: DemoLanguage, when: 'start' | 'night' = 'start'): Promise<void> {
   const conn = await sql.reserve();
   try {
     await conn`SELECT pg_advisory_lock(hashtext('yartt.bootstrap'))`;
-    const [row] = Exists.array().parse(await conn`SELECT EXISTS (SELECT 1 FROM employee)`);
-    if (row?.exists) {
-      console.log('DEMO_DATA: the database already has employees, the demo data is not added');
+    const state = await demoState();
+    if (when === 'night' && (!state.seededAt || !(await nightAfter(state.seededAt)))) return;
+    if (state.hasTables && !state.seededAt) {
+      throw new Error('DEMO_DATA is set, but the database holds real data: unset DEMO_DATA, or give the demo an empty database');
+    }
+    if (when === 'start' && state.seededAt && Date.now() - state.seededAt.getTime() < FRESH_MS) {
+      console.log('DEMO_DATA: the demo was seeded minutes ago, it stays');
       return;
     }
+    if (state.hasTables) {
+      await conn.unsafe('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
+      console.log(`DEMO_DATA: the previous demo is wiped (${when === 'night' ? 'the nightly refresh' : 'on start'})`);
+    }
+    await migrate(sql);
     await seedDemo(lang);
     await printDemoSummary();
   } finally {
     await conn`SELECT pg_advisory_unlock(hashtext('yartt.bootstrap'))`;
     conn.release();
   }
+}
+
+const Due = z.object({ due: z.boolean() });
+
+/** A new day in the demo company (its CEO's time zone) since `seededAt`, and past 03:00 there. */
+async function nightAfter(seededAt: Date): Promise<boolean> {
+  const [row] = Due.array().parse(await sql`
+    SELECT (NOW() AT TIME ZONE tz)::date > (${seededAt}::timestamptz AT TIME ZONE tz)::date
+           AND (NOW() AT TIME ZONE tz)::time >= '03:00' AS due
+      FROM (SELECT time_zone AS tz FROM employee ORDER BY id LIMIT 1) company
+  `);
+  return row?.due ?? false;
 }

@@ -4,3 +4,5 @@
 .git
 e2e-report
 test-results
+prod.env
+demo.env

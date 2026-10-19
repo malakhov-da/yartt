@@ -21,7 +21,10 @@ const EnvSchema = z.object({
   FIRST_EMPLOYEE_NAME: z.string().min(1).optional(),
   FIRST_EMPLOYEE_LOCALE: Locale.default('ru'),
   FIRST_EMPLOYEE_TIME_ZONE: z.string().default('UTC'),
-  // Demo data in this language on the first start (an empty database); unset for production.
+  // The image sets production: a real installation must be able to send its sign-in links.
+  NODE_ENV: z.string().optional(),
+  // A trial: the demo company in this language on the first start (an empty
+  // database), and no sign-in — anyone picks whom to see it as. Unset for work.
   DEMO_DATA: z.enum(DEMO_LANGUAGES).optional().or(z.literal('').transform(() => undefined)),
 });
 
@@ -32,6 +35,10 @@ if (!result.success) {
 }
 if (result.data.SMTP_URL && !result.data.MAIL_FROM) {
   console.error('Invalid configuration: MAIL_FROM is required with SMTP_URL');
+  process.exit(1);
+}
+if (result.data.NODE_ENV === 'production' && !result.data.DEMO_DATA && !result.data.SMTP_URL) {
+  console.error('Invalid configuration: SMTP_URL is required in production — sign-in links go by email (DEMO_DATA=ru|en for a trial without it)');
   process.exit(1);
 }
 if (result.data.WEBHOOK_URL && !result.data.WEBHOOK_SECRET) {

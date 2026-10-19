@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 import { expect, test, type Page } from '@playwright/test';
-import { createTask, editable, employeeId, signIn, sql, taskId, unique } from './helpers.ts';
+import { createTask, editable, employeeId, FIRST, signIn, sql, taskId, unique } from './helpers.ts';
 
 // The interface as described in docs/product/interface.md, item by item —
 // what the other specs do not walk through. Runs before my-day.spec.ts, so it
@@ -215,9 +215,9 @@ test.describe('scores and the profile', () => {
     await expect(page.getByText('Сохранено')).toBeVisible();
 
     await dialog.getByLabel('Мой руководитель').click();
-    await page.getByRole('option', { name: 'First Employee' }).click();
+    await page.getByRole('option', { name: 'Алексей Громов' }).click();
     await expect.poll(async () => (await sql<{ m: number | null }[]>`SELECT manager_id AS m FROM employee WHERE email = 'oleg@example.com'`)[0]!.m)
-      .toBe(await employeeId('first@example.com'));
+      .toBe(await employeeId(FIRST));
     await sql`UPDATE employee SET manager_id = NULL WHERE email = 'oleg@example.com'`;
 
     await dialog.getByRole('button', { name: 'Выйти на всех устройствах' }).click();

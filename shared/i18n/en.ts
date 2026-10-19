@@ -26,6 +26,9 @@ export const en: Translation = {
     invite: 'Invite an employee',
     profile: 'Profile',
     logout: 'Log out',
+    demo: 'Demo',
+    demoHint: 'A demonstration: the company and its data are made up, there is no sign-in, and it all starts afresh every night. Whom to see it as — in the profile menu.',
+    viewAs: 'View as',
     todo: 'Waiting for me: {{count}}',
     shift: 'Shift · {{time}}',
     closeShift: 'Shift since {{from}} — close it',
@@ -38,6 +41,10 @@ export const en: Translation = {
     again: 'Send again',
     checking: 'Signing in…',
     backToLogin: 'Back to sign in',
+    demo: {
+      title: 'yartt demo',
+      hint: 'The company is made up and there is no sign-in. Pick whose eyes to see it through; you can switch in the profile menu. Change anything: the demo starts afresh every night, and whatever is written here any visitor can read.',
+    },
   },
   myDay: {
     empty: 'Nothing needs your attention right now.',

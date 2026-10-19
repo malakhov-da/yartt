@@ -14,12 +14,15 @@ everyone else is invited by an employee.
 - A host for the container, reachable by employees over HTTPS (put any
   TLS-terminating proxy or load balancer in front: the container speaks
   plain HTTP).
-- An SMTP server for emails: sign-in links, invites, notifications. Without
-  email nobody can sign in, unless a webhook delivers the links.
+- An SMTP server for emails: sign-in links, invites, notifications. The
+  image does not start without it: nobody could sign in.
 
 ## Configuration
 
-Everything is set with environment variables.
+Everything is set with environment variables, from a file of its own for
+each kind of installation: [prod.env.example](../../prod.env.example) for
+work, [demo.env.example](../../demo.env.example) for a trial. Copy one to
+`prod.env` or `demo.env` (git ignores them) and fill it in.
 
 | Variable | Required | Meaning |
 |---|---|---|
@@ -27,30 +30,21 @@ Everything is set with environment variables.
 | `PUBLIC_URL` | yes | the address employees open, e.g. `https://tasks.example.com`; used in links in emails |
 | `PORT` | no | default `3000` |
 | `ROLE` | no | `all` (default) — the API and the background worker in one process; `api` / `worker` to run them in separate containers |
-| `SMTP_URL` | for email | `smtp://user:password@host:587` or `smtps://user:password@host:465` |
+| `SMTP_URL` | yes, but in the demo | `smtp://user:password@host:587` or `smtps://user:password@host:465` |
 | `MAIL_FROM` | with `SMTP_URL` | e.g. `yartt <noreply@example.com>` |
 | `WEBHOOK_URL`, `WEBHOOK_SECRET` | no | an extra channel (Telegram, Slack, …): every message is POSTed there as JSON with the header `X-Yartt-Signature: sha256=<hex>` — HMAC-SHA256 of the body with the secret |
 | `COOKIE_SECURE` | no | `true` (default) — keep it unless you test over plain HTTP |
 | `FIRST_EMPLOYEE_EMAIL`, `FIRST_EMPLOYEE_NAME` | first start | the first employee, created only while there are no employees |
 | `FIRST_EMPLOYEE_LOCALE`, `FIRST_EMPLOYEE_TIME_ZONE` | no | `ru` / `en`; an IANA zone such as `Europe/Moscow`. Invited employees inherit them from whoever invites |
-| `DEMO_DATA` | no | `ru` / `en` — a trial: demo people and tasks in that language on the first start; leave it unset for work ([below](#a-trial-with-demo-data)) |
+| `DEMO_DATA` | only in the demo | `ru` / `en` — a trial: the demo company in that language, seeded afresh on every start, no sign-in ([below](#a-trial-with-demo-data)). Never for work |
 
-With neither `SMTP_URL` nor `WEBHOOK_URL` messages are only written to the
-log — useful for a trial, not for work.
+In the demo, without `SMTP_URL`, messages are only written to the log.
 
 ## Start
 
 ```sh
-docker build -t yartt .
-docker run -d --name yartt -p 3000:3000 \
-  -e DATABASE_URL=postgres://yartt:secret@db:5432/yartt \
-  -e PUBLIC_URL=https://tasks.example.com \
-  -e SMTP_URL=smtps://mailer:secret@smtp.example.com:465 \
-  -e MAIL_FROM='yartt <noreply@example.com>' \
-  -e FIRST_EMPLOYEE_EMAIL=ceo@example.com \
-  -e FIRST_EMPLOYEE_NAME='Олег Петров' \
-  -e FIRST_EMPLOYEE_TIME_ZONE=Europe/Moscow \
-  yartt
+cp prod.env.example prod.env   # fill it in
+docker run -d --name yartt -p 3000:3000 --env-file prod.env yartt/public:<version>
 ```
 
 On start the container installs or upgrades the schema (under a lock, so
@@ -64,26 +58,42 @@ To run the worker apart from the API, start the same image twice with
 
 ## A trial with demo data
 
-To look around before inviting anyone, start the image against an empty
-database with `DEMO_DATA=en` (or `ru`): a small company in that language —
-managers, tasks, comments, shifts, scores — written relative to today.
+To look around before inviting anyone, start the image with
+[demo.env.example](../../demo.env.example) against a database of its own:
+a made-up company in English or Russian (`DEMO_DATA`) — managers, tasks,
+comments, shifts, scores, avatars — written relative to today.
 
 ```sh
-docker run -d --name yartt-demo -p 3000:3000 \
-  -e DATABASE_URL=postgres://yartt:secret@db:5432/yartt_demo \
-  -e PUBLIC_URL=http://localhost:3000 \
-  -e COOKIE_SECURE=false \
-  -e DEMO_DATA=en \
-  yartt
-docker logs yartt-demo   # the employees and a sign-in link valid for 10 minutes
+cp demo.env.example demo.env   # the database and the language
+docker run -d --name yartt-demo -p 3000:3000 --env-file demo.env yartt/public:<version>
 ```
 
-The first employee is `FIRST_EMPLOYEE_*` if set, otherwise
-`first@example.com`; anyone else signs in by email, and without SMTP the
-link is in the log. The demo is added only while the database has no
-employees: restarts never add it twice, and a database in use is never
-touched. Do not use a demo database for work — start the real one on a
-fresh database without `DEMO_DATA`.
+There is no sign-in: the first page lists the company's people, and you
+pick whose eyes to see it through; the profile menu switches to someone
+else at any moment, and "Demo" in the top line reminds everyone it is not
+real. No SMTP or `FIRST_EMPLOYEE_*` is needed.
+
+Every start and every night (after 03:00 in the demo company's time zone)
+seed the demo afresh, so its days stay around today; it is never
+migrated — a new image simply installs its schema anew. That is safe for
+real data by design: the demo's schema version is `demo` (`SELECT * FROM
+schema_version`), and only such a database is wiped. A database with
+tables at any other version is refused — the container stops with
+"DEMO_DATA is set, but the database holds real data" — and nothing in it
+is touched; the other way round, an installation started without
+`DEMO_DATA` refuses a demo database rather than migrate it. Still, keep
+the demo on a database of its own, and never set `DEMO_DATA` for work.
+
+### A public demo
+
+The same container can be the demo you link to from a website, open to
+anyone. Put it behind HTTPS like a working installation, set `PUBLIC_URL`
+to its address and drop `COOKIE_SECURE=false` from `demo.env`. The demo
+keeps visitors in check by itself: the first page and the top line say
+the company is made up, everything written there is visible to any
+visitor and starts afresh every night; files are limited to 2 MB, so
+nobody fills the database; and its pages ask search engines not to index
+them (`X-Robots-Tag: noindex`).
 
 ## Dismissing someone who will not hand over
 

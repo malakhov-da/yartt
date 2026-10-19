@@ -156,6 +156,9 @@ export async function migrate(sql: Sql): Promise<MigrateResult> {
     const [row] = CurrentVersion.array().length(1).parse(await tx`
       SELECT version FROM schema_version WHERE expired_at IS NULL
     `);
+    if (row!.version === 'demo') {
+      throw new Error('This database holds the demo (DEMO_DATA), which is never migrated: start the demo with DEMO_DATA, or give the installation a database of its own');
+    }
     const current = parseVersion(row!.version);
     if (sameVersion(current, target)) return { action: 'none', version: formatVersion(target) };
     if (current.major > target.major || (current.major === target.major && current.minor > target.minor)) {

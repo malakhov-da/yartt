@@ -16,7 +16,7 @@ test.describe('sign-in', () => {
     await expect(page.getByRole('heading', { name: /Ждёт меня/ })).toBeVisible();
     await expect(page).toHaveTitle(/яртт/);
 
-    await page.getByRole('button', { name: /First Employee/ }).click();
+    await page.getByRole('button', { name: /Алексей Громов/ }).click();
     await page.getByRole('menuitem', { name: 'Выйти' }).click();
     await expect(page).toHaveURL(/\/login$/);
 

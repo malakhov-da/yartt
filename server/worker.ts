@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { Locale } from '#shared/employee.ts';
 import { NotificationPayload } from '#shared/notification.ts';
+import { refreshDemo } from './demo.ts';
 import { deliver } from './delivery.ts';
+import env from './env.ts';
 import type { Sql } from './pg.ts';
 
 const MINUTE = 60_000;
@@ -148,6 +150,10 @@ export function startWorker(sql: Sql): () => void {
     run();
     timers.push(setInterval(run, job.every));
   }
+
+  // The demo is seeded afresh every night, so a stand left running keeps its days around today.
+  const demo = env.DEMO_DATA;
+  if (demo) timers.push(setInterval(guard('demo_refresh', () => refreshDemo(demo, 'night')), 10 * MINUTE));
 
   // Notification queue: no pause while there is work, otherwise poll every 2 seconds.
   const loop = async () => {

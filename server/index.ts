@@ -3,18 +3,22 @@ import { join } from 'node:path';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import api from './api.ts';
 import { bootstrap } from './bootstrap.ts';
-import { seedDemoOnce } from './demo.ts';
+import { refreshDemo } from './demo.ts';
 import env from './env.ts';
 import { migrate } from './migrate.ts';
 import { sql } from './pg.ts';
 import { startWorker } from './worker.ts';
 
 try {
-  const migration = await migrate(sql);
-  if (migration.action === 'installed') console.log(`Installed schema ${migration.version}`);
-  if (migration.action === 'migrated') console.log(`Migrated schema to ${migration.version}: ${migration.files.join(', ')}`);
-  if (env.DEMO_DATA) await seedDemoOnce(env.DEMO_DATA);
-  else await bootstrap(sql);
+  if (env.DEMO_DATA) {
+    // The demo is never migrated: it is installed afresh and seeded (server/demo.ts).
+    await refreshDemo(env.DEMO_DATA);
+  } else {
+    const migration = await migrate(sql);
+    if (migration.action === 'installed') console.log(`Installed schema ${migration.version}`);
+    if (migration.action === 'migrated') console.log(`Migrated schema to ${migration.version}: ${migration.files.join(', ')}`);
+    await bootstrap(sql);
+  }
 } catch (error) {
   console.error(`Startup failed: ${error instanceof Error ? error.message : String(error)}`);
   await sql.end({ timeout: 5 });
@@ -38,6 +42,8 @@ function securityHeaders(_req: Request, res: Response, next: NextFunction): void
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
     'Referrer-Policy': 'same-origin',
+    // A demo is made up: its pages are kept out of search engines.
+    ...(env.DEMO_DATA && { 'X-Robots-Tag': 'noindex, nofollow' }),
   });
   next();
 }

@@ -3,7 +3,7 @@ import { signIn } from './helpers.ts';
 
 test('My tags in the profile: my color and weight; a tag opens the search', async ({ page }) => {
   await signIn(page);
-  await page.getByRole('button', { name: /First Employee/ }).click();
+  await page.getByRole('button', { name: /Алексей Громов/ }).click();
   await page.getByRole('menuitem', { name: 'Профиль' }).click();
   await page.getByRole('tab', { name: 'Мои теги' }).click();
   const row = page.locator('.MuiStack-root').filter({ has: page.getByRole('button', { name: 'найм', exact: true }) }).filter({ has: page.getByRole('button', { name: 'Тяжелее' }) }).last();

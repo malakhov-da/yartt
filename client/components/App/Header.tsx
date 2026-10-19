@@ -1,5 +1,5 @@
 import { PersonAddAlt1 } from '@mui/icons-material';
-import { AppBar, Box, ButtonBase, IconButton, Menu, MenuItem, Toolbar, Tooltip, Typography } from '@mui/material';
+import { AppBar, Box, ButtonBase, Chip, Divider, IconButton, ListSubheader, Menu, MenuItem, Toolbar, Tooltip, Typography } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +9,7 @@ import { useMe } from '#client/hooks/me.ts';
 import { showInfo } from '#client/hooks/store.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import AwayButton from './AwayButton.tsx';
+import DemoPeople, { useDemo } from './DemoPeople.tsx';
 import EmployeeAvatar from './EmployeeAvatar.tsx';
 import InviteDialog from './InviteDialog.tsx';
 import Logo from './Logo.tsx';
@@ -18,7 +19,7 @@ import TopStatus from './TopStatus.tsx';
 // The top line: the logo (home — My day, which keeps its state while a task
 // or a person is open), what waits for me and the open shift (TopStatus),
 // "I'm away" (AwayButton), invite and my avatar. No tabs (decision 31); the search is in My day,
-// over Current tasks.
+// over Current tasks. In the demo the line says so, and my menu switches whom I see it as.
 export default function () {
   const { t } = useTranslation();
   const trpc = useTRPC();
@@ -32,6 +33,7 @@ export default function () {
     onSuccess: signedOut,
   }));
   const outbox = useOutbox();
+  const demo = useDemo();
   // Unsent changes would be lost: logging out asks first.
   const logOut = () => {
     if (outbox.length && !window.confirm(t('offline.logoutConfirm', { count: outbox.length }))) return;
@@ -44,6 +46,11 @@ export default function () {
     <AppBar position="static" color="inherit" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
       <Toolbar variant="dense" sx={{ gap: 1 }}>
         <Logo />
+        {demo && (
+          <Tooltip title={t('nav.demoHint')}>
+            <Chip label={t('nav.demo')} size="small" color="warning" variant="outlined" />
+          </Tooltip>
+        )}
         <Box sx={{ flexGrow: 1 }} />
         <TopStatus />
         <AwayButton />
@@ -64,6 +71,9 @@ export default function () {
       <Menu anchorEl={menu} open={!!menu} onClose={() => setMenu(null)}>
         <MenuItem onClick={() => { setMenu(null); setProfileOpen(true); }}>{t('nav.profile')}</MenuItem>
         <MenuItem onClick={logOut} disabled={logout.isPending}>{t('nav.logout')}</MenuItem>
+        {demo && <Divider />}
+        {demo && <ListSubheader sx={{ lineHeight: 2.5 }}>{t('nav.viewAs')}</ListSubheader>}
+        {demo && <DemoPeople variant="menu" exceptId={me.id} />}
       </Menu>
       <InviteDialog
         open={inviteOpen}

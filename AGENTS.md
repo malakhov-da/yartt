@@ -22,7 +22,12 @@ the specification; read it before any work.
   external (`DATABASE_URL`). No docker-compose.
 - Express serves both the API and the built client (static files) — no nginx.
 - On startup: the schema (under an advisory lock), then the first employee
-  from `.env` (`FIRST_EMPLOYEE_*`) if `employee` is empty. There are no
+  from `.env` (`FIRST_EMPLOYEE_*`) if `employee` is empty — or, with
+  `DEMO_DATA`, the demo company installed and seeded afresh, never migrated
+  (only into an empty database or one marked as a demo; real data is
+  refused); the worker reseeds it every night. Docker takes its settings
+  from `prod.env` or `demo.env` (`*.env.example`); SMTP is required in
+  production. There are no
   roles and no admins: the first employee is an ordinary employee. Rights
   come from relationships (owner, observer, direct manager).
 
@@ -73,7 +78,8 @@ server/
   services/Mail.ts  — renders an email in the recipient's language
   migrate.ts, migrations/, bootstrap.ts, worker.ts
   admin.ts          — installation administrator commands (dismiss with an heir), outside the API
-  demo.ts, demoTexts.ts — the demo data (ru/en): `npm run seed`, or on start with DEMO_DATA
+  demo.ts, demoTexts.ts, demoImages.ts — the demo company (ru/en) and its avatars: `npm run seed`,
+                    or every start with DEMO_DATA (no sign-in then: a person is picked)
 shared/
   <entity>.ts       — zod schemas shared by the client and the server
   errors.ts         — error codes and the error.data shape
@@ -220,7 +226,7 @@ and a `matchPath` in `client/components/App.tsx`.
 - `TEST_DATABASE_URL=… npm run fixture` — the test data of the current schema version
   (`-- --migrate`: the last release's data through the migrations).
 - `npm run seed -- --reset [--lang en]` — wipes the database in `DATABASE_URL` and fills it with demo data that
-  touches every screen (`server/demo.ts`; in the image — `DEMO_DATA=ru|en` on an empty database).
+  touches every screen (`server/demo.ts`; in the image — every start and every night with `DEMO_DATA=ru|en`).
   Keep it in step with new features, in both languages (`server/demoTexts.ts`).
 - `TEST_DATABASE_URL=postgres://<user>:<password>@localhost:5432/postgres npm test`
 - `TEST_DATABASE_URL=… npm run e2e` — end-to-end tests in Chrome over the demo data

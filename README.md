@@ -28,24 +28,28 @@ You need Docker and PostgreSQL 15+ (external). The database user must own
 the database: the first start creates the extensions `citext`, `pgcrypto`,
 `btree_gist`, `pg_trgm`.
 
+The image is on Docker Hub: `yartt/public:<version>`. A working
+installation and a trial take different settings, each from its own file:
+
 ```sh
-docker build -t yartt .
-docker run -d --name yartt -p 3000:3000 --env-file .env yartt
+cp prod.env.example prod.env   # fill in: database, address, SMTP, first employee
+docker run -d --name yartt -p 3000:3000 --env-file prod.env yartt/public:<version>
 ```
 
-For a trial, add `-e DEMO_DATA=en` (or `ru`) on an empty database: demo
-people and tasks in that language
-([install guide](docs/admin/install.md#a-trial-with-demo-data)).
-
-Environment variables are listed in [.env.example](.env.example). Set
-at least:
+[prod.env.example](prod.env.example) lists them. Required:
 
 - `DATABASE_URL`, `PUBLIC_URL`;
 - `SMTP_URL` and `MAIL_FROM` — sign-in links, invites and notifications are
-  sent by email in each employee's language;
+  sent by email in each employee's language; the image does not start
+  without them;
 - `FIRST_EMPLOYEE_EMAIL`, `FIRST_EMPLOYEE_NAME` — the first start creates
   the schema and this employee. Everyone else is invited from the
   interface.
+
+For a trial, [demo.env.example](demo.env.example) on a database of its own:
+a made-up company in English or Russian, no sign-in — you pick whose eyes
+to see it through — and seeded afresh on every start
+([install guide](docs/admin/install.md#a-trial-with-demo-data)).
 
 Note: the SMTP host is resolved through DNS, so use an IP address or a
 real host name rather than `localhost`.
@@ -103,7 +107,8 @@ npm run dev            # server :3000 + client :5173
 ```
 
 Without `SMTP_URL` and `WEBHOOK_URL` messages are written to the server
-log — take the sign-in link from there.
+log — take the sign-in link from there. Or `npm run seed -- --reset` and
+`DEMO_DATA=ru` (or `en`) in `.env`: the demo company, and no sign-in.
 
 ```sh
 npm run typecheck

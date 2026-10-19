@@ -1,5 +1,6 @@
 import express, { Router, type Request, type Response } from 'express';
 import ctx from './ctx.ts';
+import env from './env.ts';
 import { AppError } from './errors.ts';
 import * as Attachments from './services/Attachment.ts';
 
@@ -8,7 +9,8 @@ import * as Attachments from './services/Attachment.ts';
 //   GET  /api/attachments/:id[?name=file.pdf]
 // Errors answer with the same codes as the API: { appCode }.
 
-const MAX_SIZE = '25mb';
+// A demo is open to anyone: a small limit keeps a visitor from filling its database.
+const MAX_SIZE = env.DEMO_DATA ? '2mb' : '25mb';
 // Shown in the page; anything else is downloaded. SVG can carry scripts.
 const INLINE = /^image\/(png|jpeg|gif|webp|avif)$/;
 

@@ -15,3 +15,15 @@ export function useSignedOut(): () => void {
     window.location.replace('/login');
   };
 }
+
+/**
+ * The demo: after signing in as someone else nothing of the previous person
+ * stays either — the same clean start, on My day.
+ */
+export function useSwitchedPerson(): () => void {
+  return () => {
+    clearDrafts();
+    clearOfflineData(true);
+    window.location.replace('/');
+  };
+}

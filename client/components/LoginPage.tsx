@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import { fieldErrors } from '#client/i18n/errors.ts';
+import DemoPeople, { useDemo } from './App/DemoPeople.tsx';
 
 export default function () {
   const { t } = useTranslation();
@@ -12,10 +13,25 @@ export default function () {
   const requestLogin = useMutation(trpc.Auth.requestLogin.mutationOptions());
   const errors = fieldErrors(requestLogin.error);
 
+  const demo = useDemo();
+
   const submit = (event: FormEvent) => {
     event.preventDefault();
     requestLogin.mutate({ email: email.trim() });
   };
+
+  // The demo has no sign-in: whom to see the interface as.
+  if (demo) {
+    return (
+      <Box sx={{ display: 'grid', placeItems: 'center', minHeight: '100%', p: 2 }}>
+        <Paper sx={{ p: 3, width: '100%', maxWidth: 480 }}>
+          <Typography variant="h1" sx={{ mb: 1 }}>{t('login.demo.title')}</Typography>
+          <Typography sx={{ color: 'text.secondary', mb: 2 }}>{t('login.demo.hint')}</Typography>
+          <DemoPeople variant="list" />
+        </Paper>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ display: 'grid', placeItems: 'center', height: '100%', p: 2 }}>

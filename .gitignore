@@ -5,3 +5,5 @@ dist/
 .DS_Store
 e2e-report/
 test-results/
+prod.env
+demo.env

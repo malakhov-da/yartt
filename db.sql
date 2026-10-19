@@ -11,7 +11,8 @@
 --  migration from the released version and a new version here. A
 --  migration is checked against this file as it was at the release tag
 --  (tests/schema.test.ts), so nothing is kept frozen by hand.
---  The application creates the first employee on startup (from .env).
+--  The application creates the first employee on startup (from .env), or
+--  the demo company with DEMO_DATA (schema_version demo).
 --
 --  Business rule errors: RAISE EXCEPTION ... USING HINT = '<code>'
 --  [, DETAIL = '<JSON parameters>']. The code is stable; the application
@@ -29,14 +30,14 @@ CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;
 -- schema_version — schema version
 -- ============================================================================
 CREATE TABLE schema_version (
-    version TEXT NOT NULL CHECK (version ~ '^[0-9]+\.[0-9]+$'),
+    version TEXT NOT NULL CHECK (version ~ '^([0-9]+\.[0-9]+|demo)$'),
     entered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expired_at TIMESTAMPTZ
 );
 CREATE UNIQUE INDEX uq_schema_version_active
     ON schema_version((TRUE)) WHERE expired_at IS NULL;
 
-INSERT INTO schema_version (version) VALUES ('0.0');
+INSERT INTO schema_version (version) VALUES ('0.1');
 
 COMMENT ON TABLE schema_version IS
 'History of database schema versions (major.minor). Current = expired_at IS NULL.
@@ -47,10 +48,16 @@ Migrations — server/migrations/<from>-<to>.sql:
   - major: only from the last minor, X.last-(X+1).0.
 At every step the application closes the current row and opens a new one.
 The whole chain is one transaction: on failure the database stays at the
-old version. No downgrades.';
+old version. No downgrades.
+demo — the database holds the demo company (DEMO_DATA, server/demo.ts): it is
+installed from db.sql and seeded, then this row closes the installed version;
+entered_at is when it was seeded. A demo is never migrated, only wiped and
+seeded afresh, and only a database whose current version is demo is ever
+wiped; the migrator refuses it, and the demo refuses a database with tables
+and any other version — made-up and real data never pass for each other.';
 
 COMMENT ON COLUMN schema_version.version IS
-'Schema version major.minor.';
+'Schema version major.minor, or demo for the demo company.';
 
 COMMENT ON COLUMN schema_version.entered_at IS
 'When the database moved to this version (installation or migration).';

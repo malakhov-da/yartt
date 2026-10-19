@@ -16,7 +16,7 @@ test.describe('Team and the employee page', () => {
     await expect(team.getByRole('columnheader')).toHaveCount(5);
     const rows = team.getByRole('row');
     await expect(rows.nth(1)).toContainText('Вся моя команда · 6'); // me and everyone under me
-    await expect(rows.nth(3)).toContainText('First Employee'); // then me (each line is followed by its hidden details)
+    await expect(rows.nth(3)).toContainText('Алексей Громов'); // then me (each line is followed by its hidden details)
     await expect(team.getByText(/^до \d+/)).toBeVisible(); // Olga is away
 
     // Marina is part of her team: a line of its own, folded; she and her reports show when it unfolds.

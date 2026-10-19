@@ -1,10 +1,12 @@
 // Fills a development database with the demo data (server/demo.ts).
 //
-//   npm run seed                      — into a database with no data but the first employee
+//   npm run seed                      — into an empty database (no employees yet)
 //   npm run seed -- --reset           — drops everything in the database first
 //   npm run seed -- --lang en         — the demo in English (Russian by default)
 //
-// In the image the same data comes on start with DEMO_DATA=ru|en.
+// In the image the same data comes on start with DEMO_DATA=ru|en. The
+// seeded database is the demo: the server then starts only with DEMO_DATA
+// in .env (no sign-in — a person is picked), and refuses it without.
 import { DEMO_LANGUAGES, type DemoLanguage } from '../server/demoTexts.ts';
 import { printDemoSummary, seedDemo } from '../server/demo.ts';
 import { migrate } from '../server/migrate.ts';

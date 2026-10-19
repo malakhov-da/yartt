@@ -1,12 +1,13 @@
 // The demo data's words (server/demo.ts) in each language it can be seeded
 // in. Russian is the reference; English is typed by it, so a missing text is
-// a compile error. Names, emails and tags are part of the language: an
-// English demo has English people.
+// a compile error. Names, emails, tags and the time zone are part of the
+// language: an English demo is an English-speaking company.
 
 const ru = {
-  firstName: 'Первый сотрудник',
-  firstAbout: 'Директор. Пишите в задачах, срочное — звоните.',
+  // Where the company works: everyone's days are counted in it.
+  timeZone: 'Europe/Moscow',
   people: {
+    first: { email: 'alexey@example.com', name: 'Алексей Громов', about: 'Генеральный директор. Пишите в задачах, срочное — звоните.' },
     marina: { email: 'marina@example.com', name: 'Марина Соколова', about: 'Руководитель разработки' },
     pavel: { email: 'pavel@example.com', name: 'Павел Орлов', about: 'Фронтенд. Telegram: @pavel' },
     ivan: { email: 'ivan@example.com', name: 'Иван Кузнецов' },
@@ -73,9 +74,9 @@ const ru = {
 };
 
 const en: typeof ru = {
-  firstName: 'First Employee',
-  firstAbout: 'Director. Write in tasks; for anything urgent, call.',
+  timeZone: 'America/New_York',
   people: {
+    first: { email: 'michael@example.com', name: 'Michael Reed', about: 'CEO. Write in tasks; for anything urgent, call.' },
     marina: { email: 'emily@example.com', name: 'Emily Carter', about: 'Head of development' },
     pavel: { email: 'jack@example.com', name: 'Jack Turner', about: 'Frontend. Telegram: @jack' },
     ivan: { email: 'ryan@example.com', name: 'Ryan Brooks' },

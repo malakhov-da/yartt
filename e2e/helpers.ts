@@ -5,7 +5,8 @@ import { databaseUrl } from './db.ts';
 /** Direct access to the end-to-end database: sign-in tokens and lookups. */
 export const sql = postgres(databaseUrl(), { onnotice: () => {} });
 
-export const FIRST = 'first@example.com';
+/** The demo's CEO, the first employee. */
+export const FIRST = 'alexey@example.com';
 
 /** Signs in as the employee with this email through a one-time link, as from an email. */
 export async function signIn(page: Page, email = FIRST): Promise<void> {

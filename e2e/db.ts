@@ -1,4 +1,4 @@
-// The end-to-end database: a fresh one per run, next to the one vitest uses.
+// The end-to-end databases: fresh ones per run, next to the one vitest uses.
 // TEST_DATABASE_URL is the admin connection (as for `npm test`).
 
 const admin = process.env.TEST_DATABASE_URL;
@@ -8,10 +8,14 @@ export const ADMIN_URL = admin;
 export const E2E_DATABASE = 'yartt_e2e';
 export const E2E_PORT = 3100;
 export const E2E_URL = `http://localhost:${E2E_PORT}`;
+/** The demo itself (DEMO_DATA), for demo.spec.ts. */
+export const E2E_DEMO_DATABASE = 'yartt_e2e_demo';
+export const E2E_DEMO_PORT = 3101;
+export const E2E_DEMO_URL = `http://localhost:${E2E_DEMO_PORT}`;
 
-/** The admin URL pointed at the end-to-end database. */
-export function databaseUrl(): string {
+/** The admin URL pointed at an end-to-end database. */
+export function databaseUrl(database = E2E_DATABASE): string {
   const url = new URL(admin!);
-  url.pathname = `/${E2E_DATABASE}`;
+  url.pathname = `/${database}`;
   return url.toString();
 }

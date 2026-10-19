@@ -66,10 +66,6 @@ try {
       PUBLIC_URL: 'http://localhost:3000',
       SMTP_URL: '',
       WEBHOOK_URL: '',
-      FIRST_EMPLOYEE_EMAIL: 'first@example.com',
-      FIRST_EMPLOYEE_NAME: 'First Employee',
-      FIRST_EMPLOYEE_LOCALE: 'ru',
-      FIRST_EMPLOYEE_TIME_ZONE: 'Europe/Moscow',
     };
     const seed = spawnSync(process.execPath, [join(root, 'scripts', 'seed.ts')], { env, stdio: ['ignore', 'ignore', 'inherit'] });
     if (seed.status !== 0) throw new Error('The seed failed');

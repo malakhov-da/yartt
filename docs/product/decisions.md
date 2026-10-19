@@ -628,3 +628,32 @@ task, or someone answering for them, does not let them press "Done"
 `threads()` in `server/services/Comment.ts`; `trg_mention_close_check()`;
 `client/components/TaskPage/CommentItem.tsx`, `Feed.tsx`.
 
+
+### 47. The demo has no sign-in, and never touches real data
+
+Someone weighing yartt wants to see it lived in, through the eyes of a
+CEO, a manager and the people under them — not to set up mail and sign
+in to an empty screen. With `DEMO_DATA=en|ru` the image is a made-up
+company in that language, drawn avatars included: the first page lists
+its people, a click shows the interface as that person, and the profile
+menu switches to another; "Demo" in the top line says it is not real.
+Every start and every night seed it afresh, because its days are
+relative to the day it was seeded and a week-old demo shows an empty
+today; it is never migrated — a new image installs its schema anew. Open
+to anyone, it says that whatever is written there any visitor reads and
+the night erases, takes files of 2 MB at most and keeps out of search
+engines.
+
+No sign-in is safe only on made-up data, so the database says whether it
+is a demo: its schema version is `demo`, a version of its own that is
+never migrated. Only such a database is wiped, and one with tables at any
+other version stops the start with nothing touched — a mistaken
+`DEMO_DATA` neither erases a company nor opens it to everyone; the
+migrator, the other way, refuses a demo database. The other
+way, the image refuses to start for work without SMTP: no email, no
+sign-in links.
+
+*Implemented:* `schema_version` demo (migration `0.0-0.1`), `seedDemo()`,
+`refreshDemo()` in `server/demo.ts` (nightly from `server/worker.ts`), `demoTexts.ts`, `demoImages.ts`;
+`Auth.demo`, `Auth.demoSignIn`; `client/components/App/DemoPeople.tsx`;
+`prod.env.example`, `demo.env.example`.
