@@ -1,6 +1,8 @@
 # Weekly updates of dependencies, actions and the base image. Major versions
-# are pinned on purpose (AGENTS.md, Stack): moving to one is a task of its
-# own, so they are not proposed here.
+# of the stack are pinned on purpose (AGENTS.md, Stack): moving to one is a
+# task of its own, so they are not proposed here. Actions are different:
+# their majors mostly follow GitHub's runtime (Node 20 -> 24), and staying
+# behind breaks CI — they come, every kind, in one pull request a week.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -14,6 +16,8 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+    groups:
+      actions: { patterns: ['*'] }
   - package-ecosystem: docker
     directory: /
     schedule: { interval: weekly }

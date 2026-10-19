@@ -10,7 +10,7 @@ release becomes an image on Docker Hub that a company runs
 |---|---|
 | `.github/workflows/ci.yml` | every push to `master` or a maintenance branch `v1.2` and every pull request: `npm run typecheck`, `npm test`, `npm run e2e` against PostgreSQL 17 in a service container; the end-to-end report is attached when it fails |
 | `.github/workflows/release.yml` | a tag `1.2.3` (no `v`) on a commit of `master` or of `v1.2` whose CI passed there (it waits for a CI still running; nothing is checked twice), then the image for `linux/amd64` and `linux/arm64` pushed to Docker Hub as `1.2.3`, and as `1.2`, `1` and `latest` while it is the newest of them (`0` too: a minor never breaks an installation, in 0.x either), and a GitHub release with notes generated from the commits |
-| `.github/dependabot.yml` | weekly minor and patch updates of npm packages, actions and the base image; major versions are not proposed (they are pinned on purpose) |
+| `.github/dependabot.yml` | weekly minor and patch updates of npm packages and the base image — their major versions are not proposed (they are pinned on purpose); actions come in one pull request with majors too, since those follow GitHub's runtime |
 
 ## Once: the repository on GitHub
 
