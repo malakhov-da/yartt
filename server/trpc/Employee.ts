@@ -12,6 +12,7 @@ export default router({
    * Locale and time zone default to the inviter's.
    * @throws email_taken
    * @throws email_not_allowed — outside the company's domains (EMAIL_DOMAINS).
+   * @throws sso_only — people come in through the identity provider.
    */
   invite: authedProcedure
     .input(InviteInput)
@@ -30,6 +31,7 @@ export default router({
    * @throws email_taken
    * @throws email_not_allowed — outside the company's domains (EMAIL_DOMAINS).
    * @throws too_many_requests — five emails in 15 minutes.
+   * @throws sso_only — the email is the identity provider's.
    */
   requestEmailChange: authedProcedure
     .meta({ outsideDomains: true })

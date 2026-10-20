@@ -197,6 +197,11 @@ export default function () {
         {e.dismissedAt && (
           <Chip size="small" label={t('myDay.team.dismissedOn', { day: format.date(e.dismissedAt), ...pronoun(e.id) })} />
         )}
+        {e.idpBlockedAt && !e.dismissedAt && (
+          <Tooltip title={t('employee.idpBlockedHint', { day: format.date(e.idpBlockedAt) })}>
+            <Chip size="small" color="error" variant="outlined" label={t('employee.idpBlocked')} />
+          </Tooltip>
+        )}
         {away && (
           <Tooltip title={t('employee.awayUntil', { day: format.date(fromDay(e.nextDay!)) })}>
             <Chip size="small" color="warning" label={t('myDay.team.away', { day: format.date(fromDay(e.nextDay!)) })} />

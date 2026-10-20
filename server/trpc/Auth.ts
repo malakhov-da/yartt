@@ -9,8 +9,17 @@ import { authedProcedure, procedure, router } from '../trpc.ts';
 
 export default router({
   /**
+   * How one signs in here: through the company's identity provider (its
+   * name for the button), or — without one — by a link sent by email.
+   */
+  config: procedure
+    .output(z.object({ sso: z.object({ name: z.string() }).nullable() }))
+    .query(() => ({ sso: env.OIDC_ISSUER ? { name: env.OIDC_NAME } : null })),
+
+  /**
    * Sends a one-time sign-in link (valid for 10 minutes) through the webhook.
    * Always succeeds, so it cannot be used to check whether an email exists.
+   * @throws sso_only — sign-in goes through the identity provider.
    */
   requestLogin: procedure
     .input(z.object({ email: Email }))

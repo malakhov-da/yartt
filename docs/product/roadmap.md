@@ -32,13 +32,8 @@ In this order after stage 6 (S — a day, M — a few days, L — a week or more
 
 ### Corporate sign-in and bots
 
-- [ ] **Sign-in through the company's identity provider (OIDC).** Sign-in
-  links and invites close; people are created on their first sign-in and
-  known by the provider's id; a session lasts a day from sign-in; every
-  night the provider is asked whether each person may still sign in, and
-  the bots of someone it refuses stop; switching back to links is the way
-  out of an outage. With the setup for Entra, Google and Keycloak, and
-  LDAP or SAML through Keycloak. L
+- [ ] **How to set up the identity provider.** For administrators: Entra,
+  Google Workspace, Keycloak, and LDAP or SAML through Keycloak. S
 
 
 ## Decided against

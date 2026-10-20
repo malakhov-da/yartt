@@ -1,7 +1,9 @@
 import { Alert, Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router';
+import { isErrorCode } from '#shared/errors.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import { fieldErrors } from '#client/i18n/errors.ts';
 import DemoPeople, { useDemo } from './App/DemoPeople.tsx';
@@ -14,6 +16,12 @@ export default function () {
   const errors = fieldErrors(requestLogin.error);
 
   const demo = useDemo();
+  const config = useQuery(trpc.Auth.config.queryOptions());
+  const sso = config.data?.sso ?? null;
+  // A failed sign-in through the provider comes back with its code (server/sso.ts).
+  const [params] = useSearchParams();
+  const error = params.get('error');
+  const failure = error && isErrorCode(error) ? t(`errors.${error}`) : null;
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -39,7 +47,11 @@ export default function () {
         <Typography variant="h1" sx={{ mb: 3 }}>
           {t('login.title')}
         </Typography>
-        {requestLogin.isSuccess ? (
+        {failure && <Alert severity="error" sx={{ mb: 2 }}>{failure}</Alert>}
+        {/* With the company's identity provider it is the only way in (decision 53). */}
+        {sso ? (
+          <Button variant="contained" fullWidth href="/api/sso/start">{t('login.sso', { name: sso.name })}</Button>
+        ) : config.isPending ? null : requestLogin.isSuccess ? (
           <Stack spacing={2}>
             <Alert severity="success" variant="standard">
               {t('login.sent')}

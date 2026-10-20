@@ -4,6 +4,7 @@ import { NotificationPayload } from '#shared/notification.ts';
 import { refreshDemo } from './demo.ts';
 import { outsideDomains } from './domains.ts';
 import * as Bots from './services/Bot.ts';
+import { checkPeople } from './sso.ts';
 import { deliver } from './delivery.ts';
 import env from './env.ts';
 import type { Sql } from './pg.ts';
@@ -65,6 +66,11 @@ const JOBS: { name: string; every: number; run: (sql: Sql) => Promise<unknown> }
          AND NOT EXISTS (SELECT 1 FROM task WHERE tag_ids @> ARRAY[t.id])
          AND NOT EXISTS (SELECT 1 FROM user_tag WHERE tag_id = t.id)
     `,
+  },
+  {
+    name: 'idp_check',
+    every: HOUR,
+    run: (sql) => checkPeople(sql),
   },
   {
     name: 'bot_usage_cleanup',

@@ -14,6 +14,9 @@ export const ERROR_CODES = [
   // authentication
   'invalid_token',
   'too_many_requests',
+  'sso_only',
+  'sso_failed',
+  'dismissed',
 
   // employees
   'email_taken',

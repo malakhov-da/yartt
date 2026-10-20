@@ -107,6 +107,11 @@ export default function (p: { bare?: boolean }) {
                           <SmartToy fontSize="small" sx={{ color: 'text.secondary' }} />
                           <Typography variant="body2" sx={{ fontWeight: 500 }}>{bot.fullName}</Typography>
                           {bot.dismissedAt && <Chip size="small" label={t('team.dismissed')} />}
+                          {bot.stopped && !bot.dismissedAt && (
+                            <Tooltip title={t('bots.stoppedHint')}>
+                              <Chip size="small" color="error" variant="outlined" label={t('bots.stopped')} />
+                            </Tooltip>
+                          )}
                           {oldKey && (
                             <Tooltip title={t('bots.oldKeyHint', { day: format.date(bot.keyIssuedAt) })}>
                               <WarningAmber fontSize="small" sx={{ color: 'warning.dark' }} aria-label={t('bots.oldKey')} />

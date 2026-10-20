@@ -10,6 +10,8 @@ export async function bootstrap(sql: Sql): Promise<void> {
     await tx`SELECT pg_advisory_xact_lock(hashtext('yartt.bootstrap'))`;
     const [row] = Exists.array().parse(await tx`SELECT EXISTS (SELECT 1 FROM employee)`);
     if (row?.exists) return;
+    // With the identity provider the first one to sign in through it is the first employee.
+    if (env.OIDC_ISSUER) return;
 
     if (!env.FIRST_EMPLOYEE_EMAIL || !env.FIRST_EMPLOYEE_NAME) {
       throw new Error('No employees yet: set FIRST_EMPLOYEE_EMAIL and FIRST_EMPLOYEE_NAME to create the first one');

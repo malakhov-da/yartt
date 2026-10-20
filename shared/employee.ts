@@ -42,6 +42,8 @@ export const Employee = z.object({
   keyboards: Keyboard.array().nullable(),
   /** When the avatar was last set; NULL — none, the initials are shown. */
   avatarAt: z.date().nullable(),
+  /** When the company's identity provider stopped letting them in; NULL — it lets them, or there is none. */
+  idpBlockedAt: z.date().nullable(),
 });
 export type Employee = z.infer<typeof Employee>;
 

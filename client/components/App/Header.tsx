@@ -27,6 +27,7 @@ export default function () {
   const me = useMe();
   const [menu, setMenu] = useState<HTMLElement | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const sso = useQuery(trpc.Auth.config.queryOptions()).data?.sso ?? null;
   const [profileOpen, setProfileOpen] = useState(false);
   const signedOut = useSignedOut();
   const logout = useMutation(trpc.Auth.logout.mutationOptions({
@@ -54,11 +55,14 @@ export default function () {
         <Box sx={{ flexGrow: 1 }} />
         <TopStatus />
         <AwayButton />
-        <Tooltip title={t('nav.invite')}>
-          <IconButton onClick={() => setInviteOpen(true)}>
-            <PersonAddAlt1 />
-          </IconButton>
-        </Tooltip>
+        {/* With the company's identity provider people come in by signing in through it. */}
+        {!sso && (
+          <Tooltip title={t('nav.invite')}>
+            <IconButton onClick={() => setInviteOpen(true)}>
+              <PersonAddAlt1 />
+            </IconButton>
+          </Tooltip>
+        )}
         <ButtonBase
           onClick={(e) => setMenu(e.currentTarget)}
           sx={{ display: 'flex', gap: 1, px: 1, py: 0.5, borderRadius: 1 }}

@@ -335,7 +335,10 @@ What the application must be able to do. No URLs — they are defined when
 the API is implemented.
 
   Authentication:
-    - Request sign-in by email -> issue_token(), send the link through the
+    - With the company''s identity provider configured (OIDC), only through
+      it: the provider''s answer -> sign_in_external(); no sign-in links, no
+      invites (people come in by signing in).
+    - Otherwise: request sign-in by email -> issue_token(), send the link through the
       webhook directly (not through notification — the token must not lie
       in the database in plain text).
     - Follow the link from the email -> login(), set the cookie.
@@ -614,6 +617,9 @@ CRON JOBS (outside SQL)
                      AND NOT attachment_in_use(a.id);
   - every day:    DELETE FROM visit WHERE at < NOW() - INTERVAL ''1 year'';
   - every day:    DELETE FROM bot_usage WHERE day < CURRENT_DATE - 366;
+  - every hour:   ask the identity provider about people last checked a
+                  day ago or more (human.idp_refresh_token); a refusal ->
+                  SELECT idp_refused(employee_id).
   - every day:    SELECT send_bot_key_reminders();
   - every day:    DELETE FROM tag t
                    WHERE created_at < NOW() - INTERVAL ''1 day''
@@ -812,6 +818,10 @@ CREATE TABLE human (
     keyboards keyboard[],
     weekly_digest_on DATE,
     outside_domains_told_at TIMESTAMPTZ,
+    external_id TEXT UNIQUE,
+    idp_refresh_token TEXT,
+    idp_checked_at TIMESTAMPTZ,
+    idp_blocked_at TIMESTAMPTZ,
     FOREIGN KEY (employee_id, kind) REFERENCES employee(id, kind)
 );
 
@@ -851,6 +861,25 @@ company''s mail domains (EMAIL_DOMAINS in the configuration — the
 database does not know them). Until they change it their notifications
 reach the bell and the webhook, and their mail gets only this request,
 at most once a day.';
+
+COMMENT ON COLUMN human.external_id IS
+'Who the person is at the company''s identity provider (the OIDC sub):
+sign-in through it finds them by this, whatever their email becomes
+there. Set on their first sign-in through it (sign_in_external()).';
+
+COMMENT ON COLUMN human.idp_refresh_token IS
+'The provider''s refresh token from their last sign-in, to ask it every
+day whether they may still sign in (the idp_check cron). Useless
+without the client secret, which only the configuration holds.';
+
+COMMENT ON COLUMN human.idp_checked_at IS
+'When the provider last said they may sign in (a sign-in or a check).';
+
+COMMENT ON COLUMN human.idp_blocked_at IS
+'When the provider refused them (idp_refused()): their sessions ended,
+their bots stopped, sign-in links are refused too. Not a dismissal: their
+tasks and people stay until their manager dismisses them. Cleared by their
+next sign-in through the provider.';
 
 
 -- ----------------------------------------------------------------------------
@@ -1062,15 +1091,20 @@ COMMENT ON INDEX idx_token_sent_at IS
 CREATE TABLE session (
     hash BYTEA PRIMARY KEY,
     employee_id INT NOT NULL REFERENCES human(employee_id),
-    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX idx_session_employee ON session(employee_id);
 CREATE INDEX idx_session_last_seen ON session(last_seen_at);
 
 COMMENT ON TABLE session IS
-'Live cookies. Created by login(), checked by authenticate().
-Session TTL is by inactivity: cron deletes sessions not seen for > 30 days.
-An active user is never logged out.
+'Live cookies. Created by start_session() (a sign-in link or the
+identity provider), checked by authenticate().
+Signing in by email, the TTL is by inactivity: cron deletes sessions not
+seen for > 30 days, and an active user is never logged out. Signing in
+through the company''s identity provider, a session lasts a day from
+sign-in, active or not: someone the provider stops letting in is out by
+the next day (authenticate(p_lifetime)).
 Logout — DELETE. "Log out everywhere" — DELETE WHERE employee_id = ?.
 Dismissal deletes all sessions of the employee.';
 
@@ -1079,6 +1113,10 @@ COMMENT ON COLUMN session.hash IS
 
 COMMENT ON COLUMN session.employee_id IS
 'Whose session.';
+
+COMMENT ON COLUMN session.created_at IS
+'When the person signed in: with the identity provider, the session
+ends a day later.';
 
 COMMENT ON COLUMN session.last_seen_at IS
 'Moment of the last activity.
@@ -3110,7 +3148,9 @@ DECLARE
     v_employee_id INT;
     v_token TEXT;
 BEGIN
-    SELECT id INTO v_employee_id FROM employee WHERE email = p_email AND dismissed_at IS NULL;
+    SELECT e.id INTO v_employee_id
+      FROM employee e JOIN human h ON h.employee_id = e.id
+     WHERE e.email = p_email AND e.dismissed_at IS NULL AND h.idp_blocked_at IS NULL;
     IF NOT FOUND THEN
         RETURN NULL;
     END IF;
@@ -3130,16 +3170,33 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION issue_token(CITEXT) IS
 'Issues a magic token for the sign-in link (sent to the webhook directly).
-NULL — no such employee (or dismissed), or 5 links in the last 15 minutes
+NULL — no such employee (or dismissed, or refused by the identity provider
+— idp_blocked_at), or 5 links in the last 15 minutes
 already (the same answer, so the limit reveals nothing).
 The application should not reveal to the user that the email is unknown.';
+
+
+CREATE OR REPLACE FUNCTION start_session(p_employee_id INT)
+RETURNS TEXT AS $$
+DECLARE
+    v_session TEXT := encode(gen_random_bytes(32), 'hex');
+BEGIN
+    INSERT INTO session (hash, employee_id)
+    VALUES (digest(v_session, 'sha256'), p_employee_id);
+    RETURN v_session;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION start_session(INT) IS
+'A new session for a person: returns the token for the cookie, keeps its
+hash. Called once the person is known — by a sign-in link (login()) or
+by the identity provider (sign_in_external()).';
 
 
 CREATE OR REPLACE FUNCTION login(p_token TEXT)
 RETURNS TEXT AS $$
 DECLARE
     v_employee_id INT;
-    v_session TEXT;
 BEGIN
     DELETE FROM token
      WHERE hash = digest(p_token, 'sha256')
@@ -3150,11 +3207,7 @@ BEGIN
     IF v_employee_id IS NULL THEN
         RETURN NULL;
     END IF;
-
-    v_session := encode(gen_random_bytes(32), 'hex');
-    INSERT INTO session (hash, employee_id)
-    VALUES (digest(v_session, 'sha256'), v_employee_id);
-    RETURN v_session;
+    RETURN start_session(v_employee_id);
 END;
 $$ LANGUAGE plpgsql;
 
@@ -3231,7 +3284,86 @@ becomes the employee''s, and their other pending changes are dropped.
 Signs nobody in. email_taken if someone working took the address since.';
 
 
-CREATE OR REPLACE FUNCTION authenticate(p_session TEXT)
+CREATE OR REPLACE FUNCTION sign_in_external(
+    p_sub TEXT,
+    p_email CITEXT,
+    p_email_verified BOOLEAN,
+    p_full_name TEXT,
+    p_locale TEXT,
+    p_time_zone TEXT,
+    p_refresh_token TEXT
+)
+RETURNS TEXT AS $$
+DECLARE
+    v_id INT;
+    v_dismissed_at TIMESTAMPTZ;
+BEGIN
+    -- Two tabs coming back from the provider at once must not create two people.
+    PERFORM pg_advisory_xact_lock(hashtext('yartt.sso'), hashtext(p_sub));
+
+    SELECT e.id, e.dismissed_at INTO v_id, v_dismissed_at
+      FROM human h JOIN employee e ON e.id = h.employee_id
+     WHERE h.external_id = p_sub;
+    -- Someone invited before, signing in through the provider for the first
+    -- time: found by an email the provider vouches for, then by the provider''s id.
+    IF v_id IS NULL AND p_email IS NOT NULL AND p_email_verified THEN
+        SELECT e.id, e.dismissed_at INTO v_id, v_dismissed_at
+          FROM employee e JOIN human h ON h.employee_id = e.id
+         WHERE e.email = p_email AND h.external_id IS NULL
+         ORDER BY e.dismissed_at IS NULL DESC, e.dismissed_at DESC
+         LIMIT 1;
+        IF v_id IS NOT NULL THEN
+            UPDATE human SET external_id = p_sub WHERE employee_id = v_id;
+        END IF;
+    END IF;
+    IF v_dismissed_at IS NOT NULL THEN
+        RAISE EXCEPTION 'employee % is dismissed', v_id
+            USING HINT = 'dismissed';
+    END IF;
+
+    IF v_id IS NULL THEN
+        INSERT INTO employee (email, full_name, locale, time_zone)
+        VALUES (p_email, p_full_name, p_locale, p_time_zone)
+        RETURNING id INTO v_id;
+        INSERT INTO human (employee_id, external_id) VALUES (v_id, p_sub);
+    ELSE
+        UPDATE employee SET email = p_email WHERE id = v_id AND email IS DISTINCT FROM p_email;
+    END IF;
+
+    UPDATE human
+       SET idp_refresh_token = COALESCE(p_refresh_token, idp_refresh_token),
+           idp_checked_at = NOW(),
+           idp_blocked_at = NULL
+     WHERE employee_id = v_id;
+    RETURN start_session(v_id);
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION sign_in_external(TEXT, CITEXT, BOOLEAN, TEXT, TEXT, TEXT, TEXT) IS
+'A person the company''s identity provider let in (OIDC): returns a
+session token. Known by their provider id (human.external_id); someone
+invited before is found once by an email the provider vouches for; anyone
+else is created — the provider decides who may enter. Their email follows
+the provider''s. A dismissed person is refused (dismissed): only their
+manager brings them back. The application checks the email''s domain.';
+
+
+CREATE OR REPLACE FUNCTION idp_refused(p_employee_id INT)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE human SET idp_blocked_at = NOW(), idp_refresh_token = NULL WHERE employee_id = p_employee_id;
+    DELETE FROM session WHERE employee_id = p_employee_id;
+    DELETE FROM token WHERE employee_id = p_employee_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION idp_refused(INT) IS
+'The identity provider no longer lets the person in (the idp_check cron):
+their sessions and links end and their bots stop (authenticate_bot). Not
+a dismissal — their manager decides that; My team shows it.';
+
+
+CREATE OR REPLACE FUNCTION authenticate(p_session TEXT, p_lifetime INTERVAL DEFAULT NULL)
 RETURNS INT AS $$
 DECLARE
     v_employee_id INT;
@@ -3243,14 +3375,17 @@ BEGIN
 
     SELECT employee_id INTO v_employee_id FROM session
      WHERE hash = digest(p_session, 'sha256')
-       AND last_seen_at > NOW() - INTERVAL '30 days';
+       AND last_seen_at > NOW() - INTERVAL '30 days'
+       AND (p_lifetime IS NULL OR created_at > NOW() - p_lifetime);
     RETURN v_employee_id;
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION authenticate(TEXT) IS
+COMMENT ON FUNCTION authenticate(TEXT, INTERVAL) IS
 'Employee id for a cookie token, or NULL. Extends the session
-(last_seen_at is written at most once every 5 minutes).';
+(last_seen_at is written at most once every 5 minutes). p_lifetime — how
+long a session lives from sign-in whatever the activity (a day with the
+identity provider); NULL — only the 30 days of inactivity.';
 
 
 -- ----------------------------------------------------------------------------
@@ -3356,12 +3491,16 @@ nobody knows, so the new manager issues the next (reset_bot_key()).';
 CREATE OR REPLACE FUNCTION authenticate_bot(p_key TEXT)
 RETURNS INT AS $$
     SELECT b.employee_id
-      FROM bot b JOIN employee e ON e.id = b.employee_id
-     WHERE b.key_hash = digest(p_key, 'sha256') AND e.dismissed_at IS NULL
+      FROM bot b
+      JOIN employee e ON e.id = b.employee_id
+      JOIN human m ON m.employee_id = e.manager_id
+     WHERE b.key_hash = digest(p_key, 'sha256') AND e.dismissed_at IS NULL AND m.idp_blocked_at IS NULL
 $$ LANGUAGE sql STABLE;
 
 COMMENT ON FUNCTION authenticate_bot(TEXT) IS
-'The bot a key belongs to, or NULL (unknown, replaced, or the bot dismissed).';
+'The bot a key belongs to, or NULL (unknown, replaced, the bot dismissed,
+or its manager refused by the identity provider — whoever runs a bot must
+be someone the company still lets in).';
 
 
 CREATE OR REPLACE FUNCTION count_bot_request(p_bot_id INT, p_refused BOOLEAN)
@@ -3930,6 +4069,7 @@ DECLARE
     v_unscored INT;
     v_expired INT;
     v_at_risk INT;
+    v_blocked INT;
     v_sent INT := 0;
 BEGIN
     FOR v_manager IN
@@ -3964,13 +4104,18 @@ BEGIN
           FROM task k
          WHERE k.owner_id IN (SELECT subordinates(v_manager.id))
            AND EXISTS (SELECT 1 FROM deadline_risk(k.id));
+        -- Direct reports the identity provider no longer lets in, not dismissed yet.
+        SELECT count(*) INTO v_blocked
+          FROM employee r JOIN human h ON h.employee_id = r.id
+         WHERE r.manager_id = v_manager.id AND r.dismissed_at IS NULL AND h.idp_blocked_at IS NOT NULL;
 
         UPDATE human SET weekly_digest_on = (p_now AT TIME ZONE v_manager.time_zone)::date WHERE employee_id = v_manager.id;
         -- Nothing to say, nothing sent: a quiet week needs no email.
-        IF v_unscored + v_expired + v_at_risk > 0 THEN
+        IF v_unscored + v_expired + v_at_risk + v_blocked > 0 THEN
             INSERT INTO notification (employee_id, task_id, payload)
             VALUES (v_manager.id, NULL, jsonb_build_object(
-                'kind', 'weekly_digest', 'unscored', v_unscored, 'expired', v_expired, 'atRisk', v_at_risk));
+                'kind', 'weekly_digest', 'unscored', v_unscored, 'expired', v_expired, 'atRisk', v_at_risk,
+                'blocked', v_blocked));
             v_sent := v_sent + 1;
         END IF;
     END LOOP;
@@ -3982,7 +4127,8 @@ COMMENT ON FUNCTION send_weekly_digests(TIMESTAMPTZ) IS
 'Cron, every hour: on Monday from 09:00 in each manager''s time zone,
 once a week, a summary of what waits for them — days of direct reports
 waiting for a score (the last 30), tasks of the subtree closed
-automatically last week, tasks of the subtree at risk now. Sent only if
+automatically last week, tasks of the subtree at risk now, direct reports
+the identity provider no longer lets in (to dismiss). Sent only if
 something is there; not copied to anyone (it is about their own team).
 Only for someone with people under them (bots do not count).
 Safe with several workers (SKIP LOCKED, weekly_digest_on). p_now is the

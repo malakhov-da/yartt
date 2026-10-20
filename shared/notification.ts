@@ -45,6 +45,8 @@ export const NotificationPayload = z.discriminatedUnion('kind', [
     expired: z.number().int(),
     /** Tasks of the subtree at risk now. */
     atRisk: z.number().int(),
+    /** Direct reports the identity provider no longer lets in, not dismissed yet; absent before 0.2. */
+    blocked: z.number().int().default(0),
     ...Copy,
   }),
   // Once a year of a bot's key's age, to its manager: the key keeps working.

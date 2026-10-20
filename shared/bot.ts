@@ -22,6 +22,8 @@ export const Bot = z.object({
   keyIssuedAt: z.date(),
   /** When dismissed; NULL — working. */
   dismissedAt: z.date().nullable(),
+  /** Stopped: the identity provider no longer lets its manager in (db.sql, authenticate_bot). */
+  stopped: z.boolean(),
 });
 export type Bot = z.infer<typeof Bot>;
 

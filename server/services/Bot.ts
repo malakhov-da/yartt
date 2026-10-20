@@ -10,7 +10,8 @@ const Authenticated = z.object({ id: z.number(), permissions: BotPermission.arra
 const columns = (viewerId: number) => sql`
   e.id, e.full_name, e.about, e.pronoun, e.manager_id, b.permissions::text[] AS permissions,
   b.webhook_url, CASE WHEN e.manager_id = ${viewerId} THEN b.webhook_secret END AS webhook_secret,
-  b.key_issued_at, e.dismissed_at
+  b.key_issued_at, e.dismissed_at,
+  EXISTS (SELECT 1 FROM human m WHERE m.employee_id = e.manager_id AND m.idp_blocked_at IS NOT NULL) AS stopped
 `;
 
 /**

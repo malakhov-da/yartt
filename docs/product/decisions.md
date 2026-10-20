@@ -775,3 +775,33 @@ the company's addresses on their own.
 `Meta.outsideDomains` and the check in `server/trpc.ts`; `Auth.me`
 (`Me`); `human.outside_domains_told_at` (migration `0.1-0.2`) and the
 request in `server/worker.ts`; `client/components/OutsideDomainsPage.tsx`.
+
+### 53. With the company's identity provider, it is the only way in
+
+A company with Entra, Google Workspace or Keycloak wants one account for
+everything and one switch to cut someone off. With `OIDC_ISSUER` set,
+yartt signs people in only through it (OpenID Connect, the authorization
+code with PKCE): no sign-in links, no invites, no changing one's email —
+the provider decides who comes in and what their address is. Someone
+new is created on their first sign-in, known afterwards by the
+provider's id, not the email, which may change there; someone invited
+before is found once by an email the provider vouches for; a dismissed
+person is refused — only their manager brings them back.
+
+Cutting someone off must reach yartt without a person remembering to,
+yet a manager's decisions stay theirs. So a session lasts a day from
+sign-in, active or not, and every day the worker asks the provider, with
+the refresh token of the person's last sign-in, whether they may still
+sign in. A refusal ends their sessions and links and stops their bots —
+whoever runs a bot must be someone the company still lets in — and shows
+in My team and in their manager's Monday email; dismissing them, with
+their tasks and people, stays the manager's act. LDAP is not spoken
+directly, so yartt never sees a password: Keycloak or Authentik bridges
+LDAP and SAML to OIDC. An outage of the provider is handled by turning
+the setting off: sign-in links work again on the same data.
+
+*Implemented:* `server/sso.ts` (openid-client); `sign_in_external()`,
+`start_session()`, `idp_refused()`, `authenticate(p_lifetime)`,
+`human.external_id`, `idp_*`, `session.created_at` (migration
+`0.1-0.2`); the `idp_check` cron; `Auth.config`; the login page;
+`docs/admin/install.md`.

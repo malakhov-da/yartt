@@ -19,6 +19,7 @@ const Recipient = Employee.pick({ id: true, fullName: true, timeZone: true })
  * whether the email exists.
  */
 export async function requestLogin(email: string): Promise<void> {
+  if (env.OIDC_ISSUER) throw new AppError('sso_only');
   const [token] = Token.array().parse(await sql`SELECT issue_token(${email}) AS token`);
   if (!token?.token) return;
 
@@ -41,10 +42,40 @@ export async function login(token: string): Promise<string> {
   return row.session;
 }
 
-/** Employee id for a session token, or null; extends the session. */
+/**
+ * Employee id for a session token, or null; extends the session. With the
+ * identity provider a session lasts a day from sign-in (decision 53).
+ */
 export async function authenticate(sessionToken: string): Promise<number | null> {
-  const [row] = EmployeeId.array().parse(await sql`SELECT authenticate(${sessionToken}) AS id`);
+  const lifetime = env.OIDC_ISSUER ? '1 day' : null;
+  const [row] = EmployeeId.array().parse(await sql`SELECT authenticate(${sessionToken}, ${lifetime}::interval) AS id`);
   return row?.id ?? null;
+}
+
+/** Who the identity provider let in (server/sso.ts). */
+export type External = {
+  sub: string;
+  email: string | null;
+  /** The provider vouches for the email: only then is someone invited before found by it. */
+  emailVerified: boolean;
+  fullName: string;
+  locale: string;
+  timeZone: string;
+  refreshToken: string | null;
+};
+
+/**
+ * A session for the person the provider let in: found by their provider
+ * id, once by a vouched email, or created (sign_in_external()).
+ * @throws dismissed
+ * @throws email_taken — their new email at the provider belongs to someone else here.
+ */
+export async function signInExternal(p: External): Promise<string> {
+  const [row] = Session.array().parse(await sql`
+    SELECT sign_in_external(${p.sub}, ${p.email}, ${p.emailVerified}, ${p.fullName}, ${p.locale}, ${p.timeZone}, ${p.refreshToken}) AS session
+  `);
+  if (!row?.session) throw new AppError('sso_failed');
+  return row.session;
 }
 
 /** The demo: everyone who can sign in, in the order they joined. */

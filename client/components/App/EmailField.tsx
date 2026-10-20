@@ -1,5 +1,5 @@
 import { Button, Stack, TextField } from '@mui/material';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDraft } from '#client/hooks/drafts.ts';
@@ -26,7 +26,20 @@ export default function () {
     },
   }));
   const errors = fieldErrors(request.error);
+  // With the company's identity provider the address is its: nothing to change here.
+  const sso = useQuery(trpc.Auth.config.queryOptions()).data?.sso ?? null;
 
+  if (sso) {
+    return (
+      <TextField
+        label={t('profile.email')}
+        value={me.email ?? ''}
+        placeholder={t('profile.noEmail')}
+        helperText={t('profile.emailFromSso', { name: sso.name })}
+        slotProps={{ input: { readOnly: true }, inputLabel: { shrink: true } }}
+      />
+    );
+  }
   if (!editing) {
     return (
       <Stack direction="row" sx={{ alignItems: 'center', gap: 1 }}>

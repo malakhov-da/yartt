@@ -32,6 +32,9 @@ export default function (p: { id: number }) {
           <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
             {employee.kind === 'bot' && <Chip size="small" label={t('bots.chip')} />}
             {employee.dismissedAt !== null && <Chip size="small" label={t('team.dismissed')} />}
+            {employee.idpBlockedAt !== null && employee.dismissedAt === null && (
+              <Chip size="small" color="error" variant="outlined" label={t('employee.idpBlocked')} />
+            )}
             {away && <Chip size="small" color="warning" label={t('employee.awayUntil', { day: format.date(fromDay(employee.nextDay!)) })} />}
           </Stack>
           {employee.about && <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{employee.about}</Typography>}

@@ -29,6 +29,13 @@ const EnvSchema = z.object({
   EMAIL_DOMAINS: z.string().optional()
     .transform((value) => (value ?? '').split(',').map((d) => d.trim().toLowerCase()).filter(Boolean))
     .pipe(z.string().regex(/^[a-z0-9-]+(\.[a-z0-9-]+)+$/, 'a domain such as corp.com').array()),
+  // Sign-in through the company's identity provider (OpenID Connect): its
+  // issuer URL and this application's client there. Set — the only way in:
+  // no sign-in links, no invites. OIDC_NAME is on the button ("Microsoft").
+  OIDC_ISSUER: z.url().optional().or(z.literal('').transform(() => undefined)),
+  OIDC_CLIENT_ID: z.string().optional(),
+  OIDC_CLIENT_SECRET: z.string().optional(),
+  OIDC_NAME: z.string().min(1).default('SSO'),
   // A trial: the demo company in this language on the first start (an empty
   // database), and no sign-in — anyone picks whom to see it as. Unset for work.
   DEMO_DATA: z.enum(DEMO_LANGUAGES).optional().or(z.literal('').transform(() => undefined)),
@@ -50,6 +57,14 @@ if (result.data.NODE_ENV === 'production' && !result.data.DEMO_DATA && !result.d
 const firstDomain = result.data.FIRST_EMPLOYEE_EMAIL?.split('@').pop()?.toLowerCase();
 if (result.data.EMAIL_DOMAINS.length && firstDomain && !result.data.EMAIL_DOMAINS.includes(firstDomain)) {
   console.error(`Invalid configuration: FIRST_EMPLOYEE_EMAIL is outside EMAIL_DOMAINS (${result.data.EMAIL_DOMAINS.join(', ')})`);
+  process.exit(1);
+}
+if (result.data.OIDC_ISSUER && (!result.data.OIDC_CLIENT_ID || !result.data.OIDC_CLIENT_SECRET)) {
+  console.error('Invalid configuration: OIDC_CLIENT_ID and OIDC_CLIENT_SECRET are required with OIDC_ISSUER');
+  process.exit(1);
+}
+if (result.data.OIDC_ISSUER && result.data.DEMO_DATA) {
+  console.error('Invalid configuration: the demo has no sign-in — unset OIDC_ISSUER or DEMO_DATA');
   process.exit(1);
 }
 if (result.data.WEBHOOK_URL && !result.data.WEBHOOK_SECRET) {

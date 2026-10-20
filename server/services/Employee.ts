@@ -8,7 +8,8 @@ import { sql } from '../pg.ts';
 
 // A person's own fields come from human; a bot has none there.
 const COLUMNS = 'e.id, e.kind, e.email, e.dismissed_at, e.full_name, e.about, e.manager_id, h.next_day, e.time_zone, e.locale, '
-  + 'e.pronoun, h.keyboards::text[] AS keyboards, (SELECT updated_at FROM avatar a WHERE a.employee_id = e.id) AS avatar_at';
+  + 'e.pronoun, h.keyboards::text[] AS keyboards, (SELECT updated_at FROM avatar a WHERE a.employee_id = e.id) AS avatar_at, '
+  + 'h.idp_blocked_at';
 const FROM = 'employee e LEFT JOIN human h ON h.employee_id = e.id';
 const Exists = z.object({ exists: z.boolean() });
 
@@ -29,6 +30,8 @@ const Created = z.object({ id: z.number() });
 
 /** Locale and time zone default to the inviter's; the invitee is notified. */
 export async function invite(inviterId: number, input: InviteInput): Promise<Employee> {
+  // With the identity provider people come in by signing in through it.
+  if (env.OIDC_ISSUER) throw new AppError('sso_only');
   assertEmailAllowed(input.email);
   const id = await sql.begin(async (tx) => {
     const [row] = Created.array().parse(await tx`
@@ -67,6 +70,8 @@ const Token = z.object({ token: z.string() });
  * address too, in case it was not them. The email stays until then.
  */
 export async function requestEmailChange(id: number, email: string): Promise<void> {
+  // With the identity provider the email is the provider's.
+  if (env.OIDC_ISSUER) throw new AppError('sso_only');
   assertEmailAllowed(email);
   const [row] = Token.array().parse(await sql`SELECT request_email_change(${id}, ${email}) AS token`);
   const me = (await get(id))!;

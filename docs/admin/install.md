@@ -33,9 +33,11 @@ work, [demo.env.example](../../demo.env.example) for a trial. Copy one to
 | `SMTP_URL` | yes, but in the demo | `smtp://user:password@host:587` or `smtps://user:password@host:465` |
 | `MAIL_FROM` | with `SMTP_URL` | e.g. `yartt <noreply@example.com>` |
 | `WEBHOOK_URL`, `WEBHOOK_SECRET` | no | an extra channel (Telegram, Slack, …): every message is POSTed there as JSON with the header `X-Yartt-Signature: sha256=<hex>` — HMAC-SHA256 of the body with the secret |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | no | sign-in through the company's identity provider (OpenID Connect) — then the only way in ([below](#sign-in-through-the-companys-identity-provider)) |
+| `OIDC_NAME` | no | the provider's name on the sign-in button, e.g. `Microsoft`; default `SSO` |
 | `EMAIL_DOMAINS` | no | the company's mail domains, comma-separated (`corp.com,corp.kz`): no other address can be invited or set; someone who already has one signs in only to change it, and their mail gets that request instead of notifications, once a day. Exact domains, subdomains are not included. Empty — any address |
 | `COOKIE_SECURE` | no | `true` (default) — keep it unless you test over plain HTTP |
-| `FIRST_EMPLOYEE_EMAIL`, `FIRST_EMPLOYEE_NAME` | first start | the first employee, created only while there are no employees |
+| `FIRST_EMPLOYEE_EMAIL`, `FIRST_EMPLOYEE_NAME` | first start, without `OIDC_ISSUER` | the first employee, created only while there are no employees |
 | `FIRST_EMPLOYEE_LOCALE`, `FIRST_EMPLOYEE_TIME_ZONE` | no | `ru` / `en`; an IANA zone such as `Europe/Moscow`. Invited employees inherit them from whoever invites |
 | `DEMO_DATA` | only in the demo | `ru` / `en` — a trial: the demo company in that language, seeded afresh on every start, no sign-in ([below](#a-trial-with-demo-data)). Never for work |
 
@@ -105,6 +107,39 @@ visitor and starts afresh every night; files are limited to 2 MB, so
 nobody fills the database; and its pages ask search engines not to index
 them (`X-Robots-Tag: noindex`).
 
+## Sign-in through the company's identity provider
+
+With `OIDC_ISSUER` set, people sign in only with their company account —
+any provider that speaks OpenID Connect: Microsoft Entra ID, Google
+Workspace, Okta, Keycloak, Authentik. Register yartt there as a web
+application (a confidential client) with the redirect URI
+`<PUBLIC_URL>/api/sso/callback`, and give yartt its issuer URL, client ID
+and secret. Then:
+
+- **Who comes in is the provider's decision.** Assign the application to
+  the people or groups who should use yartt. Anyone it lets in for the
+  first time is created; someone invited before is found by the email the
+  provider vouches for. Invites and sign-in links are off; so is changing
+  one's email — it follows the provider. `FIRST_EMPLOYEE_*` is not needed:
+  the first person to sign in is the first employee.
+- **A session lasts a day from sign-in**, so someone the provider stops
+  letting in is out by the next day.
+- **Every day yartt asks the provider** whether each person may still
+  sign in, with the refresh token of their last sign-in (the
+  `offline_access` scope, or Google's offline access — asked for
+  automatically). A refusal ends their sessions and stops their bots; My
+  team marks them and their manager's Monday email names them, to dismiss
+  — a refusal is not a dismissal. A provider that gives no refresh tokens
+  is not asked: then only the day-long session protects.
+- **`EMAIL_DOMAINS` applies too**: an account with an address outside them
+  is refused.
+- **An outage of the provider**: unset `OIDC_ISSUER` and restart — people
+  sign in by email links again, the data does not change; set it back
+  when the provider is up. People the provider refused stay refused.
+
+The provider's own setup — Entra, Google, Keycloak, and LDAP or SAML
+through Keycloak — is in [identity providers](sso.md).
+
 ## Dismissing someone who will not hand over
 
 In the product only a manager dismisses, so nobody can dismiss the person
@@ -133,6 +168,7 @@ application does not do it. There are no downgrades.
 
 Everything is in PostgreSQL, files included (attachments and avatars are
 stored in the database). A regular `pg_dump` is a complete backup. The
-worker removes on its own: sign-in tokens after an hour, sessions after 30
-days of inactivity, notifications and visits after a year, files no
+worker removes on its own: sign-in tokens after an hour (email-change
+ones after two days), sessions after 30 days of inactivity (a day from
+sign-in with the identity provider), bot activity after a year, notifications and visits after a year, files no
 comment or task refers to after a day.
