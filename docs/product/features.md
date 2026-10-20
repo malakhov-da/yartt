@@ -11,7 +11,7 @@ persona goal it serves. Status: **now** — stage one, **next** — stage two,
 | Sign-in by a one-time link, no passwords | everyone: nothing to forget | now (done) |
 | Invite a colleague by email, from the top line | Marina: bring the team in herself | now (done) |
 | "I'll be away" from the top line: the day I'm back in one click, seen on every page | everyone: going on leave takes a second, and nothing waits unseen meanwhile | now (done) |
-| Profile behind the avatar: name, sign-in email, about me (position, contacts); back at work on (vacation, sick leave), time zone, language, pronoun applied at once | Pavel: control what others see | now (done) |
+| Profile behind the avatar: name, sign-in email (a new one confirmed by a link sent there), about me (position, contacts); back at work on (vacation, sick leave), time zone, language, pronoun applied at once | Pavel: control what others see | now (done) |
 | Choose own manager | Marina: the org chart builds itself | now (done) |
 | Dismiss / bring back a direct report, with the email they had; their tasks and reports move to the manager | Marina: no orphaned work, nobody else can do it | now (done) |
 | The new manager is notified when someone chooses them | Marina: no surprise reports | now (done) |

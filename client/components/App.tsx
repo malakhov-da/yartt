@@ -8,6 +8,7 @@ import Header from './App/Header.tsx';
 import Notifications from './App/Notifications.tsx';
 import { useMe } from '#client/hooks/me.ts';
 import EmployeePage from './EmployeePage.tsx';
+import EmailConfirmPage from './EmailConfirmPage.tsx';
 import LoginCallbackPage from './LoginCallbackPage.tsx';
 import LoginPage from './LoginPage.tsx';
 import MyDayPage from './MyDayPage.tsx';
@@ -39,6 +40,16 @@ export default function () {
       <Box sx={{ display: 'grid', placeItems: 'center', height: '100%' }}>
         <CircularProgress />
       </Box>
+    );
+  }
+
+  // A link from a new address confirms it whoever is signed in here, or nobody.
+  if (matchPath('/email/:token', pathname)) {
+    return (
+      <>
+        <Notifications />
+        <Routes><Route path="/email/:token" element={<EmailConfirmPage />} /></Routes>
+      </>
     );
   }
 

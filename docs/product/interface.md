@@ -323,9 +323,11 @@ chart (decision 23). A bot's page is only who it is and who runs it.
 
 A dialog behind my avatar, not a screen.
 
-- **Name, sign-in email, about me** — what I write; saved with one button.
-  "About me" is free text: position, how to reach me, anything colleagues
-  should know.
+- **Name, about me** — what I write; saved with one button. "About me" is
+  free text: position, how to reach me, anything colleagues should know.
+- **Sign-in email** — changed with "Change": a link goes to the new
+  address, which becomes mine only when it is followed, within a day; the
+  old address gets a word (decision 51).
 - **Back at work on, time zone, language, my manager** — applied as soon as
   picked, no button. "Back at work on" covers any absence: vacation, sick
   leave, a day off; until that day my notifications are copied to my

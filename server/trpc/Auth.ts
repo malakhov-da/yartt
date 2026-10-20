@@ -27,6 +27,17 @@ export default router({
       ctx.setSessionCookie(await Auth.login(input.token));
     }),
 
+  /**
+   * Follows the link sent to a new address: it becomes the sign-in email of
+   * whoever asked. Signs nobody in. Anyone may call it — the token is the proof.
+   * @throws invalid_token — unknown, used or older than a day.
+   * @throws email_taken — someone took the address since.
+   */
+  confirmEmail: procedure
+    .input(z.object({ token: z.string().min(1).max(200) }))
+    .output(z.void())
+    .mutation(({ input }) => Employees.confirmEmailChange(input.token)),
+
   /** Ends the current session and clears the cookie. */
   logout: authedProcedure.output(z.void()).mutation(async ({ ctx }) => {
     if (ctx.sessionToken) await Auth.logout(ctx.sessionToken);

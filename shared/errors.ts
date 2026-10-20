@@ -13,6 +13,7 @@ export const ERROR_CODES = [
 
   // authentication
   'invalid_token',
+  'too_many_requests',
 
   // employees
   'email_taken',

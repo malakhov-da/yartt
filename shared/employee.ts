@@ -58,12 +58,14 @@ export type InviteInput = z.infer<typeof InviteInput>;
 /** What the employee writes about themselves; saved with a button. */
 export const ProfileInput = z.object({
   fullName: FullName,
-  /** The sign-in address. */
-  email: Email,
   /** Free text: position, how to reach me, anything colleagues should know. */
   about: z.string().max(10_000).nullable(),
 });
 export type ProfileInput = z.infer<typeof ProfileInput>;
+
+/** A new sign-in address: it becomes the person's once the link sent there is followed. */
+export const EmailChangeInput = z.object({ email: Email });
+export type EmailChangeInput = z.infer<typeof EmailChangeInput>;
 
 /** Settings applied as soon as they are picked; only the given fields change. */
 export const SettingsInput = z

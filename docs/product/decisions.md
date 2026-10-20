@@ -736,3 +736,20 @@ right next to them.
 *Implemented:* `Member.lastSeenAt` in `shared/team.ts`, `summary()` in
 `server/services/Team.ts`; the order and the line in
 `client/components/MyDayPage/Team.tsx`.
+
+### 51. A new email is confirmed by a link sent there
+
+The profile changed the sign-in email at once, so a typo locked the
+person out for good: the next sign-in link went to an address nobody
+reads, and only a manager could help. Now "Change" sends a link to the
+new address, and the email changes only when it is followed, within a
+day; the old address gets a word, in case it was not them. The link goes
+by email only, never to the webhook: following it is what proves the
+mailbox is theirs. It signs nobody in, and following one drops the other
+pending changes. An invite and bringing someone back still set the email
+directly: the manager typing it answers for it.
+
+*Implemented:* `token.email`, `request_email_change()`,
+`confirm_email_change()` (migration `0.1-0.2`); `Employee.requestEmailChange`,
+`Auth.confirmEmail`; the mail-only kinds in `server/delivery.ts`;
+`client/components/EmailConfirmPage.tsx`, the email field in the profile.

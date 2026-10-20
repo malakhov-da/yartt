@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Email, Employee, Id, InviteInput, ProfileInput, SettingsInput } from '#shared/employee.ts';
+import { Email, EmailChangeInput, Employee, Id, InviteInput, ProfileInput, SettingsInput } from '#shared/employee.ts';
 import * as Employees from '../services/Employee.ts';
 import { authedProcedure, router } from '../trpc.ts';
 
@@ -17,15 +17,22 @@ export default router({
     .output(Employee)
     .mutation(({ input, ctx }) => Employees.invite(ctx.employeeId, input)),
 
-  /**
-   * Updates the signed-in employee's name, sign-in email and "about".
-   * Current sessions stay; the next sign-in link goes to the new email.
-   * @throws email_taken
-   */
+  /** Updates the signed-in employee's name and "about". */
   updateProfile: authedProcedure
     .input(ProfileInput)
     .output(Employee)
     .mutation(({ input, ctx }) => Employees.updateProfile(ctx.employeeId, input)),
+
+  /**
+   * Sends a link to a new sign-in address; the email changes only when it
+   * is followed (Auth.confirmEmail), within a day. The old address is told.
+   * @throws email_taken
+   * @throws too_many_requests — five emails in 15 minutes.
+   */
+  requestEmailChange: authedProcedure
+    .input(EmailChangeInput)
+    .output(z.void())
+    .mutation(({ input, ctx }) => Employees.requestEmailChange(ctx.employeeId, input.email)),
 
   /**
    * Changes the signed-in employee's own settings; fields left out stay.

@@ -22,7 +22,22 @@ test.describe('sign-in', () => {
 
     // The same link again: single-use.
     await page.goto(`/login/${row!.token}`);
-    await expect(page.getByText(/Ссылка для входа недействительна/)).toBeVisible();
+    await expect(page.getByText(/Ссылка недействительна/)).toBeVisible();
+  });
+
+  test('a link to a new email makes it the sign-in address, once', async ({ page }) => {
+    const [row] = await sql<{ token: string }[]>`
+      SELECT request_email_change(id, 'ivan.new@example.com') AS token FROM employee WHERE email = 'ivan@example.com'
+    `;
+    try {
+      await page.goto(`/email/${row!.token}`);
+      await expect(page.getByText('Готово: теперь вы входите в яртт с новым адресом.')).toBeVisible();
+      await page.goto(`/email/${row!.token}`);
+      await expect(page.getByText(/Ссылка недействительна/)).toBeVisible();
+      await signIn(page, 'ivan.new@example.com');
+    } finally {
+      await sql`UPDATE employee SET email = 'ivan@example.com' WHERE email = 'ivan.new@example.com'`;
+    }
   });
 
   test('a dismissed employee cannot sign in', async ({ page }) => {

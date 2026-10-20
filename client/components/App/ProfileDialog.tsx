@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { LOCALES, PRONOUNS, type Locale, type Pronoun, type SettingsInput } from '#shared/employee.ts';
 import { defaultKeyboards, KEYBOARDS } from '#shared/keyboards.ts';
 import { deleteAvatar, uploadAvatar } from '#client/hooks/avatar.ts';
+import { useDraft } from '#client/hooks/drafts.ts';
 import { useSignedOut } from '#client/hooks/session.ts';
 import { useMe } from '#client/hooks/me.ts';
 import { showInfo } from '#client/hooks/store.ts';
@@ -28,9 +29,8 @@ export default function (p: { onClose: () => void }) {
   const me = useMe();
 
   const [fullName, setFullName] = useState(me.fullName);
-  const [email, setEmail] = useState(me.email ?? '');
   const [about, setAbout] = useState(me.about ?? '');
-  const dirty = fullName !== me.fullName || email !== me.email || about !== (me.about ?? '');
+  const dirty = fullName !== me.fullName || about !== (me.about ?? '');
 
   const refresh = () => queryClient.invalidateQueries();
   // Who I am, and my tags (colors and weights only I see).
@@ -74,7 +74,7 @@ export default function (p: { onClose: () => void }) {
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    update.mutate({ fullName, email: email.trim(), about: about.trim() || null });
+    update.mutate({ fullName, about: about.trim() || null });
   };
 
   return (
@@ -110,15 +110,7 @@ export default function (p: { onClose: () => void }) {
               error={!!errors.fullName}
               helperText={errors.fullName}
             />
-            <TextField
-              label={t('profile.email')}
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              error={!!errors.email}
-              helperText={errors.email}
-            />
+            <EmailField />
             <TextField
               label={t('profile.about')}
               multiline
@@ -223,5 +215,67 @@ export default function (p: { onClose: () => void }) {
         <Button onClick={p.onClose}>{t('common.close')}</Button>
       </DialogActions>
     </Dialog>
+  );
+}
+
+/**
+ * My sign-in email: a new one is sent a link and becomes mine only when it
+ * is followed (decision 51), so a typo cannot lock me out.
+ */
+function EmailField() {
+  const { t } = useTranslation();
+  const trpc = useTRPC();
+  const me = useMe();
+  const [editing, setEditing] = useState(false);
+  const [email, setEmail] = useDraft('profile:email', '');
+  const request = useMutation(trpc.Employee.requestEmailChange.mutationOptions({
+    onSuccess: () => {
+      showInfo(t('profile.emailSent', { email: email.trim() }));
+      setEmail('');
+      setEditing(false);
+    },
+  }));
+  const errors = fieldErrors(request.error);
+
+  if (!editing) {
+    return (
+      <Stack direction="row" sx={{ alignItems: 'center', gap: 1 }}>
+        <TextField
+          label={t('profile.email')}
+          value={me.email ?? ''}
+          placeholder={t('profile.noEmail')}
+          slotProps={{ input: { readOnly: true }, inputLabel: { shrink: true } }}
+          sx={{ flexGrow: 1 }}
+        />
+        <Button onClick={() => setEditing(true)}>{t('profile.changeEmail')}</Button>
+      </Stack>
+    );
+  }
+  return (
+    <Stack spacing={1}>
+      <Stack direction="row" sx={{ alignItems: 'flex-start', gap: 1 }}>
+        <TextField
+          label={t('profile.newEmail')}
+          type="email"
+          autoFocus
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          error={!!errors.email}
+          helperText={errors.email ?? t('profile.newEmailHint')}
+          sx={{ flexGrow: 1 }}
+        />
+        <Button
+          variant="outlined"
+          sx={{ mt: 1 }}
+          disabled={!email.trim() || request.isPending}
+          onClick={() => request.mutate({ email: email.trim() })}
+        >
+          {t('profile.sendLink')}
+        </Button>
+      </Stack>
+      <Button size="small" sx={{ alignSelf: 'flex-start' }} onClick={() => { setEmail(''); setEditing(false); }}>
+        {t('common.cancel')}
+      </Button>
+    </Stack>
   );
 }

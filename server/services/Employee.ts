@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { Employee, type InviteInput, type ProfileInput, type SettingsInput } from '#shared/employee.ts';
+import { deliver } from '../delivery.ts';
+import env from '../env.ts';
 import { AppError } from '../errors.ts';
 import { sql } from '../pg.ts';
 
@@ -47,13 +49,36 @@ export async function updateProfile(id: number, input: ProfileInput): Promise<Em
   const [row] = Created.array().parse(await sql`
     UPDATE employee
        SET full_name = ${input.fullName},
-           email = ${input.email},
            about = ${input.about}
      WHERE id = ${id} AND kind = 'human' AND dismissed_at IS NULL
     RETURNING id
   `);
   if (!row) throw new AppError('not_found');
   return (await get(id))!;
+}
+
+const Token = z.object({ token: z.string() });
+
+/**
+ * Sends a link to the new address (request_email_change()), by email only —
+ * following it proves the mailbox is theirs; a word goes to the old
+ * address too, in case it was not them. The email stays until then.
+ */
+export async function requestEmailChange(id: number, email: string): Promise<void> {
+  const [row] = Token.array().parse(await sql`SELECT request_email_change(${id}, ${email}) AS token`);
+  const me = (await get(id))!;
+  const to = { employeeId: id, kind: 'human' as const, fullName: me.fullName, locale: me.locale, timeZone: me.timeZone };
+  await deliver({ to: { ...to, email }, taskId: null, payload: { kind: 'email_confirm', url: `${env.PUBLIC_URL}/email/${row!.token}`, email } });
+  if (me.email && me.email.toLowerCase() !== email.toLowerCase()) {
+    await deliver({ to: { ...to, email: me.email }, taskId: null, payload: { kind: 'email_changing', email } });
+  }
+}
+
+const Changed = z.object({ id: z.number() });
+
+/** Follows the link from the new address (confirm_email_change()); signs nobody in. */
+export async function confirmEmailChange(token: string): Promise<void> {
+  Changed.array().parse(await sql`SELECT confirm_email_change(${token}) AS id`);
 }
 
 /** A field left out keeps its value. */

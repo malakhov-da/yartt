@@ -162,7 +162,7 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
   const invite = async (by: number, person: { email: string; name: string }) =>
     (await as(by).Employee.invite({ email: person.email, fullName: person.name })).id;
   const profile = (id: number, person: { email: string; name: string; about: string }) =>
-    as(id).Employee.updateProfile({ fullName: person.name, email: person.email, about: person.about });
+    as(id).Employee.updateProfile({ fullName: person.name, about: person.about });
 
   const marina = await invite(me, p.marina);
   await as(marina).Employee.setManager({ managerId: me });

@@ -36,15 +36,11 @@ describe('employee', () => {
       .rejects.toMatchObject({ code: 'BAD_REQUEST' });
   });
 
-  test('profile: name, email and about; the email stays unique', async () => {
+  test('profile: name and about; the email is not changed there', async () => {
     const me = await createEmployee();
-    const other = await createEmployee();
     const api = await client(me.id);
-
-    expect(await api.Employee.updateProfile({ fullName: 'Me', email: `me-${me.id}@yartt.test`, about: 'QA lead' }))
-      .toMatchObject({ fullName: 'Me', email: `me-${me.id}@yartt.test`, about: 'QA lead' });
-    await expect(api.Employee.updateProfile({ fullName: 'Me', email: other.email.toUpperCase(), about: null }))
-      .rejects.toMatchObject({ message: 'email_taken' });
+    expect(await api.Employee.updateProfile({ fullName: 'Me', about: 'QA lead' }))
+      .toMatchObject({ fullName: 'Me', email: me.email, about: 'QA lead' });
   });
 
   test('output contract catches data the client does not know', async () => {

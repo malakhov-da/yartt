@@ -21,7 +21,10 @@ const JOBS: { name: string; every: number; run: (sql: Sql) => Promise<unknown> }
   {
     name: 'token_cleanup',
     every: HOUR,
-    run: (sql) => sql`DELETE FROM token WHERE sent_at < NOW() - INTERVAL '1 hour'`,
+    run: (sql) => sql`
+      DELETE FROM token
+       WHERE sent_at < NOW() - CASE WHEN email IS NULL THEN INTERVAL '1 hour' ELSE INTERVAL '2 days' END
+    `,
   },
   {
     name: 'weekly_digests',

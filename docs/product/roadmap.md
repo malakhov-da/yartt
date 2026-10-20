@@ -32,8 +32,6 @@ In this order after stage 6 (S — a day, M — a few days, L — a week or more
 
 ### Corporate sign-in and bots
 
-- [ ] **A new email is confirmed.** The profile sends a link to the new
-  address; the email changes only when it is followed. S
 - [ ] **Allowed email domains (`EMAIL_DOMAINS`).** Checked wherever an
   email is written; an old address outside them signs in to its profile
   only, and its notifications become a request to change it. M

@@ -346,7 +346,9 @@ the API is implemented.
   Employees:
     - Invite an employee (any employee: email, full_name, locale)
       -> notify(kind = invite).
-    - Edit the profile (full_name, email, about, next_day, time_zone, locale).
+    - Edit the profile (full_name, about, next_day, time_zone, locale).
+    - Change one''s email -> request_email_change(), the link goes by email
+      to the new address only; following it -> confirm_email_change().
 
   Bots:
     - Create a bot (create_bot: any person, under themselves).
@@ -601,7 +603,9 @@ CRON JOBS (outside SQL)
 ============================================================================
 
   - every minute: SELECT send_due_reminds();
-  - every hour:   DELETE FROM token WHERE sent_at < NOW() - INTERVAL ''1 hour'';
+  - every hour:   DELETE FROM token
+                   WHERE sent_at < NOW() - CASE WHEN email IS NULL THEN INTERVAL ''1 hour''
+                                                ELSE INTERVAL ''2 days'' END;
   - every hour:   SELECT send_weekly_digests();
   - every day:    DELETE FROM session WHERE last_seen_at < NOW() - INTERVAL ''30 days'';
   - every day:    DELETE FROM notification WHERE added_at < NOW() - INTERVAL ''1 year'';
@@ -1015,15 +1019,20 @@ COMMENT ON COLUMN avatar.updated_at IS
 CREATE TABLE token (
     hash BYTEA PRIMARY KEY,
     employee_id INT NOT NULL REFERENCES human(employee_id),
-    sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    email CITEXT
 );
 CREATE INDEX idx_token_employee ON token(employee_id);
 CREATE INDEX idx_token_sent_at ON token(sent_at);
 
 COMMENT ON TABLE token IS
-'Single-use magic tokens for signing in by email.
-Issued by issue_token(), redeemed by login(). Valid for 10 minutes; cron
-removes unused ones after an hour. Only the SHA-256 of the token is stored.';
+'Single-use tokens sent by email. Only the SHA-256 of the token is stored.
+  - Sign-in (email IS NULL): issued by issue_token(), redeemed by login(),
+    valid for 10 minutes; cron removes unused ones after an hour.
+  - Confirming a new email (email = the new address): issued by
+    request_email_change(), sent to that address and redeemed by
+    confirm_email_change(), valid for a day; cron removes unused ones
+    after two. Following it proves the mailbox is the person''s.';
 
 COMMENT ON COLUMN token.hash IS
 'SHA-256 of the token from the email. The token itself is not stored.';
@@ -1032,7 +1041,11 @@ COMMENT ON COLUMN token.employee_id IS
 'Whom the token belongs to.';
 
 COMMENT ON COLUMN token.sent_at IS
-'When the token was issued. Valid for 10 minutes.';
+'When the token was issued. A sign-in token is valid for 10 minutes, an
+email one for a day.';
+
+COMMENT ON COLUMN token.email IS
+'The new address an email-change token confirms; NULL — a sign-in token.';
 
 COMMENT ON INDEX idx_token_sent_at IS
 'For the cron cleanup of old tokens.';
@@ -3122,6 +3135,7 @@ DECLARE
 BEGIN
     DELETE FROM token
      WHERE hash = digest(p_token, 'sha256')
+       AND email IS NULL
        AND sent_at > NOW() - INTERVAL '10 minutes'
     RETURNING employee_id INTO v_employee_id;
 
@@ -3138,7 +3152,75 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION login(TEXT) IS
 'Redeems a magic token (at most 10 minutes old) and returns a session
-token for the cookie. NULL — the token is invalid.';
+token for the cookie. NULL — the token is invalid. An email-change token
+never signs anyone in.';
+
+
+CREATE OR REPLACE FUNCTION request_email_change(p_employee_id INT, p_email CITEXT)
+RETURNS TEXT AS $$
+DECLARE
+    v_token TEXT;
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM employee WHERE id = p_employee_id AND kind = 'human' AND dismissed_at IS NULL) THEN
+        RAISE EXCEPTION 'employee % is unknown, dismissed or a bot', p_employee_id
+            USING HINT = 'not_found';
+    END IF;
+    IF EXISTS (SELECT 1 FROM employee WHERE email = p_email AND dismissed_at IS NULL AND id <> p_employee_id) THEN
+        RAISE EXCEPTION 'email % is taken', p_email
+            USING HINT = 'email_taken';
+    END IF;
+    -- The same limit as sign-in links: a mailbox cannot be flooded.
+    IF (SELECT count(*) FROM token
+         WHERE employee_id = p_employee_id AND sent_at > NOW() - INTERVAL '15 minutes') >= 5 THEN
+        RAISE EXCEPTION 'too many emails for employee %', p_employee_id
+            USING HINT = 'too_many_requests';
+    END IF;
+
+    v_token := encode(gen_random_bytes(32), 'hex');
+    INSERT INTO token (hash, employee_id, email)
+    VALUES (digest(v_token, 'sha256'), p_employee_id, p_email);
+    RETURN v_token;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION request_email_change(INT, CITEXT) IS
+'A person asks to change their email: returns a token to send to the new
+address (not through notification — the token must not lie in the
+database in plain text). The email does not change until it is
+followed (confirm_email_change()): a typo cannot lock anyone out.';
+
+
+CREATE OR REPLACE FUNCTION confirm_email_change(p_token TEXT)
+RETURNS INT AS $$
+DECLARE
+    v_employee_id INT;
+    v_email CITEXT;
+BEGIN
+    DELETE FROM token
+     WHERE hash = digest(p_token, 'sha256')
+       AND email IS NOT NULL
+       AND sent_at > NOW() - INTERVAL '1 day'
+    RETURNING employee_id, email INTO v_employee_id, v_email;
+
+    IF v_employee_id IS NULL THEN
+        RAISE EXCEPTION 'email token is unknown, used or expired'
+            USING HINT = 'invalid_token';
+    END IF;
+    UPDATE employee SET email = v_email WHERE id = v_employee_id AND dismissed_at IS NULL;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'employee % is dismissed', v_employee_id
+            USING HINT = 'invalid_token';
+    END IF;
+    -- Other links to other addresses are void now.
+    DELETE FROM token WHERE employee_id = v_employee_id AND email IS NOT NULL;
+    RETURN v_employee_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION confirm_email_change(TEXT) IS
+'Redeems an email-change token (at most a day old): the new address
+becomes the employee''s, and their other pending changes are dropped.
+Signs nobody in. email_taken if someone working took the address since.';
 
 
 CREATE OR REPLACE FUNCTION authenticate(p_session TEXT)

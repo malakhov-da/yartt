@@ -97,4 +97,46 @@ describe('sign-in links are limited', () => {
     const [sixth] = await sql<{ token: string | null }[]>`SELECT issue_token(${me.email}) AS token`;
     expect(sixth!.token).toBeNull();
   });
+
+  test('a new email is confirmed by a link sent there, by email only; until then the old one stays', async () => {
+    const me = await createEmployee();
+    const other = await createEmployee();
+    const api = await client(me.id);
+    const next = `next-${me.email}`;
+    await expect(api.Employee.requestEmailChange({ email: other.email.toUpperCase() })).rejects.toMatchObject({ message: 'email_taken' });
+
+    await api.Employee.requestEmailChange({ email: next });
+    expect(sent.map((m) => [m.payload.kind, m.to.email])).toEqual([['email_confirm', next], ['email_changing', me.email]]);
+    const link = sent[0]!.payload.kind === 'email_confirm' ? sent[0]!.payload.url : '';
+    const token = link.slice(link.lastIndexOf('/') + 1);
+    expect((await api.Auth.me())?.email).toBe(me.email);
+
+    // It never signs in, and a sign-in link never confirms.
+    await expect((await client()).Auth.login({ token })).rejects.toMatchObject({ message: 'invalid_token' });
+    await expect((await client()).Auth.confirmEmail({ token: await loginLink(me.email) })).rejects.toMatchObject({ message: 'invalid_token' });
+
+    await (await client()).Auth.confirmEmail({ token });
+    expect((await api.Auth.me())?.email).toBe(next);
+    await expect((await client()).Auth.confirmEmail({ token })).rejects.toMatchObject({ message: 'invalid_token' });
+  });
+
+  test('an email link works for a day; following one drops the others', async () => {
+    const me = await createEmployee();
+    const api = await client(me.id);
+    const tokenFor = async (email: string) => {
+      await api.Employee.requestEmailChange({ email });
+      const message = sent.findLast((m) => m.payload.kind === 'email_confirm' && m.to.email === email)!;
+      const url = message.payload.kind === 'email_confirm' ? message.payload.url : '';
+      return url.slice(url.lastIndexOf('/') + 1);
+    };
+    const old = await tokenFor(`a-${me.email}`);
+    await sql`UPDATE token SET sent_at = NOW() - INTERVAL '25 hours' WHERE hash = digest(${old}, 'sha256')`;
+    await expect((await client()).Auth.confirmEmail({ token: old })).rejects.toMatchObject({ message: 'invalid_token' });
+
+    const first = await tokenFor(`b-${me.email}`);
+    const second = await tokenFor(`c-${me.email}`);
+    await (await client()).Auth.confirmEmail({ token: second });
+    await expect((await client()).Auth.confirmEmail({ token: first })).rejects.toMatchObject({ message: 'invalid_token' });
+    expect((await api.Auth.me())?.email).toBe(`c-${me.email}`);
+  });
 });
