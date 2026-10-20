@@ -84,22 +84,31 @@ async function assertOwner(taskId: number, employeeId: number, db: Sql = sql): P
 
 /**
  * Tasks carrying all the given tags — any task: tags are visible to
- * everyone. Mine apart from the others, as in Current tasks; open tasks
- * first, by deadline.
+ * everyone. The tabs of Current tasks — my open ones, the other open ones,
+ * the closed ones — in their orders; 'all' — open first, by deadline.
  */
 export async function search(viewerId: number, input: SearchInput): Promise<SearchResult> {
   const where = sql`k.tag_ids @> ${input.tagIds}::int[]`;
-  const [counts] = z.object({ mine: z.number(), others: z.number() }).array().parse(await sql`
-    SELECT count(*) FILTER (WHERE k.owner_id = ${viewerId})::int AS mine,
-           count(*) FILTER (WHERE k.owner_id IS DISTINCT FROM ${viewerId})::int AS others
-      FROM task k WHERE ${where}
+  const closed = sql`(f.value IS NOT NULL AND f.value <= NOW())`;
+  const [counts] = z.object({ mine: z.number(), others: z.number(), closed: z.number() }).array().parse(await sql`
+    SELECT count(*) FILTER (WHERE NOT ${closed} AND k.owner_id = ${viewerId})::int AS mine,
+           count(*) FILTER (WHERE NOT ${closed} AND k.owner_id IS DISTINCT FROM ${viewerId})::int AS others,
+           count(*) FILTER (WHERE ${closed})::int AS closed
+      FROM task k
+      LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
+     WHERE ${where}
   `);
+  const tab = input.tab === 'all' ? sql`TRUE`
+    : input.tab === 'closed' ? closed
+    : sql`NOT ${closed} AND (k.owner_id IS NOT DISTINCT FROM ${viewerId}) = ${input.tab === 'mine'}`;
+  const order = input.tab === 'closed' ? sql`f.value DESC, k.priority DESC, k.id DESC`
+    : sql`${closed}, f.value NULLS LAST, k.priority DESC, k.id DESC`;
   const ids = Id.array().parse(await sql`
     SELECT k.id
       FROM task k
       LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
-     WHERE ${where} AND (${input.tab === 'all'} OR (k.owner_id IS NOT DISTINCT FROM ${viewerId}) = ${input.tab === 'mine'})
-     ORDER BY (f.value IS NOT NULL AND f.value <= NOW()), f.value NULLS LAST, k.id DESC
+     WHERE ${where} AND ${tab}
+     ORDER BY ${order}
      LIMIT ${PAGE_SIZE} OFFSET ${(input.page - 1) * PAGE_SIZE}
   `).map((r) => r.id);
   const seen = new Set(

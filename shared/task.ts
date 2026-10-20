@@ -88,8 +88,11 @@ export type TaskPage = z.infer<typeof TaskPage>;
 
 export const SearchInput = z.object({
   tagIds: Id.array().min(1).max(20),
-  /** 'mine' — tasks I own; 'others' — the rest (as in Current tasks); 'all' — both, to pick one. */
-  tab: z.enum(['mine', 'others', 'all']),
+  /**
+   * 'mine' — open tasks I own; 'others' — the other open ones; 'closed' —
+   * the closed ones (as in Current tasks); 'all' — any, to pick one.
+   */
+  tab: z.enum(['mine', 'others', 'closed', 'all']),
   page: z.number().int().min(1),
 });
 export type SearchInput = z.infer<typeof SearchInput>;
@@ -105,7 +108,7 @@ export type TitleTaken = z.infer<typeof TitleTaken>;
 export const SearchResult = z.object({
   items: TaskHeader.extend({ canSee: z.boolean() }).array(),
   /** Found tasks in each tab. */
-  counts: z.object({ mine: z.number().int(), others: z.number().int() }),
+  counts: z.object({ mine: z.number().int(), others: z.number().int(), closed: z.number().int() }),
 });
 export type SearchResult = z.infer<typeof SearchResult>;
 

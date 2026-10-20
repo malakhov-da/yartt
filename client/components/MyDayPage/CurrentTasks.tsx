@@ -13,12 +13,13 @@ import TagInput, { useTitle } from '../App/TagInput.tsx';
 import TaskLine from '../TaskPage/TaskLine.tsx';
 
 const PAGE_SIZE = 20;
-const TABS = ['mine', 'others'] as const;
+const TABS = ['mine', 'others', 'closed'] as const;
 
 /**
  * Every open task I see: mine apart from the others (decision 8), by
- * deadline, with pages. The search on top narrows both tabs to the tasks
- * carrying the picked tags — any task then, closed and not mine included;
+ * deadline, with pages; the closed ones in a tab of their own, the most
+ * recently closed first (decision 57). The search on top narrows the tabs
+ * to the tasks carrying the picked tags — any task then, not mine included;
  * the typed text only finds tags ("/" focuses it from anywhere). Its "+"
  * opens a new task with the title as typed — the picked tags and the rest
  * as a new tag (decision 55); it waits while a tag spelled so is not
@@ -31,7 +32,7 @@ export default function () {
   const { pathname } = useLocation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [tab, setTab] = useState<CurrentTab>('mine');
-  const [pages, setPages] = useState<Record<CurrentTab, number>>({ mine: 1, others: 1 });
+  const [pages, setPages] = useState<Record<CurrentTab, number>>({ mine: 1, others: 1, closed: 1 });
   const [tags, setTags] = useState<Tag[]>([]);
   const [input, setInput] = useState('');
   const filtering = tags.length > 0;
@@ -58,19 +59,19 @@ export default function () {
   const filter = (next: { tags?: Tag[]; input?: string }) => {
     if (next.tags) setTags(next.tags);
     if (next.input !== undefined) setInput(next.input);
-    setPages({ mine: 1, others: 1 });
+    setPages({ mine: 1, others: 1, closed: 1 });
   };
 
-  // Nothing found in this tab but something in the other: show that one,
+  // Nothing found in this tab but something in another: show the first such,
   // once per filter, so the empty tab can still be opened by hand.
-  const other = tab === 'mine' ? 'others' : 'mine';
   const foundCounts = found.isPlaceholderData ? undefined : found.data?.counts;
+  const other = TABS.find((value) => value !== tab && (foundCounts?.[value] ?? 0) > 0);
   const filterKey = JSON.stringify(tags.map((tag) => tag.id));
   const switchedFor = useRef('');
   useEffect(() => {
     if (!filtering || !foundCounts || switchedFor.current === filterKey) return;
     switchedFor.current = filterKey;
-    if (foundCounts[tab] === 0 && foundCounts[other] > 0) setTab(other);
+    if (foundCounts[tab] === 0 && other) setTab(other);
   }, [filtering, foundCounts, filterKey, tab, other]);
 
   // The search gets the focus once My day is on screen (it is hidden under a task).

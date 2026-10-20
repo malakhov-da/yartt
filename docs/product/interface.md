@@ -55,12 +55,14 @@ someone with reports:
   never required, it lives on the employee's page.
 - **Current tasks** — every open task I see (no deadline, or a deadline
   ahead), in two tabs: **I own** (I answer for them) and **others** —
-  each explains itself on hover. Each tab is a
-  grid with pages, by deadline, nearest first; tasks without a deadline at
-  the end. For a director "others" is hundreds of tasks — pages keep it
+  and the closed ones I see in a third, **Closed** (decision 57); each
+  explains itself on hover. Open tasks are by deadline, nearest first,
+  the same moment by priority; tasks without a deadline at the end, by
+  priority. Closed ones are the most recently closed first. Every tab has
+  pages. For a director "others" is hundreds of tasks — pages keep it
   usable, the search on top narrows it (3). Public tasks of others are in
   "others" for everyone: there should be few of them (decision 14).
-  **New task** in the "I own" tab opens the form (2a). A task whose
+  "+" in the search opens a new task (2a). A task whose
   plan does not fit before its deadline says "At risk" (decision 40).
 - **My team** — only for someone with reports, under Current tasks; see 4.
 - **My days** — today and the last day before it with activity (on
@@ -225,11 +227,11 @@ takes the best one. A tag nobody has finds nothing, but "+" at the end of
 the field opens a new task with the title as typed: the picked tags and
 the rest as a new tag (decision 55); it waits while a tag spelled so is
 not picked, and when a task has that title already the field names it
-with a link. Picked tags narrow both tabs to the tasks carrying all of
-them — any task then, closed ones and ones the person does not see
-included (they open on "Request access"), since tags are visible to
-everyone. When the current tab has nothing and the other has, the other
-one opens.
+with a link. Picked tags narrow the tabs to the tasks carrying all of
+them — any task then, ones the person does not see included (they open
+on "Request access"), since tags are visible to everyone; the closed
+ones found are in their own tab. When the current tab has nothing and
+another has, that one opens.
 
 ## 4. My team — "how is my team doing?" (managers only)
 

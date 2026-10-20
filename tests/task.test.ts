@@ -476,4 +476,25 @@ describe('titles', () => {
     const { items } = await api.MyDay.current({ tab: 'mine', page: 1 });
     expect(items.map((i) => i.id)).toEqual([high, low, later, noneCritical, none]);
   });
+
+  test('closed tasks have a tab of their own, the most recently closed first — in the search too', async () => {
+    const me = await createEmployee();
+    const api = await client(me.id);
+    const tag = `c-${randomUUID().slice(0, 8)}`;
+    const first = await api.Task.create({ tags: [tag, 'a'] });
+    const second = await api.Task.create({ tags: [tag, 'b'] });
+    const open = await api.Task.create({ tags: [tag, 'c'] });
+    await sql`SELECT set_finished_at(${first}, NOW() - INTERVAL '2 hours')`;
+    await sql`SELECT set_finished_at(${second}, NOW() - INTERVAL '1 hour')`;
+
+    // Other tests leave public tasks behind: only mine are looked at.
+    const ours = (items: { id: number }[]) => items.map((i) => i.id).filter((id) => [first, second, open].includes(id));
+    expect(ours((await api.MyDay.current({ tab: 'closed', page: 1 })).items)).toEqual([second, first]);
+    expect((await api.MyDay.current({ tab: 'mine', page: 1 })).items.map((i) => i.id)).toEqual([open]);
+
+    const [tagId] = (await sql<{ id: number }[]>`SELECT id FROM tag WHERE name = ${tag}`).map((r) => r.id);
+    const found = await api.Task.search({ tagIds: [tagId!], tab: 'closed', page: 1 });
+    expect(found.items.map((i) => i.id)).toEqual([second, first]);
+    expect(found.counts).toEqual({ mine: 1, others: 0, closed: 2 });
+  });
 });

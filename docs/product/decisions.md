@@ -877,3 +877,17 @@ offered as one.
 *Implemented:* `Tag.phrase` from `headers()` in `server/services/Task.ts`;
 `Tags.related`; `client/components/App/TaskTitle.tsx`; "Often together"
 in `TagInput`.
+
+### 57. Closed tasks have a tab of their own
+
+Current tasks showed only open tasks, so what was just closed — by hand
+or by its deadline — disappeared, and the search mixed closed tasks into
+the open ones. Now a third tab, **Closed**, holds the closed tasks I see,
+the most recently closed first; with a search the closed ones found go
+there too, and "I own" and "Others" stay open tasks only. The open tabs
+keep their order: the nearest deadline first, the same moment by
+priority, tasks without a deadline at the end, by priority.
+
+*Implemented:* `CurrentTab` 'closed', `current()` in
+`server/services/MyDay.ts`, `search()` in `server/services/Task.ts`;
+`CurrentTasks`.

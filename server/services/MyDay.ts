@@ -93,27 +93,29 @@ export async function todo(me: number): Promise<TodoItem[]> {
 }
 
 /**
- * Open tasks I see (no deadline or a deadline ahead): the ones I own, or all
- * the others — public ones included (decision 14). By deadline, nearest
- * first; no deadline at the end.
+ * Tasks I see — public ones included (decision 14): the open ones (no
+ * deadline or one ahead) I own, or all the other open ones, by deadline,
+ * nearest first, the same moment and no deadline by priority; or the
+ * closed ones, the most recently closed first (decision 57).
  */
 export async function current(me: number, tab: CurrentTab, page: number): Promise<Current> {
-  const open = sql`
-    SELECT k.id, k.owner_id, k.priority, f.value AS deadline
+  const seen = sql`
+    SELECT k.id, k.owner_id, k.priority, f.value AS deadline, f.value IS NOT NULL AND f.value <= NOW() AS closed
       FROM task k
       LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
-     WHERE (f.value IS NULL OR f.value > NOW()) AND can_see(k.id, ${me})
+     WHERE can_see(k.id, ${me})
   `;
   const ids = z.object({ id: z.number() }).array().parse(await sql`
-    SELECT id FROM (${open}) t
-     WHERE (owner_id IS NOT DISTINCT FROM ${me}) = ${tab === 'mine'}
-     ORDER BY deadline NULLS LAST, priority DESC, id DESC
+    SELECT id FROM (${seen}) t
+     WHERE ${tab === 'closed' ? sql`closed` : sql`NOT closed AND (owner_id IS NOT DISTINCT FROM ${me}) = ${tab === 'mine'}`}
+     ORDER BY ${tab === 'closed' ? sql`deadline DESC, priority DESC, id DESC` : sql`deadline NULLS LAST, priority DESC, id DESC`}
      LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}
   `).map((r) => r.id);
-  const [counts] = z.object({ mine: z.number(), others: z.number() }).array().parse(await sql`
-    SELECT count(*) FILTER (WHERE owner_id = ${me})::int AS mine,
-           count(*) FILTER (WHERE owner_id IS DISTINCT FROM ${me})::int AS others
-      FROM (${open}) t
+  const [counts] = z.object({ mine: z.number(), others: z.number(), closed: z.number() }).array().parse(await sql`
+    SELECT count(*) FILTER (WHERE NOT closed AND owner_id = ${me})::int AS mine,
+           count(*) FILTER (WHERE NOT closed AND owner_id IS DISTINCT FROM ${me})::int AS others,
+           count(*) FILTER (WHERE closed)::int AS closed
+      FROM (${seen}) t
   `);
   return { items: await headers(me, ids), counts: counts! };
 }

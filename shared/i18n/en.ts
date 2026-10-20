@@ -66,6 +66,9 @@ export const en: Translation = {
       others: 'Others · {{count}}',
       mineEmpty: 'You own no open tasks.',
       othersEmpty: 'No other open tasks you see.',
+      closed: 'Closed · {{count}}',
+      closedHint: 'Closed tasks you see: the most recently closed first',
+      closedEmpty: 'No closed tasks you see.',
     },
     history: {
       title: 'My days',

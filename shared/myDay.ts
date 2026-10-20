@@ -44,8 +44,8 @@ export type TodoRequest = z.infer<typeof TodoRequest>;
 export const TodoItem = z.discriminatedUnion('kind', [TodoMention, TodoReview, TodoRequest]);
 export type TodoItem = z.infer<typeof TodoItem>;
 
-/** 'mine' — tasks I own; 'others' — every other open task I see. */
-export const CurrentTab = z.enum(['mine', 'others']);
+/** 'mine' — open tasks I own; 'others' — every other open task I see; 'closed' — the closed ones I see. */
+export const CurrentTab = z.enum(['mine', 'others', 'closed']);
 export type CurrentTab = z.infer<typeof CurrentTab>;
 
 export const CurrentInput = z.object({
@@ -57,7 +57,7 @@ export type CurrentInput = z.infer<typeof CurrentInput>;
 export const Current = z.object({
   items: TaskHeader.array(),
   /** Tasks in each tab, for the tab labels. */
-  counts: z.object({ mine: z.number().int(), others: z.number().int() }),
+  counts: z.object({ mine: z.number().int(), others: z.number().int(), closed: z.number().int() }),
 });
 export type Current = z.infer<typeof Current>;
 
