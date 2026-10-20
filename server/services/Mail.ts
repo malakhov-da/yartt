@@ -55,7 +55,7 @@ export async function renderMail(message: Message): Promise<{ subject: string; t
     issued: 'issuedAt' in p
       ? new Date(p.issuedAt).toLocaleDateString(message.to.locale, { day: 'numeric', month: 'long', year: 'numeric', timeZone: message.to.timeZone })
       : '',
-    url: p.kind === 'login' || p.kind === 'email_confirm' ? p.url : `${env.PUBLIC_URL}/login`,
+    url: p.kind === 'login' || p.kind === 'email_confirm' || p.kind === 'email_outside_domains' ? p.url : `${env.PUBLIC_URL}/login`,
     email: 'email' in p ? p.email : '',
   };
 

@@ -450,6 +450,11 @@ export const en: Translation = {
     submit: 'Invite',
     sent: 'Invitation sent to {{email}}',
   },
+  outsideDomains: {
+    title: '{{name}}, change your email',
+    body: 'Your address is outside the company’s domains — yartt takes only addresses at {{domains}}. Until you change it, only this page is open and notifications do not come by mail. A link goes to the new address: follow it, and everything opens.',
+    logout: 'Log out',
+  },
   offline: {
     queued: 'No connection — the change is saved and goes out when the connection is back',
     sent: 'Back online — changes sent: {{count}}',
@@ -582,6 +587,8 @@ export const en: Translation = {
     unauthorized: 'Your session has ended — please sign in again.',
     invalid_token: 'The link is invalid: it works once and not for long. Request a new one.',
     too_many_requests: 'Too many emails in a row — try again in 15 minutes.',
+    email_not_allowed: 'This address will not do: the company takes only addresses at {{domains}}.',
+    email_outside_domains: 'Your email is outside the company’s domains — change it in your profile to go on.',
     email_taken: 'An employee with this email already exists.',
     invalid_locale: 'Unknown language.',
     invalid_time_zone: 'Unknown time zone.',
@@ -627,6 +634,10 @@ export const en: Translation = {
     email_confirm: {
       subject: 'Confirm your new email in yartt',
       body: 'To sign in to yartt with {{email}}, open this link — it works once, for a day:\n{{url}}\n\nIf you changed nothing, just delete this email.',
+    },
+    email_outside_domains: {
+      subject: 'Change your email in yartt',
+      body: 'There are notifications for you in yartt, but we cannot show them by email: this address is outside the company’s domains. Sign in to yartt and change your email in the profile — then notifications come by mail again:\n{{url}}',
     },
     email_changing: {
       subject: 'Your yartt email is changing',

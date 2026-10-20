@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Employee, type InviteInput, type ProfileInput, type SettingsInput } from '#shared/employee.ts';
 import { deliver } from '../delivery.ts';
+import { assertEmailAllowed } from '../domains.ts';
 import env from '../env.ts';
 import { AppError } from '../errors.ts';
 import { sql } from '../pg.ts';
@@ -28,6 +29,7 @@ const Created = z.object({ id: z.number() });
 
 /** Locale and time zone default to the inviter's; the invitee is notified. */
 export async function invite(inviterId: number, input: InviteInput): Promise<Employee> {
+  assertEmailAllowed(input.email);
   const id = await sql.begin(async (tx) => {
     const [row] = Created.array().parse(await tx`
       INSERT INTO employee (email, full_name, locale, time_zone)
@@ -65,6 +67,7 @@ const Token = z.object({ token: z.string() });
  * address too, in case it was not them. The email stays until then.
  */
 export async function requestEmailChange(id: number, email: string): Promise<void> {
+  assertEmailAllowed(email);
   const [row] = Token.array().parse(await sql`SELECT request_email_change(${id}, ${email}) AS token`);
   const me = (await get(id))!;
   const to = { employeeId: id, kind: 'human' as const, fullName: me.fullName, locale: me.locale, timeZone: me.timeZone };
@@ -133,6 +136,9 @@ export async function dismiss(id: number, actorId: number): Promise<void> {
  * themselves; the email they had unless another one is given.
  */
 export async function restore(id: number, actorId: number, email: string | null): Promise<Employee> {
+  // Back with an address outside the company's domains, they could do nothing: a new one is needed.
+  const kept = email ?? (await get(id))?.email ?? null;
+  if (kept !== null) assertEmailAllowed(kept);
   await sql`SELECT restore_employee(${id}, ${actorId}, ${email})`;
   const employee = await get(id);
   if (!employee) throw new AppError('not_found');

@@ -33,6 +33,7 @@ work, [demo.env.example](../../demo.env.example) for a trial. Copy one to
 | `SMTP_URL` | yes, but in the demo | `smtp://user:password@host:587` or `smtps://user:password@host:465` |
 | `MAIL_FROM` | with `SMTP_URL` | e.g. `yartt <noreply@example.com>` |
 | `WEBHOOK_URL`, `WEBHOOK_SECRET` | no | an extra channel (Telegram, Slack, …): every message is POSTed there as JSON with the header `X-Yartt-Signature: sha256=<hex>` — HMAC-SHA256 of the body with the secret |
+| `EMAIL_DOMAINS` | no | the company's mail domains, comma-separated (`corp.com,corp.kz`): no other address can be invited or set; someone who already has one signs in only to change it, and their mail gets that request instead of notifications, once a day. Exact domains, subdomains are not included. Empty — any address |
 | `COOKIE_SECURE` | no | `true` (default) — keep it unless you test over plain HTTP |
 | `FIRST_EMPLOYEE_EMAIL`, `FIRST_EMPLOYEE_NAME` | first start | the first employee, created only while there are no employees |
 | `FIRST_EMPLOYEE_LOCALE`, `FIRST_EMPLOYEE_TIME_ZONE` | no | `ru` / `en`; an IANA zone such as `Europe/Moscow`. Invited employees inherit them from whoever invites |

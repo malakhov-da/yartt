@@ -811,6 +811,7 @@ CREATE TABLE human (
     next_day DATE,
     keyboards keyboard[],
     weekly_digest_on DATE,
+    outside_domains_told_at TIMESTAMPTZ,
     FOREIGN KEY (employee_id, kind) REFERENCES employee(id, kind)
 );
 
@@ -843,6 +844,13 @@ the US one.';
 COMMENT ON COLUMN human.weekly_digest_on IS
 'The Monday the weekly email for managers last went out (or was due
 with nothing to say), in their time zone: it goes once a week.';
+
+COMMENT ON COLUMN human.outside_domains_told_at IS
+'When the person was last emailed that their address is outside the
+company''s mail domains (EMAIL_DOMAINS in the configuration — the
+database does not know them). Until they change it their notifications
+reach the bell and the webhook, and their mail gets only this request,
+at most once a day.';
 
 
 -- ----------------------------------------------------------------------------

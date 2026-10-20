@@ -327,7 +327,9 @@ A dialog behind my avatar, not a screen.
   free text: position, how to reach me, anything colleagues should know.
 - **Sign-in email** — changed with "Change": a link goes to the new
   address, which becomes mine only when it is followed, within a day; the
-  old address gets a word (decision 51).
+  old address gets a word (decision 51). Only the company's domains are
+  taken when they are set; someone whose address is outside them sees a
+  single page after signing in — why, and this field (decision 52).
 - **Back at work on, time zone, language, my manager** — applied as soon as
   picked, no button. "Back at work on" covers any absence: vacation, sick
   leave, a day off; until that day my notifications are copied to my

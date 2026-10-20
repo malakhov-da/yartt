@@ -10,6 +10,7 @@ import { useMe } from '#client/hooks/me.ts';
 import EmployeePage from './EmployeePage.tsx';
 import EmailConfirmPage from './EmailConfirmPage.tsx';
 import LoginCallbackPage from './LoginCallbackPage.tsx';
+import OutsideDomainsPage from './OutsideDomainsPage.tsx';
 import LoginPage from './LoginPage.tsx';
 import MyDayPage from './MyDayPage.tsx';
 import NewTaskPage from './NewTaskPage.tsx';
@@ -67,7 +68,9 @@ export default function () {
   return (
     <>
       <Notifications />
-      {me.data ? (
+      {me.data?.outsideDomains ? (
+        <OutsideDomainsPage />
+      ) : me.data ? (
         <SignedIn />
       ) : (
         <Routes>

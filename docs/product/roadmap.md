@@ -32,9 +32,6 @@ In this order after stage 6 (S — a day, M — a few days, L — a week or more
 
 ### Corporate sign-in and bots
 
-- [ ] **Allowed email domains (`EMAIL_DOMAINS`).** Checked wherever an
-  email is written; an old address outside them signs in to its profile
-  only, and its notifications become a request to change it. M
 - [ ] **Sign-in through the company's identity provider (OIDC).** Sign-in
   links and invites close; people are created on their first sign-in and
   known by the provider's id; a session lasts a day from sign-in; every

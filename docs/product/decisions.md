@@ -753,3 +753,25 @@ directly: the manager typing it answers for it.
 `confirm_email_change()` (migration `0.1-0.2`); `Employee.requestEmailChange`,
 `Auth.confirmEmail`; the mail-only kinds in `server/delivery.ts`;
 `client/components/EmailConfirmPage.tsx`, the email field in the profile.
+
+### 52. Only the company's mail domains, and a way out for the rest
+
+A company wants its tracker on its own addresses: a personal mailbox
+outlives the job, and an address with a typo invites a stranger. With
+`EMAIL_DOMAINS` set, no other address is written anywhere — an invite, a
+change of one's email, bringing someone back (with their old address
+too). It is configuration, like SMTP, so it lives in the environment, not
+the database; exact domains only, so a subdomain is one more entry.
+
+Someone who already has another address is not locked out: they sign in
+as before, but the server refuses them everything except changing their
+email (and logging out), and the interface shows only that. Their
+notifications still reach the bell and the webhook; their mail gets a
+request to change the address instead, at most once a day. Turning the
+setting on is therefore safe on a working installation: people move to
+the company's addresses on their own.
+
+*Implemented:* `EMAIL_DOMAINS` in `server/env.ts`, `server/domains.ts`;
+`Meta.outsideDomains` and the check in `server/trpc.ts`; `Auth.me`
+(`Me`); `human.outside_domains_told_at` (migration `0.1-0.2`) and the
+request in `server/worker.ts`; `client/components/OutsideDomainsPage.tsx`.

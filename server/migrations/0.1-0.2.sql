@@ -1192,6 +1192,17 @@ COMMENT ON FUNCTION confirm_email_change(TEXT) IS
 becomes the employee''s, and their other pending changes are dropped.
 Signs nobody in. email_taken if someone working took the address since.';
 
+-- Allowed email domains (EMAIL_DOMAINS, in the configuration): someone with
+-- an address outside them is asked to change it, at most once a day.
+ALTER TABLE human ADD COLUMN outside_domains_told_at TIMESTAMPTZ;
+
+COMMENT ON COLUMN human.outside_domains_told_at IS
+'When the person was last emailed that their address is outside the
+company''s mail domains (EMAIL_DOMAINS in the configuration — the
+database does not know them). Until they change it their notifications
+reach the bell and the webhook, and their mail gets only this request,
+at most once a day.';
+
 -- The specification (COMMENT ON SCHEMA) as of this version.
 COMMENT ON SCHEMA public IS
 'yartt — a task tracker without projects, subtasks or assignments.

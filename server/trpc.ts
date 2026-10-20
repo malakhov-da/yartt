@@ -1,11 +1,14 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import superjson from 'superjson';
-import { ZodError } from 'zod';
+import { z, ZodError } from 'zod';
 import type { BotPermission } from '#shared/bot.ts';
 import type { ErrorCode, ErrorData, ErrorIssue } from '#shared/errors.ts';
 import type { Context } from './ctx.ts';
+import { outsideDomains } from './domains.ts';
+import env from './env.ts';
 import { AppError, fromPostgres } from './errors.ts';
 import * as Bots from './services/Bot.ts';
+import { sql } from './pg.ts';
 
 function errorData(error: TRPCError): ErrorData {
   const cause = error.cause;
@@ -32,7 +35,11 @@ function errorData(error: TRPCError): ErrorData {
  * bot_permission). A mutation without it is for people only; a query is
  * open to a bot, within what its relationships show it.
  */
-export type Meta = { bot?: BotPermission };
+export type Meta = {
+  bot?: BotPermission;
+  /** Open to a person whose email is outside the company's domains: they may only change it (decision 52). */
+  outsideDomains?: true;
+};
 
 const t = initTRPC.context<Context>().meta<Meta>().create({
   transformer: superjson,
@@ -47,9 +54,11 @@ const t = initTRPC.context<Context>().meta<Meta>().create({
   },
 });
 
+const EmailRow = z.object({ email: z.string().nullable() });
+
 function toTrpcError(cause: AppError): TRPCError {
   const code =
-    cause.code === 'forbidden' || cause.code === 'bot_not_permitted' ? 'FORBIDDEN'
+    cause.code === 'forbidden' || cause.code === 'bot_not_permitted' || cause.code === 'email_outside_domains' ? 'FORBIDDEN'
     : cause.code === 'not_found' ? 'NOT_FOUND'
     : cause.code === 'unauthorized' ? 'UNAUTHORIZED'
     : 'BAD_REQUEST';
@@ -102,4 +111,11 @@ export const authedProcedure = procedure.use(({ ctx, meta, type, next }) => {
     throw new AppError('bot_not_permitted', { permission: meta?.bot ?? null });
   }
   return next({ ctx: { ...ctx, employeeId: ctx.employeeId } });
+}).use(async ({ ctx, meta, next }) => {
+  // Someone whose email is outside the company's domains may only change it.
+  if (env.EMAIL_DOMAINS.length && !ctx.bot && !meta?.outsideDomains) {
+    const [row] = EmailRow.array().parse(await sql`SELECT email FROM employee WHERE id = ${ctx.employeeId}`);
+    if (outsideDomains(row?.email ?? null)) throw new AppError('email_outside_domains');
+  }
+  return next();
 });

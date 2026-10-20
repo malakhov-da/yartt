@@ -23,6 +23,12 @@ const EnvSchema = z.object({
   FIRST_EMPLOYEE_TIME_ZONE: z.string().default('UTC'),
   // The image sets production: a real installation must be able to send its sign-in links.
   NODE_ENV: z.string().optional(),
+  // The company's mail domains (comma-separated, e.g. corp.com,corp.kz): no
+  // other address is written, and someone with an older one may only change
+  // it. Empty — any address.
+  EMAIL_DOMAINS: z.string().optional()
+    .transform((value) => (value ?? '').split(',').map((d) => d.trim().toLowerCase()).filter(Boolean))
+    .pipe(z.string().regex(/^[a-z0-9-]+(\.[a-z0-9-]+)+$/, 'a domain such as corp.com').array()),
   // A trial: the demo company in this language on the first start (an empty
   // database), and no sign-in — anyone picks whom to see it as. Unset for work.
   DEMO_DATA: z.enum(DEMO_LANGUAGES).optional().or(z.literal('').transform(() => undefined)),
@@ -39,6 +45,11 @@ if (result.data.SMTP_URL && !result.data.MAIL_FROM) {
 }
 if (result.data.NODE_ENV === 'production' && !result.data.DEMO_DATA && !result.data.SMTP_URL) {
   console.error('Invalid configuration: SMTP_URL is required in production — sign-in links go by email (DEMO_DATA=ru|en for a trial without it)');
+  process.exit(1);
+}
+const firstDomain = result.data.FIRST_EMPLOYEE_EMAIL?.split('@').pop()?.toLowerCase();
+if (result.data.EMAIL_DOMAINS.length && firstDomain && !result.data.EMAIL_DOMAINS.includes(firstDomain)) {
+  console.error(`Invalid configuration: FIRST_EMPLOYEE_EMAIL is outside EMAIL_DOMAINS (${result.data.EMAIL_DOMAINS.join(', ')})`);
   process.exit(1);
 }
 if (result.data.WEBHOOK_URL && !result.data.WEBHOOK_SECRET) {

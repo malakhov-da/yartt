@@ -17,6 +17,8 @@ export const ERROR_CODES = [
 
   // employees
   'email_taken',
+  'email_not_allowed',
+  'email_outside_domains',
   'invalid_locale',
   'invalid_time_zone',
   'manager_cycle',

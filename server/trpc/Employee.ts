@@ -11,6 +11,7 @@ export default router({
    * Creates an employee and notifies them. Any employee can invite.
    * Locale and time zone default to the inviter's.
    * @throws email_taken
+   * @throws email_not_allowed — outside the company's domains (EMAIL_DOMAINS).
    */
   invite: authedProcedure
     .input(InviteInput)
@@ -27,9 +28,11 @@ export default router({
    * Sends a link to a new sign-in address; the email changes only when it
    * is followed (Auth.confirmEmail), within a day. The old address is told.
    * @throws email_taken
+   * @throws email_not_allowed — outside the company's domains (EMAIL_DOMAINS).
    * @throws too_many_requests — five emails in 15 minutes.
    */
   requestEmailChange: authedProcedure
+    .meta({ outsideDomains: true })
     .input(EmailChangeInput)
     .output(z.void())
     .mutation(({ input, ctx }) => Employees.requestEmailChange(ctx.employeeId, input.email)),
@@ -73,6 +76,7 @@ export default router({
    * @throws not_manager — the signed-in employee is not their direct manager.
    * @throws not_found — unknown or not dismissed.
    * @throws email_taken
+   * @throws email_not_allowed — the email given, or the one they had, is outside the company's domains.
    */
   restore: authedProcedure
     .input(z.object({ id: Id, email: Email.optional() }))

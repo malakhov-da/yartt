@@ -1,8 +1,9 @@
 import { z } from 'zod';
-import { Email, Employee } from '#shared/employee.ts';
+import { Email, Employee, Me } from '#shared/employee.ts';
 import env from '../env.ts';
 import { AppError } from '../errors.ts';
 import * as Auth from '../services/Auth.ts';
+import { outsideDomains } from '../domains.ts';
 import * as Employees from '../services/Employee.ts';
 import { authedProcedure, procedure, router } from '../trpc.ts';
 
@@ -39,13 +40,13 @@ export default router({
     .mutation(({ input }) => Employees.confirmEmailChange(input.token)),
 
   /** Ends the current session and clears the cookie. */
-  logout: authedProcedure.output(z.void()).mutation(async ({ ctx }) => {
+  logout: authedProcedure.meta({ outsideDomains: true }).output(z.void()).mutation(async ({ ctx }) => {
     if (ctx.sessionToken) await Auth.logout(ctx.sessionToken);
     ctx.clearSessionCookie();
   }),
 
   /** Ends all sessions of the signed-in employee on every device. */
-  logoutEverywhere: authedProcedure.output(z.void()).mutation(async ({ ctx }) => {
+  logoutEverywhere: authedProcedure.meta({ outsideDomains: true }).output(z.void()).mutation(async ({ ctx }) => {
     await Auth.logoutEverywhere(ctx.employeeId);
     ctx.clearSessionCookie();
   }),
@@ -73,8 +74,13 @@ export default router({
       ctx.setSessionCookie(await Auth.demoSignIn(input.employeeId));
     }),
 
-  /** The signed-in employee, or null without a valid session. */
-  me: procedure.output(Employee.nullable()).query(({ ctx }) => {
-    return ctx.employeeId === null ? null : Employees.get(ctx.employeeId);
+  /**
+   * The signed-in employee, or null without a valid session; with whether
+   * their email is outside the company's domains — then they may only
+   * change it.
+   */
+  me: procedure.output(Me.nullable()).query(async ({ ctx }) => {
+    const me = ctx.employeeId === null ? null : await Employees.get(ctx.employeeId);
+    return me && { ...me, outsideDomains: ctx.bot === null && outsideDomains(me.email), domains: env.EMAIL_DOMAINS };
   }),
 });

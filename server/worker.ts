@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { Locale } from '#shared/employee.ts';
 import { NotificationPayload } from '#shared/notification.ts';
 import { refreshDemo } from './demo.ts';
+import { outsideDomains } from './domains.ts';
 import * as Bots from './services/Bot.ts';
 import { deliver } from './delivery.ts';
 import env from './env.ts';
@@ -105,6 +106,8 @@ const PendingNotification = z.object({
   dismissed: z.boolean(),
   webhookUrl: z.string().nullable(),
   webhookSecret: z.string().nullable(),
+  /** Asked to change an address outside the domains within the last day. */
+  toldToday: z.boolean(),
   fullName: z.string(),
   // An unsupported language falls back to the default one.
   locale: Locale.catch('ru'),
@@ -130,10 +133,12 @@ export async function deliverNotifications(sql: Sql): Promise<number> {
   return sql.begin(async (tx) => {
     const rows = PendingNotification.array().parse(await tx`
       SELECT n.id, n.employee_id, n.task_id, n.payload, e.kind, e.email, e.dismissed_at IS NOT NULL AS dismissed,
-             e.full_name, e.locale, e.time_zone, b.webhook_url, b.webhook_secret
+             e.full_name, e.locale, e.time_zone, b.webhook_url, b.webhook_secret,
+             COALESCE(h.outside_domains_told_at > NOW() - INTERVAL '1 day', FALSE) AS told_today
         FROM notification n
         JOIN employee e ON e.id = n.employee_id
         LEFT JOIN bot b ON b.employee_id = e.id
+        LEFT JOIN human h ON h.employee_id = e.id
        WHERE n.sent_at IS NULL
        ORDER BY n.id
        LIMIT ${BATCH_SIZE}
@@ -148,12 +153,17 @@ export async function deliverNotifications(sql: Sql): Promise<number> {
         console.error(`[worker] notification ${row.id} has an invalid payload, skipped:`, payload.error.issues);
       } else if (!row.dismissed) {
         const webhook = row.webhookUrl ? { url: row.webhookUrl, secret: row.webhookSecret ?? '' } : null;
+        const to = { employeeId: row.employeeId, kind: row.kind, email: row.email, fullName: row.fullName, locale: row.locale, timeZone: row.timeZone, webhook };
+        // An address outside the company's domains gets no notifications by mail, only a
+        // request to change it, at most once a day; the bell and the webhook still get them.
+        const outside = row.kind === 'human' && outsideDomains(row.email);
         try {
-          await deliver({
-            to: { employeeId: row.employeeId, kind: row.kind, email: row.email, fullName: row.fullName, locale: row.locale, timeZone: row.timeZone, webhook },
-            taskId: row.taskId,
-            payload: payload.data,
-          });
+          if (outside && !row.toldToday) {
+            await deliver({ to, taskId: null, payload: { kind: 'email_outside_domains', url: `${env.PUBLIC_URL}/` } });
+            await tx`UPDATE human SET outside_domains_told_at = NOW() WHERE employee_id = ${row.employeeId}`;
+            for (const other of rows) if (other.employeeId === row.employeeId) other.toldToday = true;
+          }
+          await deliver({ to, taskId: row.taskId, payload: payload.data }, { mail: !outside });
           if (webhook) await Bots.countDelivery(tx as unknown as Sql, row.employeeId, false);
         } catch (error) {
           console.error(`[worker] notification ${row.id} delivery failed:`, error);

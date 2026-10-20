@@ -45,6 +45,15 @@ export const Employee = z.object({
 });
 export type Employee = z.infer<typeof Employee>;
 
+/** The signed-in employee, and whether their email is outside the company's domains (decision 52). */
+export const Me = Employee.extend({
+  /** Their email is outside EMAIL_DOMAINS: they may only change it. */
+  outsideDomains: z.boolean(),
+  /** The company's mail domains; empty — any. */
+  domains: z.string().array(),
+});
+export type Me = z.infer<typeof Me>;
+
 export const InviteInput = z.object({
   email: Email,
   fullName: FullName,

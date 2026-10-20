@@ -25,10 +25,11 @@ export type Recipient = {
 export type Payload = NotificationPayload
   | { kind: 'login'; url: string }
   | { kind: 'email_confirm'; url: string; email: string }
-  | { kind: 'email_changing'; email: string };
+  | { kind: 'email_changing'; email: string }
+  | { kind: 'email_outside_domains'; url: string };
 
-/** Only by email: a link that proves the mailbox must not arrive anywhere else. */
-const MAIL_ONLY = new Set<Payload['kind']>(['email_confirm', 'email_changing']);
+/** Only by email: a link that proves the mailbox must not arrive anywhere else; a request about the address itself. */
+const MAIL_ONLY = new Set<Payload['kind']>(['email_confirm', 'email_changing', 'email_outside_domains']);
 
 export type Message = {
   to: Recipient;
@@ -40,7 +41,7 @@ export type Message = {
 // language (SMTP_URL) and/or the webhook (WEBHOOK_URL) for other channels.
 // With neither configured the message is logged (development mode). A bot
 // gets JSON on its own webhook only.
-export async function deliver(message: Message): Promise<void> {
+export async function deliver(message: Message, options: { mail?: boolean } = {}): Promise<void> {
   const { kind, ...data } = message.payload;
   const { webhook, ...to } = message.to;
 
@@ -49,7 +50,7 @@ export async function deliver(message: Message): Promise<void> {
     return;
   }
 
-  if (mailEnabled && message.to.email !== null) {
+  if (mailEnabled && message.to.email !== null && options.mail !== false) {
     const mail = await renderMail(message);
     await sendMail(message.to.email, mail.subject, mail.text);
   }
