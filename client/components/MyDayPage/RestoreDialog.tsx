@@ -6,11 +6,11 @@ import type { Employee } from '#shared/employee.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import { fieldErrors } from '#client/i18n/errors.ts';
 
-/** The direct manager brings a dismissed employee back under themselves, with a new email. */
+/** The direct manager brings a dismissed employee back under themselves, with the email they had or a new one. */
 export default function (p: { employee: Employee; onClose: () => void; onDone: () => void }) {
   const { t } = useTranslation();
   const trpc = useTRPC();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(p.employee.email ?? '');
   const restore = useMutation(
     trpc.Employee.restore.mutationOptions({
       onSuccess: () => {

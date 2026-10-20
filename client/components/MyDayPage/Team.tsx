@@ -83,7 +83,7 @@ export default function () {
   });
 
   // My dismissed reports, whatever the range: only I can bring them back (a dismissed one always has a manager).
-  const dismissed = [...employees.values()].filter((e) => e.email === null && e.managerId === me.id);
+  const dismissed = [...employees.values()].filter((e) => e.dismissedAt !== null && e.managerId === me.id);
 
   const toggle = (ids: number[], on: boolean) => setSelected((prev) => {
     const next = new Set(prev);

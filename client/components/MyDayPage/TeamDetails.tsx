@@ -155,7 +155,7 @@ export default function (p: { group: Group; onChanged: () => void }) {
         <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
           <Button size="small" component={Link} to={`/employees/${employee.id}`}>{t('myDay.team.details.page')}</Button>
           {/* My active direct report; a dismissed one comes back from the list under the table. */}
-          {person!.direct && employee.email !== null && (
+          {person!.direct && employee.dismissedAt === null && (
             <Button size="small" color="error" startIcon={<PersonRemove />} disabled={dismiss.isPending} onClick={() => confirmDismiss(employee)}>
               {t('team.dismiss')}
             </Button>

@@ -30,7 +30,7 @@ export default function (p: { id: number }) {
         <Stack spacing={0.5} sx={{ minWidth: 0 }}>
           <Typography variant="h2" sx={{ fontWeight: 600 }}>{employee.fullName}</Typography>
           <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
-            {employee.email === null && <Chip size="small" label={t('team.dismissed')} />}
+            {employee.dismissedAt !== null && <Chip size="small" label={t('team.dismissed')} />}
             {away && <Chip size="small" color="warning" label={t('employee.awayUntil', { day: format.date(fromDay(employee.nextDay!)) })} />}
           </Stack>
           {employee.about && <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{employee.about}</Typography>}
@@ -46,7 +46,7 @@ export default function (p: { id: number }) {
         <History employeeId={p.id === me.id ? undefined : p.id} canScore={employee.managerId === me.id} onEmployeePage />
       </Box>
       {/* A bot cannot sign in: its direct manager issues its tokens here, folded away. */}
-      {employee.managerId === me.id && employee.email !== null && (
+      {employee.managerId === me.id && employee.dismissedAt === null && (
         <Accordion disableGutters sx={{ flex: '1 1 100%', minWidth: 0 }}>
           <AccordionSummary expandIcon={<ExpandMore />}>
             <Typography sx={{ fontWeight: 600 }}>{t('apiTokens.title')}</Typography>

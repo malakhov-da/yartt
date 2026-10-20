@@ -7,7 +7,8 @@ import { sendWebhook } from './webhook.ts';
 
 export type Recipient = {
   employeeId: number;
-  email: string;
+  /** NULL — no address: the webhook only. */
+  email: string | null;
   fullName: string;
   locale: Locale;
   /** Moments in emails are shown in it. */
@@ -29,7 +30,7 @@ export type Message = {
 export async function deliver(message: Message): Promise<void> {
   const { kind, ...data } = message.payload;
 
-  if (mailEnabled) {
+  if (mailEnabled && message.to.email !== null) {
     const mail = await renderMail(message);
     await sendMail(message.to.email, mail.subject, mail.text);
   }

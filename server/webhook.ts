@@ -5,7 +5,7 @@ export type WebhookMessage = {
   kind: string;
   to: {
     employeeId: number;
-    email: string;
+    email: string | null;
     fullName: string;
     locale: string;
     timeZone: string;

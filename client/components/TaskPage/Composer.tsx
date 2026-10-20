@@ -154,7 +154,7 @@ export default function (p: {
 
   const plain = (html: string) => new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
   const replyAuthor = p.replyTo ? employees.get(p.replyTo.authorId)?.fullName : null;
-  const candidates = [...employees.values()].filter((e) => e.email !== null && e.id !== me.id);
+  const candidates = [...employees.values()].filter((e) => e.dismissedAt === null && e.id !== me.id);
 
   return (
     <Stack ref={root} spacing={1.5} sx={{ scrollMarginTop: 16 }}>

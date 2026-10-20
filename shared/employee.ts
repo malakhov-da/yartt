@@ -21,7 +21,7 @@ export const Day = z.iso.date();
 
 export const Employee = z.object({
   id: Id,
-  /** NULL = dismissed. */
+  /** The sign-in and mail address; NULL — none: no emails, no sign-in link. Kept on dismissal. */
   email: z.string().nullable(),
   /** When dismissed; NULL — working. */
   dismissedAt: z.date().nullable(),

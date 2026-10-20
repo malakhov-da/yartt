@@ -95,7 +95,8 @@ describe('employee', () => {
     const api = await client(top.id);
     await api.Employee.dismiss({ id: middle.id });
     const list = await api.Employee.list();
-    expect(list.find((e) => e.id === middle.id)?.email).toBeNull();
+    // Dismissed, with the email kept for coming back.
+    expect(list.find((e) => e.id === middle.id)).toMatchObject({ email: middle.email, dismissedAt: expect.any(Date) });
     expect(list.find((e) => e.id === bottom.id)?.managerId).toBe(top.id);
     const [owner] = await sql<{ ownerId: number }[]>`SELECT owner_id FROM task WHERE id = ${task!.id}`;
     expect(owner?.ownerId).toBe(top.id);
@@ -109,12 +110,41 @@ describe('employee', () => {
     const dev = await createEmployee({ managerId: boss.id });
     await (await client(boss.id)).Employee.dismiss({ id: dev.id });
 
-    await expect((await client(other.id)).Employee.restore({ id: dev.id, email: dev.email }))
+    await expect((await client(other.id)).Employee.restore({ id: dev.id }))
       .rejects.toMatchObject({ message: 'not_manager' });
-    expect(await (await client(boss.id)).Employee.restore({ id: dev.id, email: dev.email }))
-      .toMatchObject({ email: dev.email });
-    await expect((await client(boss.id)).Employee.restore({ id: dev.id, email: dev.email }))
+    // Nothing to type: they come back with the email they had.
+    expect(await (await client(boss.id)).Employee.restore({ id: dev.id }))
+      .toMatchObject({ email: dev.email, dismissedAt: null });
+    await expect((await client(boss.id)).Employee.restore({ id: dev.id }))
       .rejects.toMatchObject({ message: 'not_found' });
+  });
+
+  test('a dismissed employee does not hold their email: someone new may get it, and the one coming back takes another', async () => {
+    const boss = await createEmployee();
+    const dev = await createEmployee({ managerId: boss.id });
+    const api = await client(boss.id);
+    await api.Employee.dismiss({ id: dev.id });
+    const [token] = await sql<{ token: string | null }[]>`SELECT issue_token(${dev.email}) AS token`;
+    expect(token?.token).toBeNull();
+
+    const successor = await api.Employee.invite({ email: dev.email, fullName: 'Successor' });
+    expect(successor.email).toBe(dev.email);
+    await expect(api.Employee.restore({ id: dev.id })).rejects.toMatchObject({ message: 'email_taken' });
+    expect(await api.Employee.restore({ id: dev.id, email: `back-${dev.email}` }))
+      .toMatchObject({ email: `back-${dev.email}`, dismissedAt: null });
+  });
+
+  test('someone working without an email still gets notifications in the bell', async () => {
+    const boss = await createEmployee();
+    const dev = await createEmployee();
+    await sql`UPDATE employee SET email = NULL WHERE id = ${dev.id}`;
+    await (await client(dev.id)).Employee.setManager({ managerId: boss.id });
+    await (await client(boss.id)).Employee.dismiss({ id: dev.id });
+    await sql`SELECT notify(${dev.id}, NULL, ${sql.json({ kind: 'new_report', employeeId: boss.id })})`;
+    expect(await sql`SELECT 1 FROM notification WHERE employee_id = ${dev.id}`).toHaveLength(0);
+    await (await client(boss.id)).Employee.restore({ id: dev.id });
+    await sql`SELECT notify(${dev.id}, NULL, ${sql.json({ kind: 'new_report', employeeId: boss.id })})`;
+    expect(await sql`SELECT 1 FROM notification WHERE employee_id = ${dev.id}`).toHaveLength(1);
   });
 
   test('a dismissed employee always has a manager to bring them back: theirs, or the one above when theirs leaves', async () => {
@@ -135,7 +165,7 @@ describe('employee', () => {
     const dev = await createEmployee({ managerId: boss.id });
     const api = await client(boss.id);
     await api.Employee.dismiss({ id: dev.id });
-    expect(await api.Employee.restore({ id: dev.id, email: dev.email }))
+    expect(await api.Employee.restore({ id: dev.id }))
       .toMatchObject({ email: dev.email, managerId: boss.id, dismissedAt: null });
     await (await client(dev.id)).Employee.setManager({ managerId: peer.id });
     expect((await api.Employee.list()).find((e) => e.id === dev.id)?.managerId).toBe(peer.id);
@@ -158,8 +188,8 @@ describe('employee', () => {
     expect([managers.get(heir.id), managers.get(top.id), managers.get(other.id), managers.get(gone.id)])
       .toEqual([null, heir.id, heir.id, heir.id]);
     // Only the heir brings back the top and the one dismissed before.
-    await expect((await client(other.id)).Employee.restore({ id: top.id, email: top.email })).rejects.toMatchObject({ message: 'not_manager' });
-    await heirApi.Employee.restore({ id: gone.id, email: gone.email });
+    await expect((await client(other.id)).Employee.restore({ id: top.id })).rejects.toMatchObject({ message: 'not_manager' });
+    await heirApi.Employee.restore({ id: gone.id });
   });
 
   test('the administrator dismisses someone at the top with an heir from their own team', async () => {
@@ -171,16 +201,16 @@ describe('employee', () => {
 
     await sql`SELECT dismiss_with_heir(${top.id}, ${heir.id})`;
     const managers = new Map((await (await client(heir.id)).Employee.list()).map((e) => [e.id, e]));
-    expect(managers.get(top.id)).toMatchObject({ email: null, managerId: heir.id });
+    expect(managers.get(top.id)).toMatchObject({ dismissedAt: expect.any(Date), managerId: heir.id });
     expect([managers.get(heir.id)!.managerId, managers.get(lead.id)!.managerId, managers.get(gone.id)!.managerId])
       .toEqual([null, heir.id, heir.id]);
-    await (await client(heir.id)).Employee.restore({ id: top.id, email: top.email });
+    await (await client(heir.id)).Employee.restore({ id: top.id });
 
     // An heir from elsewhere just becomes the manager; the heir must be someone else, and active.
     const other = await createEmployee();
     await expect(sql`SELECT dismiss_with_heir(${other.id}, ${other.id})`).rejects.toMatchObject({ hint: 'not_found' });
     await sql`SELECT dismiss_with_heir(${top.id}, ${lead.id})`;
-    expect((await (await client(lead.id)).Employee.list()).find((e) => e.id === top.id)).toMatchObject({ email: null, managerId: lead.id });
+    expect((await (await client(lead.id)).Employee.list()).find((e) => e.id === top.id)).toMatchObject({ dismissedAt: expect.any(Date), managerId: lead.id });
   });
 
   test('the new manager is notified', async () => {

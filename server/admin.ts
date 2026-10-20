@@ -9,7 +9,7 @@ import { sql } from './pg.ts';
 const Row = z.object({ id: z.number(), fullName: z.string() });
 
 async function byEmail(email: string) {
-  const [row] = Row.array().parse(await sql`SELECT id, full_name FROM employee WHERE email = ${email}`);
+  const [row] = Row.array().parse(await sql`SELECT id, full_name FROM employee WHERE email = ${email} AND dismissed_at IS NULL`);
   if (!row) throw new Error(`No active employee with email ${email}`);
   return row;
 }

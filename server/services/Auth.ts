@@ -23,7 +23,7 @@ export async function requestLogin(email: string): Promise<void> {
   if (!token?.token) return;
 
   const [employee] = Recipient.array().parse(await sql`
-    SELECT id, email, full_name, locale, time_zone FROM employee WHERE email = ${email}
+    SELECT id, email, full_name, locale, time_zone FROM employee WHERE email = ${email} AND dismissed_at IS NULL
   `);
   if (!employee) return;
 
@@ -49,7 +49,7 @@ export async function authenticate(sessionToken: string): Promise<number | null>
 
 /** The demo: everyone who can sign in, in the order they joined. */
 export async function demoPeople(): Promise<Employee[]> {
-  return (await Employees.list()).filter((e) => e.email !== null).sort((a, b) => a.id - b.id);
+  return (await Employees.list()).filter((e) => e.dismissedAt === null && e.email !== null).sort((a, b) => a.id - b.id);
 }
 
 /**
@@ -58,7 +58,7 @@ export async function demoPeople(): Promise<Employee[]> {
  */
 export async function demoSignIn(employeeId: number): Promise<string> {
   const [token] = Token.array().parse(await sql`
-    SELECT issue_token(email) AS token FROM employee WHERE id = ${employeeId} AND email IS NOT NULL
+    SELECT issue_token(email) AS token FROM employee WHERE id = ${employeeId} AND dismissed_at IS NULL
   `);
   if (!token?.token) throw new AppError('not_found');
   return login(token.token);

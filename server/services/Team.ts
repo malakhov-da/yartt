@@ -199,7 +199,7 @@ export async function summary(viewerId: number, from: string, to: string): Promi
        -- Someone invited after the range or dismissed before it did not work in it.
        AND (e.created_at AT TIME ZONE e.time_zone)::date <= ${to}::date
        AND (e.dismissed_at IS NULL OR (e.dismissed_at AT TIME ZONE e.time_zone)::date >= ${from}::date)
-     ORDER BY (e.id = ${viewerId}) DESC, (e.manager_id = ${viewerId}) DESC, e.email IS NULL, e.full_name, e.id
+     ORDER BY (e.id = ${viewerId}) DESC, (e.manager_id = ${viewerId}) DESC, e.dismissed_at IS NOT NULL, e.full_name, e.id
   `);
   const ids = rows.map((r) => r.id);
   const byId = await stats(ids, { from, to });

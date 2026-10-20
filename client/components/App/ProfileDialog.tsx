@@ -69,7 +69,7 @@ export default function (p: { onClose: () => void }) {
   const { mode, setMode } = useColorScheme();
 
   const employees = useQuery(trpc.Employee.list.queryOptions());
-  const candidates = (employees.data ?? []).filter((e) => e.email !== null && e.id !== me.id);
+  const candidates = (employees.data ?? []).filter((e) => e.dismissedAt === null && e.id !== me.id);
   const manager = candidates.find((e) => e.id === me.managerId) ?? null;
 
   const submit = (event: FormEvent) => {

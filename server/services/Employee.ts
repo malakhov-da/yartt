@@ -43,7 +43,7 @@ export async function updateProfile(id: number, input: ProfileInput): Promise<Em
        SET full_name = ${input.fullName},
            email = ${input.email},
            about = ${input.about}
-     WHERE id = ${id} AND email IS NOT NULL
+     WHERE id = ${id} AND dismissed_at IS NULL
     RETURNING ${sql.unsafe(COLUMNS)}
   `);
   if (!employee) throw new AppError('not_found');
@@ -70,7 +70,7 @@ export async function updateSettings(id: number, input: SettingsInput): Promise<
 
 async function isActive(id: number): Promise<boolean> {
   const [row] = Exists.array().parse(await sql`
-    SELECT EXISTS (SELECT 1 FROM employee WHERE id = ${id} AND email IS NOT NULL)
+    SELECT EXISTS (SELECT 1 FROM employee WHERE id = ${id} AND dismissed_at IS NULL)
   `);
   return row?.exists ?? false;
 }
@@ -89,9 +89,12 @@ export async function dismiss(id: number, actorId: number): Promise<void> {
   await sql`SELECT dismiss_employee(${id}, ${actorId})`;
 }
 
-/** See restore_employee() in db.sql: only the direct manager, under themselves. */
-export async function restore(id: number, email: string, actorId: number): Promise<Employee> {
-  await sql`SELECT restore_employee(${id}, ${email}, ${actorId})`;
+/**
+ * See restore_employee() in db.sql: only the direct manager, under
+ * themselves; the email they had unless another one is given.
+ */
+export async function restore(id: number, actorId: number, email: string | null): Promise<Employee> {
+  await sql`SELECT restore_employee(${id}, ${actorId}, ${email})`;
   const employee = await get(id);
   if (!employee) throw new AppError('not_found');
   return employee;

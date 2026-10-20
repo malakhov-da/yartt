@@ -87,6 +87,7 @@ const PendingNotification = z.object({
   taskId: z.number().nullable(),
   payload: z.unknown(),
   email: z.string().nullable(),
+  dismissed: z.boolean(),
   fullName: z.string(),
   // An unsupported language falls back to the default one.
   locale: Locale.catch('ru'),
@@ -109,7 +110,8 @@ export async function deliverNotifications(sql: Sql): Promise<number> {
   }
   return sql.begin(async (tx) => {
     const rows = PendingNotification.array().parse(await tx`
-      SELECT n.id, n.employee_id, n.task_id, n.payload, e.email, e.full_name, e.locale, e.time_zone
+      SELECT n.id, n.employee_id, n.task_id, n.payload, e.email, e.dismissed_at IS NOT NULL AS dismissed,
+             e.full_name, e.locale, e.time_zone
         FROM notification n
         JOIN employee e ON e.id = n.employee_id
        WHERE n.sent_at IS NULL
@@ -124,7 +126,7 @@ export async function deliverNotifications(sql: Sql): Promise<number> {
       const payload = NotificationPayload.safeParse(row.payload);
       if (!payload.success) {
         console.error(`[worker] notification ${row.id} has an invalid payload, skipped:`, payload.error.issues);
-      } else if (row.email !== null) {
+      } else if (!row.dismissed) {
         try {
           await deliver({
             to: { employeeId: row.employeeId, email: row.email, fullName: row.fullName, locale: row.locale, timeZone: row.timeZone },

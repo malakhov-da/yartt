@@ -211,7 +211,7 @@ export async function transfer(actorId: number, taskId: number, newOwnerId: numb
     if (row.ownerId === null || (actorId !== row.ownerId && actorId !== row.managerId)) throw new AppError('forbidden');
     if (newOwnerId === row.ownerId) return;
     const [target] = Bool.array().parse(await db`
-      SELECT EXISTS (SELECT 1 FROM employee WHERE id = ${newOwnerId} AND email IS NOT NULL) AS value
+      SELECT EXISTS (SELECT 1 FROM employee WHERE id = ${newOwnerId} AND dismissed_at IS NULL) AS value
     `);
     if (!target?.value) throw new AppError('not_found');
 

@@ -657,3 +657,19 @@ sign-in links.
 `refreshDemo()` in `server/demo.ts` (nightly from `server/worker.ts`), `demoTexts.ts`, `demoImages.ts`;
 `Auth.demo`, `Auth.demoSignIn`; `client/components/App/DemoPeople.tsx`;
 `prod.env.example`, `demo.env.example`.
+
+### 48. Dismissal is a date, not a missing email
+
+A dismissal used to erase the email, so "working" meant "has an email":
+bringing someone back meant typing their address again, and nobody could
+work without one — a bot needed a made-up mailbox. Now whether someone
+works is `dismissed_at` alone. A dismissed employee keeps their email,
+and the manager brings them back without typing it; the address is not
+held, though: one working employee per email, so someone new may get the
+address of someone who left, and the one coming back then takes another.
+An employee may have no email at all: no emails and no sign-in link, but
+the bell, mentions and everything else work.
+
+*Implemented:* `employee.dismissed_at`, `uq_employee_email`,
+`restore_employee()` (migration `0.1-0.2`); `Employee.restore` with an
+optional email; `server/delivery.ts` sends mail only to an address.

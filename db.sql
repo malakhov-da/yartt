@@ -37,7 +37,7 @@ CREATE TABLE schema_version (
 CREATE UNIQUE INDEX uq_schema_version_active
     ON schema_version((TRUE)) WHERE expired_at IS NULL;
 
-INSERT INTO schema_version (version) VALUES ('0.1');
+INSERT INTO schema_version (version) VALUES ('0.2');
 
 COMMENT ON TABLE schema_version IS
 'History of database schema versions (major.minor). Current = expired_at IS NULL.
@@ -633,7 +633,7 @@ is a value here and a line there.';
 
 CREATE TABLE employee (
     id SERIAL PRIMARY KEY,
-    email CITEXT UNIQUE,
+    email CITEXT,
     full_name VARCHAR(255) NOT NULL,
     about TEXT,
     manager_id INT REFERENCES employee(id),
@@ -648,20 +648,20 @@ CREATE TABLE employee (
 
     CONSTRAINT chk_employee_manager_not_self
         CHECK (manager_id <> id),
-    CONSTRAINT chk_employee_dismissed
-        CHECK ((dismissed_at IS NULL) = (email IS NOT NULL)),
     CONSTRAINT chk_employee_dismissed_manager
-        CHECK (email IS NOT NULL OR manager_id IS NOT NULL),
+        CHECK (dismissed_at IS NULL OR manager_id IS NOT NULL),
     CONSTRAINT chk_employee_time_zone
         CHECK ((TIMESTAMPTZ '2000-01-01 00:00Z' AT TIME ZONE time_zone) IS NOT NULL)
 );
 CREATE INDEX idx_employee_manager ON employee(manager_id);
+CREATE UNIQUE INDEX uq_employee_email ON employee(email) WHERE dismissed_at IS NULL;
 
 COMMENT ON TABLE employee IS
 'An employee. The account.
 Only another employee can create one (an invite, checked by the application).
 The application creates the first employee on its first start (from .env).
-Dismissal = email -> NULL: records are kept, signing in is impossible.
+Dismissal sets dismissed_at: records are kept, signing in is impossible.
+The email stays, so bringing the employee back needs nothing typed again.
 An employee cannot be deleted (trigger).
 
 manager_id — the direct manager. One field, no history.
@@ -682,11 +682,13 @@ COMMENT ON COLUMN employee.id IS
 'Employee id.';
 
 COMMENT ON COLUMN employee.email IS
-'CITEXT, case-insensitive, UNIQUE. One account per email.
-NULL = dismissed. A dismissed employee cannot sign in.
+'CITEXT, case-insensitive. One working account per email
+(uq_employee_email); a dismissed employee keeps theirs, and someone new
+may get the same address.
+NULL — no address: no emails and no sign-in link; the bell still works.
+Whether the employee works is dismissed_at, never the email.
 The employee may change it in the profile (the next sign-in link goes
-to the new address).
-When the employee comes back, the email is restored and history is kept.';
+to the new address).';
 
 COMMENT ON COLUMN employee.full_name IS
 'Display name. Filled by the inviter on invite.';
@@ -710,8 +712,9 @@ COMMENT ON COLUMN employee.created_at IS
 does not show them for a range that ended before.';
 
 COMMENT ON COLUMN employee.dismissed_at IS
-'When the employee was dismissed (dismiss_employee): set exactly when
-email is NULL, cleared when they come back. My team
+'When the employee was dismissed (dismiss_employee); NULL — working.
+Cleared when they come back. A dismissed employee cannot sign in and gets
+no notifications. My team
 shows a dismissed employee only for ranges they worked in: dismissed on
 or after the range''s first day.';
 
@@ -741,15 +744,16 @@ Changing it shifts past day boundaries — do it rarely.';
 COMMENT ON CONSTRAINT chk_employee_manager_not_self ON employee IS
 'An employee cannot be their own manager.';
 
-COMMENT ON CONSTRAINT chk_employee_dismissed ON employee IS
-'Dismissed (no email) exactly when there is a dismissal time.';
-
 COMMENT ON CONSTRAINT chk_employee_dismissed_manager ON employee IS
 'A dismissed employee always has a manager — the one who can bring them
 back. Someone without a manager cannot be dismissed (they first pick a
 manager — their successor, once that one stepped out from under them),
 and a dismissed manager''s reports,
 dismissed ones included, move to the manager above.';
+
+COMMENT ON INDEX uq_employee_email IS
+'One working employee per email. Dismissed ones keep their address
+without holding it.';
 
 
 CREATE OR REPLACE FUNCTION local_today(p_employee_id INT)
@@ -1946,22 +1950,22 @@ CREATE OR REPLACE FUNCTION notify(
 RETURNS VOID AS $$
 DECLARE
     v_id INT := p_employee_id;
-    v_email CITEXT;
+    v_dismissed_at TIMESTAMPTZ;
     v_next_day DATE;
     v_manager_id INT;
     v_payload JSONB := p_payload;
 BEGIN
-    SELECT email INTO v_email FROM employee WHERE id = p_employee_id;
-    IF v_email IS NULL THEN
+    SELECT dismissed_at INTO v_dismissed_at FROM employee WHERE id = p_employee_id;
+    IF NOT FOUND OR v_dismissed_at IS NOT NULL THEN
         RETURN;
     END IF;
 
     LOOP
-        SELECT email, next_day, manager_id
-          INTO v_email, v_next_day, v_manager_id
+        SELECT dismissed_at, next_day, manager_id
+          INTO v_dismissed_at, v_next_day, v_manager_id
           FROM employee WHERE id = v_id;
 
-        IF v_email IS NOT NULL THEN
+        IF v_dismissed_at IS NULL THEN
             INSERT INTO notification (employee_id, task_id, payload)
             VALUES (v_id, p_task_id, v_payload);
             EXIT WHEN v_next_day IS NULL OR v_next_day <= local_today(v_id);
@@ -2608,7 +2612,7 @@ BEGIN
             USING HINT = 'self_mention';
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM employee WHERE id = NEW.value AND email IS NOT NULL) THEN
+    IF NOT EXISTS (SELECT 1 FROM employee WHERE id = NEW.value AND dismissed_at IS NULL) THEN
         RAISE EXCEPTION 'employee % is unknown or dismissed', NEW.value
             USING HINT = 'not_found';
     END IF;
@@ -2901,7 +2905,7 @@ DECLARE
     v_employee_id INT;
     v_token TEXT;
 BEGIN
-    SELECT id INTO v_employee_id FROM employee WHERE email = p_email;
+    SELECT id INTO v_employee_id FROM employee WHERE email = p_email AND dismissed_at IS NULL;
     IF NOT FOUND THEN
         RETURN NULL;
     END IF;
@@ -2980,7 +2984,7 @@ RETURNS TEXT AS $$
 DECLARE
     v_token TEXT := 'yartt_' || encode(gen_random_bytes(32), 'hex');
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM employee WHERE id = p_employee_id AND email IS NOT NULL) THEN
+    IF NOT EXISTS (SELECT 1 FROM employee WHERE id = p_employee_id AND dismissed_at IS NULL) THEN
         RAISE EXCEPTION 'employee % is unknown or dismissed', p_employee_id
             USING HINT = 'not_found';
     END IF;
@@ -3011,7 +3015,7 @@ BEGIN
 
     SELECT t.employee_id INTO v_employee_id
       FROM api_token t JOIN employee e ON e.id = t.employee_id
-     WHERE t.hash = digest(p_token, 'sha256') AND t.revoked_at IS NULL AND e.email IS NOT NULL;
+     WHERE t.hash = digest(p_token, 'sha256') AND t.revoked_at IS NULL AND e.dismissed_at IS NULL;
     RETURN v_employee_id;
 END;
 $$ LANGUAGE plpgsql;
@@ -3044,15 +3048,15 @@ employee dismissed). Notes the use at most once every 5 minutes.';
 CREATE OR REPLACE FUNCTION dismiss_employee(p_employee_id INT, p_actor_id INT)
 RETURNS VOID AS $$
 DECLARE
-    v_email CITEXT;
+    v_dismissed_at TIMESTAMPTZ;
     v_manager_id INT;
     v_task_id INT;
 BEGIN
-    SELECT email, manager_id INTO v_email, v_manager_id
+    SELECT dismissed_at, manager_id INTO v_dismissed_at, v_manager_id
       FROM employee WHERE id = p_employee_id
        FOR UPDATE;
 
-    IF NOT FOUND OR v_email IS NULL THEN
+    IF NOT FOUND OR v_dismissed_at IS NOT NULL THEN
         RAISE EXCEPTION 'employee % is unknown or already dismissed', p_employee_id
             USING HINT = 'not_found';
     END IF;
@@ -3074,7 +3078,7 @@ BEGIN
 
     UPDATE employee SET manager_id = v_manager_id WHERE manager_id = p_employee_id;
 
-    UPDATE employee SET email = NULL, next_day = NULL, dismissed_at = NOW() WHERE id = p_employee_id;
+    UPDATE employee SET next_day = NULL, dismissed_at = NOW() WHERE id = p_employee_id;
 
     DELETE FROM token WHERE employee_id = p_employee_id;
     DELETE FROM session WHERE employee_id = p_employee_id;
@@ -3089,8 +3093,9 @@ an employee without a manager cannot be dismissed.
   1. All tasks (open and closed — a closed one can be reopened) go to the
      manager with a notification.
   2. Reports move to the manager (who is notified: new_report).
-  3. email = NULL — signing in is impossible; dismissed_at = NOW().
-     manager_id is kept, so the same manager can bring the employee back.
+  3. dismissed_at = NOW() — signing in is impossible. The email and
+     manager_id are kept, so the same manager can bring the employee back
+     as they were.
   4. Sessions, magic tokens and reminders are deleted; API tokens are
      revoked.
 History (scores, time entries, comments) is kept.';
@@ -3105,12 +3110,12 @@ DECLARE
     v_manager_id INT;
 BEGIN
     PERFORM pg_advisory_xact_lock(hashtext('yartt.hierarchy'));
-    SELECT manager_id INTO v_manager_id FROM employee WHERE id = p_employee_id AND email IS NOT NULL FOR UPDATE;
+    SELECT manager_id INTO v_manager_id FROM employee WHERE id = p_employee_id AND dismissed_at IS NULL FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION 'employee % is unknown or already dismissed', p_employee_id
             USING HINT = 'not_found';
     END IF;
-    IF p_heir_id = p_employee_id OR NOT EXISTS (SELECT 1 FROM employee WHERE id = p_heir_id AND email IS NOT NULL) THEN
+    IF p_heir_id = p_employee_id OR NOT EXISTS (SELECT 1 FROM employee WHERE id = p_heir_id AND dismissed_at IS NULL) THEN
         RAISE EXCEPTION 'heir % is unknown, dismissed or the employee themselves', p_heir_id
             USING HINT = 'not_found';
     END IF;
@@ -3135,17 +3140,17 @@ first leaves it for the employee''s place (under their manager, or at
 the top): otherwise they would be their own manager''s manager.';
 
 
-CREATE OR REPLACE FUNCTION restore_employee(p_employee_id INT, p_email CITEXT, p_actor_id INT)
+CREATE OR REPLACE FUNCTION restore_employee(p_employee_id INT, p_actor_id INT, p_email CITEXT DEFAULT NULL)
 RETURNS VOID AS $$
 DECLARE
-    v_email CITEXT;
+    v_dismissed_at TIMESTAMPTZ;
     v_manager_id INT;
 BEGIN
-    SELECT email, manager_id INTO v_email, v_manager_id
+    SELECT dismissed_at, manager_id INTO v_dismissed_at, v_manager_id
       FROM employee WHERE id = p_employee_id
        FOR UPDATE;
 
-    IF NOT FOUND OR v_email IS NOT NULL THEN
+    IF NOT FOUND OR v_dismissed_at IS NULL THEN
         RAISE EXCEPTION 'employee % is unknown or not dismissed', p_employee_id
             USING HINT = 'not_found';
     END IF;
@@ -3155,13 +3160,14 @@ BEGIN
                   DETAIL = json_build_object('employeeId', p_employee_id)::text;
     END IF;
 
-    UPDATE employee SET email = p_email, dismissed_at = NULL WHERE id = p_employee_id;
+    UPDATE employee SET email = COALESCE(p_email, email), dismissed_at = NULL WHERE id = p_employee_id;
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION restore_employee(INT, CITEXT, INT) IS
-'Brings a dismissed employee back with the given email, under the same
-manager. Only their direct manager (p_actor_id) can do it: the one at the
+COMMENT ON FUNCTION restore_employee(INT, INT, CITEXT) IS
+'Brings a dismissed employee back under the same manager, with the email
+they had — or p_email, when the address changed or someone working holds
+it now (uq_employee_email). Only their direct manager (p_actor_id) can do it: the one at the
 time of dismissal, or the manager above when that one left too. Moving to
 another manager is then the employee''s own choice (manager_id is theirs
 to set), never the manager''s. History was kept; tasks and reports that
@@ -3202,7 +3208,7 @@ BEGIN
             USING HINT = 'task_public',
                   DETAIL = json_build_object('taskId', p_task_id)::text;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM employee WHERE id = p_employee_id AND email IS NOT NULL) THEN
+    IF NOT EXISTS (SELECT 1 FROM employee WHERE id = p_employee_id AND dismissed_at IS NULL) THEN
         RAISE EXCEPTION 'employee % is unknown or dismissed', p_employee_id
             USING HINT = 'not_found';
     END IF;
@@ -3473,7 +3479,7 @@ BEGIN
           FROM mention m JOIN employee e ON e.id = m.value
          WHERE m.task_id = p_task_id
            AND m.closed_at IS NULL
-           AND e.email IS NOT NULL
+           AND e.dismissed_at IS NULL
     LOOP
         PERFORM grant_observer(p_task_id, v_employee_id, NULL);
     END LOOP;
@@ -3482,7 +3488,7 @@ BEGIN
         SELECT DISTINCT c.created_by
           FROM comment c JOIN employee e ON e.id = c.created_by
          WHERE c.task_id = p_task_id
-           AND e.email IS NOT NULL
+           AND e.dismissed_at IS NULL
            AND NOT is_observer(p_task_id, c.created_by)
          ORDER BY c.created_by
     LOOP
@@ -3543,8 +3549,8 @@ DECLARE
 BEGIN
     FOR v_manager IN
         SELECT e.id, e.time_zone FROM employee e
-         WHERE e.email IS NOT NULL
-           AND EXISTS (SELECT 1 FROM employee r WHERE r.manager_id = e.id AND r.email IS NOT NULL)
+         WHERE e.dismissed_at IS NULL
+           AND EXISTS (SELECT 1 FROM employee r WHERE r.manager_id = e.id AND r.dismissed_at IS NULL)
            AND extract(isodow FROM p_now AT TIME ZONE e.time_zone) = 1
            AND (p_now AT TIME ZONE e.time_zone)::time >= TIME '09:00'
            AND (e.weekly_digest_on IS NULL OR e.weekly_digest_on < (p_now AT TIME ZONE e.time_zone)::date)
@@ -3554,7 +3560,7 @@ BEGIN
         SELECT count(*) INTO v_unscored FROM (
             SELECT w.employee_id, local_day(w.employee_id, w.started_at) AS day
               FROM work w JOIN employee r ON r.id = w.employee_id
-             WHERE r.manager_id = v_manager.id AND r.email IS NOT NULL
+             WHERE r.manager_id = v_manager.id AND r.dismissed_at IS NULL
              GROUP BY 1, 2
             HAVING bool_and(w.spent_minutes IS NOT NULL)
         ) d

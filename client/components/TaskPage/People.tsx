@@ -45,7 +45,7 @@ export default function (p: { task: TaskPage }) {
   const name = (id: number | null) => (id === null ? '' : (employees.get(id)?.fullName ?? `#${id}`));
   const total = people.data?.total ?? 0;
   const activeIds = new Set((people.data?.items ?? []).filter((x) => x.active).map((x) => x.employeeId));
-  const candidates = [...employees.values()].filter((e) => e.email !== null && !activeIds.has(e.id));
+  const candidates = [...employees.values()].filter((e) => e.dismissedAt === null && !activeIds.has(e.id));
 
   // Why someone observes without having been added by hand: they own the
   // task, manage someone who observes it, or were mentioned.
@@ -156,7 +156,7 @@ export default function (p: { task: TaskPage }) {
                       {t('task.people.hide')}
                     </Button>
                   )}
-                  {isOwner && gone && employee?.email !== null && (
+                  {isOwner && gone && employee?.dismissedAt === null && (
                     <Button size="small" onClick={() => add.mutate({ taskId, employeeId: person.employeeId })}>{t('task.people.bringBack')}</Button>
                   )}
                 </Box>

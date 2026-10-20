@@ -14,7 +14,7 @@ export default function (p: { taskId: number; ownerId: number; onClose: () => vo
   const refresh = useTaskRefresh();
   const [picked, setPicked] = useState<Employee | null>(null);
   const transfer = useMutation(trpc.Task.transfer.mutationOptions({ onSuccess: () => { refresh(); p.onClose(); } }));
-  const options = [...employees.values()].filter((e) => e.email !== null && e.id !== p.ownerId);
+  const options = [...employees.values()].filter((e) => e.dismissedAt === null && e.id !== p.ownerId);
 
   return (
     <Dialog open onClose={p.onClose} maxWidth="xs" fullWidth>

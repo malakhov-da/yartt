@@ -415,11 +415,11 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
 
 /** Who is in the demo. */
 export async function printDemoSummary(): Promise<void> {
-  const people = z.object({ fullName: z.string(), email: z.string().nullable() }).array().parse(await sql`
-    SELECT full_name, email FROM employee ORDER BY id
+  const people = z.object({ fullName: z.string(), email: z.string().nullable(), dismissedAt: z.date().nullable() }).array().parse(await sql`
+    SELECT full_name, email, dismissed_at FROM employee ORDER BY id
   `);
   console.log('\nSeeded the demo data. Employees:');
-  for (const person of people) console.log(`  ${person.fullName.padEnd(18)} ${person.email ?? '(dismissed)'}`);
+  for (const person of people) console.log(`  ${person.fullName.padEnd(18)} ${person.email ?? ''}${person.dismissedAt ? ' (dismissed)' : ''}`);
   console.log('');
 }
 

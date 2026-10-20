@@ -15,7 +15,7 @@ export class AppError extends Error {
 }
 
 const CONSTRAINT_CODES: Record<string, ErrorCode> = {
-  employee_email_key: 'email_taken',
+  uq_employee_email: 'email_taken',
   employee_locale_check: 'invalid_locale',
   chk_employee_time_zone: 'invalid_time_zone',
   chk_employee_manager_not_self: 'manager_cycle',

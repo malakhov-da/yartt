@@ -4,7 +4,7 @@ import * as Employees from '../services/Employee.ts';
 import { authedProcedure, router } from '../trpc.ts';
 
 export default router({
-  /** All employees, dismissed included (`email` is null), ordered by name. */
+  /** All employees, dismissed included (`dismissedAt` is set), ordered by name. */
   list: authedProcedure.output(Employee.array()).query(() => Employees.list()),
 
   /**
@@ -60,15 +60,16 @@ export default router({
     .mutation(({ input, ctx }) => Employees.dismiss(input.id, ctx.employeeId)),
 
   /**
-   * Brings a dismissed direct report back with the given email, under the
-   * signed-in manager; moving to another manager is then their own choice.
+   * Brings a dismissed direct report back under the signed-in manager, with
+   * the email they had or a new one; moving to another manager is then
+   * their own choice.
    * @throws not_manager — the signed-in employee is not their direct manager.
    * @throws not_found — unknown or not dismissed.
    * @throws email_taken
    */
   restore: authedProcedure
-    .input(z.object({ id: Id, email: Email }))
+    .input(z.object({ id: Id, email: Email.optional() }))
     .output(Employee)
-    .mutation(({ input, ctx }) => Employees.restore(input.id, input.email, ctx.employeeId)),
+    .mutation(({ input, ctx }) => Employees.restore(input.id, ctx.employeeId, input.email ?? null)),
 
 });

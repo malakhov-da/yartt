@@ -12,7 +12,7 @@ beforeEach(() => { sent.length = 0; });
 
 async function loginLink(email: string): Promise<string> {
   await (await client()).Auth.requestLogin({ email });
-  const message = sent.findLast((m) => m.payload.kind === 'login' && m.to.email.toLowerCase() === email.toLowerCase());
+  const message = sent.findLast((m) => m.payload.kind === 'login' && m.to.email?.toLowerCase() === email.toLowerCase());
   const url = message?.payload.kind === 'login' ? message.payload.url : '';
   return url.slice(url.lastIndexOf('/') + 1);
 }

@@ -30,6 +30,35 @@ it is decided. Proposals wait for a decision in their own section.
 
 In this order after stage 6 (S — a day, M — a few days, L — a week or more).
 
+### Corporate sign-in and bots
+
+- [ ] **People and bots.** `employee` keeps what both have; `human` and
+  `bot` hold the rest, so a bot has no timesheet, time entries or scores
+  and manages nobody by the foreign keys themselves. Personal API tokens
+  go: a bot has one key without expiry, permissions that only narrow
+  what its relationships allow (`task`, `task.transfer`, `comment`,
+  `observers`), its own webhook with its own signing secret. Anyone
+  creates a bot under themselves; its manager hands it over at once; a
+  handover or the manager's dismissal resets the key. L
+- [ ] **Bots under My team.** Their activity over the range — tasks owned
+  and observed, created, closed, handed over, comments, mentions,
+  requests and refusals, webhook deliveries — quiet ones first; settings
+  in a dialog; a reminder to the manager when a key is a year old. M
+- [ ] **Last activity in My team.** Next to everyone, the stale on top,
+  people away too, with their return date. S
+- [ ] **A new email is confirmed.** The profile sends a link to the new
+  address; the email changes only when it is followed. S
+- [ ] **Allowed email domains (`EMAIL_DOMAINS`).** Checked wherever an
+  email is written; an old address outside them signs in to its profile
+  only, and its notifications become a request to change it. M
+- [ ] **Sign-in through the company's identity provider (OIDC).** Sign-in
+  links and invites close; people are created on their first sign-in and
+  known by the provider's id; a session lasts a day from sign-in; every
+  night the provider is asked whether each person may still sign in, and
+  the bots of someone it refuses stop; switching back to links is the way
+  out of an outage. With the setup for Entra, Google and Keycloak, and
+  LDAP or SAML through Keycloak. L
+
 
 ## Decided against
 
