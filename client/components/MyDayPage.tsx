@@ -5,6 +5,7 @@ import { useLocation } from 'react-router';
 import { useMe } from '#client/hooks/me.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import { useVisit } from '#client/hooks/visit.ts';
+import Bots from './MyDayPage/Bots.tsx';
 import CurrentTasks from './MyDayPage/CurrentTasks.tsx';
 import History from './MyDayPage/History.tsx';
 import Team from './MyDayPage/Team.tsx';
@@ -22,7 +23,10 @@ export default function () {
   const { pathname } = useLocation();
   useVisit(null, pathname === '/');
   const employees = useQuery(trpc.Employee.list.queryOptions());
-  const isManager = (employees.data ?? []).some((e) => e.managerId === me.id);
+  const reports = (employees.data ?? []).filter((e) => e.managerId === me.id);
+  const isManager = reports.some((e) => e.kind === 'human');
+  // Under My team, or on its own for someone whose only reports are bots (created from the profile).
+  const hasBots = isManager || reports.some((e) => e.kind === 'bot');
 
   return (
     <Stack spacing={3} sx={{ width: '100%', maxWidth: 1280, mx: 'auto' }}>
@@ -31,6 +35,7 @@ export default function () {
           <Todo />
           <CurrentTasks />
           {isManager && <Team />}
+          {hasBots && <Bots />}
         </Stack>
         <Box sx={{ flex: '1 1 400px', minWidth: 0 }}>
           <History />

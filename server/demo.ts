@@ -26,8 +26,8 @@ import { createCallerFactory } from './trpc.ts';
 import trpc from './trpc/index.ts';
 
 const createCaller = createCallerFactory(trpc);
-const as = (employeeId: number) => {
-  const ctx: Context = { employeeId, sessionToken: null, setSessionCookie: () => {}, clearSessionCookie: () => {} };
+const as = (employeeId: number, bot: Context['bot'] = null) => {
+  const ctx: Context = { employeeId, bot, sessionToken: null, setSessionCookie: () => {}, clearSessionCookie: () => {} };
   return createCaller(ctx);
 };
 
@@ -148,9 +148,12 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
 
   const p = t.people;
   const [first] = Row.array().parse(await sql`
-    INSERT INTO employee (email, full_name, about, locale, time_zone)
-    VALUES (${p.first.email}, ${p.first.name}, ${p.first.about}, ${lang}, ${t.timeZone})
-    RETURNING id
+    WITH e AS (
+      INSERT INTO employee (email, full_name, about, locale, time_zone)
+      VALUES (${p.first.email}, ${p.first.name}, ${p.first.about}, ${lang}, ${t.timeZone})
+      RETURNING id
+    )
+    INSERT INTO human (employee_id) SELECT id FROM e RETURNING employee_id AS id
   `);
   const me = first!.id;
   await mark();
@@ -185,9 +188,10 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
   await invite(olga, p.anna); // invited, never signed in
 
   // A team bot: no pronoun, so verbs about it keep both endings ("упомянул(а)").
-  const bot = await invite(me, p.bot);
-  // It posts through the API with a token of its own (the token itself is not kept anywhere).
-  await sql`SELECT issue_api_token(${bot}, ${bot}, 'GitHub Actions')`;
+  // It posts through the API with its key (not kept anywhere) and may only comment.
+  const { id: bot } = await I.Bot.create({
+    fullName: p.bot.name, pronoun: null, about: p.bot.about, permissions: ['comment'], webhookUrl: null,
+  });
 
   // Pronouns pick verb forms ("упомянула"); the bot keeps none.
   for (const [id, pronoun] of [[me, 'he'], [marina, 'she'], [pavel, 'he'], [ivan, 'he'], [olga, 'she'], [oleg, 'he'], [sergey, 'he']] as const) {
@@ -309,7 +313,7 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
 
   // The bot reports a failed build and mentions the owner: it shows in my TODO with neutral verbs.
   await I.Observer.add({ taskId: site, employeeId: bot });
-  await as(bot).Comment.create(comment(site, c.build, { mentionIds: [me] }));
+  await as(bot, ['comment']).Comment.create(comment(site, c.build, { mentionIds: [me] }));
 
   await M.Employee.dismiss({ id: sergey });
   // He left three weeks ago: My team shows him for 30 days, not for 7.

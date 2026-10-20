@@ -156,7 +156,7 @@ Key principles:
   - The timesheet only moves forward: a closed shift cannot be changed
     or deleted. People think when closing a shift instead of editing it
     afterwards.
-  - While an employee is away (employee.next_day in the future),
+  - While a person is away (human.next_day in the future),
     notifications go both to them and to their manager (recursively up
     manager_id until an available manager is found).
   - Notifications are a queue in the database. The worker delivers them
@@ -174,6 +174,12 @@ Key principles:
     employee is created by the application on its first start. No roles:
     rights come from relationships. Only the direct manager can dismiss an
     employee or bring them back.
+  - An employee is a person or a bot. A bot is a program — CI,
+    monitoring — that owns tasks, comments and is mentioned like a
+    person, through the API with its key, within permissions that only
+    narrow what its relationships allow. It has no timesheet, time or
+    scores and manages nobody. Its manager — whoever created it or got it
+    handed over — runs it; its notifications go to its own webhook.
   - Visits are logged: opening a task and opening "My day". They show the
     owner who looked at a task and help to suggest when a shift started
     and ended.
@@ -285,7 +291,7 @@ SEARCH
   - By tags: autocomplete forgiving typos, transliteration and the wrong
     keyboard layout. Every tag keeps its name in Latin letters
     (tag.latin); the typed text, and the same keys read with each other
-    layout of the person (employee.keyboards; the layouts themselves are
+    layout of the person (human.keyboards; the layouts themselves are
     in the application), are transliterated the same way and compared
     with Levenshtein and trigrams. Comparing in Latin also keeps trigrams
     working when the database locale is C, where pg_trgm ignores non-ASCII
@@ -341,6 +347,15 @@ the API is implemented.
     - Invite an employee (any employee: email, full_name, locale)
       -> notify(kind = invite).
     - Edit the profile (full_name, email, about, next_day, time_zone, locale).
+
+  Bots:
+    - Create a bot (create_bot: any person, under themselves).
+    - Change its name, pronoun, about, permissions, webhook (its direct
+      manager, check_bot_manager).
+    - Replace its key (reset_bot_key: its direct manager).
+    - Hand it to another person (transfer_bot: its direct manager).
+    - Dismiss / bring back — like anyone, by its direct manager.
+    - Every API request with a key -> authenticate_bot().
     - Set / change manager_id (the employee themselves).
     - Dismiss an employee (dismiss_employee: the direct manager).
     - Bring a dismissed employee back (restore_employee: the direct manager).
@@ -453,6 +468,13 @@ ACCESS RULES
   Scores:
     - score — only the current manager (employee.manager_id).
 
+  Bots:
+    - Create — any person, under themselves.
+    - Change, replace the key, hand over, dismiss, bring back — its
+      direct manager only.
+    - What it may change — its permissions (bot_permission), checked by
+      the application; never more than its relationships allow.
+
   Employees:
     - Invite — any employee.
     - manager_id — the employee themselves (own profile). No confirmation
@@ -540,6 +562,10 @@ INVARIANTS (forbidden; all checked in the database)
 
   Employees:
     - Deleting an employee (dismissal only).
+    - An employee without the row of its kind, or with both (human, bot).
+    - A bot with an email, without a manager, or managing anyone.
+    - A bot with a timesheet, time entries, estimates, scores, reminders,
+      visits, sessions or tag settings (they refer to human).
 
 
 ============================================================================
@@ -587,8 +613,8 @@ CRON JOBS (outside SQL)
                    WHERE created_at < NOW() - INTERVAL ''1 day''
                      AND NOT EXISTS (SELECT 1 FROM task WHERE tag_ids @> ARRAY[t.id])
                      AND NOT EXISTS (SELECT 1 FROM user_tag WHERE tag_id = t.id);
-  - every day:    UPDATE employee SET next_day = NULL
-                   WHERE next_day <= local_today(id);
+  - every day:    UPDATE human SET next_day = NULL
+                   WHERE next_day <= local_today(employee_id);
 ';
 
 
@@ -627,29 +653,39 @@ time zone (only days and months do).';
 CREATE TYPE keyboard AS ENUM ('en', 'ru', 'uk', 'be');
 
 COMMENT ON TYPE keyboard IS
-'A keyboard layout someone types with (employee.keyboards). The keys of
+'A keyboard layout someone types with (human.keyboards). The keys of
 each are a table in the application (shared/keyboards.ts); a new layout
 is a value here and a line there.';
 
+CREATE TYPE employee_kind AS ENUM ('human', 'bot');
+
+COMMENT ON TYPE employee_kind IS
+'What an employee is: a person (human) or a program acting through the
+API (bot). Each has a row of its own kind in human or bot.';
+
 CREATE TABLE employee (
     id SERIAL PRIMARY KEY,
+    kind employee_kind NOT NULL DEFAULT 'human',
     email CITEXT,
     full_name VARCHAR(255) NOT NULL,
     about TEXT,
-    manager_id INT REFERENCES employee(id),
-    next_day DATE,
+    manager_id INT,
     time_zone TEXT NOT NULL DEFAULT 'UTC',
     locale VARCHAR(10) NOT NULL DEFAULT 'ru' CHECK (locale ~ '^[a-z]{2}(-[A-Z]{2})?$'),
     pronoun VARCHAR(3) CHECK (pronoun IN ('he', 'she')),
-    keyboards keyboard[],
-    weekly_digest_on DATE,
     dismissed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
+    CONSTRAINT uq_employee_kind
+        UNIQUE (id, kind),
     CONSTRAINT chk_employee_manager_not_self
         CHECK (manager_id <> id),
     CONSTRAINT chk_employee_dismissed_manager
         CHECK (dismissed_at IS NULL OR manager_id IS NOT NULL),
+    CONSTRAINT chk_employee_bot_email
+        CHECK (kind = 'human' OR email IS NULL),
+    CONSTRAINT chk_employee_bot_manager
+        CHECK (kind = 'human' OR manager_id IS NOT NULL),
     CONSTRAINT chk_employee_time_zone
         CHECK ((TIMESTAMPTZ '2000-01-01 00:00Z' AT TIME ZONE time_zone) IS NOT NULL)
 );
@@ -657,9 +693,14 @@ CREATE INDEX idx_employee_manager ON employee(manager_id);
 CREATE UNIQUE INDEX uq_employee_email ON employee(email) WHERE dismissed_at IS NULL;
 
 COMMENT ON TABLE employee IS
-'An employee. The account.
-Only another employee can create one (an invite, checked by the application).
-The application creates the first employee on its first start (from .env).
+'An employee. The account: what a person (kind human) and a bot (kind bot)
+have in common — a name, a manager, tasks, comments, mentions,
+notifications. What only one kind has lives in human or bot, and tables
+only a person has rows in (timesheet, time entries, scores, sessions,
+reminders, visits) refer to human, so a bot cannot have them.
+Only another employee can create one (an invite of a person, checked by
+the application; a bot with create_bot()). The application creates the
+first employee on its first start (from .env).
 Dismissal sets dismissed_at: records are kept, signing in is impossible.
 The email stays, so bringing the employee back needs nothing typed again.
 An employee cannot be deleted (trigger).
@@ -667,13 +708,8 @@ An employee cannot be deleted (trigger).
 manager_id — the direct manager. One field, no history.
 Changing the manager is a plain UPDATE (by the employee). The new manager
 is automatically added to all of the employee''s tasks. The old one stays.
-A cycle (A -> B -> A) is forbidden by a trigger.
-
-next_day — when the employee is back at work after any absence
-(vacation, sick leave, a day off). While next_day is in the
-future, all notifications go both to them and to their manager
-(recursively up manager_id until an available one is found). Cron clears
-past dates.
+A cycle (A -> B -> A) is forbidden by a trigger. Only a person manages
+(manager_id refers to human); a bot always has a manager.
 
 time_zone — the employee''s time zone. It defines day boundaries for the
 timesheet, time entries and scores.';
@@ -681,11 +717,16 @@ timesheet, time entries and scores.';
 COMMENT ON COLUMN employee.id IS
 'Employee id.';
 
+COMMENT ON COLUMN employee.kind IS
+'human — a person; bot — a program acting through the API with its key.
+Never changes: a mistake is fixed by dismissing one and creating the other.';
+
 COMMENT ON COLUMN employee.email IS
 'CITEXT, case-insensitive. One working account per email
 (uq_employee_email); a dismissed employee keeps theirs, and someone new
 may get the same address.
 NULL — no address: no emails and no sign-in link; the bell still works.
+A bot never has one (chk_employee_bot_email).
 Whether the employee works is dismissed_at, never the email.
 The employee may change it in the profile (the next sign-in link goes
 to the new address).';
@@ -698,14 +739,11 @@ COMMENT ON COLUMN employee.about IS
 colleagues should know. Filled by the employee.';
 
 COMMENT ON COLUMN employee.manager_id IS
-'The direct manager. One field, no history.
+'The direct manager — always a person. One field, no history.
 The current manager scores the day.
-A cycle (A -> B -> A) is forbidden by a trigger.';
-
-COMMENT ON COLUMN employee.next_day IS
-'When the employee is back at work after an absence (vacation, sick leave).
-NULL or a past date = available (cron clears past dates).
-A future date = away: notifications go both to them and to their manager.';
+A cycle (A -> B -> A) is forbidden by a trigger.
+A person picks their own; a bot''s is whoever created it or got it
+handed over (transfer_bot()).';
 
 COMMENT ON COLUMN employee.created_at IS
 'When the employee was invited (or created on the first start). My team
@@ -720,22 +758,13 @@ or after the range''s first day.';
 
 COMMENT ON COLUMN employee.locale IS
 'Language of the interface and notifications (ru, en, pt-BR, ...).
-Sent to the webhook with every notification.';
+Sent to the webhook with every notification. A bot gets its creator''s:
+the language its program is expected to write in.';
 
 COMMENT ON COLUMN employee.pronoun IS
-'How to speak of the employee: he | she. Picks verb forms in languages
-that have them ("упомянул" / "упомянула"). NULL — not given (also a bot):
-the neutral form with both endings is used.';
-
-COMMENT ON COLUMN employee.keyboards IS
-'Keyboard layouts the employee switches between (en, ru, ...), for text
-typed with the wrong one: the tag search reads the same keys with each
-other layout. NULL — not chosen: the layout of the interface language and
-the US one.';
-
-COMMENT ON COLUMN employee.weekly_digest_on IS
-'The Monday the weekly email for managers last went out (or was due
-with nothing to say), in their time zone: it goes once a week.';
+'How to speak of the employee: he | she — a bot too, named as its team
+likes. Picks verb forms in languages that have them ("упомянул" /
+"упомянула"). NULL — not given: the neutral form with both endings.';
 
 COMMENT ON COLUMN employee.time_zone IS
 'IANA time zone (Europe/Moscow). Defines the employee''s day boundaries.
@@ -753,7 +782,121 @@ dismissed ones included, move to the manager above.';
 
 COMMENT ON INDEX uq_employee_email IS
 'One working employee per email. Dismissed ones keep their address
-without holding it.';
+without holding it. The email lives here, not in human, because the
+uniqueness needs it next to dismissed_at.';
+
+COMMENT ON CONSTRAINT uq_employee_kind ON employee IS
+'The target of the (employee_id, kind) foreign keys of human and bot:
+a row there matches the kind here, so nobody is both.';
+
+COMMENT ON CONSTRAINT chk_employee_bot_email ON employee IS
+'A bot has no email: it neither signs in nor gets mail.';
+
+COMMENT ON CONSTRAINT chk_employee_bot_manager ON employee IS
+'A bot always has a manager: the one who sets it up and answers for it.';
+
+
+-- ----------------------------------------------------------------------------
+-- human — what only a person has
+-- ----------------------------------------------------------------------------
+CREATE TABLE human (
+    employee_id INT PRIMARY KEY,
+    kind employee_kind NOT NULL DEFAULT 'human' CHECK (kind = 'human'),
+    next_day DATE,
+    keyboards keyboard[],
+    weekly_digest_on DATE,
+    FOREIGN KEY (employee_id, kind) REFERENCES employee(id, kind)
+);
+
+ALTER TABLE employee ADD CONSTRAINT employee_manager_id_fkey
+    FOREIGN KEY (manager_id) REFERENCES human(employee_id);
+
+COMMENT ON TABLE human IS
+'A person: an employee of kind human. Signs in, keeps a timesheet, logs
+time, is scored, manages; those tables refer here. Created with the
+employee row, in the same transaction (employee_kind_row).';
+
+COMMENT ON COLUMN human.employee_id IS
+'The employee.';
+
+COMMENT ON COLUMN human.kind IS
+'Always human: with employee_id, the foreign key to employee(id, kind).';
+
+COMMENT ON COLUMN human.next_day IS
+'When the person is back at work after an absence (vacation, sick
+leave, a day off). NULL or a past date = available (cron clears past
+dates). A future date = away: notifications go both to them and to their
+manager (recursively up manager_id until an available one is found).';
+
+COMMENT ON COLUMN human.keyboards IS
+'Keyboard layouts the person switches between (en, ru, ...), for text
+typed with the wrong one: the tag search reads the same keys with each
+other layout. NULL — not chosen: the layout of the interface language and
+the US one.';
+
+COMMENT ON COLUMN human.weekly_digest_on IS
+'The Monday the weekly email for managers last went out (or was due
+with nothing to say), in their time zone: it goes once a week.';
+
+
+-- ----------------------------------------------------------------------------
+-- bot — a program acting through the API
+-- ----------------------------------------------------------------------------
+CREATE TYPE bot_permission AS ENUM ('task', 'task.transfer', 'comment', 'observers');
+
+COMMENT ON TYPE bot_permission IS
+'What a bot may change, on top of reading what its relationships show it:
+  task          — create tasks and run its own (tags, priority, context,
+                  deadline, dependencies, public or private, reviewed);
+  task.transfer — hand its own tasks to someone;
+  comment       — comment and close its mentions;
+  observers     — run the observers of its own tasks, request access.
+Checked by the application. Never: timesheet, time, scores, people, keys.';
+
+CREATE TABLE bot (
+    employee_id INT PRIMARY KEY,
+    kind employee_kind NOT NULL DEFAULT 'bot' CHECK (kind = 'bot'),
+    key_hash BYTEA NOT NULL UNIQUE,
+    key_issued_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    permissions bot_permission[] NOT NULL DEFAULT '{}',
+    webhook_url TEXT CHECK (webhook_url ~ '^https?://'),
+    webhook_secret TEXT NOT NULL DEFAULT encode(gen_random_bytes(32), 'hex'),
+    FOREIGN KEY (employee_id, kind) REFERENCES employee(id, kind)
+);
+
+COMMENT ON TABLE bot IS
+'A bot: an employee of kind bot — CI, monitoring — that comments, owns
+tasks and is mentioned like a person, through the API with its key
+(Authorization: Bearer). It never signs in and keeps no timesheet.
+Anyone creates one under themselves (create_bot()); only its direct
+manager changes it, resets its key or hands it to someone
+(transfer_bot()). Its notifications go to its own webhook, as JSON.';
+
+COMMENT ON COLUMN bot.employee_id IS
+'The employee.';
+
+COMMENT ON COLUMN bot.kind IS
+'Always bot: with employee_id, the foreign key to employee(id, kind).';
+
+COMMENT ON COLUMN bot.key_hash IS
+'SHA-256 of the key. One key, without expiry: the manager replaces it
+when they want (reset_bot_key(); the key is shown once). A handover and
+the dismissal of its manager replace it with one nobody knows: the
+previous manager knew the old one.';
+
+COMMENT ON COLUMN bot.key_issued_at IS
+'When the key was issued or replaced.';
+
+COMMENT ON COLUMN bot.permissions IS
+'What it may change (bot_permission); empty — read only.';
+
+COMMENT ON COLUMN bot.webhook_url IS
+'Where its notifications go, as JSON signed with webhook_secret.
+NULL — nowhere: they stay in its bell.';
+
+COMMENT ON COLUMN bot.webhook_secret IS
+'The HMAC-SHA256 key that signs its webhook bodies. Its own, so one bot
+cannot forge another''s messages; kept in the clear, the server signs with it.';
 
 
 CREATE OR REPLACE FUNCTION local_today(p_employee_id INT)
@@ -824,7 +967,7 @@ COMMENT ON COLUMN avatar.updated_at IS
 -- ============================================================================
 CREATE TABLE token (
     hash BYTEA PRIMARY KEY,
-    employee_id INT NOT NULL REFERENCES employee(id),
+    employee_id INT NOT NULL REFERENCES human(employee_id),
     sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX idx_token_employee ON token(employee_id);
@@ -850,7 +993,7 @@ COMMENT ON INDEX idx_token_sent_at IS
 
 CREATE TABLE session (
     hash BYTEA PRIMARY KEY,
-    employee_id INT NOT NULL REFERENCES employee(id),
+    employee_id INT NOT NULL REFERENCES human(employee_id),
     last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX idx_session_employee ON session(employee_id);
@@ -875,40 +1018,6 @@ Updated by authenticate() when older than 5 minutes.
 Cron deletes sessions where last_seen_at < NOW() - INTERVAL ''30 days''.';
 
 
--- ----------------------------------------------------------------------------
--- api_token — bots and scripts
--- ----------------------------------------------------------------------------
-CREATE TABLE api_token (
-    id SERIAL PRIMARY KEY,
-    employee_id INT NOT NULL REFERENCES employee(id),
-    name VARCHAR(100) NOT NULL CHECK (btrim(name) <> ''),
-    hash BYTEA NOT NULL UNIQUE,
-    created_by INT NOT NULL REFERENCES employee(id),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_used_at TIMESTAMPTZ,
-    revoked_at TIMESTAMPTZ
-);
-CREATE INDEX idx_api_token_employee ON api_token(employee_id);
-
-COMMENT ON TABLE api_token IS
-'A token a program uses to act as an employee through the API
-(Authorization: Bearer): a bot — CI, monitoring — that comments and
-mentions like a person. Issued by the employee themselves or by their
-direct manager (a bot cannot sign in to issue its own), shown once,
-stored as a hash. Acts with exactly the employee''s rights. Revoked by
-the same people, never deleted; dismissal revokes all of them.';
-
-COMMENT ON COLUMN api_token.name IS
-'What it is for ("GitHub Actions"), to tell tokens apart when revoking.';
-
-COMMENT ON COLUMN api_token.hash IS
-'SHA-256 of the token; the token itself is shown only when issued.';
-
-COMMENT ON COLUMN api_token.last_used_at IS
-'Last request with it, written at most once every 5 minutes.';
-
-COMMENT ON COLUMN api_token.revoked_at IS
-'When it stopped working. NULL — it works.';
 
 
 -- ============================================================================
@@ -974,7 +1083,7 @@ COMMENT ON CONSTRAINT chk_tag_name ON tag IS
 
 
 CREATE TABLE user_tag (
-    employee_id INT NOT NULL REFERENCES employee(id),
+    employee_id INT NOT NULL REFERENCES human(employee_id),
     tag_id INT NOT NULL REFERENCES tag(id) ON DELETE CASCADE,
     color VARCHAR(7) CHECK (color ~ '^#[0-9a-fA-F]{6}$'),
     weight INT NOT NULL DEFAULT 0,
@@ -1305,7 +1414,7 @@ COMMENT ON INDEX uq_finished_at_active IS
 -- ============================================================================
 CREATE TABLE estimate_minutes (
     task_id INT NOT NULL REFERENCES task(id),
-    by INT NOT NULL REFERENCES employee(id),
+    by INT NOT NULL REFERENCES human(employee_id),
     value INT NOT NULL CHECK (value > 0),
     entered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expired_at TIMESTAMPTZ
@@ -1389,7 +1498,7 @@ person and day, for the sparklines of My team.';
 CREATE TABLE spent_minutes (
     id SERIAL PRIMARY KEY,
     task_id INT NOT NULL REFERENCES task(id),
-    by INT NOT NULL REFERENCES employee(id),
+    by INT NOT NULL REFERENCES human(employee_id),
     day DATE NOT NULL,
     value INT NOT NULL CHECK (value > 0),
     added_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -1428,7 +1537,7 @@ COMMENT ON COLUMN spent_minutes.value IS
 -- 10. work — timesheet
 -- ============================================================================
 CREATE TABLE work (
-    employee_id INT NOT NULL REFERENCES employee(id),
+    employee_id INT NOT NULL REFERENCES human(employee_id),
     started_at TIMESTAMPTZ NOT NULL,
     spent_minutes INT CHECK (spent_minutes > 0),
     about TEXT,
@@ -1697,7 +1806,7 @@ COMMENT ON COLUMN task_mention.value IS
 -- 13. remind — reminders
 -- ============================================================================
 CREATE TABLE remind (
-    employee_id INT NOT NULL REFERENCES employee(id),
+    employee_id INT NOT NULL REFERENCES human(employee_id),
     task_id INT NOT NULL REFERENCES task(id),
     at TIMESTAMPTZ NOT NULL,
     value TEXT,
@@ -1809,9 +1918,9 @@ A copy for an absent employee''s manager has for = the recipient id.';
 -- 15. score — daily work score
 -- ============================================================================
 CREATE TABLE score (
-    employee_id INT NOT NULL REFERENCES employee(id),
+    employee_id INT NOT NULL REFERENCES human(employee_id),
     day DATE NOT NULL,
-    by INT NOT NULL REFERENCES employee(id),
+    by INT NOT NULL REFERENCES human(employee_id),
     value INT CHECK (value BETWEEN 0 AND 100),
     reason TEXT,
     added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -1880,7 +1989,7 @@ COMMENT ON COLUMN score.updated_at IS
 -- ============================================================================
 CREATE TABLE visit (
     id BIGSERIAL PRIMARY KEY,
-    employee_id INT NOT NULL REFERENCES employee(id),
+    employee_id INT NOT NULL REFERENCES human(employee_id),
     task_id INT REFERENCES task(id),
     at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -1961,9 +2070,10 @@ BEGIN
     END IF;
 
     LOOP
-        SELECT dismissed_at, next_day, manager_id
+        SELECT e.dismissed_at, h.next_day, e.manager_id
           INTO v_dismissed_at, v_next_day, v_manager_id
-          FROM employee WHERE id = v_id;
+          FROM employee e LEFT JOIN human h ON h.employee_id = e.id
+         WHERE e.id = v_id;
 
         IF v_dismissed_at IS NULL THEN
             INSERT INTO notification (employee_id, task_id, payload)
@@ -1980,8 +2090,8 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION notify(INT, INT, JSONB) IS
 'The only way to create a notification.
-A dismissed employee gets nothing. If the recipient is away (next_day in
-the future), a copy goes to their manager, and so on up until an
+A dismissed employee gets nothing. If the recipient is away
+(human.next_day in the future), a copy goes to their manager, and so on up until an
 available one is found. Copies carry for = the original recipient.';
 
 
@@ -2160,6 +2270,32 @@ FOR EACH ROW EXECUTE FUNCTION trg_forbid_delete();
 CREATE TRIGGER comment_forbid_change
 BEFORE UPDATE OR DELETE ON comment
 FOR EACH ROW EXECUTE FUNCTION trg_forbid_delete();
+
+
+-- ----------------------------------------------------------------------------
+-- employee: a person has a human row, a bot a bot row (at commit)
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION trg_employee_kind_row()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.kind = 'human' AND NOT EXISTS (SELECT 1 FROM human WHERE employee_id = NEW.id)
+       OR NEW.kind = 'bot' AND NOT EXISTS (SELECT 1 FROM bot WHERE employee_id = NEW.id) THEN
+        RAISE EXCEPTION 'employee % has no % row', NEW.id, NEW.kind
+            USING HINT = 'invalid_data';
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION trg_employee_kind_row() IS
+'An employee is created together with the row of its kind (human or bot)
+in one transaction; checked at commit. The (employee_id, kind) foreign
+keys keep anyone from having both.';
+
+CREATE CONSTRAINT TRIGGER employee_kind_row
+AFTER INSERT ON employee
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION trg_employee_kind_row();
 
 
 -- ----------------------------------------------------------------------------
@@ -2979,67 +3115,115 @@ COMMENT ON FUNCTION authenticate(TEXT) IS
 (last_seen_at is written at most once every 5 minutes).';
 
 
-CREATE OR REPLACE FUNCTION issue_api_token(p_employee_id INT, p_actor_id INT, p_name TEXT)
+-- ----------------------------------------------------------------------------
+-- bots
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION new_bot_key()
 RETURNS TEXT AS $$
+    SELECT 'yartt_' || encode(gen_random_bytes(32), 'hex')
+$$ LANGUAGE sql VOLATILE;
+
+COMMENT ON FUNCTION new_bot_key() IS
+'A fresh bot key: yartt_ and 32 random bytes in hex. Only its hash is kept.';
+
+
+CREATE OR REPLACE FUNCTION create_bot(p_actor_id INT, p_full_name TEXT)
+RETURNS TABLE (bot_id INT, key TEXT) AS $$
 DECLARE
-    v_token TEXT := 'yartt_' || encode(gen_random_bytes(32), 'hex');
+    v_id INT;
+    v_key TEXT := new_bot_key();
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM employee WHERE id = p_employee_id AND dismissed_at IS NULL) THEN
-        RAISE EXCEPTION 'employee % is unknown or dismissed', p_employee_id
-            USING HINT = 'not_found';
-    END IF;
-    IF p_actor_id <> p_employee_id
-       AND p_actor_id IS DISTINCT FROM (SELECT manager_id FROM employee WHERE id = p_employee_id) THEN
-        RAISE EXCEPTION 'only the employee or their direct manager issues tokens for %', p_employee_id
+    INSERT INTO employee (kind, full_name, manager_id, locale, time_zone)
+    SELECT 'bot', btrim(p_full_name), e.id, e.locale, e.time_zone
+      FROM employee e
+     WHERE e.id = p_actor_id AND e.kind = 'human' AND e.dismissed_at IS NULL
+    RETURNING id INTO v_id;
+    IF v_id IS NULL THEN
+        RAISE EXCEPTION 'employee % is unknown, dismissed or a bot', p_actor_id
             USING HINT = 'forbidden';
     END IF;
-    INSERT INTO api_token (employee_id, name, hash, created_by)
-    VALUES (p_employee_id, btrim(p_name), digest(v_token, 'sha256'), p_actor_id);
-    RETURN v_token;
+    INSERT INTO bot (employee_id, key_hash) VALUES (v_id, digest(v_key, 'sha256'));
+    RETURN QUERY SELECT v_id, v_key;
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION issue_api_token(INT, INT, TEXT) IS
-'Issues an API token for an employee: by themselves or their direct
-manager, for an active employee. Returns the token — the only time it is
-seen.';
+COMMENT ON FUNCTION create_bot(INT, TEXT) IS
+'A person creates a bot under themselves: its manager, its language and
+time zone are theirs, it may change nothing yet (no permissions) and has
+no webhook. Returns its id and key — the only time the key is seen.';
 
-CREATE OR REPLACE FUNCTION authenticate_token(p_token TEXT)
-RETURNS INT AS $$
-DECLARE
-    v_employee_id INT;
-BEGIN
-    UPDATE api_token SET last_used_at = NOW()
-     WHERE hash = digest(p_token, 'sha256') AND revoked_at IS NULL
-       AND (last_used_at IS NULL OR last_used_at < NOW() - INTERVAL '5 minutes');
 
-    SELECT t.employee_id INTO v_employee_id
-      FROM api_token t JOIN employee e ON e.id = t.employee_id
-     WHERE t.hash = digest(p_token, 'sha256') AND t.revoked_at IS NULL AND e.dismissed_at IS NULL;
-    RETURN v_employee_id;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION revoke_api_token(p_token_id INT, p_actor_id INT)
+CREATE OR REPLACE FUNCTION check_bot_manager(p_bot_id INT, p_actor_id INT)
 RETURNS VOID AS $$
+DECLARE
+    v_manager_id INT;
 BEGIN
-    UPDATE api_token t SET revoked_at = NOW()
-      FROM employee e
-     WHERE t.id = p_token_id AND e.id = t.employee_id AND t.revoked_at IS NULL
-       AND (t.employee_id = p_actor_id OR e.manager_id = p_actor_id);
+    SELECT manager_id INTO v_manager_id FROM employee
+     WHERE id = p_bot_id AND kind = 'bot' AND dismissed_at IS NULL;
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'no working token % that % may revoke', p_token_id, p_actor_id
+        RAISE EXCEPTION 'bot % is unknown or dismissed', p_bot_id
             USING HINT = 'not_found';
+    END IF;
+    IF v_manager_id IS DISTINCT FROM p_actor_id THEN
+        RAISE EXCEPTION 'only the direct manager runs bot %', p_bot_id
+            USING HINT = 'not_manager',
+                  DETAIL = json_build_object('employeeId', p_bot_id)::text;
     END IF;
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION revoke_api_token(INT, INT) IS
-'Revokes a token: by the employee it acts as or their direct manager.';
+COMMENT ON FUNCTION check_bot_manager(INT, INT) IS
+'Raises not_found for an unknown or dismissed bot and not_manager unless
+p_actor_id is its direct manager — the only one who changes it.';
 
-COMMENT ON FUNCTION authenticate_token(TEXT) IS
-'Employee id for an API token, or NULL (unknown, revoked, or the
-employee dismissed). Notes the use at most once every 5 minutes.';
+
+CREATE OR REPLACE FUNCTION reset_bot_key(p_bot_id INT, p_actor_id INT)
+RETURNS TEXT AS $$
+DECLARE
+    v_key TEXT := new_bot_key();
+BEGIN
+    PERFORM check_bot_manager(p_bot_id, p_actor_id);
+    UPDATE bot SET key_hash = digest(v_key, 'sha256'), key_issued_at = NOW()
+     WHERE employee_id = p_bot_id;
+    RETURN v_key;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION reset_bot_key(INT, INT) IS
+'The direct manager replaces the bot''s key: the old one stops at once,
+the new one is returned — the only time it is seen.';
+
+
+CREATE OR REPLACE FUNCTION transfer_bot(p_bot_id INT, p_actor_id INT, p_to_id INT)
+RETURNS VOID AS $$
+BEGIN
+    PERFORM check_bot_manager(p_bot_id, p_actor_id);
+    IF NOT EXISTS (SELECT 1 FROM employee WHERE id = p_to_id AND kind = 'human' AND dismissed_at IS NULL) THEN
+        RAISE EXCEPTION 'employee % is unknown, dismissed or a bot', p_to_id
+            USING HINT = 'not_found';
+    END IF;
+    UPDATE employee SET manager_id = p_to_id WHERE id = p_bot_id;
+    UPDATE bot SET key_hash = digest(new_bot_key(), 'sha256'), key_issued_at = NOW()
+     WHERE employee_id = p_bot_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION transfer_bot(INT, INT, INT) IS
+'The direct manager hands the bot to another person, at once, without
+their consent — like tasks of someone dismissed. The new manager is
+notified (new_report) and sees its tasks; the key is replaced with one
+nobody knows, so the new manager issues the next (reset_bot_key()).';
+
+
+CREATE OR REPLACE FUNCTION authenticate_bot(p_key TEXT)
+RETURNS INT AS $$
+    SELECT b.employee_id
+      FROM bot b JOIN employee e ON e.id = b.employee_id
+     WHERE b.key_hash = digest(p_key, 'sha256') AND e.dismissed_at IS NULL
+$$ LANGUAGE sql STABLE;
+
+COMMENT ON FUNCTION authenticate_bot(TEXT) IS
+'The bot a key belongs to, or NULL (unknown, replaced, or the bot dismissed).';
 
 
 -- ----------------------------------------------------------------------------
@@ -3076,13 +3260,16 @@ BEGIN
             'kind', 'owner_change', 'from', p_employee_id));
     END LOOP;
 
+    -- The leaver knew their bots' keys: the bots move on with keys nobody knows.
+    UPDATE bot SET key_hash = digest(new_bot_key(), 'sha256'), key_issued_at = NOW()
+     WHERE employee_id IN (SELECT id FROM employee WHERE manager_id = p_employee_id AND kind = 'bot');
     UPDATE employee SET manager_id = v_manager_id WHERE manager_id = p_employee_id;
 
-    UPDATE employee SET next_day = NULL, dismissed_at = NOW() WHERE id = p_employee_id;
+    UPDATE employee SET dismissed_at = NOW() WHERE id = p_employee_id;
+    UPDATE human SET next_day = NULL WHERE employee_id = p_employee_id;
 
     DELETE FROM token WHERE employee_id = p_employee_id;
     DELETE FROM session WHERE employee_id = p_employee_id;
-    UPDATE api_token SET revoked_at = NOW() WHERE employee_id = p_employee_id AND revoked_at IS NULL;
     DELETE FROM remind WHERE employee_id = p_employee_id;
 END;
 $$ LANGUAGE plpgsql;
@@ -3092,12 +3279,13 @@ COMMENT ON FUNCTION dismiss_employee(INT, INT) IS
 an employee without a manager cannot be dismissed.
   1. All tasks (open and closed — a closed one can be reopened) go to the
      manager with a notification.
-  2. Reports move to the manager (who is notified: new_report).
+  2. Reports move to the manager (who is notified: new_report); the keys
+     of their bots are replaced with ones nobody knows.
   3. dismissed_at = NOW() — signing in is impossible. The email and
      manager_id are kept, so the same manager can bring the employee back
      as they were.
-  4. Sessions, magic tokens and reminders are deleted; API tokens are
-     revoked.
+  4. Sessions, magic tokens and reminders are deleted; a dismissed bot''s
+     key stops working (authenticate_bot).
 History (scores, time entries, comments) is kept.';
 
 
@@ -3548,13 +3736,14 @@ DECLARE
     v_sent INT := 0;
 BEGIN
     FOR v_manager IN
-        SELECT e.id, e.time_zone FROM employee e
+        SELECT e.id, e.time_zone FROM employee e JOIN human h ON h.employee_id = e.id
          WHERE e.dismissed_at IS NULL
-           AND EXISTS (SELECT 1 FROM employee r WHERE r.manager_id = e.id AND r.dismissed_at IS NULL)
+           AND EXISTS (SELECT 1 FROM employee r
+                        WHERE r.manager_id = e.id AND r.kind = 'human' AND r.dismissed_at IS NULL)
            AND extract(isodow FROM p_now AT TIME ZONE e.time_zone) = 1
            AND (p_now AT TIME ZONE e.time_zone)::time >= TIME '09:00'
-           AND (e.weekly_digest_on IS NULL OR e.weekly_digest_on < (p_now AT TIME ZONE e.time_zone)::date)
-         FOR UPDATE OF e SKIP LOCKED
+           AND (h.weekly_digest_on IS NULL OR h.weekly_digest_on < (p_now AT TIME ZONE e.time_zone)::date)
+         FOR UPDATE OF h SKIP LOCKED
     LOOP
         -- Past days of direct reports (the last 30) with a closed timesheet and no standing score.
         SELECT count(*) INTO v_unscored FROM (
@@ -3579,7 +3768,7 @@ BEGIN
          WHERE k.owner_id IN (SELECT subordinates(v_manager.id))
            AND EXISTS (SELECT 1 FROM deadline_risk(k.id));
 
-        UPDATE employee SET weekly_digest_on = (p_now AT TIME ZONE v_manager.time_zone)::date WHERE id = v_manager.id;
+        UPDATE human SET weekly_digest_on = (p_now AT TIME ZONE v_manager.time_zone)::date WHERE employee_id = v_manager.id;
         -- Nothing to say, nothing sent: a quiet week needs no email.
         IF v_unscored + v_expired + v_at_risk > 0 THEN
             INSERT INTO notification (employee_id, task_id, payload)
@@ -3598,6 +3787,7 @@ once a week, a summary of what waits for them — days of direct reports
 waiting for a score (the last 30), tasks of the subtree closed
 automatically last week, tasks of the subtree at risk now. Sent only if
 something is there; not copied to anyone (it is about their own team).
+Only for someone with people under them (bots do not count).
 Safe with several workers (SKIP LOCKED, weekly_digest_on). p_now is the
 moment to act as of — NOW() for the cron, a chosen Monday in tests.';
 

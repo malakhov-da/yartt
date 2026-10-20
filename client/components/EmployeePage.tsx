@@ -1,17 +1,17 @@
-import { ExpandMore } from '@mui/icons-material';
-import { Accordion, AccordionDetails, AccordionSummary, Box, Chip, CircularProgress, Paper, Stack, Typography } from '@mui/material';
+import { Box, Chip, CircularProgress, Paper, Stack, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { fromDay, today, useFormat } from '#client/hooks/format.ts';
 import { useMe } from '#client/hooks/me.ts';
 import { useEmployees } from '#client/hooks/task.ts';
 import EmployeeAvatar from './App/EmployeeAvatar.tsx';
-import ApiTokens from './App/ApiTokens.tsx';
 import Stats from './EmployeePage/Stats.tsx';
 import History from './MyDayPage/History.tsx';
 
 // An employee's page (docs/product/interface.md, 4a): the same History as in
 // their My day and the metrics of a period. Seen by the employee and every
 // manager above; only the direct manager scores (the server checks both).
+// A bot has no days or metrics: its page is who it is and who runs it; its
+// settings are in Bots under My team.
 export default function (p: { id: number }) {
   const { t } = useTranslation();
   const format = useFormat();
@@ -30,6 +30,7 @@ export default function (p: { id: number }) {
         <Stack spacing={0.5} sx={{ minWidth: 0 }}>
           <Typography variant="h2" sx={{ fontWeight: 600 }}>{employee.fullName}</Typography>
           <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
+            {employee.kind === 'bot' && <Chip size="small" label={t('bots.chip')} />}
             {employee.dismissedAt !== null && <Chip size="small" label={t('team.dismissed')} />}
             {away && <Chip size="small" color="warning" label={t('employee.awayUntil', { day: format.date(fromDay(employee.nextDay!)) })} />}
           </Stack>
@@ -39,20 +40,15 @@ export default function (p: { id: number }) {
           </Typography>
         </Stack>
       </Paper>
-      <Box sx={{ flex: '3 1 640px', minWidth: 0 }}>
-        <Stats employeeId={p.id} />
-      </Box>
-      <Box sx={{ flex: '1 1 100%', minWidth: 0 }}>
-        <History employeeId={p.id === me.id ? undefined : p.id} canScore={employee.managerId === me.id} onEmployeePage />
-      </Box>
-      {/* A bot cannot sign in: its direct manager issues its tokens here, folded away. */}
-      {employee.managerId === me.id && employee.dismissedAt === null && (
-        <Accordion disableGutters sx={{ flex: '1 1 100%', minWidth: 0 }}>
-          <AccordionSummary expandIcon={<ExpandMore />}>
-            <Typography sx={{ fontWeight: 600 }}>{t('apiTokens.title')}</Typography>
-          </AccordionSummary>
-          <AccordionDetails><ApiTokens employeeId={employee.id} /></AccordionDetails>
-        </Accordion>
+      {employee.kind === 'human' && (
+        <>
+          <Box sx={{ flex: '3 1 640px', minWidth: 0 }}>
+            <Stats employeeId={p.id} />
+          </Box>
+          <Box sx={{ flex: '1 1 100%', minWidth: 0 }}>
+            <History employeeId={p.id === me.id ? undefined : p.id} canScore={employee.managerId === me.id} onEmployeePage />
+          </Box>
+        </>
       )}
     </Box>
   );

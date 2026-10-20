@@ -1,10 +1,15 @@
 import { createHmac } from 'node:crypto';
 import env from './env.ts';
 
+/** The envelope's version: a receiver tells formats apart by it. */
+export const WEBHOOK_VERSION = 1;
+
 export type WebhookMessage = {
   kind: string;
   to: {
     employeeId: number;
+    kind: 'human' | 'bot';
+    /** NULL — no address (a bot never has one). */
     email: string | null;
     fullName: string;
     locale: string;
@@ -14,19 +19,25 @@ export type WebhookMessage = {
   data: Record<string, unknown>;
 };
 
-// Every outgoing message goes here. The delivery channel (email, Telegram, ...)
-// and the text in the recipient's language are up to the webhook receiver.
-// Without WEBHOOK_URL the message is logged (development mode).
-export async function sendWebhook(message: WebhookMessage): Promise<void> {
-  const body = JSON.stringify(message);
+/** Where to post and the key that signs the body. */
+export type WebhookTarget = { url: string; secret: string };
 
-  if (!env.WEBHOOK_URL) {
+// People's messages go to the company's webhook (WEBHOOK_URL): the delivery
+// channel (email, Telegram, ...) and the text in the recipient's language
+// are up to its receiver. A bot's go to its own (bot.webhook_url), signed
+// with its own secret. Without WEBHOOK_URL a person's message is logged
+// (development mode).
+export async function sendWebhook(message: WebhookMessage, target?: WebhookTarget): Promise<void> {
+  const body = JSON.stringify({ version: WEBHOOK_VERSION, ...message });
+  const to = target ?? (env.WEBHOOK_URL ? { url: env.WEBHOOK_URL, secret: env.WEBHOOK_SECRET ?? '' } : null);
+
+  if (!to) {
     console.log(`[webhook] ${body}`);
     return;
   }
 
-  const signature = createHmac('sha256', env.WEBHOOK_SECRET ?? '').update(body).digest('hex');
-  const response = await fetch(env.WEBHOOK_URL, {
+  const signature = createHmac('sha256', to.secret).update(body).digest('hex');
+  const response = await fetch(to.url, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',

@@ -42,7 +42,7 @@ persona goal it serves. Status: **now** — stage one, **next** — stage two,
 | Deadline at risk: a person's plan does not fit their working time before the deadline — marked on the task and counted in My team | Marina: learn about a slip while it can still be avoided | now (done) |
 | A shift suggested for activity outside the written shifts of a past day | Pavel: an evening of work is not lost from the timesheet | now (done) |
 | Export for payroll: timesheet, logged time and scores of the picked people for a range, as Excel or CSV | Marina: hand the month to accounting without retyping | now (done) |
-| Bots through the API: tokens issued by the employee or their manager; CI and monitoring comment and mention | Pavel: a failed build lands in the task as a mention | now (done) |
+| Bots: an employee kind of its own, created by anyone, run by its manager; one key, permissions that only narrow what it sees, its own signed JSON webhook; no timesheet, scores or reports | Pavel: a failed build lands in the task as a mention, and the bot cannot do more than it should | now (done) |
 | A weekly email for managers: Monday morning, days waiting for a score, tasks closed automatically, tasks at risk | Marina: the week starts with what needs her | now (done) |
 | A dark theme: as the system, or chosen in the profile | Pavel: My day open all evening without glare | now (done) |
 | Installable (PWA) and working offline: changes made without a connection are kept and sent at the first chance | everyone: a train or a basement does not stop work | now (done) |

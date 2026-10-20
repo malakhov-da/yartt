@@ -3,16 +3,19 @@ import type { NotificationPayload } from '#shared/notification.ts';
 import env from './env.ts';
 import { mailEnabled, sendMail } from './mail.ts';
 import { renderMail } from './services/Mail.ts';
-import { sendWebhook } from './webhook.ts';
+import { sendWebhook, type WebhookTarget } from './webhook.ts';
 
 export type Recipient = {
   employeeId: number;
+  kind: 'human' | 'bot';
   /** NULL — no address: the webhook only. */
   email: string | null;
   fullName: string;
   locale: Locale;
   /** Moments in emails are shown in it. */
   timeZone: string;
+  /** A bot's own webhook; NULL — it has none, and gets nothing outside its bell. */
+  webhook?: WebhookTarget | null;
 };
 
 /** A notification from the queue, or a sign-in link that never touches the queue. */
@@ -26,16 +29,23 @@ export type Message = {
 
 // Every outgoing message goes through here: an email in the recipient's
 // language (SMTP_URL) and/or the webhook (WEBHOOK_URL) for other channels.
-// With neither configured the message is logged (development mode).
+// With neither configured the message is logged (development mode). A bot
+// gets JSON on its own webhook only.
 export async function deliver(message: Message): Promise<void> {
   const { kind, ...data } = message.payload;
+  const { webhook, ...to } = message.to;
+
+  if (to.kind === 'bot') {
+    if (webhook) await sendWebhook({ kind, to, taskId: message.taskId, data }, webhook);
+    return;
+  }
 
   if (mailEnabled && message.to.email !== null) {
     const mail = await renderMail(message);
     await sendMail(message.to.email, mail.subject, mail.text);
   }
   if (env.WEBHOOK_URL) {
-    await sendWebhook({ kind, to: message.to, taskId: message.taskId, data });
+    await sendWebhook({ kind, to, taskId: message.taskId, data });
   }
   if (!mailEnabled && !env.WEBHOOK_URL) {
     console.log(`[delivery] ${JSON.stringify({ kind, to: message.to.email, taskId: message.taskId, data })}`);

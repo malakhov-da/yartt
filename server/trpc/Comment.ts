@@ -27,6 +27,7 @@ export default router({
    * @throws not_found — unknown task, employee or reply.
    */
   create: authedProcedure
+    .meta({ bot: 'comment' })
     .input(CreateCommentInput)
     .output(Id)
     .mutation(({ input, ctx }) => Comments.create(ctx.employeeId, input)),
@@ -37,6 +38,7 @@ export default router({
    * @throws mention_needs_reply — they have not commented in the task since.
    */
   closeMention: authedProcedure
+    .meta({ bot: 'comment' })
     .input(z.object({ taskId: Id, commentId: Id }))
     .output(z.void())
     .mutation(({ input, ctx }) => Comments.closeMention(ctx.employeeId, input.taskId, input.commentId)),

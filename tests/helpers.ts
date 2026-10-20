@@ -11,10 +11,11 @@ export type TestClient = ReturnType<typeof createCaller> & {
 };
 
 // Client with a "browser" cookie: login() sets it, logout() clears it.
-export async function client(employeeId: number | null = null, sessionToken: string | null = null): Promise<TestClient> {
+export async function client(employeeId: number | null = null, sessionToken: string | null = null, bot: Context['bot'] = null): Promise<TestClient> {
   const cookie = { value: sessionToken };
   const ctx: Context = {
     employeeId,
+    bot,
     sessionToken,
     setSessionCookie: (token) => { cookie.value = token; },
     clearSessionCookie: () => { cookie.value = null; },
@@ -34,9 +35,12 @@ export async function clientBySession(sessionToken: string): Promise<TestClient>
 export async function createEmployee(fields: { managerId?: number } = {}) {
   const email = `${randomUUID()}@yartt.test`;
   const [row] = await sql<{ id: number }[]>`
-    INSERT INTO employee (email, full_name, manager_id)
-    VALUES (${email}, ${'Test ' + email.slice(0, 8)}, ${fields.managerId ?? null})
-    RETURNING id
+    WITH e AS (
+      INSERT INTO employee (email, full_name, manager_id)
+      VALUES (${email}, ${'Test ' + email.slice(0, 8)}, ${fields.managerId ?? null})
+      RETURNING id
+    )
+    INSERT INTO human (employee_id) SELECT id FROM e RETURNING employee_id AS id
   `;
   return { id: row!.id, email };
 }

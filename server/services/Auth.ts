@@ -28,7 +28,7 @@ export async function requestLogin(email: string): Promise<void> {
   if (!employee) return;
 
   await deliver({
-    to: { employeeId: employee.id, email: employee.email, fullName: employee.fullName, locale: employee.locale, timeZone: employee.timeZone },
+    to: { employeeId: employee.id, kind: 'human', email: employee.email, fullName: employee.fullName, locale: employee.locale, timeZone: employee.timeZone },
     taskId: null,
     payload: { kind: 'login', url: `${env.PUBLIC_URL}/login/${token.token}` },
   });

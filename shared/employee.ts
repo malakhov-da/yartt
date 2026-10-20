@@ -19,8 +19,13 @@ export const TimeZone = z.string().min(1).max(64);
 /** Calendar day, YYYY-MM-DD. */
 export const Day = z.iso.date();
 
+/** A person or a program acting through the API (db.sql, employee_kind). */
+export const EmployeeKind = z.enum(['human', 'bot']);
+export type EmployeeKind = z.infer<typeof EmployeeKind>;
+
 export const Employee = z.object({
   id: Id,
+  kind: EmployeeKind,
   /** The sign-in and mail address; NULL — none: no emails, no sign-in link. Kept on dismissal. */
   email: z.string().nullable(),
   /** When dismissed; NULL — working. */
@@ -28,7 +33,7 @@ export const Employee = z.object({
   fullName: z.string(),
   about: z.string().nullable(),
   managerId: Id.nullable(),
-  /** Back at work on this day (vacation, sick leave, ...); NULL = available. */
+  /** Back at work on this day (vacation, sick leave, ...); NULL = available, and always for a bot. */
   nextDay: Day.nullable(),
   timeZone: z.string(),
   locale: Locale,

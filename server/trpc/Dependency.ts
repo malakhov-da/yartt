@@ -15,6 +15,7 @@ export default router({
    * @throws hard_dependency_violated — the deadlines do not fit the lag.
    */
   set: authedProcedure
+    .meta({ bot: 'task' })
     .input(SetDependencyInput)
     .output(z.void())
     .mutation(({ input, ctx }) => Dependencies.set(ctx.employeeId, input)),
@@ -25,6 +26,7 @@ export default router({
    * @throws not_found — no such dependency.
    */
   remove: authedProcedure
+    .meta({ bot: 'task' })
     .input(z.object({ taskId: Id, value: Id }))
     .output(z.void())
     .mutation(({ input, ctx }) => Dependencies.remove(ctx.employeeId, input.taskId, input.value)),

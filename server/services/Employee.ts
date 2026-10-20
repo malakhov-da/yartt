@@ -3,85 +3,99 @@ import { Employee, type InviteInput, type ProfileInput, type SettingsInput } fro
 import { AppError } from '../errors.ts';
 import { sql } from '../pg.ts';
 
-const COLUMNS = 'id, email, dismissed_at, full_name, about, manager_id, next_day, time_zone, locale, pronoun, keyboards::text[] AS keyboards, '
-  + '(SELECT updated_at FROM avatar a WHERE a.employee_id = employee.id) AS avatar_at';
+// A person's own fields come from human; a bot has none there.
+const COLUMNS = 'e.id, e.kind, e.email, e.dismissed_at, e.full_name, e.about, e.manager_id, h.next_day, e.time_zone, e.locale, '
+  + 'e.pronoun, h.keyboards::text[] AS keyboards, (SELECT updated_at FROM avatar a WHERE a.employee_id = e.id) AS avatar_at';
+const FROM = 'employee e LEFT JOIN human h ON h.employee_id = e.id';
 const Exists = z.object({ exists: z.boolean() });
 
 export async function list(): Promise<Employee[]> {
   return Employee.array().parse(await sql`
-    SELECT ${sql.unsafe(COLUMNS)} FROM employee ORDER BY full_name, id
+    SELECT ${sql.unsafe(COLUMNS)} FROM ${sql.unsafe(FROM)} ORDER BY e.full_name, e.id
   `);
 }
 
 export async function get(id: number): Promise<Employee | null> {
   const [row] = Employee.array().parse(await sql`
-    SELECT ${sql.unsafe(COLUMNS)} FROM employee WHERE id = ${id}
+    SELECT ${sql.unsafe(COLUMNS)} FROM ${sql.unsafe(FROM)} WHERE e.id = ${id}
   `);
   return row ?? null;
 }
 
+const Created = z.object({ id: z.number() });
+
 /** Locale and time zone default to the inviter's; the invitee is notified. */
 export async function invite(inviterId: number, input: InviteInput): Promise<Employee> {
-  return sql.begin(async (tx) => {
-    const [employee] = Employee.array().parse(await tx`
+  const id = await sql.begin(async (tx) => {
+    const [row] = Created.array().parse(await tx`
       INSERT INTO employee (email, full_name, locale, time_zone)
       SELECT ${input.email}, ${input.fullName},
              COALESCE(${input.locale ?? null}, locale),
              COALESCE(${input.timeZone ?? null}, time_zone)
         FROM employee WHERE id = ${inviterId}
-      RETURNING ${tx.unsafe(COLUMNS)}
+      RETURNING id
     `);
-    if (!employee) throw new AppError('not_found');
-    await tx`SELECT notify(${employee.id}, NULL, ${tx.json({ kind: 'invite', by: inviterId })})`;
-    return employee;
+    if (!row) throw new AppError('not_found');
+    await tx`INSERT INTO human (employee_id) VALUES (${row.id})`;
+    await tx`SELECT notify(${row.id}, NULL, ${tx.json({ kind: 'invite', by: inviterId })})`;
+    return row.id;
   });
+  return (await get(id))!;
 }
 
 export async function updateProfile(id: number, input: ProfileInput): Promise<Employee> {
-  const [employee] = Employee.array().parse(await sql`
+  const [row] = Created.array().parse(await sql`
     UPDATE employee
        SET full_name = ${input.fullName},
            email = ${input.email},
            about = ${input.about}
-     WHERE id = ${id} AND dismissed_at IS NULL
-    RETURNING ${sql.unsafe(COLUMNS)}
+     WHERE id = ${id} AND kind = 'human' AND dismissed_at IS NULL
+    RETURNING id
   `);
-  if (!employee) throw new AppError('not_found');
-  return employee;
+  if (!row) throw new AppError('not_found');
+  return (await get(id))!;
 }
 
 /** A field left out keeps its value. */
 export async function updateSettings(id: number, input: SettingsInput): Promise<Employee> {
-  const [employee] = Employee.array().parse(await sql`
-    UPDATE employee
-       SET next_day = ${input.nextDay === undefined ? sql`next_day` : input.nextDay},
-           time_zone = COALESCE(${input.timeZone ?? null}, time_zone),
-           locale = COALESCE(${input.locale ?? null}, locale),
-           pronoun = ${input.pronoun === undefined ? sql`pronoun` : input.pronoun},
-           -- An explicit text[] parameter: a one-element array is otherwise sent as a plain string.
-           keyboards = ${input.keyboards === undefined ? sql`keyboards`
-             : input.keyboards === null ? null : sql`${sql.array(input.keyboards)}::text[]::keyboard[]`}
-     WHERE id = ${id}
-    RETURNING ${sql.unsafe(COLUMNS)}
-  `);
-  if (!employee) throw new AppError('not_found');
-  return employee;
+  await sql.begin(async (tx) => {
+    const [row] = Created.array().parse(await tx`
+      UPDATE employee
+         SET time_zone = COALESCE(${input.timeZone ?? null}, time_zone),
+             locale = COALESCE(${input.locale ?? null}, locale),
+             pronoun = ${input.pronoun === undefined ? tx`pronoun` : input.pronoun}
+       WHERE id = ${id} AND kind = 'human'
+      RETURNING id
+    `);
+    if (!row) throw new AppError('not_found');
+    await tx`
+      UPDATE human
+         SET next_day = ${input.nextDay === undefined ? tx`next_day` : input.nextDay},
+             -- An explicit text[] parameter: a one-element array is otherwise sent as a plain string.
+             keyboards = ${input.keyboards === undefined ? tx`keyboards`
+               : input.keyboards === null ? null : tx`${tx.array(input.keyboards)}::text[]::keyboard[]`}
+       WHERE employee_id = ${id}
+    `;
+  });
+  return (await get(id))!;
 }
 
-async function isActive(id: number): Promise<boolean> {
+/** A working person: only they manage. */
+async function canManage(id: number): Promise<boolean> {
   const [row] = Exists.array().parse(await sql`
-    SELECT EXISTS (SELECT 1 FROM employee WHERE id = ${id} AND dismissed_at IS NULL)
+    SELECT EXISTS (SELECT 1 FROM employee WHERE id = ${id} AND kind = 'human' AND dismissed_at IS NULL)
   `);
   return row?.exists ?? false;
 }
 
 /**
- * The employee picks their own manager; cycles are rejected and the new
- * manager is notified (new_report) by the database.
+ * A person picks their own manager; cycles are rejected and the new
+ * manager is notified (new_report) by the database. A bot's manager hands
+ * it over instead (Bot.transfer).
  */
 export async function setManager(id: number, managerId: number | null): Promise<void> {
-  if (managerId !== null && !(await isActive(managerId))) throw new AppError('not_found');
-  await sql`UPDATE employee SET manager_id = ${managerId} WHERE id = ${id}`;
+  if (managerId !== null && !(await canManage(managerId))) throw new AppError('not_found');
+  await sql`UPDATE employee SET manager_id = ${managerId} WHERE id = ${id} AND kind = 'human'`;
 }
 
 /** See dismiss_employee() in db.sql: only the direct manager; tasks and reports go to them. */

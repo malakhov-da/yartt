@@ -26,6 +26,7 @@ export default router({
    * @throws not_found — unknown or dismissed employee.
    */
   add: authedProcedure
+    .meta({ bot: 'observers' })
     .input(TaskEmployee)
     .output(z.void())
     .mutation(({ input, ctx }) => Observers.add(ctx.employeeId, input.taskId, input.employeeId)),
@@ -38,6 +39,7 @@ export default router({
    * @throws manager_cannot_leave — a report of theirs observes the task.
    */
   remove: authedProcedure
+    .meta({ bot: 'observers' })
     .input(TaskEmployee)
     .output(z.void())
     .mutation(({ input, ctx }) => Observers.remove(ctx.employeeId, input.taskId, input.employeeId)),
@@ -49,6 +51,7 @@ export default router({
    * @throws manager_cannot_leave
    */
   leave: authedProcedure
+    .meta({ bot: 'observers' })
     .input(z.object({ taskId: Id }))
     .output(z.void())
     .mutation(({ input, ctx }) => Observers.leave(ctx.employeeId, input.taskId)),
@@ -60,6 +63,7 @@ export default router({
    * @throws already_observer
    */
   request: authedProcedure
+    .meta({ bot: 'observers' })
     .input(z.object({ taskId: Id }))
     .output(z.void())
     .mutation(({ input, ctx }) => Observers.request(ctx.employeeId, input.taskId)),
@@ -69,6 +73,7 @@ export default router({
    * @throws no_pending_request
    */
   withdraw: authedProcedure
+    .meta({ bot: 'observers' })
     .input(z.object({ taskId: Id }))
     .output(z.void())
     .mutation(({ input, ctx }) => Observers.withdraw(ctx.employeeId, input.taskId)),
@@ -79,6 +84,7 @@ export default router({
    * @throws no_pending_request
    */
   approve: authedProcedure
+    .meta({ bot: 'observers' })
     .input(TaskEmployee)
     .output(z.void())
     .mutation(({ input, ctx }) => Observers.approve(ctx.employeeId, input.taskId, input.employeeId)),
@@ -89,6 +95,7 @@ export default router({
    * @throws no_pending_request
    */
   reject: authedProcedure
+    .meta({ bot: 'observers' })
     .input(TaskEmployee)
     .output(z.void())
     .mutation(({ input, ctx }) => Observers.reject(ctx.employeeId, input.taskId, input.employeeId)),

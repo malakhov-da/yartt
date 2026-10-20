@@ -277,7 +277,21 @@ phone width the "in tasks" column and the ticks give way; the details
 keep everything.
 
 A name opens the person's page. Inviting is not here — anyone invites
-from the top line.
+from the top line. Bots are not people here: they have a block of their
+own (4b).
+
+## 4b. Bots — "what are my programs doing?"
+
+A block of My day under My team — or on its own for someone whose only
+reports are bots — and the same list in the profile (decision 49): my
+bots and those of everyone under me, dismissed ones included, with what
+each may change and when its key was issued; whose a bot is shows when it
+is not mine. **New bot** creates one under me. A click opens its
+settings: name, pronoun, what it does, what it may change (four
+permissions; none — read only), its webhook and signing secret, its key
+(replaced on demand and shown once), handing it to someone (at once, the
+key changes) and dismissing or bringing it back. Only its direct manager
+changes anything; managers above look.
 
 ## 4a. Employee page — "how are this person's days?"
 
@@ -293,7 +307,7 @@ can correct the day (the reason stays for the next score); the page
 shows the current value, the employee's mail keeps every version
 (decisions 22, 37). On top —
 workload and the weighted score for 7, 30, 90 days or any dates, with a
-chart (decision 23).
+chart (decision 23). A bot's page is only who it is and who runs it.
 
 ## 5. Profile — "who am I here?"
 
@@ -306,12 +320,14 @@ A dialog behind my avatar, not a screen.
   picked, no button. "Back at work on" covers any absence: vacation, sick
   leave, a day off; until that day my notifications are copied to my
   manager.
-- **Pronoun** — he, she or not given (a bot): verb forms follow.
+- **Pronoun** — he, she or not given: verb forms follow.
 - **Appearance** — as the system, light or dark; kept in this browser.
 - **Keyboard layouts** I switch between (by default the interface
   language's and the US one): tag search reads a word typed with the
   wrong one in each of them (decision 33).
 - **Avatar** — a photo, cropped to a square; or the initials.
+- **Bots** — a section with the list of 4b, to create a bot without
+  having people under me.
 - **My tags** — a second section of the dialog: the tags of the tasks I
   see, with how many tasks carry each; my own color and weight of a tag
   (nobody else sees them). A tag opens the search narrowed to it.

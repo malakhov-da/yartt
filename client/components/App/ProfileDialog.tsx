@@ -14,7 +14,7 @@ import { showInfo } from '#client/hooks/store.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import { fieldErrors } from '#client/i18n/errors.ts';
 import EmployeeAvatar from './EmployeeAvatar.tsx';
-import ApiTokens from './ApiTokens.tsx';
+import Bots from '../MyDayPage/Bots.tsx';
 import MyTags from './MyTags.tsx';
 
 const TIME_ZONES = Intl.supportedValuesOf('timeZone');
@@ -34,7 +34,7 @@ export default function (p: { onClose: () => void }) {
 
   const refresh = () => queryClient.invalidateQueries();
   // Who I am, and my tags (colors and weights only I see).
-  const [section, setSection] = useState<'profile' | 'tags' | 'api'>('profile');
+  const [section, setSection] = useState<'profile' | 'tags' | 'bots'>('profile');
   // The picture is cropped and scaled in the browser, then uploaded around tRPC.
   const [avatarBusy, setAvatarBusy] = useState(false);
   const changeAvatar = async (action: () => Promise<void>) => {
@@ -69,7 +69,7 @@ export default function (p: { onClose: () => void }) {
   const { mode, setMode } = useColorScheme();
 
   const employees = useQuery(trpc.Employee.list.queryOptions());
-  const candidates = (employees.data ?? []).filter((e) => e.dismissedAt === null && e.id !== me.id);
+  const candidates = (employees.data ?? []).filter((e) => e.kind === 'human' && e.dismissedAt === null && e.id !== me.id);
   const manager = candidates.find((e) => e.id === me.managerId) ?? null;
 
   const submit = (event: FormEvent) => {
@@ -80,13 +80,13 @@ export default function (p: { onClose: () => void }) {
   return (
     <Dialog open onClose={p.onClose} fullWidth maxWidth={section === 'tags' ? 'md' : 'sm'}>
       <DialogTitle sx={{ pb: 0 }}>{t('profile.title')}</DialogTitle>
-      <Tabs value={section} onChange={(_, v: 'profile' | 'tags' | 'api') => setSection(v)} sx={{ px: 3, borderBottom: 1, borderColor: 'divider' }}>
+      <Tabs value={section} onChange={(_, v: 'profile' | 'tags' | 'bots') => setSection(v)} sx={{ px: 3, borderBottom: 1, borderColor: 'divider' }}>
         <Tab value="profile" label={t('profile.sectionProfile')} />
         <Tab value="tags" label={t('profile.sectionTags')} />
-        <Tab value="api" label={t('profile.sectionApi')} />
+        <Tab value="bots" label={t('profile.sectionBots')} />
       </Tabs>
       <DialogContent>
-        {section === 'api' ? <Box sx={{ pt: 2 }}><ApiTokens employeeId={me.id} /></Box>
+        {section === 'bots' ? <Box sx={{ pt: 2 }}><Bots bare /></Box>
           : section === 'tags' ? <Box sx={{ pt: 2 }}><MyTags onOpen={p.onClose} /></Box> : (
         <Stack spacing={3} sx={{ pt: 2 }}>
           <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>

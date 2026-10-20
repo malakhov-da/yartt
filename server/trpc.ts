@@ -1,6 +1,7 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import superjson from 'superjson';
 import { ZodError } from 'zod';
+import type { BotPermission } from '#shared/bot.ts';
 import type { ErrorCode, ErrorData, ErrorIssue } from '#shared/errors.ts';
 import type { Context } from './ctx.ts';
 import { AppError, fromPostgres } from './errors.ts';
@@ -25,7 +26,14 @@ function errorData(error: TRPCError): ErrorData {
   return { appCode: byTrpcCode[error.code] ?? 'internal' };
 }
 
-const t = initTRPC.context<Context>().create({
+/**
+ * `bot` — the permission a bot needs to call this mutation (db.sql,
+ * bot_permission). A mutation without it is for people only; a query is
+ * open to a bot, within what its relationships show it.
+ */
+export type Meta = { bot?: BotPermission };
+
+const t = initTRPC.context<Context>().meta<Meta>().create({
   transformer: superjson,
   errorFormatter({ shape, error }) {
     const data = errorData(error);
@@ -40,7 +48,7 @@ const t = initTRPC.context<Context>().create({
 
 function toTrpcError(cause: AppError): TRPCError {
   const code =
-    cause.code === 'forbidden' ? 'FORBIDDEN'
+    cause.code === 'forbidden' || cause.code === 'bot_not_permitted' ? 'FORBIDDEN'
     : cause.code === 'not_found' ? 'NOT_FOUND'
     : cause.code === 'unauthorized' ? 'UNAUTHORIZED'
     : 'BAD_REQUEST';
@@ -64,10 +72,16 @@ export const createCallerFactory = t.createCallerFactory;
 /** Available without a session. */
 export const procedure = t.procedure.use(mapErrors);
 
-/** Requires a session; `ctx.employeeId` is the signed-in employee. */
-export const authedProcedure = procedure.use(({ ctx, next }) => {
+/**
+ * Requires a session or a bot's key; `ctx.employeeId` is the signed-in
+ * employee. A bot changes only what its permissions allow (Meta).
+ */
+export const authedProcedure = procedure.use(({ ctx, meta, type, next }) => {
   if (ctx.employeeId === null) {
     throw new TRPCError({ code: 'UNAUTHORIZED' });
+  }
+  if (ctx.bot && type === 'mutation' && !(meta?.bot && ctx.bot.includes(meta.bot))) {
+    throw new AppError('bot_not_permitted', { permission: meta?.bot ?? null });
   }
   return next({ ctx: { ...ctx, employeeId: ctx.employeeId } });
 });

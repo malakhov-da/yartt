@@ -14,9 +14,17 @@ const MAX_SIZE = env.DEMO_DATA ? '2mb' : '25mb';
 // Shown in the page; anything else is downloaded. SVG can carry scripts.
 const INLINE = /^image\/(png|jpeg|gif|webp|avif)$/;
 
-async function employeeId(req: Request, res: Response): Promise<number | null> {
+/** Who asks; a bot uploads only to comment (its `comment` permission). */
+async function employeeId(req: Request, res: Response, upload = false): Promise<number | null> {
   const context = await ctx(req, res);
-  if (context.employeeId === null) res.status(401).json({ appCode: 'unauthorized' });
+  if (context.employeeId === null) {
+    res.status(401).json({ appCode: 'unauthorized' });
+    return null;
+  }
+  if (upload && context.bot && !context.bot.includes('comment')) {
+    res.status(403).json({ appCode: 'bot_not_permitted' });
+    return null;
+  }
   return context.employeeId;
 }
 
@@ -32,7 +40,7 @@ function fail(res: Response, error: unknown) {
 
 export default Router()
   .post('/', express.raw({ type: () => true, limit: MAX_SIZE }), async (req, res) => {
-    const id = await employeeId(req, res);
+    const id = await employeeId(req, res, true);
     if (id === null) return;
     if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
       res.status(400).json({ appCode: 'invalid_input' });

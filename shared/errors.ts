@@ -20,6 +20,9 @@ export const ERROR_CODES = [
   'invalid_time_zone',
   'manager_cycle',
 
+  // bots
+  'bot_not_permitted',
+
   // tasks and tags
   'tag_set_taken',
   'unknown_tag',

@@ -196,6 +196,8 @@ export async function summary(viewerId: number, from: string, to: string): Promi
     SELECT e.id, COALESCE(e.manager_id = ${viewerId}, FALSE) AS direct, e.id = ${viewerId} AS self
       FROM employee e
      WHERE (e.id IN (SELECT subordinates(${viewerId})) OR e.id = ${viewerId})
+       -- Bots have none of these metrics; they have a block of their own (Bot.list).
+       AND e.kind = 'human'
        -- Someone invited after the range or dismissed before it did not work in it.
        AND (e.created_at AT TIME ZONE e.time_zone)::date <= ${to}::date
        AND (e.dismissed_at IS NULL OR (e.dismissed_at AT TIME ZONE e.time_zone)::date >= ${from}::date)

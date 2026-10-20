@@ -156,7 +156,7 @@ export async function suggest(viewerId: number, text: string): Promise<Suggestio
   const whole = parsed.data;
   // Only spaces part words: "," and ";" are letters typed in another layout ("б", "ж").
   const words = whole.split(' ');
-  const [row] = KeyboardsRow.array().parse(await sql`SELECT keyboards::text[] AS keyboards, locale FROM employee WHERE id = ${viewerId}`);
+  const [row] = KeyboardsRow.array().parse(await sql`SELECT h.keyboards::text[] AS keyboards, e.locale FROM employee e LEFT JOIN human h ON h.employee_id = e.id WHERE e.id = ${viewerId}`);
   const keyboards = row?.keyboards ?? defaultKeyboards(row?.locale ?? 'en');
   const retyped = (phrase: string) => retype(phrase, keyboards);
   // The last word is still being typed unless a space follows it.

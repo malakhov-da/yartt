@@ -36,6 +36,7 @@ export default router({
    * @throws unknown_attachment — an image the creator may not read.
    */
   create: authedProcedure
+    .meta({ bot: 'task' })
     .input(CreateInput)
     .output(Id)
     .mutation(({ input, ctx }) => Tasks.create(ctx.employeeId, input)),
@@ -48,6 +49,7 @@ export default router({
    * @throws unknown_attachment — an image the owner may not read.
    */
   update: authedProcedure
+    .meta({ bot: 'task' })
     .input(UpdateInput)
     .output(z.void())
     .mutation(({ input, ctx }) => Tasks.update(ctx.employeeId, input)),
@@ -59,6 +61,7 @@ export default router({
    * @throws hard_dependency_violated
    */
   setDeadline: authedProcedure
+    .meta({ bot: 'task' })
     .input(z.object({ id: Id, deadline: z.date().nullable() }))
     .output(z.void())
     .mutation(({ input, ctx }) => Tasks.setDeadline(ctx.employeeId, input.id, input.deadline)),
@@ -71,6 +74,7 @@ export default router({
    * @throws not_found — unknown task, or the new owner is unknown or dismissed.
    */
   transfer: authedProcedure
+    .meta({ bot: 'task.transfer' })
     .input(TransferInput)
     .output(z.void())
     .mutation(({ input, ctx }) => Tasks.transfer(ctx.employeeId, input.id, input.ownerId)),
@@ -92,6 +96,7 @@ export default router({
    * @throws pending_requests — answer the access requests first.
    */
   markReviewed: authedProcedure
+    .meta({ bot: 'task' })
     .input(z.object({ id: Id }))
     .output(z.void())
     .mutation(({ input, ctx }) => Tasks.markReviewed(ctx.employeeId, input.id)),
@@ -102,6 +107,7 @@ export default router({
    * @throws forbidden — not the owner.
    */
   makePublic: authedProcedure
+    .meta({ bot: 'task' })
     .input(z.object({ id: Id }))
     .output(z.void())
     .mutation(({ input, ctx }) => Tasks.makePublic(ctx.employeeId, input.id)),
@@ -113,6 +119,7 @@ export default router({
    * @throws forbidden — not the owner.
    */
   makePrivate: authedProcedure
+    .meta({ bot: 'task' })
     .input(z.object({ id: Id }))
     .output(Id.array())
     .mutation(({ input, ctx }) => Tasks.makePrivate(ctx.employeeId, input.id)),

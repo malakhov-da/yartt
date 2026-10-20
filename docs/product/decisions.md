@@ -488,6 +488,8 @@ schedule.
 
 ### 41. A bot is an employee with a token
 
+*Replaced by decision 49: a bot is a kind of employee with one key.*
+
 CI and monitoring need to write into tasks — a failed build as a comment
 that mentions whoever must react. Rather than a separate kind of account
 with its own rights, a bot is an ordinary employee (invited, without a
@@ -673,3 +675,38 @@ the bell, mentions and everything else work.
 *Implemented:* `employee.dismissed_at`, `uq_employee_email`,
 `restore_employee()` (migration `0.1-0.2`); `Employee.restore` with an
 optional email; `server/delivery.ts` sends mail only to an address.
+
+### 49. A bot is a kind of employee, with one key and narrow permissions
+
+A bot used to be an invited person with an API token, and anyone could
+issue tokens for themselves: a bot needed a made-up mailbox, kept a
+timesheet it never wrote and showed in My team with empty metrics, and a
+person's token outlived their leaving. Now an employee is a person or a
+bot. `employee` keeps what both have — a name, a manager, tasks,
+comments, mentions, notifications; `human` and `bot` hold the rest, and
+what only people have (timesheet, time, scores, sessions, reminders,
+visits, managing) refers to `human`, so the database itself keeps bots
+out of it. The email stays in `employee`: one working account per address
+needs it next to `dismissed_at`.
+
+A bot has one key, without expiry: its manager replaces it when it may
+have leaked. Handing the bot over and dismissing its manager replace the
+key with one nobody knows, because the previous manager knew it. People
+have no keys at all. A bot reads what an employee in its place would
+see, and changes only what its permissions allow — its tasks, handing
+them over, comments, observers: they narrow its relationships, never
+widen them, so no role appears. Anyone creates a bot under themselves;
+only its direct manager runs it and hands it over, at once, like tasks of
+someone dismissed. Its notifications go to its own webhook as signed
+JSON, with its own secret so one bot cannot forge another's; a webhook
+that is down gets one attempt and never holds people's notifications.
+
+A bot made as a person before stays a person: its manager creates a bot
+and dismisses the old one, handing its tasks over by hand.
+
+*Implemented:* `employee.kind`, `human`, `bot`, `bot_permission`,
+`create_bot()`, `reset_bot_key()`, `transfer_bot()`,
+`authenticate_bot()`, `employee_kind_row` (migration `0.1-0.2`); `Bot`
+router, `Meta.bot` and the check in `server/trpc.ts`; bot webhooks in
+`server/worker.ts`, `server/webhook.ts`; `client/components/MyDayPage/Bots.tsx`,
+`BotDialog.tsx`; `docs/admin/api.md`.

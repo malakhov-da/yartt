@@ -19,7 +19,7 @@ describe('mail', () => {
     const me = await createEmployee();
     await sql`UPDATE employee SET full_name = 'Pavel' WHERE id = ${previous.id}`;
     const taskId = await taskWithTags(me.id, [`billing-${me.id}`, `export-${me.id}`]);
-    const to = { employeeId: me.id, email: me.email, fullName: 'Me', locale: 'en' as const, timeZone: 'Europe/Moscow' };
+    const to = { employeeId: me.id, kind: 'human' as const, email: me.email, fullName: 'Me', locale: 'en' as const, timeZone: 'Europe/Moscow' };
 
     const en = await renderMail({ to, taskId, payload: { kind: 'owner_change', from: previous.id } });
     expect(en.subject).toBe(`You own: billing-${me.id} · export-${me.id}`);
@@ -34,7 +34,7 @@ describe('mail', () => {
     const me = await createEmployee();
     const absent = await createEmployee();
     await sql`UPDATE employee SET full_name = 'Marina' WHERE id = ${absent.id}`;
-    const to = { employeeId: me.id, email: me.email, fullName: 'Me', locale: 'en' as const, timeZone: 'Europe/Moscow' };
+    const to = { employeeId: me.id, kind: 'human' as const, email: me.email, fullName: 'Me', locale: 'en' as const, timeZone: 'Europe/Moscow' };
 
     const login = await renderMail({ to, taskId: null, payload: { kind: 'login', url: 'http://yartt.test/login/abc' } });
     expect(login.text).toContain('http://yartt.test/login/abc');
@@ -48,7 +48,7 @@ describe('mail', () => {
     const boss = await createEmployee();
     const me = await createEmployee();
     await sql`UPDATE employee SET full_name = 'Marina' WHERE id = ${boss.id}`;
-    const to = { employeeId: me.id, email: me.email, fullName: 'Me', locale: 'en' as const, timeZone: 'Europe/Moscow' };
+    const to = { employeeId: me.id, kind: 'human' as const, email: me.email, fullName: 'Me', locale: 'en' as const, timeZone: 'Europe/Moscow' };
     const mail = await renderMail({
       to,
       taskId: null,
@@ -66,7 +66,7 @@ describe('mail', () => {
 
   test('the weekly email lists only what is there, with a link to My day', async () => {
     const me = await createEmployee();
-    const to = { employeeId: me.id, email: 'lead@example.com', fullName: 'Lead', locale: 'ru' as const, timeZone: 'UTC' };
+    const to = { employeeId: me.id, kind: 'human' as const, email: 'lead@example.com', fullName: 'Lead', locale: 'ru' as const, timeZone: 'UTC' };
     const mail = await renderMail({ to, taskId: null, payload: { kind: 'weekly_digest', unscored: 3, expired: 0, atRisk: 2 } });
     expect(mail.subject).toBe('Неделя вашей команды');
     expect(mail.text).toContain('ждут вашей оценки: 3');

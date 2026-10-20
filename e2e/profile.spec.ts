@@ -15,14 +15,23 @@ test.describe('profile', () => {
     await page.getByRole('menuitem', { name: 'Профиль' }).click();
   });
 
-  test('API: a token is issued, shown once, and revoked', async ({ page }) => {
-    const dialog = page.getByRole('dialog');
-    await dialog.getByRole('tab', { name: 'API' }).click();
-    await dialog.getByLabel('Для чего').fill('Мониторинг');
-    await dialog.getByRole('button', { name: 'Выпустить' }).click();
-    await expect(dialog.getByText(/^yartt_[0-9a-f]{64}$/)).toBeVisible();
-    await dialog.getByRole('button', { name: 'Отозвать' }).first().click();
-    await expect(dialog.getByText('отозван').first()).toBeVisible();
+  test('bots: one is created with what it may do, its key shown once, then replaced', async ({ page }) => {
+    await page.getByRole('dialog').getByRole('tab', { name: 'Боты' }).click();
+    await page.getByRole('button', { name: 'Новый бот' }).click();
+    const form = page.getByRole('dialog', { name: 'Новый бот' });
+    await form.getByLabel('Имя').fill('Мониторинг');
+    await form.getByRole('checkbox', { name: /Комментарии/ }).check();
+    await form.getByRole('button', { name: 'Создать' }).click();
+    const created = page.getByRole('dialog', { name: 'Бот создан' });
+    await expect(created.getByText(/^yartt_[0-9a-f]{64}$/)).toBeVisible();
+    await created.getByRole('button', { name: 'Закрыть' }).click();
+
+    await page.getByRole('row', { name: /Мониторинг/ }).click();
+    const settings = page.getByRole('dialog', { name: 'Мониторинг' });
+    await expect(settings.getByRole('checkbox', { name: /Комментарии/ })).toBeChecked();
+    page.once('dialog', (confirm) => void confirm.accept());
+    await settings.getByRole('button', { name: 'Выпустить новый ключ' }).click();
+    await expect(settings.getByText(/^yartt_[0-9a-f]{64}$/)).toBeVisible();
   });
 
   test('avatar: uploaded, shown, removed', async ({ page }) => {

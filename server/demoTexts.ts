@@ -15,7 +15,7 @@ const ru = {
     oleg: { email: 'oleg@example.com', name: 'Олег Смирнов', about: 'Административный отдел' },
     sergey: { email: 'sergey@example.com', name: 'Сергей Волков' },
     anna: { email: 'anna@example.com', name: 'Анна Петрова' },
-    bot: { email: 'ci-bot@example.com', name: 'CI-бот' },
+    bot: { name: 'CI-бот', about: 'Сборки сайта в GitHub Actions: пишет в задачу, когда сборка упала. Вопросы — Алексею.' },
   },
   tags: {
     site: ['сайт', 'редизайн', 'главная'],
@@ -84,7 +84,7 @@ const en: typeof ru = {
     oleg: { email: 'daniel@example.com', name: 'Daniel Hayes', about: 'Office administration' },
     sergey: { email: 'sam@example.com', name: 'Sam Wilson' },
     anna: { email: 'anna@example.com', name: 'Anna Clark' },
-    bot: { email: 'ci-bot@example.com', name: 'CI bot' },
+    bot: { name: 'CI bot', about: 'Website builds in GitHub Actions: writes to the task when a build fails. Questions — to Alex.' },
   },
   tags: {
     site: ['website', 'redesign', 'homepage'],

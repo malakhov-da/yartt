@@ -64,7 +64,7 @@ const JOBS: { name: string; every: number; run: (sql: Sql) => Promise<unknown> }
   {
     name: 'next_day_cleanup',
     every: DAY,
-    run: (sql) => sql`UPDATE employee SET next_day = NULL WHERE next_day <= local_today(id)`,
+    run: (sql) => sql`UPDATE human SET next_day = NULL WHERE next_day <= local_today(employee_id)`,
   },
 ];
 
@@ -86,8 +86,11 @@ const PendingNotification = z.object({
   employeeId: z.number(),
   taskId: z.number().nullable(),
   payload: z.unknown(),
+  kind: z.enum(['human', 'bot']),
   email: z.string().nullable(),
   dismissed: z.boolean(),
+  webhookUrl: z.string().nullable(),
+  webhookSecret: z.string().nullable(),
   fullName: z.string(),
   // An unsupported language falls back to the default one.
   locale: Locale.catch('ru'),
@@ -99,7 +102,9 @@ const BATCH_SIZE = 20;
 // Delivers notifications (email and/or webhook) and returns how many were
 // processed. FOR UPDATE SKIP LOCKED: several workers never take the same
 // notification. A delivery error stops the batch: delivered ones are
-// committed, the rest stay in the queue. A payload that does not parse is
+// committed, the rest stay in the queue. A bot's webhook is someone's
+// program and may be down for days: it gets one attempt, a failure is
+// logged and passed over, so people's notifications never wait for it. A payload that does not parse is
 // logged and skipped, so it cannot block the queue. The demo's people are
 // made up: there nothing goes out, the queue is only marked sent (the bell
 // in the interface reads closed_at, not sent_at).
@@ -110,10 +115,11 @@ export async function deliverNotifications(sql: Sql): Promise<number> {
   }
   return sql.begin(async (tx) => {
     const rows = PendingNotification.array().parse(await tx`
-      SELECT n.id, n.employee_id, n.task_id, n.payload, e.email, e.dismissed_at IS NOT NULL AS dismissed,
-             e.full_name, e.locale, e.time_zone
+      SELECT n.id, n.employee_id, n.task_id, n.payload, e.kind, e.email, e.dismissed_at IS NOT NULL AS dismissed,
+             e.full_name, e.locale, e.time_zone, b.webhook_url, b.webhook_secret
         FROM notification n
         JOIN employee e ON e.id = n.employee_id
+        LEFT JOIN bot b ON b.employee_id = e.id
        WHERE n.sent_at IS NULL
        ORDER BY n.id
        LIMIT ${BATCH_SIZE}
@@ -127,15 +133,16 @@ export async function deliverNotifications(sql: Sql): Promise<number> {
       if (!payload.success) {
         console.error(`[worker] notification ${row.id} has an invalid payload, skipped:`, payload.error.issues);
       } else if (!row.dismissed) {
+        const webhook = row.webhookUrl ? { url: row.webhookUrl, secret: row.webhookSecret ?? '' } : null;
         try {
           await deliver({
-            to: { employeeId: row.employeeId, email: row.email, fullName: row.fullName, locale: row.locale, timeZone: row.timeZone },
+            to: { employeeId: row.employeeId, kind: row.kind, email: row.email, fullName: row.fullName, locale: row.locale, timeZone: row.timeZone, webhook },
             taskId: row.taskId,
             payload: payload.data,
           });
         } catch (error) {
           console.error(`[worker] notification ${row.id} delivery failed:`, error);
-          break;
+          if (row.kind === 'human') break;
         }
       }
       await tx`UPDATE notification SET sent_at = NOW() WHERE id = ${row.id}`;
