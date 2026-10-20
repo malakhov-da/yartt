@@ -78,11 +78,19 @@ export type TaskPage = z.infer<typeof TaskPage>;
 
 export const SearchInput = z.object({
   tagIds: Id.array().min(1).max(20),
-  /** 'mine' — tasks I own; 'others' — the rest (as in Current tasks). */
-  tab: z.enum(['mine', 'others']),
+  /** 'mine' — tasks I own; 'others' — the rest (as in Current tasks); 'all' — both, to pick one. */
+  tab: z.enum(['mine', 'others', 'all']),
   page: z.number().int().min(1),
 });
 export type SearchInput = z.infer<typeof SearchInput>;
+
+/** A title — its tags by name — to tell whether a task already has it. */
+export const TitleInput = z.object({ tags: TagName.array().min(1).max(20) });
+export type TitleInput = z.infer<typeof TitleInput>;
+
+/** The task with exactly these tags; NULL — none: the title is free. */
+export const TitleTaken = z.object({ id: Id }).nullable();
+export type TitleTaken = z.infer<typeof TitleTaken>;
 
 export const SearchResult = z.object({
   items: TaskHeader.extend({ canSee: z.boolean() }).array(),

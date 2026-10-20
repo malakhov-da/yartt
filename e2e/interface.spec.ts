@@ -92,10 +92,11 @@ test.describe('a task', () => {
     const tag = unique('if');
     await createTask(page, [tag]);
     await page.getByRole('button', { name: 'Изменить' }).first().click();
-    await page.getByLabel('Теги').fill('второй');
-    await page.keyboard.press('Enter');
+    const second = unique('второй');
+    await page.getByLabel('Теги').fill(second);
+    await page.getByRole('button', { name: `Новый тег «${second}»` }).click();
     await page.getByRole('button', { name: 'Сохранить' }).click();
-    await expect(page.getByRole('button', { name: 'второй' }).or(page.getByText('второй', { exact: true })).first()).toBeVisible();
+    await expect(page.getByText(second, { exact: true }).first()).toBeVisible();
 
     await page.getByLabel('Дедлайн').fill(`${new Date().getFullYear() + 1}-01-10T12:00`);
     await page.getByRole('button', { name: 'Убрать дедлайн' }).click();
@@ -104,8 +105,10 @@ test.describe('a task', () => {
     // A hard dependency on the site (deadline in a few days) while mine is a year ahead is fine;
     // a lag of a year is not.
     await page.getByLabel('Дедлайн').fill(`${new Date().getFullYear() + 1}-01-10T12:00`);
-    await page.getByRole('button', { name: 'Добавить' }).click();
-    await page.getByLabel('Задача').fill(String(await taskId('сайт', 'редизайн', 'главная')));
+    const site = await taskId('сайт', 'редизайн', 'главная');
+    await page.getByRole('button', { name: 'Добавить' }).first().click();
+    await page.getByLabel('Найти задачу: теги или номер').fill(`#${site}`);
+    await page.getByRole('button', { name: `Выбрать задачу #${site}` }).click();
     await page.getByRole('combobox', { name: 'Зависимость' }).click();
     await page.getByRole('option', { name: 'Жёсткая' }).click();
     await page.getByLabel('Не раньше чем через').fill('400д');

@@ -39,13 +39,13 @@ export const errorToast = (page: Page) => page.getByRole('alert').filter({ hasNo
 /** The rich text editor being typed in (comments shown in the feed are read-only editors too). */
 export const editable = (page: Page) => page.locator('.ProseMirror[contenteditable="true"]').last();
 
-/** Creates a task in the new-task form, typing each tag and Enter, and opens it. */
+/** Creates a task in the new-task form — each tag typed and made a new one with its button — and opens it. */
 export async function createTask(page: Page, tags: string[]): Promise<void> {
   await page.goto('/tasks/new');
   await expect(page.getByLabel('Теги')).toBeFocused();
   for (const tag of tags) {
     await page.keyboard.type(tag);
-    await page.keyboard.press('Enter');
+    await page.getByRole('button', { name: `Новый тег «${tag}»` }).click();
     await expect(page.getByRole('button', { name: tag, exact: true })).toBeVisible();
   }
   await page.getByRole('button', { name: 'Создать задачу' }).click();

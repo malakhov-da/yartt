@@ -201,13 +201,18 @@ observers, with pages.
 
 ## 2a. New task — "what is there to do?"
 
-A form over My day (`/tasks/new`), opened by **New task** in Current
-tasks (the "I own" tab) or from a task's dependencies. The title is the
-tags, typed as in Find: typos forgiven, several words offered as ready
-sets of tags, "New tag" when no tag is spelled exactly so — shown dashed
-and created only when the task is saved. Priority,
-deadline and context are optional; a dependency the form was opened with
-can be dropped. "Create task" opens the new task.
+A form over My day (`/tasks/new`), opened by "+" in the search of Current
+tasks or of a task's dependencies, with the title typed there, or by "New
+task" under a dependency. The title is the tags, typed as in Find (decision
+55): typos forgiven, several words offered as ready sets of tags. A tag is
+never made by Enter: a new one is the "New tag «…»" button under the field
+— only when no tag is spelled so; it is shown dashed and created when the
+task is saved. Text left unpicked becomes a tag of its own, the whole
+phrase one tag — unless a tag is spelled exactly so, which has to be
+picked first. A title another task has is named under the field and
+"Create task" waits. Priority, deadline and context are optional; a
+dependency the form was opened with can be dropped. "Create task" opens
+the new task.
 
 ## 3. Find — "where is that task?"
 
@@ -215,13 +220,15 @@ One input at the top of Current tasks in My day; `/` anywhere (a task
 page too) brings My day back and focuses it. It finds by tags only.
 Typing suggests tags — despite typos, transliteration or the wrong
 layout, and several words as ready sets of tags (decision 33); Enter
-takes the best one. There is no "create" here: a tag nobody has would
-find nothing. Picked tags narrow both tabs to the tasks carrying all of
+takes the best one. A tag nobody has finds nothing, but "+" at the end of
+the field opens a new task with the title as typed: the picked tags and
+the rest as a new tag (decision 55); it waits while a tag spelled so is
+not picked, and when a task has that title already the field names it
+with a link. Picked tags narrow both tabs to the tasks carrying all of
 them — any task then, closed ones and ones the person does not see
 included (they open on "Request access"), since tags are visible to
 everyone. When the current tab has nothing and the other has, the other
-one opens. **New task** in the "I own" tab takes the picked tags into the
-form (2a).
+one opens.
 
 ## 4. My team — "how is my team doing?" (managers only)
 

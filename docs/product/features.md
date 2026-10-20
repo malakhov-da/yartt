@@ -30,9 +30,9 @@ persona goal it serves. Status: **now** — stage one, **next** — stage two,
 | "No intervention needed": the owner confirms nothing waits for them; new comments since then put the task back in TODO | Marina: know what changed since she last looked | now (done) |
 | Transfer ownership (owner or their manager) | Marina: hand over without losing history | now (done) |
 | Take an ownerless task | Pavel: pick up what nobody owns | now (done) |
-| Search by tags — in My day, filtering Current tasks | everyone: find a task in seconds | now (done) |
+| Search by tags — in My day, filtering Current tasks; "+" creates a task with the title typed; a taken title is named as it is typed; a new tag only by its button, the whole phrase one tag | everyone: find a task in seconds, and never make a tag by accident | now (done) |
 | Dependencies, hard dependencies tie deadlines; the owner of the task waited for is told | Marina: see what blocks what | now (done) |
-| A new-task form: tags as the title, priority, deadline, context; opened from My tasks or tied to a task as its dependency | everyone: write a task down whole, link it where it belongs | now (done) |
+| A new-task form: tags as the title, priority, deadline, context; opened from the search or tied to a task as its dependency; a dependency found by tags or number | everyone: write a task down whole, link it where it belongs | now (done) |
 | Unsaved comments, new tasks and edits are kept as drafts when going to another page | everyone: following a link never costs the typed text | now (done) |
 | Shifts of any day not scored are added, corrected and deleted; the manager withdraws a score to let a day be fixed | Pavel: a mistyped shift is fixed; Marina: lets it be fixed without losing the reason | now (done) |
 | My team: my own row; time in tasks as a share of each timesheet; the team line averages people, never adds hours | Marina: compare people fairly, see her own report | now (done) |

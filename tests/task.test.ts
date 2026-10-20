@@ -448,3 +448,32 @@ describe('time in the feed', () => {
     expect(run.kind === 'spent' && run.entries.map((e) => e.day)).toEqual(['2026-01-03', '2026-01-02', '2026-01-01']);
   });
 });
+
+describe('titles', () => {
+  test('a taken title is told by its tags before saving; a name no tag has means free', async () => {
+    const me = await createEmployee();
+    const api = await client(me.id);
+    const a = `t-${randomUUID().slice(0, 8)}`;
+    const b = `t-${randomUUID().slice(0, 8)}`;
+    const id = await api.Task.create({ tags: [a, b] });
+    expect(await api.Task.byTags({ tags: [b, a] })).toEqual({ id });
+    expect(await api.Task.byTags({ tags: [a] })).toBeNull();
+    expect(await api.Task.byTags({ tags: [a, b, `${b} новое`] })).toBeNull();
+    await expect(api.Task.create({ tags: [b, a] })).rejects.toMatchObject({ message: 'tag_set_taken' });
+  });
+
+  test('current tasks: the nearest deadline first; the same moment and no deadline — by priority', async () => {
+    const me = await createEmployee();
+    const api = await client(me.id);
+    const at = new Date(Date.now() + 86_400_000);
+    const make = (priority: 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL', deadline: Date | null) =>
+      api.Task.create({ tags: [`o-${randomUUID().slice(0, 8)}`], priority, deadline });
+    const later = await make('CRITICAL', new Date(at.getTime() + 60_000));
+    const low = await make('LOW', at);
+    const high = await make('HIGH', at);
+    const none = await make('NORMAL', null);
+    const noneCritical = await make('CRITICAL', null);
+    const { items } = await api.MyDay.current({ tab: 'mine', page: 1 });
+    expect(items.map((i) => i.id)).toEqual([high, low, later, noneCritical, none]);
+  });
+});

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import {
   type CreateInput, type Dependency, type SearchInput, type SearchResult, type Tag, type TaskDetails,
-  type TaskHeader, type TaskPage, type UpdateInput, Access, Priority,
+  type TaskHeader, type TaskPage, type TitleTaken, type UpdateInput, Access, Priority,
 } from '#shared/task.ts';
 import { AppError } from '../errors.ts';
 import { cleanHtml } from '../html.ts';
@@ -96,7 +96,7 @@ export async function search(viewerId: number, input: SearchInput): Promise<Sear
     SELECT k.id
       FROM task k
       LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
-     WHERE ${where} AND (k.owner_id IS NOT DISTINCT FROM ${viewerId}) = ${input.tab === 'mine'}
+     WHERE ${where} AND (${input.tab === 'all'} OR (k.owner_id IS NOT DISTINCT FROM ${viewerId}) = ${input.tab === 'mine'})
      ORDER BY (f.value IS NOT NULL AND f.value <= NOW()), f.value NULLS LAST, k.id DESC
      LIMIT ${PAGE_SIZE} OFFSET ${(input.page - 1) * PAGE_SIZE}
   `).map((r) => r.id);
@@ -105,6 +105,22 @@ export async function search(viewerId: number, input: SearchInput): Promise<Sear
   );
   const items = (await headers(viewerId, ids)).map((h) => ({ ...h, canSee: seen.has(h.id) }));
   return { items, counts: counts! };
+}
+
+/**
+ * The task whose title is exactly these tags, if any — a title is unique
+ * (uq_task_tag_ids); a name no tag has yet means nobody has the title.
+ * Tags are visible to everyone, so the number of that task is too.
+ */
+export async function byTags(names: string[]): Promise<TitleTaken> {
+  const unique = [...new Set(names)];
+  const [row] = Id.array().parse(await sql`
+    WITH t AS (SELECT id FROM tag WHERE name = ANY(${unique}))
+    SELECT k.id FROM task k
+     WHERE (SELECT count(*) FROM t) = ${unique.length}
+       AND k.tag_ids = (SELECT array_agg(id ORDER BY id) FROM t)
+  `);
+  return row ?? null;
 }
 
 /** Ids of the tags with these names; missing ones are created. */

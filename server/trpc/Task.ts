@@ -1,19 +1,29 @@
 import { z } from 'zod';
 import { Id } from '#shared/employee.ts';
-import { CreateInput, SearchInput, SearchResult, TaskPage, TransferInput, UpdateInput } from '#shared/task.ts';
+import { CreateInput, SearchInput, SearchResult, TaskPage, TitleInput, TitleTaken, TransferInput, UpdateInput } from '#shared/task.ts';
 import * as Tasks from '../services/Task.ts';
 import { authedProcedure, router } from '../trpc.ts';
 
 export default router({
   /**
    * Tasks carrying all the given tags — any task, since tags are visible to
-   * everyone (`canSee` says whether it opens). One tab — mine or the others —
-   * per call, with counts for both; open tasks first, by deadline; 20 per page.
+   * everyone (`canSee` says whether it opens). One tab — mine, the others or
+   * all — per call, with counts for mine and the others; open tasks first, by
+   * deadline; 20 per page.
    */
   search: authedProcedure
     .input(SearchInput)
     .output(SearchResult)
     .query(({ input, ctx }) => Tasks.search(ctx.employeeId, input)),
+
+  /**
+   * The task that already has exactly this title (these tags), so a title
+   * that is taken is told before saving; NULL — it is free.
+   */
+  byTags: authedProcedure
+    .input(TitleInput)
+    .output(TitleTaken)
+    .query(({ input }) => Tasks.byTags(input.tags)),
 
   /**
    * The task page. The header (tags, priority, deadline, owner, public or

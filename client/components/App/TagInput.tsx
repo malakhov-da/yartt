@@ -1,5 +1,5 @@
 import { Add } from '@mui/icons-material';
-import { Autocomplete, Box, Chip, TextField, type SxProps, type Theme } from '@mui/material';
+import { Autocomplete, Box, Button, Chip, Stack, TextField, type SxProps, type Theme } from '@mui/material';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ReactNode, Ref } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -23,12 +23,14 @@ function PartChip(p: { part: TagPart; outlined?: boolean } & Record<string, unkn
 }
 
 /**
- * Tags typed into one line: suggestions forgive typos, transliteration and
- * the wrong layout, several words come as ready sets of tags (Tags.suggest).
- * With `allowNew` (a task's title) a name no tag has is offered as a new
- * tag, created only when the task is saved; without it (the search) only
- * existing tags can be picked — a missing one would find nothing — and
- * Enter takes the best suggestion.
+ * A title of tags — the search, a new task, a title being changed, a task to
+ * link (decision 55). Suggestions forgive typos, transliteration and the
+ * wrong layout; several words come as ready sets of tags (Tags.suggest).
+ * A tag is never made by accident: Enter takes the tag spelled exactly so
+ * (in the search, the best suggestion), and with `allowNew` a new tag is
+ * the button under the field — only when no tag is spelled so, the whole
+ * phrase one tag, created when the task is saved. Text left unpicked is
+ * the caller's (useTitle): it becomes a tag of its own on creating a task.
  */
 export default function (p: {
   value: TagPart[];
@@ -42,6 +44,7 @@ export default function (p: {
   autoFocus?: boolean;
   inputRef?: Ref<HTMLInputElement>;
   startAdornment?: ReactNode;
+  endAdornment?: ReactNode;
   sx?: SxProps<Theme>;
 }) {
   const { t } = useTranslation();
@@ -61,9 +64,10 @@ export default function (p: {
       .filter((parts) => (p.allowNew || parts.every((part) => 'tag' in part)) && parts.some((part) => !names.has(partName(part))))
       .map((parts) => ({ kind: 'variant' as const, parts })),
     ...(data?.tags ?? []).filter((tag) => !names.has(tag.name)).map((tag) => ({ kind: 'part' as const, part: { tag } })),
-    ...(p.allowNew && typed.success && !names.has(typed.data) && !data?.exact && !suggested.isPlaceholderData
-      ? [{ kind: 'part' as const, part: { name: typed.data } }] : []),
   ];
+  // A new tag is offered apart, under the field: only when no tag is spelled so.
+  const newTag = p.allowNew && typed.success && !names.has(typed.data) && data !== undefined && !data.exact && !suggested.isPlaceholderData
+    ? typed.data : null;
 
   const add = (parts: TagPart[]) => {
     p.onInputChange('');
@@ -71,26 +75,27 @@ export default function (p: {
     p.onChange([...p.value, ...parts.filter((part) => !seen.has(partName(part)) && !!seen.add(partName(part)))]);
   };
 
-  // Enter on typed text: the tag spelled so, else a new one (title) or the
-  // best suggestion (search) — for this very text, so Enter pressed before
-  // the suggestions came waits for them (from the cache when they did).
+  // Enter on typed text: the tag spelled so, else (search) the best
+  // suggestion — never a new tag — for this very text, so Enter pressed
+  // before the suggestions came waits for them (from the cache when they did).
   const enter = async (value: string) => {
     const name = TagName.safeParse(value);
     if (!name.success) return;
     const found = await queryClient.fetchQuery(trpc.Tags.suggest.queryOptions({ text: value }));
     const exact = found.tags.find((tag) => tag.name === name.data);
     if (exact) add([{ tag: exact }]);
-    else if (p.allowNew) add([{ name: name.data }]);
-    else if (found.tags[0]) add([{ tag: found.tags[0] }]);
+    else if (!p.allowNew && found.tags[0]) add([{ tag: found.tags[0] }]);
+    // Nothing taken: the text stays as typed (the field would clear itself on Enter).
+    else p.onInputChange(value);
   };
 
   return (
+    <Stack spacing={0.5} sx={p.sx}>
     <Autocomplete<Option, true, false, true>
       multiple
       freeSolo
       // Picking keeps the list open: the next tag is typed right away.
       disableCloseOnSelect
-      sx={p.sx}
       value={p.value.map((part) => ({ kind: 'part' as const, part }))}
       inputValue={p.input}
       options={options}
@@ -145,10 +150,54 @@ export default function (p: {
                   {params.InputProps.startAdornment}
                 </>
               ),
+              endAdornment: (
+                <>
+                  {params.InputProps.endAdornment}
+                  {p.endAdornment}
+                </>
+              ),
             },
           }}
         />
       )}
     />
+    {newTag && (
+      <Box>
+        <Button size="small" startIcon={<Add />} onClick={() => add([{ name: newTag }])}>
+          {t('tagInput.newTag', { name: newTag })}
+        </Button>
+      </Box>
+    )}
+    </Stack>
   );
+}
+
+/**
+ * What a title typed so far makes (decision 55): the picked tags and the
+ * text left unpicked, which becomes a new tag of its own when a task is
+ * created — unless a tag is spelled so: that one has to be picked first.
+ * `taken` — a task with exactly this title exists (titles are unique);
+ * `ready` — a task can be created with it.
+ */
+export function useTitle(parts: TagPart[], input: string, own?: number) {
+  const trpc = useTRPC();
+  const typed = TagName.safeParse(input);
+  const rest = typed.success && !parts.some((part) => partName(part) === typed.data) ? typed.data : null;
+  const suggested = useQuery(trpc.Tags.suggest.queryOptions({ text: input }, { enabled: rest !== null }));
+  const pickFirst = rest !== null && suggested.data?.exact ? rest : null;
+  const names = [...parts.map(partName), ...(rest !== null ? [rest] : [])];
+  const check = useQuery(trpc.Task.byTags.queryOptions(
+    { tags: names },
+    { enabled: names.length > 0 && names.length <= 20, placeholderData: keepPreviousData },
+  ));
+  const taken = check.isPlaceholderData || !check.data || check.data.id === own ? null : check.data;
+  const checking = (rest !== null && suggested.isPending) || (names.length > 0 && (check.isPending || check.isPlaceholderData));
+  return {
+    names,
+    /** Every part, the unpicked text as a new tag. */
+    parts: rest !== null ? [...parts, { name: rest }] : parts,
+    pickFirst,
+    taken,
+    ready: names.length > 0 && pickFirst === null && taken === null && !checking,
+  };
 }

@@ -47,27 +47,26 @@ test.describe('search', () => {
     await expect(panel(page).getByRole('link', { name: /склад инвентаризация/ })).toBeVisible();
   });
 
-  test('"New task" takes the picked tags', async ({ page }) => {
+  test('"+" takes the title typed: the picked tags and the rest as a new tag', async ({ page }) => {
     await search(page).click();
     await page.keyboard.type('склад');
     await page.getByRole('option', { name: 'склад', exact: true }).click();
-    await page.keyboard.press('Escape');
-    await page.getByRole('tab', { name: /Я владелец/ }).click();
-    await panel(page).getByRole('link', { name: 'Новая задача' }).click();
+    const phrase = unique('новая приёмка');
+    await page.keyboard.type(phrase);
+    await panel(page).getByRole('button', { name: 'Новая задача' }).click();
     await expect(page.getByRole('button', { name: 'склад', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: phrase, exact: true })).toBeVisible();
   });
 
-  test('the same set of tags twice is refused with an explanation', async ({ page }) => {
+  test('a title that is taken: "+" is off, and the task with it is named', async ({ page }) => {
     await search(page).click();
     for (const tag of ['офис', 'переезд']) {
       await page.keyboard.type(tag);
       await page.keyboard.press('Enter');
       await expect(page.getByRole('button', { name: tag, exact: true })).toBeVisible();
     }
-    await page.keyboard.press('Escape');
-    await page.getByRole('tab', { name: /Я владелец/ }).click();
-    await page.getByRole('link', { name: 'Новая задача' }).click();
-    await page.getByRole('button', { name: 'Создать задачу' }).click();
-    await expect(errorToast(page)).toHaveText('Задача с таким набором тегов уже есть — добавьте тег, чтобы различить их.');
+    await expect(panel(page).getByRole('button', { name: 'Новая задача' })).toBeDisabled();
+    await panel(page).getByRole('link', { name: /^Такая задача уже есть: #\d+$/ }).click();
+    await expect(page).toHaveURL(/\/tasks\/\d+$/);
   });
 });

@@ -1,5 +1,5 @@
 import { Add, Search } from '@mui/icons-material';
-import { Button, InputAdornment, Pagination, Paper, Stack, Tab, Tabs, Tooltip, Typography } from '@mui/material';
+import { IconButton, InputAdornment, Link as MuiLink, Pagination, Paper, Stack, Tab, Tabs, Tooltip, Typography } from '@mui/material';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,7 +9,7 @@ import type { Tag } from '#shared/task.ts';
 import { useStore } from '#client/hooks/store.ts';
 import { POLL_MS } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
-import TagInput from '../App/TagInput.tsx';
+import TagInput, { useTitle } from '../App/TagInput.tsx';
 import TaskLine from '../TaskPage/TaskLine.tsx';
 
 const PAGE_SIZE = 20;
@@ -19,8 +19,10 @@ const TABS = ['mine', 'others'] as const;
  * Every open task I see: mine apart from the others (decision 8), by
  * deadline, with pages. The search on top narrows both tabs to the tasks
  * carrying the picked tags — any task then, closed and not mine included;
- * the typed text only finds tags ("/" focuses it from anywhere). "New task"
- * in my tab opens the form with the picked tags.
+ * the typed text only finds tags ("/" focuses it from anywhere). Its "+"
+ * opens a new task with the title as typed — the picked tags and the rest
+ * as a new tag (decision 55); it waits while a tag spelled so is not
+ * picked, and is off when a task has that title already.
  */
 export default function () {
   const { t } = useTranslation();
@@ -33,6 +35,11 @@ export default function () {
   const [tags, setTags] = useState<Tag[]>([]);
   const [input, setInput] = useState('');
   const filtering = tags.length > 0;
+  const title = useTitle(tags.map((tag) => ({ tag })), input);
+  const canCreate = title.names.length === 0 || title.ready;
+  const createHint = title.taken ? t('title.taken', { id: title.taken.id })
+    : title.pickFirst ? t('title.pickFirst', { name: title.pickFirst })
+    : title.names.length ? t('title.create', { title: title.names.join(' · ') }) : t('newTask.title');
   const page = pages[tab];
 
   const current = useQuery(trpc.MyDay.current.queryOptions(
@@ -113,8 +120,30 @@ export default function () {
         placeholder={t('search.placeholder')}
         inputRef={inputRef}
         startAdornment={<InputAdornment position="start"><Search fontSize="small" /></InputAdornment>}
+        endAdornment={(
+          <Tooltip title={createHint}>
+            <span>
+              <IconButton
+                size="small"
+                aria-label={t('newTask.title')}
+                disabled={!canCreate}
+                onClick={() => void navigate('/tasks/new', { state: { parts: title.parts } })}
+              >
+                <Add fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
         sx={{ mt: 0.5 }}
       />
+      {title.taken && (
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          <MuiLink component={Link} to={`/tasks/${title.taken.id}`}>{t('title.taken', { id: title.taken.id })}</MuiLink>
+        </Typography>
+      )}
+      {title.pickFirst && (
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('title.pickFirst', { name: title.pickFirst })}</Typography>
+      )}
       <Stack direction="row" sx={{ alignItems: 'center', gap: 1, mb: 1 }}>
         <Tabs value={tab} onChange={(_, value: CurrentTab) => setTab(value)} sx={{ minHeight: 0, flexGrow: 1 }}>
           {TABS.map((value) => (
@@ -130,11 +159,6 @@ export default function () {
             />
           ))}
         </Tabs>
-        {tab === 'mine' && (
-          <Button component={Link} to="/tasks/new" state={{ tags }} size="small" variant="outlined" startIcon={<Add />}>
-            {t('newTask.title')}
-          </Button>
-        )}
       </Stack>
       {shown.isSuccess && total === 0 && (
         <Typography sx={{ color: 'text.secondary' }}>

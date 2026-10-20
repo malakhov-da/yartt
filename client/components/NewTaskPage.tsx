@@ -5,12 +5,12 @@ import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import type { TagPart } from '#shared/tags.ts';
-import { PRIORITIES, TagName, type Priority, type Tag } from '#shared/task.ts';
+import { PRIORITIES, type Priority } from '#shared/task.ts';
 import { useDraft } from '#client/hooks/drafts.ts';
 import { useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import RichEditor, { type RichEditorHandle } from './App/RichEditor.tsx';
-import TagInput, { partName } from './App/TagInput.tsx';
+import TagInput, { useTitle } from './App/TagInput.tsx';
 import PriorityChip from './TaskPage/PriorityChip.tsx';
 import TaskLine from './TaskPage/TaskLine.tsx';
 
@@ -24,8 +24,9 @@ const label = { fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', textTran
  * typed as in the search; priority, deadline and context are optional.
  * `?waitsFor=<id>` — the new task waits for that one, `?waitedOnBy=<id>` —
  * that one (mine) waits for the new task: the "New task" buttons of a
- * task's dependencies open it so. The search in My day passes its picked
- * tags as the router state. What is typed is a draft until "Create task" or
+ * task's dependencies open it so. The search in My day and a task's
+ * dependencies pass the title typed there as the router state (decision 55).
+ * What is typed is a draft until "Create task" or
  * "Cancel": leaving for another page and coming back keeps it.
  */
 export default function () {
@@ -44,19 +45,19 @@ export default function () {
   const change = (part: Partial<Draft>) => setDraft((prev) => ({ ...prev, ...part }));
   const editor = useRef<RichEditorHandle>(null);
 
-  // Tags picked in the search replace the draft's, once per opening.
+  // The title typed where the form was opened from replaces the draft's, once per opening.
   const location = useLocation();
-  const passed = (location.state as { tags?: Tag[] } | null)?.tags;
-  const taken = useRef('');
+  const passed = (location.state as { parts?: TagPart[] } | null)?.parts;
+  const opened = useRef('');
   useEffect(() => {
-    if (!passed?.length || taken.current === location.key) return;
-    taken.current = location.key;
-    setDraft((prev) => ({ ...prev, tags: passed.map((tag) => ({ tag })) }));
+    if (!passed?.length || opened.current === location.key) return;
+    opened.current = location.key;
+    setDraft((prev) => ({ ...prev, tags: passed, input: '' }));
   });
 
-  // Text typed but not turned into a chip still counts as one more tag.
-  const typed = TagName.safeParse(input);
-  const names = [...tags.map(partName), ...(typed.success && !tags.some((part) => partName(part) === typed.data) ? [typed.data] : [])];
+  // Text typed but not turned into a chip becomes a tag of its own — unless a tag is spelled so.
+  const title = useTitle(tags, input);
+  const names = title.names;
 
   const create = useMutation(trpc.Task.create.mutationOptions({
     onSuccess: (id) => {
@@ -66,7 +67,7 @@ export default function () {
       void navigate((id as number | undefined) === undefined ? '/' : `/tasks/${id}`, { replace: true });
     },
   }));
-  const submit = () => names.length > 0 && create.mutate({
+  const submit = () => title.ready && create.mutate({
     tags: names,
     priority,
     deadline: deadline ? new Date(deadline) : null,
@@ -91,7 +92,8 @@ export default function () {
         onInputChange={(next) => change({ input: next })}
         allowNew
         label={t('newTask.tags')}
-        helperText={t('newTask.tagsHint')}
+        helperText={title.taken ? t('title.taken', { id: title.taken.id })
+          : title.pickFirst ? t('title.pickFirst', { name: title.pickFirst }) : t('newTask.tagsHint')}
         autoFocus
       />
 
@@ -142,7 +144,7 @@ export default function () {
       )}
 
       <Stack direction="row" spacing={1}>
-        <Button variant="contained" disabled={names.length === 0 || create.isPending} onClick={submit}>
+        <Button variant="contained" disabled={!title.ready || create.isPending} onClick={submit}>
           {t('newTask.create')}
         </Button>
         <Button color="inherit" onClick={cancel}>{t('common.cancel')}</Button>

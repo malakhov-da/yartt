@@ -202,12 +202,17 @@ export const en: Translation = {
   newTask: {
     title: 'New task',
     tags: 'Tags',
-    tagsHint: 'The set of tags is the name of the task. Several words can be typed at once.',
+    tagsHint: 'The title is a set of tags: pick the ones that fit from the suggestions; text left unpicked becomes a new tag.',
     priority: 'Priority',
     waitsFor: 'Will wait for',
     waitedOnBy: 'Will be waited on by',
     noDependency: 'Without this link',
     create: 'Create task',
+  },
+  title: {
+    taken: 'A task with this title exists: #{{id}}',
+    pickFirst: 'The tag “{{name}}” exists — pick it from the suggestions',
+    create: 'Create the task “{{title}}”',
   },
   tagInput: {
     newTag: 'New tag “{{name}}”',
@@ -261,6 +266,9 @@ export const en: Translation = {
       edit: 'Change the dependency',
       remove: 'Remove the dependency',
       task: 'Task',
+      find: 'Find a task: tags or a number',
+      pick: 'Pick task #{{id}}',
+      other: 'Pick another',
       kind: 'Dependency',
       soft: 'Soft',
       hard: 'Hard',

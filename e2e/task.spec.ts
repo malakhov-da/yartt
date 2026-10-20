@@ -104,8 +104,9 @@ test.describe.serial('a task from creation to hand-over', () => {
 
   test('a hard dependency on another task; its hint explains the tie', async () => {
     const site = await taskId('сайт', 'редизайн', 'главная');
-    await page.getByRole('button', { name: 'Добавить' }).click();
-    await page.getByLabel('Задача').fill(String(site));
+    await page.getByRole('button', { name: 'Добавить' }).first().click();
+    await page.getByLabel('Найти задачу: теги или номер').fill(`#${site}`);
+    await page.getByRole('button', { name: `Выбрать задачу #${site}` }).click();
     await page.getByRole('button', { name: 'Сохранить' }).click();
     await expect(page.getByRole('link', { name: new RegExp(`#${site}`) })).toBeVisible();
     await page.getByRole('button', { name: 'Убрать зависимость' }).click();

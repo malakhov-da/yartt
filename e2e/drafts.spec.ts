@@ -15,11 +15,11 @@ test('a comment, a new task and a context being edited survive going elsewhere',
   await page.keyboard.type(' и правка контекста');
 
   await page.getByRole('link', { name: 'Мой день' }).click();
-  await panel.getByRole('link', { name: 'Новая задача' }).click();
+  await panel.getByRole('button', { name: 'Новая задача' }).click();
   const tag = unique('черновик');
   await expect(page.getByLabel('Теги')).toBeFocused();
   await page.keyboard.type(tag);
-  await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: `Новый тег «${tag}»` }).click();
   await expect(page.getByRole('button', { name: tag, exact: true })).toBeVisible();
 
   await page.goto(`/tasks/${id}`);
@@ -28,9 +28,9 @@ test('a comment, a new task and a context being edited survive going elsewhere',
   await page.getByRole('button', { name: 'Отмена' }).first().click();
 
   await page.getByRole('link', { name: 'Мой день' }).click();
-  await panel.getByRole('link', { name: 'Новая задача' }).click();
+  await panel.getByRole('button', { name: 'Новая задача' }).click();
   await expect(page.getByRole('button', { name: tag, exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Отмена' }).click();
-  await panel.getByRole('link', { name: 'Новая задача' }).click();
+  await panel.getByRole('button', { name: 'Новая задача' }).click();
   await expect(page.getByRole('button', { name: tag, exact: true })).toHaveCount(0);
 });

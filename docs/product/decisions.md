@@ -354,6 +354,8 @@ not come back as suggestions.
 
 ### 34. A task is created in a form
 
+*Changed by decision 55: "+" in the search opens the form with the title typed.*
+
 The search used to be the only way to create a task: a set of tags, then
 "Create", and everything else filled in on the task page. That hid
 creation inside finding, and a task meant to unblock another had to be
@@ -834,3 +836,27 @@ is a correction of the shift, or a shift added by hand afterwards.
 *Implemented:* `DayHistory.actions`, `HistoryInput.size` in
 `shared/myDay.ts`; `client/components/MyDayPage/Day.tsx`, `DayRibbon.tsx`,
 `History.tsx`; the start icon in `client/components/App/TopStatus.tsx`.
+
+### 55. One title field everywhere; a tag is never made by accident
+
+People did not get how tags make a title. Enter turned whatever was typed
+into a new tag, so a typo became a tag; the search could not create, the
+form could not tell that a title was taken until it was saved, the title
+on a task page was changed in a bare field without suggestions, and a
+dependency was linked by a number one had to look up.
+
+Now one field does it all — the search of Current tasks, the new task,
+changing a title, finding a task to link. Enter takes only a tag spelled
+exactly so (in the search, the best suggestion); a new tag is a button
+under the field, offered only when no tag is spelled so, the whole phrase
+one tag ("перевести форму на новый API"). Text left unpicked becomes a
+tag of its own when a task is created, unless a tag is spelled so — then
+it has to be picked first. A title another task has is named, with a
+link, as it is typed (`Task.byTags`; the database refuses it anyway —
+uq_task_tag_ids). "+" at the end of the search opens a new task with the
+title typed. A dependency is found the same way, by tags or "#number";
+in "Waited on by" one of my own tasks can be linked, not only a new one.
+
+*Implemented:* `TagInput` and `useTitle` in
+`client/components/App/TagInput.tsx`; `TaskPicker`; `Task.byTags`,
+`SearchInput.tab` 'all'.

@@ -1,10 +1,11 @@
 import { Check, Edit, Lock, Public } from '@mui/icons-material';
 import {
-  Alert, Autocomplete, Box, Button, Chip, IconButton, MenuItem, Paper, Stack, TextField, Tooltip, Typography,
+  Alert, Box, Button, Chip, IconButton, MenuItem, Paper, Stack, TextField, Tooltip, Typography,
 } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TagPart } from '#shared/tags.ts';
 import { PRIORITIES, type Priority, type TaskDetails, type TaskPage } from '#shared/task.ts';
 import { useFormat } from '#client/hooks/format.ts';
 import { useDraft } from '#client/hooks/drafts.ts';
@@ -13,6 +14,7 @@ import { useEmployees, useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import EmployeeAvatar from '../App/EmployeeAvatar.tsx';
 import TagChip from '../App/TagChip.tsx';
+import TagInput, { useTitle } from '../App/TagInput.tsx';
 import RichEditor, { type RichEditorHandle } from '../App/RichEditor.tsx';
 import RichView from '../App/RichView.tsx';
 import PriorityChip from './PriorityChip.tsx';
@@ -54,7 +56,9 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
   const markReviewed = useMutation(trpc.Task.markReviewed.mutationOptions({ onSuccess: refresh }));
   const take = useMutation(trpc.Task.take.mutationOptions({ onSuccess: refresh }));
 
-  const [editingTags, setEditingTags] = useDraft<string[] | null>(`tags:${task.id}`, null);
+  // The title being changed: its tags and the text typed after them (decision 55).
+  const [editingTags, setEditingTags] = useDraft<{ parts: TagPart[]; input: string } | null>(`title:${task.id}`, null);
+  const title = useTitle(editingTags?.parts ?? [], editingTags?.input ?? '', task.id);
   const [contextDraft, setContextDraft] = useDraft<string | null>(`context:${task.id}`, null);
   const editingContext = contextDraft !== null;
   const editor = useRef<RichEditorHandle>(null);
@@ -76,23 +80,27 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
       <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 2, alignItems: 'flex-start' }}>
         <Stack spacing={1.25} sx={{ flex: '1 1 420px', minWidth: 0 }}>
           {editingTags ? (
-            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-              <Autocomplete
-                multiple
-                freeSolo
-                options={[]}
-                value={editingTags}
-                onChange={(_e, value) => setEditingTags(value.map((v) => v.trim()).filter(Boolean))}
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
+              <TagInput
+                value={editingTags.parts}
+                onChange={(parts) => setEditingTags({ ...editingTags, parts })}
+                input={editingTags.input}
+                onInputChange={(input) => setEditingTags({ ...editingTags, input })}
+                allowNew
+                autoFocus
+                label={t('task.tags')}
+                helperText={title.taken ? t('title.taken', { id: title.taken.id })
+                  : title.pickFirst ? t('title.pickFirst', { name: title.pickFirst }) : undefined}
                 sx={{ flexGrow: 1 }}
-                renderInput={(params) => <TextField {...params} autoFocus label={t('task.tags')} />}
               />
               <Button
-                disabled={editingTags.length === 0 || update.isPending}
-                onClick={() => update.mutate({ id: task.id, tags: editingTags }, { onSuccess: () => setEditingTags(null) })}
+                sx={{ mt: 1 }}
+                disabled={!title.ready || update.isPending}
+                onClick={() => update.mutate({ id: task.id, tags: title.names }, { onSuccess: () => setEditingTags(null) })}
               >
                 {t('common.save')}
               </Button>
-              <Button color="inherit" onClick={() => setEditingTags(null)}>{t('common.cancel')}</Button>
+              <Button color="inherit" sx={{ mt: 1 }} onClick={() => setEditingTags(null)}>{t('common.cancel')}</Button>
             </Stack>
           ) : (
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
@@ -100,7 +108,7 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
               {task.tags.map((tag) => <TagChip key={tag.id} tag={tag} sx={{ fontSize: 18, height: 34, borderRadius: 2 }} />)}
               {isOwner && (
                 <Tooltip title={t('task.edit')}>
-                  <IconButton size="small" onClick={() => setEditingTags(task.tags.map((tag) => tag.name))}>
+                  <IconButton size="small" onClick={() => setEditingTags({ parts: task.tags.map((tag) => ({ tag })), input: '' })}>
                     <Edit fontSize="small" />
                   </IconButton>
                 </Tooltip>
