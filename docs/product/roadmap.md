@@ -32,8 +32,6 @@ In this order after stage 6 (S — a day, M — a few days, L — a week or more
 
 ### Corporate sign-in and bots
 
-- [ ] **Last activity in My team.** Next to everyone, the stale on top,
-  people away too, with their return date. S
 - [ ] **A new email is confirmed.** The profile sends a link to the new
   address; the email changes only when it is followed. S
 - [ ] **Allowed email domains (`EMAIL_DOMAINS`).** Checked wherever an

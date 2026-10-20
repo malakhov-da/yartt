@@ -87,6 +87,12 @@ export const Member = z.object({
   backlogGrowthMinutes: z.number().int(),
   /** Mentions of them in the range with no reply yet. */
   unanswered: z.number().int(),
+  /**
+   * When they were last active — opened a screen or used a session —
+   * whatever the range; NULL — never. Someone gone without being dismissed
+   * shows here: the stale come first in My team.
+   */
+  lastSeenAt: z.date().nullable(),
   /** Every day of the range, oldest first: for the charts of the details. */
   days: MemberDay.array(),
 });

@@ -28,6 +28,7 @@ const ExtraRow = z.object({
   scoreWaitMinutes: z.number().nullable(),
   backlogMinutes: z.number(),
   backlogGrowthMinutes: z.number(),
+  lastSeenAt: z.date().nullable(),
 });
 const MemberDayRow = z.object({
   employeeId: z.number(),
@@ -275,7 +276,9 @@ export async function summary(viewerId: number, from: string, to: string): Promi
              WHERE s."by" = e.id AND s.day BETWEEN ${from}::date AND ${to}::date)::float8 AS score_wait_minutes,
            backlog_minutes(e.id, NOW()) AS backlog_minutes,
            backlog_minutes(e.id, LEAST(NOW(), (${to}::date + 1)::timestamp AT TIME ZONE e.time_zone))
-             - backlog_minutes(e.id, ${from}::date::timestamp AT TIME ZONE e.time_zone) AS backlog_growth_minutes
+             - backlog_minutes(e.id, ${from}::date::timestamp AT TIME ZONE e.time_zone) AS backlog_growth_minutes,
+           GREATEST((SELECT max(v.at) FROM visit v WHERE v.employee_id = e.id),
+                    (SELECT max(s.last_seen_at) FROM session s WHERE s.employee_id = e.id)) AS last_seen_at
       FROM e
   `).map(({ employeeId, ...rest }) => [employeeId, rest]));
   const [days, delays] = await Promise.all([memberDays(ids, from, to), delaysByDay(ids, from, to)]);

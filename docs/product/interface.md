@@ -248,6 +248,10 @@ narrow — four columns that compare across rows, no horizontal scroll
 
 On top, the line of all my team — me included; then me (my own report:
 there is no other place to see it) and my direct reports, always shown.
+Next to each name — when they were last seen, whatever the range, and
+within each level the longest unseen come first, people away included
+(their return date is next to them): someone gone without being
+dismissed rises to the top (decision 50).
 A report who manages others is the line of their team, folded: the
 manager is part of it, so it unfolds into them first, then their people,
 with their own teams folded the same way. A team's line combines its

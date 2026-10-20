@@ -255,6 +255,20 @@ describe('team', () => {
     expect(await ids(7)).toEqual([lead.id]);
   });
 
+  test('the last activity of each, whatever the range: a visit or a session; never for someone who never came', async () => {
+    const boss = await createEmployee();
+    const active = await createEmployee({ managerId: boss.id });
+    const gone = await createEmployee({ managerId: boss.id });
+    const never = await createEmployee({ managerId: boss.id });
+    await sql`INSERT INTO visit (employee_id, at) VALUES (${active.id}, NOW() - INTERVAL '1 hour')`;
+    await sql`INSERT INTO session (hash, employee_id, last_seen_at) VALUES (digest(${randomUUID()}, 'sha256'), ${gone.id}, NOW() - INTERVAL '40 days')`;
+    const today = new Date().toISOString().slice(0, 10);
+    const seen = new Map((await (await client(boss.id)).Team.summary({ from: today, to: today })).map((m) => [m.employeeId, m.lastSeenAt]));
+    expect(seen.get(active.id)!.getTime()).toBeGreaterThan(Date.now() - 2 * 3600_000);
+    expect(seen.get(gone.id)!.getTime()).toBeLessThan(Date.now() - 39 * 86_400_000);
+    expect(seen.get(never.id)).toBeNull();
+  });
+
   test('reaction counts working time only: a mention after the shift, answered as the next began, took nothing', async () => {
     const dev = await createEmployee();
     const day = await shift(dev.id, 1, 8); // yesterday 09:00–17:00

@@ -75,6 +75,12 @@ export default function () {
     if (m.self || managerId == null || !byId.has(managerId)) continue;
     children.set(managerId, [...(children.get(managerId) ?? []), m]);
   }
+  // The longest unseen first — someone gone without being dismissed, or away, comes up; the dismissed last.
+  const seen = (m: Member) => m.lastSeenAt?.getTime() ?? 0;
+  for (const list of children.values()) {
+    list.sort((a, b) => Number(!!employees.get(a.employeeId)?.dismissedAt) - Number(!!employees.get(b.employeeId)?.dismissedAt)
+      || seen(a) - seen(b));
+  }
   const descendants = (id: number): Member[] =>
     (children.get(id) ?? []).flatMap((c) => [c, ...descendants(c.employeeId)]);
   // A team is its manager and everyone under them: the manager is part of it.
@@ -181,6 +187,13 @@ export default function () {
           {e.fullName}
         </Typography>
         {m.self && <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.team.me')}</Typography>}
+        {!m.self && !e.dismissedAt && (
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            {m.lastSeenAt
+              ? t('myDay.team.seen', { when: format.relative(m.lastSeenAt), ...pronoun(e.id) })
+              : t('myDay.team.neverSeen', pronoun(e.id))}
+          </Typography>
+        )}
         {e.dismissedAt && (
           <Chip size="small" label={t('myDay.team.dismissedOn', { day: format.date(e.dismissedAt), ...pronoun(e.id) })} />
         )}

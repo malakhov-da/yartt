@@ -720,3 +720,19 @@ key a year old is told to its manager once a year, without stopping it.
 router, `Meta.bot`, the check and `countBot` in `server/trpc.ts`; bot webhooks in
 `server/worker.ts`, `server/webhook.ts`; `client/components/MyDayPage/Bots.tsx`,
 `BotDialog.tsx`; `docs/admin/api.md`.
+
+### 50. The unseen come first, without an alarm
+
+A person who left the company without being dismissed in yartt — their
+provider account disabled, their mailbox closed — stays in the team with
+their tasks until someone notices. An alert after N days without a visit
+was the first idea, but weekends and holidays make any N wrong: every
+Monday it would cry about half the team. Instead My team shows, next to
+everyone, when they were last seen — a visit or a session, whatever the
+range — and puts the longest unseen first in each level. People away are
+not spared: an absence may be on paper only, and their return date is
+right next to them.
+
+*Implemented:* `Member.lastSeenAt` in `shared/team.ts`, `summary()` in
+`server/services/Team.ts`; the order and the line in
+`client/components/MyDayPage/Team.tsx`.
