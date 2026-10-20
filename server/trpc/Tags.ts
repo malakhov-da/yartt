@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { MyTags, MyTagsInput, SetTagInput, Suggestions, SuggestInput } from '#shared/tags.ts';
+import { MyTags, MyTagsInput, RelatedInput, SetTagInput, Suggestions, SuggestInput } from '#shared/tags.ts';
+import { Tag } from '#shared/task.ts';
 import * as Tags from '../services/Tags.ts';
 import { authedProcedure, router } from '../trpc.ts';
 
@@ -13,6 +14,15 @@ export default router({
     .input(SuggestInput)
     .output(Suggestions)
     .query(({ input, ctx }) => Tags.suggest(ctx.employeeId, input.text)),
+
+  /**
+   * The tags that most often go with these, on the tasks carrying all of
+   * them — rubrics, not a phrase of one task. Anyone signed in.
+   */
+  related: authedProcedure
+    .input(RelatedInput)
+    .output(Tag.array())
+    .query(({ input, ctx }) => Tags.related(ctx.employeeId, input.tagIds)),
 
   /**
    * The tags of the tasks the signed-in employee sees, with task counts and

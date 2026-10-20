@@ -203,3 +203,26 @@ export async function suggest(viewerId: number, text: string): Promise<Suggestio
 
   return { tags, variants, exact: tags.some((t) => t.name === whole) };
 }
+
+const RELATED = 6;
+
+/**
+ * The tags that most often go with these ones (decision 56): on the tasks
+ * carrying all of them, the other tags by how many such tasks carry them —
+ * rubrics only, not a phrase of one task. Offered under a title being typed,
+ * so the same things keep the same names.
+ */
+export async function related(viewerId: number, tagIds: number[]): Promise<Tag[]> {
+  return Tag.array().parse(await sql`
+    SELECT t.id, t.name, u.color
+      FROM task k
+      CROSS JOIN LATERAL unnest(k.tag_ids) AS kt(id)
+      JOIN tag t ON t.id = kt.id
+      LEFT JOIN user_tag u ON u.tag_id = t.id AND u.employee_id = ${viewerId}
+     WHERE k.tag_ids @> ${tagIds}::int[] AND NOT t.id = ANY(${tagIds}::int[])
+       AND (SELECT count(*) FROM task c WHERE c.tag_ids @> ARRAY[t.id]) > 1
+     GROUP BY t.id, t.name, u.color
+     ORDER BY count(*) DESC, t.name
+     LIMIT ${RELATED}
+  `);
+}

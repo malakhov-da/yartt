@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { describe, expect, test } from 'vitest';
 import { sql } from '../server/pg.ts';
 import { KEYBOARD_KEYS, KEYBOARDS, retype } from '../shared/keyboards.ts';
@@ -82,7 +83,7 @@ describe('my tags', () => {
     const x = list.items.find((t) => t.name === `${unique}-x`)!;
     await api.Tags.set({ tagId: x.id, color: '#ff8800', weight: 5 });
     const task = await api.Task.get({ id: a });
-    expect(task.tags[0]).toEqual({ id: x.id, name: `${unique}-x`, color: '#ff8800' });
+    expect(task.tags[0]).toMatchObject({ id: x.id, name: `${unique}-x`, color: '#ff8800' });
     expect((await api.Tags.mine({ query: unique, page: 1 })).items[0]).toMatchObject({ id: x.id, weight: 5 });
     expect((await (await client(other.id)).Task.get({ id: a })).tags.find((t) => t.id === x.id)?.color).toBeNull();
 
@@ -150,5 +151,23 @@ describe('suggestions', () => {
     expect(row!.values).toEqual([...KEYBOARDS]);
     expect(Object.keys(KEYBOARD_KEYS)).toEqual([...KEYBOARDS]);
     for (const keys of Object.values(KEYBOARD_KEYS)) expect([...keys]).toHaveLength(47);
+  });
+});
+
+describe('phrases and rubrics', () => {
+  test('a tag no other task carries is the phrase of its task; the tags that go together are offered', async () => {
+    const me = await createEmployee();
+    const api = await client(me.id);
+    const rubric = `r-${randomUUID().slice(0, 8)}`;
+    const often = `o-${randomUUID().slice(0, 8)}`;
+    const phrase = `подписать акт ${randomUUID().slice(0, 8)}`;
+    const id = await api.Task.create({ tags: [rubric, often, phrase] });
+    await api.Task.create({ tags: [rubric, often, `другое ${randomUUID().slice(0, 8)}`] });
+
+    const page = await api.Task.get({ id });
+    expect(Object.fromEntries(page.tags.map((tag) => [tag.name, tag.phrase]))).toEqual({ [rubric]: false, [often]: false, [phrase]: true });
+
+    const rubricId = page.tags.find((tag) => tag.name === rubric)!.id;
+    expect((await api.Tags.related({ tagIds: [rubricId] })).map((tag) => tag.name)).toEqual([often]);
   });
 });

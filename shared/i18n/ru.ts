@@ -272,6 +272,7 @@ export const ru = {
   },
   tagInput: {
     newTag: 'Новый тег «{{name}}»',
+    together: 'Часто вместе:',
   },
   search: {
     placeholder: 'Найти по тегам',

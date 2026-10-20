@@ -216,6 +216,7 @@ export const en: Translation = {
   },
   tagInput: {
     newTag: 'New tag “{{name}}”',
+    together: 'Often together:',
   },
   search: {
     placeholder: 'Find by tags',

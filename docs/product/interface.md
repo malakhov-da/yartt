@@ -207,8 +207,9 @@ task" under a dependency. The title is the tags, typed as in Find (decision
 55): typos forgiven, several words offered as ready sets of tags. A tag is
 never made by Enter: a new one is the "New tag «…»" button under the field
 — only when no tag is spelled so; it is shown dashed and created when the
-task is saved. Text left unpicked becomes a tag of its own, the whole
-phrase one tag — unless a tag is spelled exactly so, which has to be
+task is saved. With tags picked and nothing typed, the ones that most
+often go with them are offered ("Often together"). Text left unpicked
+becomes a tag of its own, the whole phrase one tag — unless a tag is spelled exactly so, which has to be
 picked first. A title another task has is named under the field and
 "Create task" waits. Priority, deadline and context are optional; a
 dependency the form was opened with can be dropped. "Create task" opens

@@ -860,3 +860,20 @@ in "Waited on by" one of my own tasks can be linked, not only a new one.
 *Implemented:* `TagInput` and `useTitle` in
 `client/components/App/TagInput.tsx`; `TaskPicker`; `Task.byTags`,
 `SearchInput.tab` 'all'.
+
+### 56. A title is rubrics and a phrase
+
+The main criticism of titles made of tags: "отчёт · q3", "api ·
+авторизация" name a heading, not what is to be done, and a list of them
+says nothing. A tag may be a whole phrase (decision 55), so a title is
+rubrics to group by and one phrase that says what this task is: "склад ·
+инвентаризация · подписать акт до пятницы". The phrase needs no flag of
+its own: a tag no other task carries is the task's phrase and is shown as
+plain text after the rubrics, which stay chips. Under a title being
+typed, the rubrics that most often go with the picked ones are offered,
+so the same things keep the same names; a phrase of one task is never
+offered as one.
+
+*Implemented:* `Tag.phrase` from `headers()` in `server/services/Task.ts`;
+`Tags.related`; `client/components/App/TaskTitle.tsx`; "Often together"
+in `TagInput`.

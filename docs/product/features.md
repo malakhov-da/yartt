@@ -31,6 +31,7 @@ persona goal it serves. Status: **now** — stage one, **next** — stage two,
 | Transfer ownership (owner or their manager) | Marina: hand over without losing history | now (done) |
 | Take an ownerless task | Pavel: pick up what nobody owns | now (done) |
 | Search by tags — in My day, filtering Current tasks; "+" creates a task with the title typed; a taken title is named as it is typed; a new tag only by its button, the whole phrase one tag | everyone: find a task in seconds, and never make a tag by accident | now (done) |
+| A title is rubrics and a phrase: the tag no other task carries is shown as text after the chips; the rubrics that often go together are offered while typing | everyone: a list of tasks reads as what is to be done | now (done) |
 | Dependencies, hard dependencies tie deadlines; the owner of the task waited for is told | Marina: see what blocks what | now (done) |
 | A new-task form: tags as the title, priority, deadline, context; opened from the search or tied to a task as its dependency; a dependency found by tags or number | everyone: write a task down whole, link it where it belongs | now (done) |
 | Unsaved comments, new tasks and edits are kept as drafts when going to another page | everyone: following a link never costs the typed text | now (done) |

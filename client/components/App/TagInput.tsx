@@ -57,6 +57,13 @@ export default function (p: {
   ));
 
   const names = new Set(p.value.map(partName));
+  // With tags picked and nothing typed: what usually goes with them (decision 56).
+  const pickedIds = p.value.flatMap((part) => ('tag' in part ? [part.tag.id] : []));
+  const related = useQuery(trpc.Tags.related.queryOptions(
+    { tagIds: pickedIds },
+    { enabled: pickedIds.length > 0 && text === '', placeholderData: keepPreviousData },
+  ));
+  const together = text === '' && pickedIds.length > 0 ? (related.data ?? []).filter((tag) => !names.has(tag.name)) : [];
   const data = text === '' ? undefined : suggested.data;
   const typed = TagName.safeParse(text);
   const options: Option[] = [
@@ -161,6 +168,14 @@ export default function (p: {
         />
       )}
     />
+    {together.length > 0 && (
+      <Stack direction="row" sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
+        <Box component="span" sx={{ typography: 'caption', color: 'text.secondary', mr: 0.5 }}>{t('tagInput.together')}</Box>
+        {together.map((tag) => (
+          <TagChip key={tag.id} size="small" variant="outlined" tag={tag} onClick={() => add([{ tag }])} />
+        ))}
+      </Stack>
+    )}
     {newTag && (
       <Box>
         <Button size="small" startIcon={<Add />} onClick={() => add([{ name: newTag }])}>

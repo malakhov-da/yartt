@@ -5,7 +5,7 @@ import type { TaskHeader } from '#shared/task.ts';
 import { useFormat } from '#client/hooks/format.ts';
 import { useEmployees } from '#client/hooks/task.ts';
 import EmployeeAvatar from '../App/EmployeeAvatar.tsx';
-import TagChip from '../App/TagChip.tsx';
+import TaskTitle from '../App/TaskTitle.tsx';
 import PriorityChip from './PriorityChip.tsx';
 import RiskChip from './RiskChip.tsx';
 
@@ -34,7 +34,7 @@ export default function (p: { task: TaskHeader; note?: string; noteHint?: string
     >
       <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>#{p.task.id}</Typography>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, flex: '1 1 160px', minWidth: 0, textDecoration: closed ? 'line-through' : 'none' }}>
-        {p.task.tags.map((tag) => <TagChip key={tag.id} size="small" tag={tag} />)}
+        <TaskTitle tags={p.task.tags} />
       </Box>
       {!p.dense && !closed && <RiskChip task={p.task} />}
       {!p.dense && <PriorityChip priority={p.task.priority} />}
