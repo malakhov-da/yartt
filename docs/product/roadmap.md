@@ -30,10 +30,6 @@ it is decided. Proposals wait for a decision in their own section.
 
 In this order after stage 6 (S — a day, M — a few days, L — a week or more).
 
-### Corporate sign-in and bots
-
-- [ ] **How to set up the identity provider.** For administrators: Entra,
-  Google Workspace, Keycloak, and LDAP or SAML through Keycloak. S
 
 
 ## Decided against
