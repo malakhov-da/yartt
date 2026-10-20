@@ -980,6 +980,104 @@ Only for someone with people under them (bots do not count).
 Safe with several workers (SKIP LOCKED, weekly_digest_on). p_now is the
 moment to act as of — NOW() for the cron, a chosen Monday in tests.';
 
+-- Bots under My team: their activity by day, and a yearly word about an old key.
+ALTER TABLE bot ADD COLUMN key_reminded_at TIMESTAMPTZ;
+
+CREATE TABLE bot_usage (
+    bot_id INT NOT NULL REFERENCES bot(employee_id),
+    day DATE NOT NULL,
+    requests INT NOT NULL DEFAULT 0 CHECK (requests >= 0),
+    refused INT NOT NULL DEFAULT 0 CHECK (refused >= 0),
+    deliveries INT NOT NULL DEFAULT 0 CHECK (deliveries >= 0),
+    failed_deliveries INT NOT NULL DEFAULT 0 CHECK (failed_deliveries >= 0),
+    last_request_at TIMESTAMPTZ,
+    PRIMARY KEY (bot_id, day)
+);
+
+COMMENT ON COLUMN bot.key_reminded_at IS
+'When its manager was last told the key is a year old or more
+(send_bot_key_reminders()): once a year of the key''s age. The key keeps
+working; replacing it starts the count again.';
+
+COMMENT ON TABLE bot_usage IS
+'A bot''s activity by day (in its time zone), for Bots under My team: a
+row only for a day with activity. Requests are counted after each API
+call, outside its transaction, so a refused one counts too
+(count_bot_request()); deliveries — after each attempt at its webhook
+(count_bot_delivery()). Cron deletes rows older than a year.';
+
+COMMENT ON COLUMN bot_usage.requests IS
+'API calls made with its key that day.';
+
+COMMENT ON COLUMN bot_usage.refused IS
+'Of them, refused for lack of permission or access (bot_not_permitted,
+forbidden, no_access, not_manager): a bot knocking where it may not is
+set up wrong, or broken.';
+
+COMMENT ON COLUMN bot_usage.deliveries IS
+'Notifications posted to its webhook that day.';
+
+COMMENT ON COLUMN bot_usage.failed_deliveries IS
+'Of them, failed: its webhook is down or answers with an error.';
+
+COMMENT ON COLUMN bot_usage.last_request_at IS
+'The last API call that day.';
+
+CREATE OR REPLACE FUNCTION count_bot_request(p_bot_id INT, p_refused BOOLEAN)
+RETURNS VOID AS $$
+    INSERT INTO bot_usage (bot_id, day, requests, refused, last_request_at)
+    VALUES (p_bot_id, local_today(p_bot_id), 1, p_refused::int, NOW())
+    ON CONFLICT (bot_id, day) DO UPDATE
+       SET requests = bot_usage.requests + 1,
+           refused = bot_usage.refused + EXCLUDED.refused,
+           last_request_at = EXCLUDED.last_request_at
+$$ LANGUAGE sql;
+
+COMMENT ON FUNCTION count_bot_request(INT, BOOLEAN) IS
+'Counts one API call of the bot today; p_refused — refused for lack of
+permission or access.';
+
+CREATE OR REPLACE FUNCTION count_bot_delivery(p_bot_id INT, p_failed BOOLEAN)
+RETURNS VOID AS $$
+    INSERT INTO bot_usage (bot_id, day, deliveries, failed_deliveries)
+    VALUES (p_bot_id, local_today(p_bot_id), 1, p_failed::int)
+    ON CONFLICT (bot_id, day) DO UPDATE
+       SET deliveries = bot_usage.deliveries + 1,
+           failed_deliveries = bot_usage.failed_deliveries + EXCLUDED.failed_deliveries
+$$ LANGUAGE sql;
+
+COMMENT ON FUNCTION count_bot_delivery(INT, BOOLEAN) IS
+'Counts one attempt to post a notification to the bot''s webhook today.';
+
+CREATE OR REPLACE FUNCTION send_bot_key_reminders()
+RETURNS INT AS $$
+DECLARE
+    v_bot RECORD;
+    v_sent INT := 0;
+BEGIN
+    FOR v_bot IN
+        SELECT b.employee_id, e.manager_id, b.key_issued_at
+          FROM bot b JOIN employee e ON e.id = b.employee_id
+         WHERE e.dismissed_at IS NULL
+           AND b.key_issued_at <= NOW() - INTERVAL '1 year'
+           AND (b.key_reminded_at IS NULL OR b.key_reminded_at < b.key_issued_at
+                OR b.key_reminded_at <= NOW() - INTERVAL '1 year')
+           FOR UPDATE OF b SKIP LOCKED
+    LOOP
+        UPDATE bot SET key_reminded_at = NOW() WHERE employee_id = v_bot.employee_id;
+        PERFORM notify(v_bot.manager_id, NULL, jsonb_build_object(
+            'kind', 'bot_key_old', 'employeeId', v_bot.employee_id,
+            'issuedAt', to_char(v_bot.key_issued_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')));
+        v_sent := v_sent + 1;
+    END LOOP;
+    RETURN v_sent;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION send_bot_key_reminders() IS
+'Cron, every day: the manager of a working bot whose key is a year old or
+more is told so (bot_key_old), once a year of its age. Nothing stops: the
+key works until the manager replaces it. Safe with several workers.';
 
 -- The specification (COMMENT ON SCHEMA) as of this version.
 COMMENT ON SCHEMA public IS
@@ -1519,6 +1617,8 @@ CRON JOBS (outside SQL)
                    WHERE used_at < NOW() - INTERVAL ''1 day''
                      AND NOT attachment_in_use(a.id);
   - every day:    DELETE FROM visit WHERE at < NOW() - INTERVAL ''1 year'';
+  - every day:    DELETE FROM bot_usage WHERE day < CURRENT_DATE - 366;
+  - every day:    SELECT send_bot_key_reminders();
   - every day:    DELETE FROM tag t
                    WHERE created_at < NOW() - INTERVAL ''1 day''
                      AND NOT EXISTS (SELECT 1 FROM task WHERE tag_ids @> ARRAY[t.id])

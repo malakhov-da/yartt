@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { Bot, BotPermission, type BotInput, type BotKey } from '#shared/bot.ts';
+import { Bot, BotPermission, BotStats, type BotInput, type BotKey } from '#shared/bot.ts';
 import { AppError } from '../errors.ts';
-import { sql } from '../pg.ts';
+import { sql, type Sql } from '../pg.ts';
 
 const KeyRow = z.object({ botId: z.number(), key: z.string() });
 const Key = z.object({ key: z.string() });
@@ -94,4 +94,61 @@ export async function authenticate(key: string): Promise<z.infer<typeof Authenti
       FROM bot b WHERE b.employee_id = authenticate_bot(${key})
   `);
   return row ?? null;
+}
+
+/** Counts an API call of the bot (count_bot_request()). */
+export async function countRequest(id: number, refused: boolean): Promise<void> {
+  await sql`SELECT count_bot_request(${id}, ${refused})`;
+}
+
+/**
+ * What the bots the viewer answers for did over a range of days (from and
+ * to included): their tasks now and closed in the range, comments and
+ * mentions, API calls and refusals, webhook deliveries — and their last
+ * call ever, for the quiet to show first.
+ */
+export async function stats(viewerId: number, from: string, to: string): Promise<BotStats[]> {
+  return BotStats.array().parse(await sql`
+    WITH b AS (
+      SELECT e.id, e.time_zone FROM bot JOIN employee e ON e.id = bot.employee_id
+       WHERE e.manager_id = ${viewerId} OR e.manager_id IN (SELECT subordinates(${viewerId}))
+    ),
+    -- The range in each bot's own time zone.
+    r AS (
+      SELECT id, (${from}::date)::timestamp AT TIME ZONE time_zone AS since,
+             (${to}::date + 1)::timestamp AT TIME ZONE time_zone AS until
+        FROM b
+    ),
+    open_task AS (
+      SELECT k.id, k.owner_id FROM task k
+       WHERE NOT EXISTS (SELECT 1 FROM finished_at f WHERE f.task_id = k.id AND f.expired_at IS NULL AND f.value <= NOW())
+    )
+    SELECT b.id,
+           (SELECT count(*) FROM open_task k WHERE k.owner_id = b.id)::int AS open_tasks,
+           (SELECT count(*) FROM observer o JOIN open_task k ON k.id = o.task_id
+             WHERE o.value = b.id AND o.added_at IS NOT NULL AND o.deleted_at IS NULL
+               AND k.owner_id IS DISTINCT FROM b.id)::int AS observed_tasks,
+           (SELECT count(*) FROM task k JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
+             WHERE k.owner_id = b.id AND f.value >= r.since AND f.value < LEAST(r.until, NOW()))::int AS closed_tasks,
+           (SELECT count(*) FROM comment c
+             WHERE c.created_by = b.id AND c.created_at >= r.since AND c.created_at < r.until)::int AS comments,
+           (SELECT count(*) FROM mention m JOIN comment c ON c.task_id = m.task_id AND c.id = m.comment_id
+             WHERE c.created_by = b.id AND c.created_at >= r.since AND c.created_at < r.until)::int AS mentions,
+           COALESCE(u.requests, 0)::int AS requests, COALESCE(u.refused, 0)::int AS refused,
+           COALESCE(u.deliveries, 0)::int AS deliveries, COALESCE(u.failed_deliveries, 0)::int AS failed_deliveries,
+           (SELECT max(last_request_at) FROM bot_usage WHERE bot_id = b.id) AS last_request_at
+      FROM b
+      JOIN r ON r.id = b.id
+      LEFT JOIN (
+        SELECT bot_id, sum(requests) AS requests, sum(refused) AS refused,
+               sum(deliveries) AS deliveries, sum(failed_deliveries) AS failed_deliveries
+          FROM bot_usage WHERE day BETWEEN ${from}::date AND ${to}::date
+         GROUP BY bot_id
+      ) u ON u.bot_id = b.id
+  `);
+}
+
+/** Counts an attempt to post to the bot's webhook (count_bot_delivery()). */
+export async function countDelivery(db: Sql, id: number, failed: boolean): Promise<void> {
+  await db`SELECT count_bot_delivery(${id}, ${failed})`;
 }

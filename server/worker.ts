@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { Locale } from '#shared/employee.ts';
 import { NotificationPayload } from '#shared/notification.ts';
 import { refreshDemo } from './demo.ts';
+import * as Bots from './services/Bot.ts';
 import { deliver } from './delivery.ts';
 import env from './env.ts';
 import type { Sql } from './pg.ts';
@@ -60,6 +61,16 @@ const JOBS: { name: string; every: number; run: (sql: Sql) => Promise<unknown> }
          AND NOT EXISTS (SELECT 1 FROM task WHERE tag_ids @> ARRAY[t.id])
          AND NOT EXISTS (SELECT 1 FROM user_tag WHERE tag_id = t.id)
     `,
+  },
+  {
+    name: 'bot_usage_cleanup',
+    every: DAY,
+    run: (sql) => sql`DELETE FROM bot_usage WHERE day < CURRENT_DATE - 366`,
+  },
+  {
+    name: 'bot_key_reminders',
+    every: DAY,
+    run: (sql) => sql`SELECT send_bot_key_reminders()`,
   },
   {
     name: 'next_day_cleanup',
@@ -140,9 +151,11 @@ export async function deliverNotifications(sql: Sql): Promise<number> {
             taskId: row.taskId,
             payload: payload.data,
           });
+          if (webhook) await Bots.countDelivery(tx as unknown as Sql, row.employeeId, false);
         } catch (error) {
           console.error(`[worker] notification ${row.id} delivery failed:`, error);
           if (row.kind === 'human') break;
+          if (webhook) await Bots.countDelivery(tx as unknown as Sql, row.employeeId, true);
         }
       }
       await tx`UPDATE notification SET sent_at = NOW() WHERE id = ${row.id}`;

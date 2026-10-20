@@ -5,6 +5,7 @@ import type { BotPermission } from '#shared/bot.ts';
 import type { ErrorCode, ErrorData, ErrorIssue } from '#shared/errors.ts';
 import type { Context } from './ctx.ts';
 import { AppError, fromPostgres } from './errors.ts';
+import * as Bots from './services/Bot.ts';
 
 function errorData(error: TRPCError): ErrorData {
   const cause = error.cause;
@@ -66,11 +67,28 @@ const mapErrors = t.middleware(async ({ next }) => {
   return result;
 });
 
+/** What a bot was refused for: it is set up wrong, or broken. */
+const REFUSALS = new Set<ErrorCode>(['bot_not_permitted', 'forbidden', 'no_access', 'not_manager']);
+
+// Every call with a bot's key is counted for its manager (bot_usage), after
+// the call and outside its transaction, so a refused one counts too. A
+// failed count never fails the call.
+const countBot = t.middleware(async ({ ctx, next }) => {
+  const result = await next();
+  if (ctx.bot && ctx.employeeId !== null) {
+    const cause = result.ok ? null : result.error.cause;
+    const code = cause instanceof AppError ? cause.code : fromPostgres(cause)?.code ?? null;
+    await Bots.countRequest(ctx.employeeId, code !== null && REFUSALS.has(code))
+      .catch((error: unknown) => console.error('[bot] counting a request failed:', error));
+  }
+  return result;
+});
+
 export const router = t.router;
 export const createCallerFactory = t.createCallerFactory;
 
 /** Available without a session. */
-export const procedure = t.procedure.use(mapErrors);
+export const procedure = t.procedure.use(mapErrors).use(countBot);
 
 /**
  * Requires a session or a bot's key; `ctx.employeeId` is the signed-in

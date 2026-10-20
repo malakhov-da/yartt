@@ -314,6 +314,16 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
   // The bot reports a failed build and mentions the owner: it shows in my TODO with neutral verbs.
   await I.Observer.add({ taskId: site, employeeId: bot });
   await as(bot, ['comment']).Comment.create(comment(site, c.build, { mentionIds: [me] }));
+  // Its calls over the last two weeks, for Bots under My team: a quiet weekend, one refusal
+  // (it tried to close a task); and a key issued over a year ago, so its manager is reminded.
+  await sql`
+    INSERT INTO bot_usage (bot_id, day, requests, refused, last_request_at)
+    SELECT ${bot}, d::date, 20 + (extract(day FROM d)::int * 7) % 30, CASE WHEN d = CURRENT_DATE - 3 THEN 1 ELSE 0 END,
+           d + TIME '17:40'
+      FROM generate_series(CURRENT_DATE - 13, CURRENT_DATE - 1, INTERVAL '1 day') d
+     WHERE extract(isodow FROM d) < 6
+  `;
+  await sql`UPDATE bot SET key_issued_at = NOW() - INTERVAL '14 months' WHERE employee_id = ${bot}`;
 
   await M.Employee.dismiss({ id: sergey });
   // He left three weeks ago: My team shows him for 30 days, not for 7.

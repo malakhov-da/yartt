@@ -42,6 +42,28 @@ export type BotUpdateInput = z.infer<typeof BotUpdateInput>;
 export const BotTransferInput = z.object({ id: Id, toId: Id });
 export type BotTransferInput = z.infer<typeof BotTransferInput>;
 
+/** A bot's activity over a range (bot_usage) and its tasks now. */
+export const BotStats = z.object({
+  id: Id,
+  /** Open tasks it owns now. */
+  openTasks: z.number(),
+  /** Open tasks it observes and does not own. */
+  observedTasks: z.number(),
+  /** Of its tasks, closed within the range. */
+  closedTasks: z.number(),
+  comments: z.number(),
+  /** People it mentioned. */
+  mentions: z.number(),
+  requests: z.number(),
+  /** Refused for lack of permission or access. */
+  refused: z.number(),
+  deliveries: z.number(),
+  failedDeliveries: z.number(),
+  /** Its last API call ever; NULL — never. */
+  lastRequestAt: z.date().nullable(),
+});
+export type BotStats = z.infer<typeof BotStats>;
+
 /** A key: shown once, never again. */
 export const BotKey = z.object({ id: Id, key: z.string() });
 export type BotKey = z.infer<typeof BotKey>;

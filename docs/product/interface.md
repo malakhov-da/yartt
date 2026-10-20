@@ -285,8 +285,14 @@ own (4b).
 A block of My day under My team — or on its own for someone whose only
 reports are bots — and the same list in the profile (decision 49): my
 bots and those of everyone under me, dismissed ones included, with what
-each may change and when its key was issued; whose a bot is shows when it
-is not mine. **New bot** creates one under me. A click opens its
+each may change; whose a bot is shows when it is not mine. For a range
+(as in My team): its open tasks and those it observes, its comments and
+the people it mentioned, its tasks closed, its API calls with the
+refusals (asked for what it may not — set up wrong or broken) and its
+webhook deliveries with the failures, and its last call — the quiet ones
+on top, so a bot that stopped is seen. A key over a year old has a
+warning sign, and its manager gets a word once a year; it keeps working.
+**New bot** creates one under me. A click opens its
 settings: name, pronoun, what it does, what it may change (four
 permissions; none — read only), its webhook and signing secret, its key
 (replaced on demand and shown once), handing it to someone (at once, the

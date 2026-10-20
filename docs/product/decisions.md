@@ -704,9 +704,19 @@ that is down gets one attempt and never holds people's notifications.
 A bot made as a person before stays a person: its manager creates a bot
 and dismisses the old one, handing its tasks over by hand.
 
+A bot has no timesheet or score, but a manager still needs to know it
+works: Bots under My team show, for a range, its tasks, comments and
+mentions, its API calls with the refusals and its webhook deliveries with
+the failures, the quiet ones first. Calls are counted per bot and day in
+the database, after each call and outside its transaction, so a refused
+one counts too. What it created or handed over is not shown: task
+creation and owner history are not kept (decision on `created_by`). A
+key a year old is told to its manager once a year, without stopping it.
+
 *Implemented:* `employee.kind`, `human`, `bot`, `bot_permission`,
 `create_bot()`, `reset_bot_key()`, `transfer_bot()`,
-`authenticate_bot()`, `employee_kind_row` (migration `0.1-0.2`); `Bot`
-router, `Meta.bot` and the check in `server/trpc.ts`; bot webhooks in
+`authenticate_bot()`, `employee_kind_row`, `bot_usage`,
+`send_bot_key_reminders()` (migration `0.1-0.2`); `Bot`
+router, `Meta.bot`, the check and `countBot` in `server/trpc.ts`; bot webhooks in
 `server/worker.ts`, `server/webhook.ts`; `client/components/MyDayPage/Bots.tsx`,
 `BotDialog.tsx`; `docs/admin/api.md`.

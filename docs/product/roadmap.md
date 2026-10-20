@@ -32,10 +32,6 @@ In this order after stage 6 (S — a day, M — a few days, L — a week or more
 
 ### Corporate sign-in and bots
 
-- [ ] **Bots under My team.** Their activity over the range — tasks owned
-  and observed, created, closed, handed over, comments, mentions,
-  requests and refusals, webhook deliveries — quiet ones first; settings
-  in a dialog; a reminder to the manager when a key is a year old. M
 - [ ] **Last activity in My team.** Next to everyone, the stale on top,
   people away too, with their return date. S
 - [ ] **A new email is confirmed.** The profile sends a link to the new

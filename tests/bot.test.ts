@@ -126,6 +126,50 @@ describe('bots', () => {
     await expect(sql`INSERT INTO employee (full_name) VALUES ('Nobody')`).rejects.toMatchObject({ hint: 'invalid_data' });
   });
 
+  test('its activity over a range: calls and refusals, comments and mentions, tasks', async () => {
+    const lead = await createEmployee();
+    const leadApi = await client(lead.id);
+    const { id, key } = await leadApi.Bot.create(newBot(['comment', 'task']));
+    const task = (await call(key, 'Task.create', { tags: [`stats-${id}`] })).body.result?.data.json as number;
+    await call(key, 'Comment.create', { taskId: task, html: '<p>Up</p>', replyToId: null, files: [], mentionIds: [lead.id], taskIds: [] });
+    await call(key, 'Task.transfer', { id: task, ownerId: lead.id }); // no task.transfer: refused
+    await call(key, 'Task.get', { id: task }, 'GET');
+
+    const today = new Date().toISOString().slice(0, 10);
+    const [stats] = (await leadApi.Bot.stats({ from: today, to: today })).filter((b) => b.id === id);
+    expect(stats).toMatchObject({ openTasks: 1, comments: 1, mentions: 1, requests: 4, refused: 1, deliveries: 0 });
+    expect(stats!.lastRequestAt).toBeInstanceOf(Date);
+    expect(await (await client((await createEmployee()).id)).Bot.stats({ from: today, to: today })).toEqual([]);
+  });
+
+  test('a key a year old is told to its manager once a year; replacing it starts again', async () => {
+    const lead = await createEmployee();
+    const leadApi = await client(lead.id);
+    const { id } = await leadApi.Bot.create(newBot());
+    const told = async () => (await sql<{ n: number }[]>`
+      SELECT count(*)::int AS n FROM notification WHERE employee_id = ${lead.id} AND payload->>'kind' = 'bot_key_old'
+    `)[0]!.n;
+    await sql`SELECT send_bot_key_reminders()`;
+    expect(await told()).toBe(0);
+
+    await sql`UPDATE bot SET key_issued_at = NOW() - INTERVAL '400 days' WHERE employee_id = ${id}`;
+    await sql`SELECT send_bot_key_reminders()`;
+    await sql`SELECT send_bot_key_reminders()`;
+    expect(await told()).toBe(1);
+    const [row] = await sql<{ payload: unknown }[]>`
+      SELECT payload FROM notification WHERE employee_id = ${lead.id} AND payload->>'kind' = 'bot_key_old'
+    `;
+    expect(row!.payload).toMatchObject({ kind: 'bot_key_old', employeeId: id, issuedAt: expect.stringMatching(/Z$/) });
+
+    // A year later, once more.
+    await sql`UPDATE bot SET key_reminded_at = NOW() - INTERVAL '366 days' WHERE employee_id = ${id}`;
+    await sql`SELECT send_bot_key_reminders()`;
+    expect(await told()).toBe(2);
+    await leadApi.Bot.resetKey({ id });
+    await sql`SELECT send_bot_key_reminders()`;
+    expect(await told()).toBe(2);
+  });
+
   describe('its webhook', () => {
     beforeEach(async () => {
       // Other test files leave notifications behind; start from an empty queue.
@@ -167,6 +211,9 @@ describe('bots', () => {
         await (await client(dev.id)).Employee.setManager({ managerId: lead.id });
         expect(await deliverNotifications(sql)).toBe(2);
         expect(got).toHaveLength(2);
+        const today = new Date().toISOString().slice(0, 10);
+        expect((await leadApi.Bot.stats({ from: today, to: today })).find((b) => b.id === id))
+          .toMatchObject({ deliveries: 2, failedDeliveries: 1 });
       } finally {
         hook.close();
       }

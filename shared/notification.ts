@@ -47,6 +47,8 @@ export const NotificationPayload = z.discriminatedUnion('kind', [
     atRisk: z.number().int(),
     ...Copy,
   }),
+  // Once a year of a bot's key's age, to its manager: the key keeps working.
+  z.object({ kind: z.literal('bot_key_old'), employeeId: Id, /** When the key was issued, ISO. */ issuedAt: z.string(), ...Copy }),
 ]);
 export type NotificationPayload = z.infer<typeof NotificationPayload>;
 export type NotificationKind = NotificationPayload['kind'];

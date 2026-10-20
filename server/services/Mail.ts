@@ -52,6 +52,9 @@ export async function renderMail(message: Message): Promise<{ subject: string; t
     dependent: 'dependentId' in p ? await taskTitle(p.dependentId, recipientId) : '',
     text: 'text' in p ? (p.text ?? '') : '',
     day: 'day' in p ? p.day : '',
+    issued: 'issuedAt' in p
+      ? new Date(p.issuedAt).toLocaleDateString(message.to.locale, { day: 'numeric', month: 'long', year: 'numeric', timeZone: message.to.timeZone })
+      : '',
     url: p.kind === 'login' ? p.url : `${env.PUBLIC_URL}/login`,
   };
 
@@ -70,6 +73,7 @@ export async function renderMail(message: Message): Promise<{ subject: string; t
   if (p.kind === 'dependency_added' && p.hard) lines.push(interpolate(t.dependency_added.hard, params));
   if ('for' in p && p.for !== undefined) lines.push(interpolate(t.awayCopy, { name: person(p.for) }));
   if (message.taskId !== null) lines.push(interpolate(t.open, { url: `${env.PUBLIC_URL}/tasks/${message.taskId}` }));
+  if (p.kind === 'bot_key_old') lines.push(interpolate(t.weekly_digest.open, { url: `${env.PUBLIC_URL}/` }));
 
   return { subject: interpolate(template.subject, params), text: lines.join('\n\n') };
 }
