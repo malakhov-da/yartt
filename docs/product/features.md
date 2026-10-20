@@ -32,6 +32,7 @@ persona goal it serves. Status: **now** — stage one, **next** — stage two,
 | Take an ownerless task | Pavel: pick up what nobody owns | now (done) |
 | Search by tags — in My day, filtering Current tasks; "+" creates a task with the title typed; a taken title is named as it is typed; a new tag only by its button, the whole phrase one tag | everyone: find a task in seconds, and never make a tag by accident | now (done) |
 | Closed tasks in a tab of their own, the most recently closed first; the search finds them there | everyone: see what was just finished without losing it | now (done) |
+| Tags in My day: per tag over a range — tasks, at risk, closed, comments, people — on the tasks one sees; picked tags with all and any; people and their own time; CSV | Marina, the director: see how a direction is doing without a project | now (done) |
 | A title is rubrics and a phrase: the tag no other task carries is shown as text after the chips; the rubrics that often go together are offered while typing | everyone: a list of tasks reads as what is to be done | now (done) |
 | Dependencies, hard dependencies tie deadlines; the owner of the task waited for is told | Marina: see what blocks what | now (done) |
 | A new-task form: tags as the title, priority, deadline, context; opened from the search or tied to a task as its dependency; a dependency found by tags or number | everyone: write a task down whole, link it where it belongs | now (done) |

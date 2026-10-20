@@ -8,6 +8,7 @@ import { useVisit } from '#client/hooks/visit.ts';
 import Bots from './MyDayPage/Bots.tsx';
 import CurrentTasks from './MyDayPage/CurrentTasks.tsx';
 import History from './MyDayPage/History.tsx';
+import TagStats from './MyDayPage/TagStats.tsx';
 import Team from './MyDayPage/Team.tsx';
 import Todo from './MyDayPage/Todo.tsx';
 
@@ -35,6 +36,7 @@ export default function () {
           <Todo />
           <CurrentTasks />
           {isManager && <Team />}
+          <TagStats />
           {hasBots && <Bots />}
         </Stack>
         <Box sx={{ flex: '1 1 400px', minWidth: 0 }}>

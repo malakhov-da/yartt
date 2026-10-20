@@ -891,3 +891,21 @@ priority, tasks without a deadline at the end, by priority.
 *Implemented:* `CurrentTab` 'closed', `current()` in
 `server/services/MyDay.ts`, `search()` in `server/services/Task.ts`;
 `CurrentTasks`.
+
+### 58. Tags: what happened under each, for everyone
+
+Tags are how work is grouped, yet nothing showed how a tag was doing.
+Now My day has **Tags**, under My team, for everyone: for a range, each
+tag's tasks (open, at risk), those closed by hand and by deadline,
+comments and the people who commented or logged time — counted only on
+the tasks the person sees, so it shows a director the company and anyone
+else their corner of it. Without a search every rubric (a tag on more
+than one task — a phrase of one task is not a group) is a line, the most
+active first, with pages; with tags picked, those lines and, for two or
+more, their tasks all together and any of them. A line unfolds into the
+people who worked under it with each one's own time logged and comments;
+there is no total of hours, not even here (decision 38). Everything shown
+goes out as CSV: a line per tag and person.
+
+*Implemented:* `Tags.stats`, `Tags.people` in `server/services/Tags.ts`;
+`client/components/MyDayPage/TagStats.tsx`.

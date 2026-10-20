@@ -171,3 +171,38 @@ describe('phrases and rubrics', () => {
     expect((await api.Tags.related({ tagIds: [rubricId] })).map((tag) => tag.name)).toEqual([often]);
   });
 });
+
+describe('tag summary', () => {
+  test('per tag, on the tasks I see, over a range; picked tags add all of them together and any of them', async () => {
+    const me = await createEmployee();
+    const dev = await createEmployee({ managerId: me.id });
+    const api = await client(me.id);
+    const devApi = await client(dev.id);
+    const a = `sa-${randomUUID().slice(0, 8)}`;
+    const b = `sb-${randomUUID().slice(0, 8)}`;
+    const both = await devApi.Task.create({ tags: [a, b, `phrase ${randomUUID().slice(0, 6)}`] });
+    const onlyA = await devApi.Task.create({ tags: [a, `phrase ${randomUUID().slice(0, 6)}`] });
+    const hidden = await (await client((await createEmployee()).id)).Task.create({ tags: [a, `phrase ${randomUUID().slice(0, 6)}`] });
+    const today = (await devApi.MyDay.history({ page: 1 })).today;
+    await devApi.Time.log({ taskId: both, day: today, minutes: 90 });
+    await devApi.Comment.create({ taskId: onlyA, html: '<p>Done</p>', replyToId: null, files: [], mentionIds: [], taskIds: [] });
+    await sql`SELECT set_finished_at(${onlyA}, NOW() - INTERVAL '1 minute')`;
+    expect(hidden).toBeGreaterThan(0);
+
+    const ids = (await sql<{ id: number }[]>`SELECT id FROM tag WHERE name IN (${a}, ${b}) ORDER BY name`).map((r) => r.id);
+    const summary = await api.Tags.stats({ from: today, to: today, tagIds: ids, page: 1 });
+    const line = (kind: string, name?: string) => summary.rows.find((r) => r.group.kind === kind && (!name || r.tags[0]!.name === name))!;
+    // The hidden task of a stranger is not counted: only what I see (dev's tasks, through the manager chain).
+    expect(line('tag', a)).toMatchObject({ tasks: 2, open: 1, finished: 1, expired: 0, active: 2, comments: 1, people: 1 });
+    expect(line('tag', b)).toMatchObject({ tasks: 1, open: 1, active: 1, comments: 0, people: 1 });
+    expect(line('all')).toMatchObject({ tasks: 1 });
+    expect(line('any')).toMatchObject({ tasks: 2 });
+
+    // Unpicked: rubrics only — the phrases of one task are not lines.
+    const all = await api.Tags.stats({ from: today, to: today, tagIds: [], page: 1 });
+    expect(all.rows.every((r) => !r.tags[0]!.name.startsWith('phrase'))).toBe(true);
+
+    const people = await api.Tags.people({ from: today, to: today, group: { kind: 'tag', tagId: ids[0]! } });
+    expect(people).toEqual([{ employeeId: dev.id, minutes: 90, comments: 1 }]);
+  });
+});

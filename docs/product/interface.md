@@ -65,6 +65,12 @@ someone with reports:
   "+" in the search opens a new task (2a). A task whose
   plan does not fit before its deadline says "At risk" (decision 40).
 - **My team** — only for someone with reports, under Current tasks; see 4.
+- **Tags** — for everyone, under My team: what happened under each tag
+  over a range, on the tasks I see — tasks open and at risk, closed by
+  hand and by deadline, comments, people; the most active rubrics first,
+  or the tags picked in its search with all of them together and any of
+  them; a line unfolds into its people and their own time; CSV export
+  (decision 58).
 - **My days** — today and the last day before it with activity (on
   Monday that is usually Friday: what was I doing?); "History" leads to
   all of them, my own employee page (decision 54). A day in a few lines:

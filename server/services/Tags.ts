@@ -1,5 +1,5 @@
-import type { MyTags, SetTagInput, Suggestions, TagPart } from '#shared/tags.ts';
-import { MyTag } from '#shared/tags.ts';
+import type { MyTags, SetTagInput, Suggestions, TagGroup, TagPart, TagPeopleInput, TagStatsInput } from '#shared/tags.ts';
+import { MyTag, TagPerson, TagStats as TagStatsSummary, TagStatsRow } from '#shared/tags.ts';
 import { defaultKeyboards, Keyboard, retype } from '#shared/keyboards.ts';
 import { Locale } from '#shared/employee.ts';
 import { Tag, TagName } from '#shared/task.ts';
@@ -224,5 +224,150 @@ export async function related(viewerId: number, tagIds: number[]): Promise<Tag[]
      GROUP BY t.id, t.name, u.color
      ORDER BY count(*) DESC, t.name
      LIMIT ${RELATED}
+  `);
+}
+
+const SUMMARY_PAGE = 20;
+const Count = z.object({ n: z.number() });
+const SummaryRow = TagStatsRow.omit({ group: true, tags: true }).extend({ tagId: z.number().nullable() });
+
+/**
+ * The tasks the viewer sees and what happened on them over a range of
+ * their days (decision 58): `v` — the tasks, `tp` — who commented on or
+ * logged time to each in the range, `m` — each task's figures.
+ */
+function scope(viewerId: number, from: string, to: string) {
+  return sql`
+    WITH r AS (
+      SELECT (${from}::date)::timestamp AT TIME ZONE e.time_zone AS since,
+             (${to}::date + 1)::timestamp AT TIME ZONE e.time_zone AS until
+        FROM employee e WHERE e.id = ${viewerId}
+    ),
+    v AS (
+      SELECT k.id, k.tag_ids, f.value AS deadline, f.entered_at
+        FROM task k
+        LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
+       WHERE can_see(k.id, ${viewerId})
+    ),
+    cm AS (
+      SELECT c.task_id, c.created_by FROM comment c, r
+       WHERE c.created_at >= r.since AND c.created_at < r.until AND c.task_id IN (SELECT id FROM v)
+    ),
+    tp AS (
+      SELECT DISTINCT task_id, person FROM (
+        SELECT task_id, created_by AS person FROM cm
+        UNION ALL
+        SELECT s.task_id, s."by" FROM spent_minutes s
+         WHERE s.day BETWEEN ${from}::date AND ${to}::date AND s.task_id IN (SELECT id FROM v)
+      ) x
+    ),
+    m AS (
+      SELECT v.id, v.tag_ids,
+             (v.deadline IS NULL OR v.deadline > NOW()) AS open,
+             COALESCE(v.deadline > NOW() AND EXISTS (SELECT 1 FROM deadline_risk(v.id)), FALSE) AS at_risk,
+             COALESCE(v.deadline <= NOW() AND v.deadline >= r.since AND v.deadline < r.until, FALSE) AS closed_in,
+             COALESCE(v.deadline - v.entered_at > INTERVAL '1 minute', FALSE) AS auto,
+             (SELECT count(*) FROM cm WHERE cm.task_id = v.id)::int AS comments,
+             EXISTS (SELECT 1 FROM tp WHERE tp.task_id = v.id) AS touched
+        FROM v CROSS JOIN r
+    )
+  `;
+}
+
+const figures = () => sql`
+  count(*)::int AS tasks,
+  count(*) FILTER (WHERE m.open)::int AS open,
+  count(*) FILTER (WHERE m.at_risk)::int AS at_risk,
+  count(*) FILTER (WHERE m.closed_in AND NOT m.auto)::int AS finished,
+  count(*) FILTER (WHERE m.closed_in AND m.auto)::int AS expired,
+  count(*) FILTER (WHERE m.closed_in OR m.touched)::int AS active,
+  COALESCE(sum(m.comments), 0)::int AS comments,
+  (SELECT count(DISTINCT tp.person) FROM tp WHERE tp.task_id = ANY(array_agg(m.id)))::int AS people
+`;
+
+/** The tasks of a line: carrying the tag, all the picked ones, or any of them. */
+function carrying(group: TagGroup, column = sql`tag_ids`) {
+  return group.kind === 'tag' ? sql`${column} @> ARRAY[${group.tagId}::int]`
+    : group.kind === 'all' ? sql`${column} @> ${group.tagIds}::int[]`
+    : sql`${column} && ${group.tagIds}::int[]`;
+}
+
+async function tagsByIds(viewerId: number, ids: number[]): Promise<Map<number, Tag>> {
+  if (ids.length === 0) return new Map();
+  const rows = Tag.array().parse(await sql`
+    SELECT t.id, t.name, u.color FROM tag t
+      LEFT JOIN user_tag u ON u.tag_id = t.id AND u.employee_id = ${viewerId}
+     WHERE t.id = ANY(${ids})
+  `);
+  return new Map(rows.map((t) => [t.id, t]));
+}
+
+/**
+ * The tag summary for a range, on the tasks the viewer sees (decision 58).
+ * No tags picked: every rubric — a tag on more than one task; a phrase of
+ * one task is not a rubric — the most active first, with pages. Tags
+ * picked: each of them, then, for two or more, their tasks all together
+ * and any of them.
+ */
+export async function stats(viewerId: number, input: TagStatsInput): Promise<z.infer<typeof TagStatsSummary>> {
+  const picked = input.tagIds.length > 0;
+  const base = scope(viewerId, input.from, input.to);
+  const which = picked ? sql`t.id = ANY(${input.tagIds}::int[])`
+    : sql`(SELECT count(*) FROM task x WHERE x.tag_ids @> ARRAY[t.id]) > 1`;
+  const rows = SummaryRow.array().parse(await sql`
+    ${base}
+    SELECT t.id AS tag_id, ${figures()}
+      FROM m
+      CROSS JOIN LATERAL unnest(m.tag_ids) AS mt(id)
+      JOIN tag t ON t.id = mt.id
+     WHERE ${which}
+     GROUP BY t.id, t.name
+     ORDER BY active DESC, tasks DESC, t.name
+     ${picked ? sql`` : sql`LIMIT ${SUMMARY_PAGE} OFFSET ${(input.page - 1) * SUMMARY_PAGE}`}
+  `);
+  const [count] = Count.array().parse(await sql`
+    ${base}
+    SELECT count(DISTINCT t.id)::int AS n
+      FROM m CROSS JOIN LATERAL unnest(m.tag_ids) AS mt(id) JOIN tag t ON t.id = mt.id
+     WHERE ${which}
+  `);
+  const groups: { group: TagGroup; tagIds: number[]; figures: z.infer<typeof SummaryRow> }[] = rows.map((r) => ({
+    group: { kind: 'tag', tagId: r.tagId! }, tagIds: [r.tagId!], figures: r,
+  }));
+  if (input.tagIds.length > 1) {
+    for (const kind of ['all', 'any'] as const) {
+      const group: TagGroup = { kind, tagIds: input.tagIds };
+      const [row] = SummaryRow.array().parse(await sql`
+        ${base}
+        SELECT NULL::int AS tag_id, ${figures()} FROM m WHERE ${carrying(group, sql`m.tag_ids`)}
+      `);
+      groups.push({ group, tagIds: input.tagIds, figures: row! });
+    }
+  }
+  const tags = await tagsByIds(viewerId, [...new Set(groups.flatMap((g) => g.tagIds))]);
+  return {
+    rows: groups.map(({ group, tagIds, figures: { tagId: _, ...rest } }) => ({
+      group, tags: tagIds.flatMap((id) => tags.get(id) ?? []), ...rest,
+    })),
+    total: count?.n ?? 0,
+  };
+}
+
+/**
+ * Who worked under a line of the summary over the range, on the tasks the
+ * viewer sees: each person's own time logged and comments, most time
+ * first — one row per person, never a total (decision 38).
+ */
+export async function people(viewerId: number, input: TagPeopleInput): Promise<TagPerson[]> {
+  return TagPerson.array().parse(await sql`
+    ${scope(viewerId, input.from, input.to)}
+    , lt AS (SELECT id FROM v WHERE ${carrying(input.group, sql`v.tag_ids`)})
+    SELECT p.person AS employee_id,
+           COALESCE((SELECT sum(s.value) FROM spent_minutes s
+                      WHERE s."by" = p.person AND s.day BETWEEN ${input.from}::date AND ${input.to}::date
+                        AND s.task_id IN (SELECT id FROM lt)), 0)::int AS minutes,
+           (SELECT count(*) FROM cm WHERE cm.created_by = p.person AND cm.task_id IN (SELECT id FROM lt))::int AS comments
+      FROM (SELECT DISTINCT person FROM tp WHERE task_id IN (SELECT id FROM lt)) p
+     ORDER BY minutes DESC, comments DESC, p.person
   `);
 }

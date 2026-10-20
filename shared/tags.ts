@@ -58,3 +58,65 @@ export const Suggestions = z.object({
   exact: z.boolean(),
 });
 export type Suggestions = z.infer<typeof Suggestions>;
+
+/**
+ * A line of the tag summary (decision 58): one tag, or the picked tags
+ * all together ('all' — tasks carrying every one) or any of them ('any').
+ */
+export const TagGroup = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('tag'), tagId: Id }),
+  z.object({ kind: z.enum(['all', 'any']), tagIds: Id.array().min(2).max(20) }),
+]);
+export type TagGroup = z.infer<typeof TagGroup>;
+
+const RangeShape = { from: z.iso.date(), to: z.iso.date() };
+
+export const TagStatsInput = z.object({
+  ...RangeShape,
+  /** Picked tags: only them, and the lines of them all together and any of them; empty — every tag. */
+  tagIds: Id.array().max(20),
+  page: z.number().int().min(1),
+}).refine((r) => r.from <= r.to, { path: ['to'] });
+export type TagStatsInput = z.infer<typeof TagStatsInput>;
+
+/** What happened under a tag (or a group of tags) over a range, on the tasks the viewer sees. */
+export const TagStatsRow = z.object({
+  group: TagGroup,
+  /** The tag, or the picked ones. */
+  tags: Tag.array(),
+  /** Tasks carrying it. */
+  tasks: z.number().int(),
+  /** Of them, open now. */
+  open: z.number().int(),
+  /** Of the open, at risk: a plan does not fit before the deadline. */
+  atRisk: z.number().int(),
+  /** Closed in the range by hand: "Finish", or a deadline moved to the past. */
+  finished: z.number().int(),
+  /** Closed in the range by a deadline set in advance. */
+  expired: z.number().int(),
+  /** Tasks with any activity in the range — comments, time, closing: what "popular" means here. */
+  active: z.number().int(),
+  comments: z.number().int(),
+  /** People who commented or logged time in the range. */
+  people: z.number().int(),
+});
+export type TagStatsRow = z.infer<typeof TagStatsRow>;
+
+export const TagStats = z.object({
+  rows: TagStatsRow.array(),
+  /** Lines of single tags in all, for the pages. */
+  total: z.number().int(),
+});
+export type TagStats = z.infer<typeof TagStats>;
+
+export const TagPeopleInput = z.object({ ...RangeShape, group: TagGroup });
+export type TagPeopleInput = z.infer<typeof TagPeopleInput>;
+
+/** One person under a tag over a range: their own time — never added up with anyone's (decision 38). */
+export const TagPerson = z.object({
+  employeeId: Id,
+  /** Time they logged to the tasks under the tag in the range. */
+  minutes: z.number().int(),
+  comments: z.number().int(),
+});
+export type TagPerson = z.infer<typeof TagPerson>;

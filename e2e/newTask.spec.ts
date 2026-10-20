@@ -57,6 +57,6 @@ test.describe('new task', () => {
     await page.keyboard.press('Enter');
     await page.getByRole('button', { name: /^Выбрать задачу #\d+$/ }).first().click();
     await page.getByRole('button', { name: 'Сохранить' }).click();
-    await expect(page.getByRole('link', { name: /офис переезд/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: /офис( · )?переезд/ })).toBeVisible();
   });
 });

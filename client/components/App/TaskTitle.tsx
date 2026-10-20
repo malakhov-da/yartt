@@ -14,16 +14,13 @@ export default function (p: { tags: Tag[]; large?: boolean; chipSx?: SxProps<The
   return (
     <>
       {rubrics.map((tag) => <TagChip key={tag.id} size={p.large ? 'medium' : 'small'} tag={tag} sx={p.chipSx} />)}
-      {phrases.map((tag) => (
-        <Typography
-          key={tag.id}
-          component="span"
-          variant={p.large ? 'h3' : 'body2'}
-          sx={{ fontWeight: p.large ? 600 : 500, ...(tag.color !== null && { color: tag.color }) }}
-        >
-          {tag.name}
+      {phrases.length > 0 && (
+        <Typography component="span" variant={p.large ? 'h3' : 'body2'} sx={{ fontWeight: p.large ? 600 : 500 }}>
+          {phrases.map((tag, i) => (
+            <span key={tag.id} style={tag.color ? { color: tag.color } : undefined}>{i > 0 && ' · '}{tag.name}</span>
+          ))}
         </Typography>
-      ))}
+      )}
     </>
   );
 }
