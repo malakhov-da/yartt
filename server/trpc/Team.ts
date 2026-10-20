@@ -28,14 +28,14 @@ export default router({
     .query(({ input, ctx }) => Team.employeeStats(ctx.employeeId, input.employeeId, input.from, input.to)),
 
   /**
-   * An employee's days, as in their My day (decision 12), 7 per page.
+   * An employee's days, as in their My day (decision 12), `size` per page.
    * Seen by the employee and every manager above them.
    * @throws forbidden
    */
   history: authedProcedure
     .input(EmployeeHistoryInput)
     .output(History)
-    .query(({ input, ctx }) => Team.history(ctx.employeeId, input.employeeId, input.page)),
+    .query(({ input, ctx }) => Team.history(ctx.employeeId, input.employeeId, input.page, input.size)),
 
   /**
    * The direct manager scores a past day of a report, 0–100, with an

@@ -320,8 +320,10 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
     INSERT INTO bot_usage (bot_id, day, requests, refused, last_request_at)
     SELECT ${bot}, d::date, 20 + (extract(day FROM d)::int * 7) % 30, CASE WHEN d = CURRENT_DATE - 3 THEN 1 ELSE 0 END,
            d + TIME '17:40'
-      FROM generate_series(CURRENT_DATE - 13, CURRENT_DATE - 1, INTERVAL '1 day') d
+      FROM generate_series(local_today(${bot}) - 13, local_today(${bot}) - 1, INTERVAL '1 day') d
      WHERE extract(isodow FROM d) < 6
+        ON CONFLICT (bot_id, day) DO UPDATE
+       SET requests = bot_usage.requests + EXCLUDED.requests, refused = bot_usage.refused + EXCLUDED.refused
   `;
   await sql`UPDATE bot SET key_issued_at = NOW() - INTERVAL '14 months' WHERE employee_id = ${bot}`;
 

@@ -1,12 +1,12 @@
-import { CloudOff, NotificationsNone, StopCircleOutlined } from '@mui/icons-material';
+import { CloudOff, NotificationsNone, PlayCircleOutline, StopCircleOutlined } from '@mui/icons-material';
 import { Badge, Button, Chip, IconButton, Tooltip } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { useFormat } from '#client/hooks/format.ts';
 import { useOutbox } from '#client/hooks/offline.ts';
-import { POLL_MS } from '#client/hooks/task.ts';
+import { POLL_MS, useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import { focusTodo } from '#client/hooks/store.ts';
 import ShiftDialog, { shiftEnd } from '../MyDayPage/ShiftDialog.tsx';
@@ -15,9 +15,9 @@ import ShiftDialog, { shiftEnd } from '../MyDayPage/ShiftDialog.tsx';
  * What the top line shows on every page, a task page included: whether
  * there is a connection and how many changes wait to be sent; how much
  * waits for me in TODO (a click brings My day and shows the TODO block, even
- * when My day is already open), and the open shift with its
- * running time — closed from here at the end of the day. A shift is started
- * in My day, where the first visit suggests its start.
+ * when My day is already open), and the shift: started now with one click,
+ * then its running time — finished from here at the end of the day
+ * (decision 54).
  */
 export default function () {
   const { t } = useTranslation();
@@ -28,6 +28,10 @@ export default function () {
   const todo = useQuery(trpc.MyDay.todo.queryOptions(undefined, { refetchInterval: POLL_MS }));
   const shift = useQuery(trpc.Work.open.queryOptions(undefined, { refetchInterval: POLL_MS }));
   const [closing, setClosing] = useState(false);
+  const refresh = useTaskRefresh();
+  const start = useMutation(trpc.Work.start.mutationOptions({
+    onSuccess: refresh,
+  }));
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 60_000);
@@ -57,6 +61,13 @@ export default function () {
             icon={<CloudOff />}
             label={outbox.length ? t('offline.pending', { count: outbox.length }) : t('offline.offline')}
           />
+        </Tooltip>
+      )}
+      {shift.isSuccess && !startedAt && (
+        <Tooltip title={t('myDay.shift.start')}>
+          <IconButton aria-label={t('myDay.shift.start')} disabled={start.isPending} onClick={() => start.mutate({ startedAt: new Date() })}>
+            <PlayCircleOutline />
+          </IconButton>
         </Tooltip>
       )}
       {startedAt && (

@@ -9,15 +9,19 @@ import { useTRPC } from '#client/hooks/trpc.ts';
 import Day from './Day.tsx';
 import DayCard from './DayCard.tsx';
 
-const DAYS_PER_PAGE = 7;
+/** My day shows today and the last day before it with activity; the rest is History, the employee page. */
+const MY_DAY_DAYS = 2;
+const DAYS_PER_PAGE = 14;
 
 /**
- * Days from today back, with pages: shifts, time logged, visits, scores.
- * Without `employeeId` — my own days, where I start and close shifts; with
- * it — someone else's, read-only, scored by their direct manager. On an
- * employee page (`onEmployeePage`) there is no title — the page says whose
- * days — and the days are cards of one size in a grid, each opening whole
- * in a dialog: a long day does not stretch the page.
+ * Days from today back (decision 54): shifts, time logged, the ribbon of
+ * visits and what was done, scores. Without `employeeId` — my own days in
+ * My day, today and the last one before it, where I start and finish
+ * shifts, with "History" leading to all of them; with it — someone's days
+ * on their page (mine too), with pages, read-only for others, scored by
+ * their direct manager. On an employee page (`onEmployeePage`) there is no
+ * title — the page says whose days — and the days are cards of one size in
+ * a grid, each opening whole in a dialog.
  */
 export default function (p: { employeeId?: number; canScore?: boolean; onEmployeePage?: boolean }) {
   const { t } = useTranslation();
@@ -25,15 +29,18 @@ export default function (p: { employeeId?: number; canScore?: boolean; onEmploye
   const me = useMe();
   const [page, setPage] = useState(1);
   const options = { refetchInterval: POLL_MS, placeholderData: keepPreviousData };
-  const mine = useQuery(trpc.MyDay.history.queryOptions({ page }, { ...options, enabled: p.employeeId === undefined }));
+  const mine = useQuery(trpc.MyDay.history.queryOptions(
+    p.onEmployeePage ? { page, size: DAYS_PER_PAGE } : { page: 1, size: MY_DAY_DAYS },
+    { ...options, enabled: p.employeeId === undefined },
+  ));
   const theirs = useQuery(trpc.Team.history.queryOptions(
-    { employeeId: p.employeeId ?? 0, page },
+    { employeeId: p.employeeId ?? 0, page, size: DAYS_PER_PAGE },
     { ...options, enabled: p.employeeId !== undefined },
   ));
   const history = p.employeeId === undefined ? mine : theirs;
   const data = history.data;
   const tasks = new Map((data?.tasks ?? []).map((task) => [task.id, task]));
-  const pages = Math.ceil((data?.total ?? 0) / DAYS_PER_PAGE);
+  const pages = p.onEmployeePage ? Math.ceil((data?.total ?? 0) / DAYS_PER_PAGE) : 1;
   const dayOf = (day: NonNullable<typeof data>['days'][number]) => (
     <Day
       key={day.day}

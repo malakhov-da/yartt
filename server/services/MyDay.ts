@@ -7,7 +7,7 @@ import { headers } from './Task.ts';
 
 export const PAGE_SIZE = 20;
 /** Days with activity per page of History. */
-export const DAYS_PER_PAGE = 7;
+
 const EXCERPT = 140;
 
 const MentionRow = z.object({
@@ -129,14 +129,15 @@ const ShiftRow = z.object({
 const EntryRow = z.object({ day: z.string(), id: z.number(), taskId: z.number(), minutes: z.number() });
 const VisitRow = z.object({ day: z.string(), taskId: z.number().nullable(), at: z.date() });
 const ActivityRow = z.object({ day: z.string(), first: z.date(), last: z.date() });
+const ActionRow = z.object({ day: z.string(), kind: z.enum(['comment', 'time']), taskId: z.number(), at: z.date() });
 const ScoreRow = z.object({ day: z.string(), value: z.number().nullable(), reason: z.string().nullable() });
 
 /**
- * My days, newest first, DAYS_PER_PAGE days with any activity per page:
- * shifts, time logged to tasks, visits and the score. Today is always
- * there — it is where a shift is started. Days are in my time zone.
+ * My days, newest first, `size` days with any activity per page: shifts,
+ * time logged to tasks, visits, what was done and the score. Today is
+ * always there — it is where a shift is started. Days are in my time zone.
  */
-export async function history(me: number, page: number): Promise<History> {
+export async function history(me: number, page: number, size: number): Promise<History> {
   const [row] = TodayRow.array().parse(await sql`SELECT local_today(${me})::text AS today`);
   const today = row!.today;
   const tz = sql`(SELECT time_zone FROM employee WHERE id = ${me})`;
@@ -151,7 +152,7 @@ export async function history(me: number, page: number): Promise<History> {
   const days = DayRow.array().parse(await sql`
     SELECT day::text FROM (${all}) d
      ORDER BY day DESC
-     LIMIT ${DAYS_PER_PAGE} OFFSET ${(page - 1) * DAYS_PER_PAGE}
+     LIMIT ${size} OFFSET ${(page - 1) * size}
   `).map((r) => r.day);
   const [count] = z.object({ n: z.number(), open: z.date().nullable() }).array().parse(await sql`
     SELECT count(*)::int AS n,
@@ -188,6 +189,17 @@ export async function history(me: number, page: number): Promise<History> {
      WHERE day = ANY(${days}::date[])
      GROUP BY day
   `);
+  const actions = ActionRow.array().parse(await sql`
+    SELECT day::text, kind, task_id, at FROM (
+      SELECT (created_at AT TIME ZONE ${tz})::date AS day, 'comment' AS kind, task_id, created_at AS at
+        FROM comment WHERE created_by = ${me}
+      UNION ALL
+      SELECT (added_at AT TIME ZONE ${tz})::date, 'time', task_id, added_at
+        FROM spent_minutes WHERE "by" = ${me}
+    ) a
+     WHERE day = ANY(${days}::date[])
+     ORDER BY at
+  `);
   const scores = ScoreRow.array().parse(await sql`
     SELECT day::text, value, reason FROM score WHERE employee_id = ${me} AND day = ANY(${days}::date[])
   `);
@@ -200,6 +212,7 @@ export async function history(me: number, page: number): Promise<History> {
       shifts: shifts.filter((r) => r.day === day).map(({ day: _, ...shift }) => shift),
       entries: entries.filter((r) => r.day === day).map(({ day: _, ...entry }) => entry),
       visits: visits.filter((r) => r.day === day).map(({ day: _, ...visit }) => visit),
+      actions: actions.filter((r) => r.day === day).map(({ day: _, ...action }) => action),
       firstActivity: a?.first ?? null,
       lastActivity: a?.last ?? null,
       score: s ? { value: s.value, reason: s.reason } : null,
@@ -209,6 +222,7 @@ export async function history(me: number, page: number): Promise<History> {
   const taskIds = [...new Set([
     ...entries.map((e) => e.taskId),
     ...visits.flatMap((v) => (v.taskId === null ? [] : [v.taskId])),
+    ...actions.map((a) => a.taskId),
   ])];
   return { today, days: result, tasks: await headers(me, taskIds), openShiftFrom: count?.open ?? null, total: count?.n ?? 1 };
 }

@@ -60,24 +60,29 @@ test.describe('My day', () => {
     await expect(page.getByText(/от Иван Кузнецов/)).toHaveCount(0);
   });
 
-  test('history: pages; an entry deleted; the open shift deleted; a shift started from a visit', async ({ page }) => {
+  test('My day keeps two days, History all of them; an entry deleted; the open shift deleted; a shift started now', async ({ page }) => {
     await signIn(page, 'pavel@example.com');
     const history = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Мои дни' }) });
-    await history.getByRole('button', { name: 'Go to page 2' }).click();
-    await expect(history.getByRole('button', { name: 'page 2' })).toHaveAttribute('aria-current', 'page');
-    await history.getByRole('button', { name: 'Go to page 1' }).click();
+    await expect(history.getByText('Сегодня', { exact: true })).toBeVisible();
+    await expect(history.locator('.MuiPagination-root')).toHaveCount(0);
+    await expect(history.getByLabel('Лента дня: смены, заходы и действия')).toHaveCount(2);
+    // History is Pavel's own page: all his days, in pages.
+    await history.getByRole('link', { name: 'История' }).click();
+    await expect(page.getByLabel('Лента дня: смены, заходы и действия').nth(2)).toBeVisible();
+    await page.goto('/');
 
-    const entries = history.getByRole('button', { name: 'Удалить списание' });
-    const before = await entries.count();
-    await entries.first().click();
-    await expect(entries).toHaveCount(before - 1);
+    // Every task once; several entries of one task are deleted one by one from a menu.
+    const total = history.getByText(/^Списано на задачи: /).first();
+    const before = await total.textContent();
+    await history.getByRole('button', { name: 'Удалить списание' }).first().click();
+    const menu = page.getByRole('menuitem');
+    if (await menu.count()) await menu.first().click();
+    await expect(total).not.toHaveText(before!);
 
-    // Pavel's last shift is open: deleting it lets today's visits start a shift again.
+    // Pavel's last shift is open: deleting it lets a shift start again — now.
     await history.getByRole('button', { name: 'Удалить открытую смену' }).click();
-    const start = history.getByRole('button', { name: /^Начать смену с \d\d:\d\d$/ }).first();
-    const time = (await start.getAttribute('aria-label'))!.slice(-5);
-    await start.click();
-    await expect(history.getByText(new RegExp(`Смена идёт с ${time}`))).toBeVisible();
+    await history.getByRole('button', { name: 'Начать смену' }).click();
+    await expect(history.getByText(/Смена идёт с \d\d:\d\d/)).toBeVisible();
   });
 });
 

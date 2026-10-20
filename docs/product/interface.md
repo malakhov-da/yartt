@@ -63,33 +63,28 @@ someone with reports:
   **New task** in the "I own" tab opens the form (2a). A task whose
   plan does not fit before its deadline says "At risk" (decision 40).
 - **My team** — only for someone with reports, under Current tasks; see 4.
-- **History** — my days, from today back into the past, with pages. A
-  day shows first its totals side by side — the time logged to tasks
-  (spent_minutes) and the time in its closed shifts (work), each when
-  there is any — then the tasks, then the shifts if the team keeps a
-  timesheet with the log of visits (the tasks I opened and My day, with
-  times). The log is laid out as if there were no
-  shifts and is wrapped by the shifts written down: the visits inside a
-  shift are under it, the ones outside any shift stand alone, each with
-  a clock icon that makes a shift from it — today, with no shift open or
-  after it, it starts the open shift, otherwise it adds a
-  closed one up to the last visit before the next shift (an open shift
-  lasts until infinity and would run into it). Nothing after the open
-  shift's start, on any day, can become a shift. When every visit is
-  inside a shift, only the shifts are shown, the log a "Details" click
-  away. Every task opened that day is in the time logged, at 0 if
-  nothing was logged to it, with "Log time" (15m, 30m, 1h, 2h a click
-  away), so time is logged where the day is reviewed, without opening
-  every task. Any other shift is added with the clock in the day's
-  header. The open shift is closed here or from the top line (the end
-  offered is now rounded up to the minute); past days suggest a shift
-  from the same visits — a day without shifts, or activity outside its
-  shifts (30 minutes or more before the first, between two or after the
-  last) as the shift that was not written down. Any day not scored is
-  mine to fix: "Add a shift" (a forgotten or a second one), and each
-  closed shift can be corrected or deleted (decision 37). The log speaks
-  of visits, not of what someone did, so it needs no verb forms
-  (decision 29).
+- **My days** — today and the last day before it with activity (on
+  Monday that is usually Friday: what was I doing?); "History" leads to
+  all of them, my own employee page (decision 54). A day in a few lines:
+  - its totals — the time in its closed shifts and the time logged to
+    tasks, with a warning when more is logged than worked;
+  - the ribbon: the day from 09 to 18 (wider if something happened
+    outside), the shifts as bars, every visit as a thin tick — faint
+    inside a shift, marked outside one — and what was done (a comment,
+    time logged) as a dot; a hover tells the time and the task;
+  - its shifts, each corrected or deleted while the day is not scored
+    (decision 37); today "Start the shift" starts one now, and "Finish"
+    closes it with what was done (the end offered is now, rounded up to
+    the minute) — the top line does the same with its icons;
+  - every task once, in one line: the time logged to it that day and
+    "Log time" (15m, 30m, 1h, 2h a click away), so time is logged where
+    the day is reviewed; the tasks opened and not logged are folded under
+    one line, a reminder;
+  - the visits one by one, folded too.
+  Any shift is added by hand with the clock in the day's header; a past
+  day suggests the shift its activity shows — a day without shifts, or 30
+  minutes or more of visits outside its shifts as the shift that was not
+  written down — confirmed with one click.
 
 There is no separate "closed by its deadline" item: a passed deadline
 closes the task like a manual close does, and the task simply leaves
@@ -305,10 +300,9 @@ changes anything; managers above look.
 
 ## 4a. Employee page — "how are this person's days?"
 
-The same History as in their My day: shifts, time logged to tasks, visits
-(which tasks were opened, when they came in), and the score of each day if
-given — laid out as a grid of day cards of one size (a week fits two rows
-on a wide screen); a day that does not fit fades out under "Details",
+All of their days, as in My day — shifts, time logged to tasks, the
+ribbon of visits and what was done, the score of each day if given — in
+pages of two weeks, laid out as a grid of day cards of one size; a day that does not fit fades out under "Details",
 which opens the whole day, with its actions, in a dialog. Nothing is hidden from the managers (decision 12). Seen by the employee and every manager
 above them. Only the direct manager scores a day — never required;
 managers higher up only look. A score is given in a small dialog, with a

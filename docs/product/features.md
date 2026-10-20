@@ -47,7 +47,7 @@ persona goal it serves. Status: **now** — stage one, **next** — stage two,
 | A weekly email for managers: Monday morning, days waiting for a score, tasks closed automatically, tasks at risk | Marina: the week starts with what needs her | now (done) |
 | A dark theme: as the system, or chosen in the profile | Pavel: My day open all evening without glare | now (done) |
 | Installable (PWA) and working offline: changes made without a connection are kept and sent at the first chance | everyone: a train or a basement does not stop work | now (done) |
-| The top line: how many TODO items wait for me, the open shift and closing it, from any page | Pavel: notice a mention and close the day without going back to My day | now (done) |
+| The top line: how many TODO items wait for me, starting a shift now, the open shift and closing it, from any page | Pavel: notice a mention and close the day without going back to My day | now (done) |
 | Personal tag colors and weights — in the profile | Pavel: scan lists faster | now (done) |
 
 ## Access
@@ -87,7 +87,7 @@ its manager wants that.
 | Timesheet: a shift suggested from the first and last activity, confirmed with one click | Pavel: log the day in seconds | now (done) |
 | Log own time to a task for a day | Marina: see where effort goes | now (done) |
 | Own time left per task, next to the time spent | Marina: compare plans with reality | now (done) |
-| My day: TODO, current tasks (mine and others), history of my days (shift, time logged, visits) | Pavel: know what to do next; log the day in seconds | now (done) |
+| My day: TODO, current tasks (mine and others), today and the last day before it — the ribbon of shifts, visits and what was done, every task once; all days in History | Pavel: know what to do next; log the day in seconds | now (done) |
 | Employee page: their days and scores, seen by the employee and managers above | Marina: honest feedback with facts | now (done) |
 | Score a past day of a direct report on their page, 0–100, with an optional reason; correct it later, every version is emailed | Marina: honest feedback with facts | now (done) |
 | Workload and weighted score for any period, with a chart by day or week | Marina, Oleg: workload and quality side by side | now (done) |

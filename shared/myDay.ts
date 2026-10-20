@@ -85,12 +85,22 @@ export const Visit = z.object({
 });
 export type Visit = z.infer<typeof Visit>;
 
+/** Something done, not only looked at: a comment written, time logged. */
+export const Action = z.object({
+  kind: z.enum(['comment', 'time']),
+  taskId: Id,
+  at: z.date(),
+});
+export type Action = z.infer<typeof Action>;
+
 export const DayHistory = z.object({
   day: Day,
   shifts: Shift.array(),
   entries: Entry.array(),
   /** Oldest first. */
   visits: Visit.array(),
+  /** Oldest first: what was done, for the day's ribbon next to the visits. */
+  actions: Action.array(),
   /** The first and last thing I did that day: visits, comments, time logged. */
   firstActivity: z.date().nullable(),
   lastActivity: z.date().nullable(),
@@ -102,6 +112,8 @@ export type DayHistory = z.infer<typeof DayHistory>;
 export const HistoryInput = z.object({
   /** 1 — starting from today. */
   page: z.number().int().min(1),
+  /** Days with activity per page: 2 in My day (today and the last day before), more on the employee page. */
+  size: z.number().int().min(1).max(31).default(7),
 });
 export type HistoryInput = z.infer<typeof HistoryInput>;
 

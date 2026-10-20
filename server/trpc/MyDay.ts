@@ -23,12 +23,13 @@ export default router({
     .query(({ input, ctx }) => MyDay.current(ctx.employeeId, input.tab, input.page)),
 
   /**
-   * The signed-in employee's days, newest first, 7 days with activity per
-   * page (today always first): shifts, time logged, visits, score.
+   * The signed-in employee's days, newest first, `size` days with activity
+   * per page (today always first): shifts, time logged, visits, what was
+   * done (comments, time logged), score.
    */
   history: authedProcedure
     .input(HistoryInput)
     .output(History)
-    .query(({ input, ctx }) => MyDay.history(ctx.employeeId, input.page)),
+    .query(({ input, ctx }) => MyDay.history(ctx.employeeId, input.page, input.size)),
 });
 

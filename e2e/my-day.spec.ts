@@ -51,29 +51,26 @@ test.describe('My day', () => {
     await expect(page.getByRole('tab', { name: /Остальные/ })).toHaveAttribute('aria-selected', 'true');
   });
 
-  test('history: start a shift today and close it with what was done; confirm a suggested one', async ({ page }) => {
-    // Each arrival of today has its own start button; the shift starts from it.
-    const first = page.getByRole('button', { name: /^Начать смену с \d\d:\d\d$/ }).first();
-    const time = (await first.getAttribute('aria-label'))!.slice(-5);
-    await first.click();
-    await expect(page.getByText(new RegExp(`Смена идёт с ${time}`))).toBeVisible();
-    await page.getByRole('button', { name: 'Закрыть', exact: true }).click();
+  test('a shift is started now from the top line and finished with what was done', async ({ page }) => {
+    const history = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Мои дни' }) });
+    await page.getByRole('banner').getByRole('button', { name: 'Начать смену' }).click();
+    await expect(history.getByText(/Смена идёт с \d\d:\d\d/)).toBeVisible();
+    await expect(page.getByRole('banner').getByRole('button', { name: 'Начать смену' })).toHaveCount(0);
+    await history.getByRole('button', { name: 'Закрыть', exact: true }).click();
     await page.getByLabel('Что сделано').fill('Проверка e2e');
     await page.getByRole('dialog').getByRole('button', { name: 'Закрыть', exact: true }).click();
     await expect(page.getByText('Проверка e2e')).toBeVisible();
-
-    await page.getByRole('button', { name: 'Подтвердить' }).first().click();
-    await expect(page.getByText(/Смена \d\d:\d\d–\d\d:\d\d/).first()).toBeVisible();
-    await expect(page.getByRole('navigation').or(page.locator('.MuiPagination-root')).first()).toBeVisible();
   });
 
   test('history: time is logged to a task I opened, right from My day', async ({ page }) => {
     const history = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Мои дни' }) });
     const entries = history.getByRole('button', { name: 'Удалить списание' });
-    await expect(history.getByRole('button', { name: 'Списать время' }).first()).toBeVisible();
+    // Opened and nothing logged: folded under one line.
+    await history.getByRole('button', { name: /Открывались без списания/ }).first().click();
     await page.waitForLoadState('networkidle');
     const before = await entries.count();
-    await history.getByRole('button', { name: 'Списать время' }).first().click();
+    const opened = history.getByRole('button', { name: /Открывались без списания/ }).first().locator('xpath=..');
+    await opened.getByRole('button', { name: 'Списать время' }).first().click();
     const dialog = page.getByRole('dialog');
     await dialog.getByRole('button', { name: '30м' }).click();
     await dialog.getByRole('button', { name: 'Сохранить' }).click();
@@ -105,24 +102,25 @@ test.describe('My day', () => {
 
   test('history: activity after a written shift is offered as the shift that was not written down', async ({ page }) => {
     await signIn(page, 'pavel@example.com');
-    const history = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Мои дни' }) });
-    const hint = history.getByText('Похоже на смену 20:10–21:05');
+    // Older days are in History, Pavel's own page.
+    await page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Мои дни' }) })
+      .getByRole('link', { name: 'История' }).click();
+    const hint = page.getByText('Похоже на смену 20:10–21:05');
     for (let page2 = 2; page2 <= 3; page2++) {
       await page.waitForLoadState('networkidle');
       if (await hint.isVisible()) break;
-      await history.getByRole('button', { name: `Go to page ${page2}` }).click();
+      await page.getByRole('button', { name: `Go to page ${page2}` }).click();
     }
-    const row = history.locator('.MuiStack-root').filter({ hasText: 'Похоже на смену 20:10–21:05' }).last();
-    // The visits outside the shift are in the log, each one can become a shift.
-    await expect(history.getByRole('button', { name: 'Добавить смену с 20:10' })).toBeVisible();
-    await row.getByRole('button', { name: 'Подтвердить' }).click();
-    await expect(history.getByText(/Смена 20:10–21:05/)).toBeVisible();
-    // Nothing is left outside the shifts: the log is a click away.
-    await expect(history.getByRole('button', { name: 'Добавить смену с 20:10' })).toHaveCount(0);
-    const day = history.locator('.MuiStack-root').filter({ hasText: /Смена 20:10–21:05/ })
-      .filter({ has: page.getByRole('button', { name: 'Подробнее' }) }).last();
+    await page.locator('.MuiPaper-root').filter({ hasText: 'Похоже на смену 20:10–21:05' }).last()
+      .getByRole('button', { name: 'Подтвердить' }).click();
+    const day = page.locator('.MuiPaper-root').filter({ hasText: /Смена 20:10–21:05/ }).last();
+    await expect(day).toBeVisible();
     await expect(day.getByText(/^В сменах: /)).toBeVisible(); // next to the time logged to tasks
+    // The ribbon shows the visits; one by one they are a click away, in the whole day.
+    await expect(day.getByLabel('Лента дня: смены, заходы и действия')).toBeVisible();
     await day.getByRole('button', { name: 'Подробнее' }).click();
-    await expect(day.getByText('20:10', { exact: true })).toBeVisible();
+    const whole = page.getByRole('dialog');
+    await whole.getByRole('button', { name: /^Заходы · \d+$/ }).click();
+    await expect(whole.getByText('20:10', { exact: true })).toBeVisible();
   });
 });

@@ -130,6 +130,25 @@ describe('history', () => {
     expect((await api.MyDay.history({ page: 1 })).days[0]!.entries).toEqual([]);
   });
 
+  test('what was done, for the ribbon: comments and time logged, in order; My day asks for two days', async () => {
+    const me = await createEmployee();
+    const api = await client(me.id);
+    const id = await createTask(me.id);
+    const { today } = await api.MyDay.history({ page: 1 });
+    await api.Comment.create({ taskId: id, html: '<p>Started</p>', replyToId: null, files: [], mentionIds: [], taskIds: [] });
+    await api.Time.log({ taskId: id, day: today, minutes: 15 });
+    const [day] = (await api.MyDay.history({ page: 1, size: 2 })).days;
+    expect(day!.actions.map((a) => [a.kind, a.taskId])).toEqual([['comment', id], ['time', id]]);
+
+    // A day logged earlier: two days fit, the third is on the next page.
+    for (const back of [3, 5]) {
+      await sql`INSERT INTO spent_minutes (task_id, "by", day, value) VALUES (${id}, ${me.id}, ${today}::date - ${back}::int, 10)`;
+    }
+    const two = await api.MyDay.history({ page: 1, size: 2 });
+    expect(two.days.map((d) => d.day)).toHaveLength(2);
+    expect(two.total).toBe(3);
+  });
+
   test('a shift just started closes as one minute: its end may be the end of the current minute', async () => {
     const me = await createEmployee();
     const api = await client(me.id);

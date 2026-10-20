@@ -304,9 +304,9 @@ export async function employeeStats(viewerId: number, employeeId: number, from: 
 }
 
 /** The same History as in their My day: shifts, time logged, visits, scores. */
-export async function history(viewerId: number, employeeId: number, page: number): Promise<History> {
+export async function history(viewerId: number, employeeId: number, page: number, size: number): Promise<History> {
   await assertCanView(viewerId, employeeId);
-  return MyDay.history(employeeId, page);
+  return MyDay.history(employeeId, page, size);
 }
 
 const ScoreRow = z.object({ value: z.number().nullable(), reason: z.string().nullable() });

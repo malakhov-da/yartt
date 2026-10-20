@@ -220,6 +220,8 @@ requests come first in TODO: they have no time of their own and they block
 
 ### 21. My day: the shift starts from the first activity
 
+*Changed by decision 54: a shift starts now, with a button.*
+
 Today offers "Start the shift at <first activity>" in one click (another
 time through the pencil). A past day without a shift offers the one its
 first and last activity suggest, confirmed in one click. Closing a shift
@@ -805,3 +807,30 @@ the setting off: sign-in links work again on the same data.
 `human.external_id`, `idp_*`, `session.created_at` (migration
 `0.1-0.2`); the `idp_check` cron; `Auth.config`; the login page;
 `docs/admin/install.md`.
+
+### 54. My day keeps two days; a day is a ribbon
+
+History in My day grew long: seven days a page, every task of a day up
+to three times — logged, opened at 0, and once per visit in the log under
+the shifts. Now My day keeps today and the last day before it with
+activity — what was I doing? — and "History" leads to all of them, the
+employee's own page, two weeks a page. A day lists every task once, with
+the time logged to it; tasks opened and not logged are folded under one
+line, the visits one by one under another.
+
+Transparency stays in one line: the ribbon of the day, the shifts as
+bars, every visit as a tick — faint inside a shift, marked outside one —
+and what was done, a comment or time logged, as a dot. It shows at a
+glance when someone was here and whether that agrees with the shifts. A
+visit proves little — clicking around is easy — but a shift without a
+single mark inside, or work outside any shift, stands out, and a comment
+is harder to fake than a visit; that is why they are marked apart.
+
+A shift starts now, with "Start the shift" in today's header or the icon
+in the top line, and finishes now with "Finish", which still asks what
+was done (decision 21). Starting from a visit is gone: an earlier start
+is a correction of the shift, or a shift added by hand afterwards.
+
+*Implemented:* `DayHistory.actions`, `HistoryInput.size` in
+`shared/myDay.ts`; `client/components/MyDayPage/Day.tsx`, `DayRibbon.tsx`,
+`History.tsx`; the start icon in `client/components/App/TopStatus.tsx`.
