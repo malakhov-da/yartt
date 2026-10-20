@@ -21,16 +21,16 @@ test.describe('search', () => {
     await page.keyboard.press('Escape');
     await page.getByRole('tab', { name: /Остальные/ }).click();
     await expect(panel(page).getByRole('link', { name: /^#/ }).filter({ hasNotText: 'склад' })).toHaveCount(0);
-    await panel(page).getByRole('link', { name: /склад инвентаризация/ }).click();
+    await panel(page).getByRole('link', { name: /склад инвентаризация за октябрь/ }).click();
     await expect(page).toHaveURL(/\/tasks\/\d+$/);
   });
 
   test('a tag is found despite a typo or the other layout; words become a set of tags', async ({ page }) => {
     await search(page).fill('crkfl');
     await expect(page.getByRole('option', { name: 'склад', exact: true })).toBeVisible();
-    await search(page).fill('склад инвентризация');
-    await page.getByRole('option', { name: 'склад инвентаризация', exact: true }).first().click();
-    await expect(page.getByRole('button', { name: 'инвентаризация', exact: true })).toBeVisible();
+    await search(page).fill('скалд закупкм');
+    await page.getByRole('option', { name: 'склад закупки', exact: true }).first().click();
+    await expect(page.getByRole('button', { name: 'закупки', exact: true })).toBeVisible();
   });
 
   test('only tags are searched: a missing tag is not offered, Enter takes the best match', async ({ page }) => {
@@ -44,7 +44,7 @@ test.describe('search', () => {
     await expect(page.getByRole('button', { name: 'склад', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
     await page.getByRole('tab', { name: /Остальные/ }).click();
-    await expect(panel(page).getByRole('link', { name: /склад инвентаризация/ })).toBeVisible();
+    await expect(panel(page).getByRole('link', { name: /склад инвентаризация за октябрь/ })).toBeVisible();
   });
 
   test('"+" takes the title typed: the picked tags and the rest as a new tag', async ({ page }) => {
@@ -60,7 +60,8 @@ test.describe('search', () => {
 
   test('a title that is taken: "+" is off, and the task with it is named', async ({ page }) => {
     await search(page).click();
-    for (const tag of ['офис', 'переезд']) {
+    // A title as the demo's office move has it: the rubric and its phrase.
+    for (const tag of ['офис', 'переезд на 5-й этаж']) {
       await page.keyboard.type(tag);
       await page.keyboard.press('Enter');
       await expect(page.getByRole('button', { name: tag, exact: true })).toBeVisible();

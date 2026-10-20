@@ -33,7 +33,7 @@ test.describe('the top line', () => {
       await sql`UPDATE employee SET locale = ${locale} WHERE email = 'marina@example.com'`;
       await signIn(page, 'marina@example.com');
       await noRawKeys(page);
-      await page.goto(`/tasks/${await taskId('склад', 'инвентаризация')}`);
+      await page.goto(`/tasks/${await taskId('склад', 'инвентаризация за октябрь')}`);
       await expect(page.getByText('инвентаризация').filter({ visible: true }).first()).toBeVisible();
       await page.getByRole('button', { name: /Все события|All events/ }).last().click();
       await noRawKeys(page);
@@ -105,7 +105,7 @@ test.describe('a task', () => {
     // A hard dependency on the site (deadline in a few days) while mine is a year ahead is fine;
     // a lag of a year is not.
     await page.getByLabel('Дедлайн').fill(`${new Date().getFullYear() + 1}-01-10T12:00`);
-    const site = await taskId('сайт', 'редизайн', 'главная');
+    const site = await taskId('сайт', 'новая главная к осенней кампании');
     await page.getByRole('button', { name: 'Добавить' }).first().click();
     await page.getByLabel('Найти задачу: теги или номер').fill(`#${site}`);
     await page.getByRole('button', { name: `Выбрать задачу #${site}` }).click();
@@ -170,7 +170,7 @@ test.describe('a task', () => {
 
   test("one person's time entries in a row are one line in the feed, the days on a click", async ({ page }) => {
     await signIn(page, 'marina@example.com');
-    const stock = await taskId('склад', 'инвентаризация');
+    const stock = await taskId('склад', 'инвентаризация за октябрь');
     // How many days the seed gave Marina depends on the calendar (her days are
     // among the last ten), so the number comes from the data, as the feed counts it.
     const [row] = await sql<{ days: number }[]>`
@@ -191,7 +191,7 @@ test.describe('a task', () => {
 
   test('time logged for a past day lands on that day in My day', async ({ page }) => {
     await signIn(page, 'olga@example.com');
-    await page.goto(`/tasks/${await taskId('onboarding', 'документация')}`);
+    await page.goto(`/tasks/${await taskId('найм', 'документация', 'памятка новичку на первую неделю')}`);
     await page.getByRole('button', { name: 'Списать время' }).click();
     const day = new Date(Date.now() - 2 * 86_400_000);
     const ymd = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;

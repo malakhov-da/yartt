@@ -874,6 +874,10 @@ typed, the rubrics that most often go with the picked ones are offered,
 so the same things keep the same names; a phrase of one task is never
 offered as one.
 
+The demo company is written this way too — "сайт · новая главная к
+осенней кампании", "поддержка · тикет 1049: двойное списание по карте" —
+since it is the first thing anyone weighing yartt sees.
+
 *Implemented:* `Tag.phrase` from `headers()` in `server/services/Task.ts`;
 `Tags.related`; `client/components/App/TaskTitle.tsx`; "Often together"
 in `TagInput`.

@@ -34,7 +34,7 @@ test.describe('new task', () => {
   });
 
   test('"New task" under "Waited on by" makes a task that waits for this one', async ({ page }) => {
-    const id = await taskId('склад', 'инвентаризация');
+    const id = await taskId('склад', 'инвентаризация за октябрь');
     await page.goto(`/tasks/${id}`);
     await page.getByRole('link', { name: 'Новая задача' }).last().click();
     await expect(page).toHaveURL(new RegExp(`/tasks/new\\?waitsFor=${id}$`));
@@ -45,7 +45,7 @@ test.describe('new task', () => {
     await page.keyboard.type(phrase);
     await page.getByRole('button', { name: 'Создать задачу' }).click();
     await expect(page).toHaveURL(/\/tasks\/\d+$/);
-    await expect(page.getByRole('link', { name: new RegExp(`#${id} склад инвентаризация`) })).toBeVisible();
+    await expect(page.getByRole('link', { name: new RegExp(`#${id} склад инвентаризация за октябрь`) })).toBeVisible();
     await expect(page.getByText(phrase, { exact: true }).filter({ visible: true }).first()).toBeVisible();
   });
 
@@ -57,6 +57,6 @@ test.describe('new task', () => {
     await page.keyboard.press('Enter');
     await page.getByRole('button', { name: /^Выбрать задачу #\d+$/ }).first().click();
     await page.getByRole('button', { name: 'Сохранить' }).click();
-    await expect(page.getByRole('link', { name: /офис( · )?переезд/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: /офис.*(переезд|принтер)/ })).toBeVisible();
   });
 });

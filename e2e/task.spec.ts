@@ -103,7 +103,7 @@ test.describe.serial('a task from creation to hand-over', () => {
   });
 
   test('a hard dependency on another task; its hint explains the tie', async () => {
-    const site = await taskId('сайт', 'редизайн', 'главная');
+    const site = await taskId('сайт', 'новая главная к осенней кампании');
     await page.getByRole('button', { name: 'Добавить' }).first().click();
     await page.getByLabel('Найти задачу: теги или номер').fill(`#${site}`);
     await page.getByRole('button', { name: `Выбрать задачу #${site}` }).click();
@@ -141,7 +141,7 @@ test.describe.serial('a task from creation to hand-over', () => {
 
 test('someone without access sees the header and asks for it', async ({ page }) => {
   await signIn(page, 'ivan@example.com');
-  const report = await taskId('отчёт', 'q3');
+  const report = await taskId('финансы', 'квартальный отчёт для совета директоров');
   await page.goto(`/tasks/${report}`);
   await expect(page.getByText('Это приватная задача')).toBeVisible();
   await page.getByRole('button', { name: 'Запросить доступ' }).click();
@@ -152,7 +152,7 @@ test('someone without access sees the header and asks for it', async ({ page }) 
 
 test('a reply lives in its thread; the feed marks its moment with a line that unfolds the thread', async ({ page }) => {
   await signIn(page);
-  await page.goto(`/tasks/${await taskId('склад', 'инвентаризация')}`);
+  await page.goto(`/tasks/${await taskId('склад', 'инвентаризация за октябрь')}`);
   await page.getByRole('button', { name: /^Все события/ }).last().click();
   const request = page.locator('[id^="comment-"]').filter({ hasText: 'Иван, пересчитай' });
   const thread = page.locator('div').filter({ has: request }).filter({ hasText: 'Пересчитал, расхождений нет.' }).first();

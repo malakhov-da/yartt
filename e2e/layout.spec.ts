@@ -14,7 +14,7 @@ test.describe('at phone width', () => {
   test('My day with the team, a task, an employee page', async ({ page }) => {
     await signIn(page);
     await fits(page);
-    await page.goto(`/tasks/${await taskId('сайт', 'редизайн', 'главная')}`);
+    await page.goto(`/tasks/${await taskId('сайт', 'новая главная к осенней кампании')}`);
     await expect(page.getByText('Новая главная к запуску осенней кампании.')).toBeVisible();
     await fits(page);
     await page.goto(`/employees/${await employeeId('marina@example.com')}`);

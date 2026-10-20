@@ -42,7 +42,7 @@ test.describe('My day', () => {
     await expect(page.getByRole('tab', { name: /Я владелец · 3/ })).toBeVisible();
     const others = page.getByRole('tab', { name: /Остальные · \d+/ });
     await others.click();
-    await expect(page.getByRole('link', { name: /тикет-/ }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: /тикет \d+/ }).first()).toBeVisible();
     await page.getByRole('button', { name: 'Go to page 2' }).first().click();
     await expect(page.getByRole('link', { name: /#\d+/ }).first()).toBeVisible();
     // The tab keeps its state when coming back from a task.

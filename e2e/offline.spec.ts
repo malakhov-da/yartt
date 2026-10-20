@@ -5,7 +5,7 @@ import { editable, signIn, taskId } from './helpers.ts';
 // accepted, survives a reload, and goes out when the connection is back.
 test('a comment written offline waits in the outbox, survives a reload and is sent when online', async ({ page, context }) => {
   await signIn(page);
-  const id = await taskId('отчёт', 'q3');
+  const id = await taskId('финансы', 'квартальный отчёт для совета директоров');
   await page.goto(`/tasks/${id}`);
   await expect(page.getByText('отчёт').filter({ visible: true }).first()).toBeVisible();
   // The service worker takes over the page once it is installed.

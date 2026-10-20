@@ -8,7 +8,7 @@ test.describe('the top line', () => {
     await page.waitForLoadState('networkidle');
     const items = await page.getByRole('heading', { name: /^Ждёт меня/ }).textContent();
     const count = Number(items!.match(/\d+/)?.[0] ?? 0);
-    await page.goto(`/tasks/${await taskId('сайт', 'редизайн', 'главная')}`);
+    await page.goto(`/tasks/${await taskId('сайт', 'новая главная к осенней кампании')}`);
     const todo = page.getByRole('button', { name: `Ждёт меня: ${count}`, exact: true });
     await expect(todo).toBeVisible();
     await todo.click();
