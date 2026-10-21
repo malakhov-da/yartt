@@ -24,8 +24,8 @@ answer for its deadline — set a sensible one and watch it, move it in
 time, or explain why the task is closed but not done. Current tasks in
 **My day** are sorted by deadline, so the nearest ones are always on top.
 A closed task is not singled out — automatic and manual closing look the
-same, and reopening a task closed by mistake is the owner's job. Hard
-dependencies may forbid the move; then the owner has to go and
+same, and reopening a task closed by mistake is the owner's job. A deadline
+constraint of a dependency may forbid the move; then the owner has to go and
 negotiate with the owners of the dependent tasks.
 
 ### 3. Email is built in
@@ -1039,4 +1039,19 @@ still join with their reports: that is the org chart, not a choice.
 
 *Implemented:* `trg_mention_check()` (migration `0.2-0.3`);
 `Observer.mentionable`; the mention picker in `Composer`.
+
+### 65. A dependency constrains the deadline or it does not
+
+"Hard" and "soft" dependencies were two words to learn for one choice:
+whether the deadlines are tied. Now there is just a dependency — "Waits
+for" — and a checkbox "Constrain the deadline" with "no earlier than"
+a time after the other; a dependency without it only shows that one
+task waits for another. The line of a dependency says "deadline no
+earlier, +1d" when it has one. The guide, the docs and the
+specification say the same. Names inside stay — `min_minutes_after`,
+the error `hard_dependency_violated` and the field `hard` of the
+`dependency_added` webhook payload — so integrations do not break.
+
+*Implemented:* `Dependencies` in `client/components/TaskPage/`; the
+comments of `db.sql` (migration `0.2-0.3`).
 

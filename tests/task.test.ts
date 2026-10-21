@@ -306,7 +306,7 @@ describe('feed events', () => {
 });
 
 describe('dependencies', () => {
-  test('the owner sets soft and hard ones; cycles and broken deadlines are refused; the other owner is told', async () => {
+  test('the owner sets them with and without a deadline constraint; cycles and broken deadlines are refused; the other owner is told', async () => {
     const owner = await createEmployee();
     const other = await createEmployee();
     const stranger = await createEmployee();
@@ -324,7 +324,7 @@ describe('dependencies', () => {
       .rejects.toMatchObject({ message: 'dependency_cycle' });
     await expect(api.Dependency.set({ taskId: id, value: id, minMinutesAfter: null })).rejects.toMatchObject({ message: 'dependency_cycle' });
 
-    // Hard: my deadline must be at least a day after theirs, and theirs must exist.
+    // With a constraint: my deadline must be at least a day after theirs, and theirs must exist.
     await api.Task.setDeadline({ id, deadline: new Date(Date.now() + 2 * 86_400_000) });
     await expect(api.Dependency.set({ taskId: id, value: base, minMinutesAfter: 1440 }))
       .rejects.toMatchObject({ message: 'hard_dependency_violated' });

@@ -34,8 +34,8 @@ export const helpEn: Help = {
     {
       title: 'Dependencies instead of subtasks',
       text: 'A follow-up task takes the tags of the one it came from and adds its own — no need to know in advance whether there will be '
-        + '"subtasks". "Waits for" is more flexible than a subtask: one task may be needed by several. A hard dependency ties the '
-        + 'deadlines, so what people promised each other is seen and kept in check.',
+        + '"subtasks". "Waits for" is more flexible than a subtask: one task may be needed by several. A dependency may constrain '
+        + 'the deadline, and then what people promised each other is seen and kept in check.',
     },
     {
       title: 'A deadline closes the task by itself',
@@ -77,8 +77,10 @@ export const helpEn: Help = {
       title: 'Link tasks',
       steps: [
         'On a task\'s page: "Waits for" — what it cannot be finished without; "Waited on by" — who needs it. A task is found by tags or number.',
-        'A soft link only shows the dependency. A hard one ties the deadlines: the waiting task ends no earlier than the one it waits for '
-          + '(with a margin, say 1d). To move a deadline later, the waiting task is moved first — its owner is notified.',
+        'A dependency constrains the deadline or it does not. Without a constraint it only shows the task waits for another. With one '
+          + '("Constrain the deadline"), the waiting task ends no earlier than the one it waits for — with a margin if you like, say 1d. '
+          + 'To move that task\'s deadline later, the waiting one\'s is moved first.',
+        'The owner of the task waited for is notified of a new dependency.',
       ],
     },
     {

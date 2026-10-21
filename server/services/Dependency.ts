@@ -6,10 +6,10 @@ import { sql, type Sql } from '../pg.ts';
 const Owner = z.object({ ownerId: z.number().nullable(), isNew: z.boolean() });
 
 /**
- * The owner of a task makes it wait for another one, or changes the kind
- * and lag. Cycles are refused at once, broken hard dependencies at commit
+ * The owner of a task makes it wait for another one, or changes its
+ * deadline constraint. Cycles are refused at once, broken deadline constraints at commit
  * (triggers). A new dependency is told to the owner of the task waited
- * for: a hard one ties their deadline.
+ * for: a constraint ties their deadline.
  */
 export async function set(actorId: number, input: SetDependencyInput): Promise<void> {
   await sql.begin((tx) => setIn(tx as unknown as Sql, actorId, input));

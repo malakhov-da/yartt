@@ -133,7 +133,8 @@ Left, top to bottom:
   the comments, so it keeps no history of its own; neither do the owner,
   priority and tags — they are the task's state, not its story.
 - **Dependencies:** "Waits for", then "Waited on by", one under the other.
-  Each line — tags, priority, kind (hard, with its lag), deadline, owner's
+  Each line — tags, priority, its deadline constraint if it has one
+  ("deadline no earlier, +1d"), deadline, owner's
   avatar. Resolved dependencies stay in the list, struck through, so the
   history of what blocked the task is not lost.
   **New task** next to each list opens the new-task form tied to this

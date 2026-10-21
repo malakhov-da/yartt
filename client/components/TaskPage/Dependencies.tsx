@@ -1,5 +1,5 @@
 import { Add, AddTask, Close, Edit } from '@mui/icons-material';
-import { Box, Button, IconButton, MenuItem, Stack, TextField, Tooltip, Typography } from '@mui/material';
+import { Box, Button, Checkbox, FormControlLabel, IconButton, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
@@ -24,15 +24,17 @@ type Draft = {
   picked: TaskHeader | null;
   parts: TagPart[];
   input: string;
-  hard: boolean;
+  /** Constrains the deadline: this task finishes no earlier than `lag` after the other. */
+  limited: boolean;
   lag: string;
   editing: number | null;
 };
 
 /**
  * "Waits for", then "Waited on by". The owner links a task this one waits
- * for — found by tags or number as in the search (decision 55), soft, or
- * hard with a lag that ties the deadlines — changes and removes it; anyone
+ * for — found by tags or number as in the search (decision 55), with or
+ * without a deadline constraint (no earlier than a time after it) —
+ * changes and removes it; anyone
  * who sees this task makes one of their own wait for it. "+" in the search
  * opens the new-task form with the title typed, tied to this one.
  */
@@ -44,27 +46,27 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
   const { task } = p;
   const isOwner = task.access === 'owner';
   const [draft, setDraft] = useDraft<Draft | null>(`link:${task.id}`, null);
-  const start = (waits: boolean) => setDraft({ waits, picked: null, parts: [], input: '', hard: false, lag: '1д', editing: null });
+  const start = (waits: boolean) => setDraft({ waits, picked: null, parts: [], input: '', limited: false, lag: '1д', editing: null });
   const set = useMutation(trpc.Dependency.set.mutationOptions({ onSuccess: () => { refresh(); setDraft(null); } }));
   const remove = useMutation(trpc.Dependency.remove.mutationOptions({ onSuccess: refresh }));
 
   const note = (dep: Dependency) =>
     dep.minMinutesAfter === null ? undefined
-    : dep.minMinutesAfter === 0 ? t('task.hardNoLag')
-    : t('task.hard', { lag: format.minutes(dep.minMinutesAfter) });
+    : dep.minMinutesAfter === 0 ? t('task.limitedNoLag')
+    : t('task.limited', { lag: format.minutes(dep.minMinutesAfter) });
   const hint = (dep: Dependency, waits: boolean) =>
-    dep.minMinutesAfter === null ? undefined : t('task.hardHint', {
+    dep.minMinutesAfter === null ? undefined : t('task.limitedHint', {
       // The dependent task finishes no earlier than lag after the one it waits for.
       dependent: waits ? task.id : dep.id,
       dependency: waits ? dep.id : task.id,
       lag: format.minutes(dep.minMinutesAfter),
     });
 
-  const lag = draft?.hard ? parseMinutes(draft.lag, true) : null;
-  const valid = !!draft?.picked && draft.picked.id !== task.id && (!draft.hard || lag !== null);
+  const lag = draft?.limited ? parseMinutes(draft.lag, true) : null;
+  const valid = !!draft?.picked && draft.picked.id !== task.id && (!draft.limited || lag !== null);
   const save = () => valid && set.mutate(draft!.waits
-    ? { taskId: task.id, value: draft!.picked!.id, minMinutesAfter: draft!.hard ? lag : null }
-    : { taskId: draft!.picked!.id, value: task.id, minMinutesAfter: draft!.hard ? lag : null });
+    ? { taskId: task.id, value: draft!.picked!.id, minMinutesAfter: draft!.limited ? lag : null }
+    : { taskId: draft!.picked!.id, value: task.id, minMinutesAfter: draft!.limited ? lag : null });
 
   const groups = [
     { title: t('task.waitsFor'), items: task.details.waitsFor, waits: true },
@@ -106,7 +108,7 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
                       picked: dep,
                       parts: [],
                       input: '',
-                      hard: dep.minMinutesAfter !== null,
+                      limited: dep.minMinutesAfter !== null,
                       lag: dep.minMinutesAfter === null ? '1д' : format.minutes(dep.minMinutesAfter),
                       editing: dep.id,
                     })}>
@@ -146,18 +148,11 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
                   </Tooltip>
                 )}
               </Box>
-              <TextField
-                select
-                size="small"
-                label={t('task.dependency.kind')}
-                value={draft.hard ? 'hard' : 'soft'}
-                onChange={(e) => setDraft({ ...draft, hard: e.target.value === 'hard' })}
-                sx={{ width: 170 }}
-              >
-                <MenuItem value="soft">{t('task.dependency.soft')}</MenuItem>
-                <MenuItem value="hard">{t('task.dependency.hard')}</MenuItem>
-              </TextField>
-              {draft.hard && (
+              <FormControlLabel
+                control={<Checkbox checked={draft.limited} onChange={(e) => setDraft({ ...draft, limited: e.target.checked })} />}
+                label={t('task.dependency.limit')}
+              />
+              {draft.limited && (
                 <TextField
                   size="small"
                   label={t('task.dependency.lag')}
@@ -172,7 +167,7 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
               <Button variant="contained" disabled={!valid || set.isPending} onClick={save}>{t('common.save')}</Button>
               <Button color="inherit" onClick={() => setDraft(null)}>{t('common.cancel')}</Button>
               <Typography variant="caption" sx={{ color: 'text.secondary', flexBasis: '100%' }}>
-                {draft.hard ? t('task.dependency.hardHelp') : t('task.dependency.softHelp')}
+                {draft.limited ? t('task.dependency.limitHelp') : t('task.dependency.freeHelp')}
               </Typography>
             </Stack>
           )}

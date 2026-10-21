@@ -113,8 +113,8 @@ Key principles:
     it — owners of dependent tasks are notified.
   - A passed deadline closes the task by itself — on purpose. An owner who
     did not finish in time has to move the deadline before it passes, or
-    explain why the task is closed but not done. Hard dependencies may
-    forbid the move; then the owner has to negotiate with the owners of
+    explain why the task is closed but not done. A deadline constraint
+    of a dependency may forbid the move; then the owner has to negotiate with the owners of
     the dependent tasks.
   - A task has an owner (owner_id). There is no separate creator role.
   - Ownership can be transferred by the owner or by the owner''s direct
@@ -135,7 +135,8 @@ Key principles:
   - The deadline (finished_at) lives in an interval table. The current
     value = expired_at IS NULL. Clearing = closing the active row without
     opening a new one.
-  - A hard dependency (min_minutes_after IS NOT NULL) ties deadlines: a
+  - A dependency with a deadline constraint (min_minutes_after IS NOT
+    NULL) ties deadlines: a
     task cannot finish earlier than min_minutes_after after its
     dependency. To move a dependency''s deadline later, owners of the
     dependent tasks move theirs first — that is how a postponement is
@@ -517,7 +518,7 @@ INVARIANTS (forbidden; all checked in the database)
   Dependencies:
     - Self-dependency (task_id = value).
     - A cycle (A -> B -> A).
-    - Breaking a hard dependency: the dependent task has a deadline while
+    - Breaking a deadline constraint: the dependent task has a deadline while
       the dependency has none, or
       finished_at(value) + min_minutes_after > finished_at(task_id).
 
@@ -1464,8 +1465,8 @@ COMMENT ON COLUMN dependency.value IS
 
 COMMENT ON COLUMN dependency.min_minutes_after IS
 'Minimum minutes needed to finish task_id after value is finished.
-NULL = a soft dependency: deadlines are not tied.
-NOT NULL = a hard one: if task_id has a deadline, value must have one too
+NULL = no deadline constraint: deadlines are not tied.
+NOT NULL = a deadline constraint: if task_id has a deadline, value must have one too
 and finished_at(value) + min_minutes_after <= finished_at(task_id).
 Checked at commit (deferred trigger). So the deadline of value can be
 moved later or cleared only after owners of the dependent tasks have
@@ -1495,7 +1496,7 @@ through set_finished_at / clear_finished_at.
 Move: the old row is closed and a new one opened.
 Clear: the old row is closed, no new one is created.
 Owners of dependent tasks are notified.
-Hard dependencies are checked at commit.';
+Deadline constraints of dependencies are checked at commit.';
 
 COMMENT ON COLUMN finished_at.task_id IS
 'Which task.';
@@ -1987,8 +1988,8 @@ RULES:
   - access closed (removed, request rejected, the task made private
     without them) -> the employee.
   - finished_at set / moved / cleared -> owners of dependent tasks.
-  - a new dependency -> the owner of the task waited for (a hard one ties
-    their deadline).
+  - a new dependency -> the owner of the task waited for (one with a deadline
+    constraint ties their deadline).
   - owner change -> the new owner. If the manager initiated it — the
     previous owner too.
   - score -> the scored employee.
@@ -2320,7 +2321,7 @@ locks the rows, so the cleanup cannot delete them concurrently.';
 
 
 -- ----------------------------------------------------------------------------
--- check_deadlines — hard dependencies
+-- check_deadlines — deadline constraints of dependencies
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION check_deadlines(p_task_id INT)
 RETURNS VOID AS $$
@@ -2343,7 +2344,7 @@ BEGIN
      LIMIT 1;
 
     IF FOUND THEN
-        RAISE EXCEPTION 'deadline of task % violates hard dependency on task %',
+        RAISE EXCEPTION 'deadline of task % violates the deadline constraint of its dependency on task %',
             v_task_id, v_value
             USING HINT = 'hard_dependency_violated',
                   DETAIL = json_build_object('taskId', v_task_id, 'dependencyId', v_value)::text;
@@ -2352,7 +2353,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION check_deadlines(INT) IS
-'Checks the task''s hard dependencies in both directions.
+'Checks the deadline constraints of the task''s dependencies in both
+directions.
 A global advisory lock serializes the checks so that two concurrent
 transactions cannot break the invariant together.';
 
@@ -2734,7 +2736,7 @@ FOR EACH ROW EXECUTE FUNCTION trg_dependency_cycle();
 
 
 -- ----------------------------------------------------------------------------
--- dependency / finished_at: hard dependencies (at commit)
+-- dependency / finished_at: deadline constraints (at commit)
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION trg_check_deadlines()
 RETURNS TRIGGER AS $$
@@ -4194,7 +4196,7 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION set_finished_at(INT, TIMESTAMPTZ) IS
 'Sets or moves the deadline (later or earlier). Permissions — in the
-application. Hard dependencies are checked at commit.';
+application. Deadline constraints of dependencies are checked at commit.';
 
 
 CREATE OR REPLACE FUNCTION clear_finished_at(p_task_id INT)
@@ -4210,7 +4212,8 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION clear_finished_at(INT) IS
 'Clears the deadline. Permissions — in the application.
-Forbidden if tasks with a deadline depend on this task hard.';
+Forbidden if tasks with a deadline depend on this task with a deadline
+constraint.';
 
 
 -- ----------------------------------------------------------------------------

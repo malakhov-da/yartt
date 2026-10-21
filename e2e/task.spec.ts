@@ -118,7 +118,7 @@ test.describe.serial('a task from creation to hand-over', () => {
     await expect(page.getByText(/Упомянут — остаётся/)).toBeVisible();
   });
 
-  test('a hard dependency on another task; its hint explains the tie', async () => {
+  test('a dependency on another task is added and removed', async () => {
     const site = await taskId('сайт', 'новая главная к осенней кампании');
     await page.getByRole('button', { name: 'Добавить' }).first().click();
     await page.getByLabel('Найти задачу: теги или номер').fill(`#${site}`);

@@ -85,7 +85,7 @@ test.describe('My day', () => {
 });
 
 test.describe('a task', () => {
-  test('the owner edits tags in place; clears the deadline; a hard dependency that does not fit is explained', async ({ page }) => {
+  test('the owner edits tags in place; clears the deadline; a deadline constraint that does not fit is explained', async ({ page }) => {
     await signIn(page, 'olga@example.com');
     const tag = unique('if');
     await createTask(page, [tag]);
@@ -100,18 +100,17 @@ test.describe('a task', () => {
     await page.getByRole('button', { name: 'Убрать дедлайн' }).click();
     await expect(page.getByLabel('Дедлайн')).toHaveValue('');
 
-    // A hard dependency on the site (deadline in a few days) while mine is a year ahead is fine;
+    // A dependency on the site with a deadline constraint (deadline in a few days) while mine is a year ahead is fine;
     // a lag of a year is not.
     await page.getByLabel('Дедлайн').fill(`${new Date().getFullYear() + 1}-01-10T12:00`);
     const site = await taskId('сайт', 'новая главная к осенней кампании');
     await page.getByRole('button', { name: 'Добавить' }).first().click();
     await page.getByLabel('Найти задачу: теги или номер').fill(`#${site}`);
     await page.getByRole('button', { name: `Выбрать задачу #${site}` }).click();
-    await page.getByRole('combobox', { name: 'Зависимость' }).click();
-    await page.getByRole('option', { name: 'Жёсткая' }).click();
+    await page.getByRole('checkbox', { name: 'Ограничить срок' }).check();
     await page.getByLabel('Не раньше чем через').fill('400д');
     await page.getByRole('button', { name: 'Сохранить' }).click();
-    await expect(page.getByText(/Дедлайны не сходятся с жёсткой зависимостью|Проверьте поля/)).toBeVisible();
+    await expect(page.getByText(/Сроки не сходятся с ограничением зависимости|Проверьте поля/)).toBeVisible();
   });
 
   test('a comment: back to editing restores it; Ctrl+Enter sends; a file and an image go with it', async ({ page }) => {

@@ -6,13 +6,14 @@ import { authedProcedure, router } from '../trpc.ts';
 
 export default router({
   /**
-   * The owner of `taskId` makes it wait for `value` — soft, or hard with a
-   * lag in minutes — or changes an existing dependency. The owner of
+   * The owner of `taskId` makes it wait for `value` — with or without a
+   * deadline constraint (no earlier than a lag in minutes after it) — or
+   * changes an existing dependency. The owner of
    * `value` is notified of a new one.
    * @throws forbidden — not the owner of `taskId`.
    * @throws not_found — unknown task.
    * @throws dependency_cycle — `value` already waits for `taskId`, or is it.
-   * @throws hard_dependency_violated — the deadlines do not fit the lag.
+   * @throws hard_dependency_violated — the deadlines do not fit the constraint.
    */
   set: authedProcedure
     .meta({ bot: 'task' })

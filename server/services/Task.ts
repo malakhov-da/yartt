@@ -140,7 +140,7 @@ async function tagIds(names: string[], db: Sql): Promise<number[]> {
 
 /**
  * A new private task owned by its creator; tags are created as needed.
- * Priority, deadline, context and one soft dependency come in the same
+ * Priority, deadline, context and one dependency without a deadline constraint come in the same
  * transaction, under the same rules as changing them later.
  */
 export async function create(ownerId: number, input: CreateInput): Promise<number> {

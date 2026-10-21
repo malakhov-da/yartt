@@ -243,7 +243,7 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
   await I.Task.setDeadline({ id: budget, deadline: daysAhead(4) });
   await I.Task.setDeadline({ id: budget, deadline: new Date() });
 
-  // 7. Pavel's task hard-depends on the site: a day after it (I am told).
+  // 7. Pavel's task depends on the site with a deadline constraint: a day after it (I am told).
   const auth = await P.Task.create({ tags: tags.auth });
   await P.Task.update({ id: auth, priority: 'HIGH' });
   await P.Task.setDeadline({ id: auth, deadline: daysAhead(7) });

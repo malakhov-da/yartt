@@ -45,7 +45,7 @@ export type TaskHeader = z.infer<typeof TaskHeader>;
 
 /** A line in "Waits for" / "Waited on by". */
 export const Dependency = TaskHeader.extend({
-  /** NULL — a soft dependency; a number — hard, with this lag in minutes. */
+  /** NULL — no deadline constraint; a number — the constraint's lag in minutes. */
   minMinutesAfter: z.number().int().nullable(),
 });
 export type Dependency = z.infer<typeof Dependency>;
@@ -129,9 +129,9 @@ export const CreateInput = z.object({
   /** NULL or left out — no deadline. */
   deadline: z.date().nullable().optional(),
   context: Html.nullable().optional(),
-  /** The new task waits for this one (soft). */
+  /** The new task waits for this one (no deadline constraint). */
   waitsFor: Id.optional(),
-  /** This task waits for the new one (soft); the creator must own it. */
+  /** This task waits for the new one (no deadline constraint); the creator must own it. */
   waitedOnBy: Id.optional(),
 });
 export type CreateInput = z.infer<typeof CreateInput>;

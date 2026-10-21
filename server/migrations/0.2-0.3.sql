@@ -92,6 +92,108 @@ task.
 When an observer leaves, their current estimate_minutes row is closed
 (expired_at = NOW()) and their reminders (remind) are deleted (trigger).';
 
+-- A dependency either constrains the deadlines or it does not: no "hard" and
+-- "soft" kinds, in the words of the specification too.
+CREATE OR REPLACE FUNCTION check_deadlines(p_task_id INT)
+RETURNS VOID AS $$
+DECLARE
+    v_task_id INT;
+    v_value INT;
+BEGIN
+    PERFORM pg_advisory_xact_lock(hashtext('yartt.deadline'));
+
+    SELECT d.task_id, d.value INTO v_task_id, v_value
+      FROM dependency d
+      JOIN finished_at fa
+        ON fa.task_id = d.task_id AND fa.expired_at IS NULL
+      LEFT JOIN finished_at fb
+        ON fb.task_id = d.value AND fb.expired_at IS NULL
+     WHERE (d.task_id = p_task_id OR d.value = p_task_id)
+       AND d.min_minutes_after IS NOT NULL
+       AND (fb.value IS NULL
+            OR fb.value + d.min_minutes_after * INTERVAL '1 minute' > fa.value)
+     LIMIT 1;
+
+    IF FOUND THEN
+        RAISE EXCEPTION 'deadline of task % violates the deadline constraint of its dependency on task %',
+            v_task_id, v_value
+            USING HINT = 'hard_dependency_violated',
+                  DETAIL = json_build_object('taskId', v_task_id, 'dependencyId', v_value)::text;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON COLUMN dependency.min_minutes_after IS
+'Minimum minutes needed to finish task_id after value is finished.
+NULL = no deadline constraint: deadlines are not tied.
+NOT NULL = a deadline constraint: if task_id has a deadline, value must have one too
+and finished_at(value) + min_minutes_after <= finished_at(task_id).
+Checked at commit (deferred trigger). So the deadline of value can be
+moved later or cleared only after owners of the dependent tasks have
+moved theirs.';
+
+COMMENT ON TABLE finished_at IS
+'Task deadline history.
+Current = expired_at IS NULL. There may be no rows — "not set".
+The task is done when the current value <= NOW().
+
+Set, moved (later or earlier) and cleared only by the owner —
+through set_finished_at / clear_finished_at.
+Move: the old row is closed and a new one opened.
+Clear: the old row is closed, no new one is created.
+Owners of dependent tasks are notified.
+Deadline constraints of dependencies are checked at commit.';
+
+COMMENT ON TABLE notification IS
+'Notification queue. Not an inbox.
+Created only through notify(), which handles absence and dismissal.
+payload JSONB — context; kind is stored inside payload.
+The worker takes WHERE sent_at IS NULL (FOR UPDATE SKIP LOCKED), sends
+to the webhook and sets sent_at. The user handles the notification —
+closed_at. Cleaned up after a year.
+
+RULES:
+  - comment -> the task owner (unless they wrote it).
+  - mention -> the mentioned employee, always.
+  - task attached to a comment -> the owner of the attached task
+    (unless they wrote the comment).
+  - reminder (remind) -> whoever set it.
+  - access request -> the task owner.
+  - access opened (added by the owner, request approved, the task made
+    public while a request waited) -> the employee.
+  - access closed (removed, request rejected, the task made private
+    without them) -> the employee.
+  - finished_at set / moved / cleared -> owners of dependent tasks.
+  - a new dependency -> the owner of the task waited for (one with a deadline
+    constraint ties their deadline).
+  - owner change -> the new owner. If the manager initiated it — the
+    previous owner too.
+  - score -> the scored employee.
+  - invite -> the invitee.
+  - a new report (someone set their manager) -> the new manager.
+  - a bot''s key a year old -> the bot''s manager, once a year of its age.
+If the recipient is away, a copy goes to their manager (recursively).
+Dismissed employees get no notifications.
+
+Delivery is only through the outgoing webhook (URL and secret in the
+config). Channels (email, Telegram, Slack, ...) and texts in the
+employee.locale language are up to the webhook receiver.';
+
+COMMENT ON FUNCTION check_deadlines(INT) IS
+'Checks the deadline constraints of the task''s dependencies in both
+directions.
+A global advisory lock serializes the checks so that two concurrent
+transactions cannot break the invariant together.';
+
+COMMENT ON FUNCTION set_finished_at(INT, TIMESTAMPTZ) IS
+'Sets or moves the deadline (later or earlier). Permissions — in the
+application. Deadline constraints of dependencies are checked at commit.';
+
+COMMENT ON FUNCTION clear_finished_at(INT) IS
+'Clears the deadline. Permissions — in the application.
+Forbidden if tasks with a deadline depend on this task with a deadline
+constraint.';
+
 -- The specification (COMMENT ON SCHEMA) as of this version.
 COMMENT ON SCHEMA public IS
 'yartt — a task tracker without projects, subtasks or assignments.
@@ -134,8 +236,8 @@ Key principles:
     it — owners of dependent tasks are notified.
   - A passed deadline closes the task by itself — on purpose. An owner who
     did not finish in time has to move the deadline before it passes, or
-    explain why the task is closed but not done. Hard dependencies may
-    forbid the move; then the owner has to negotiate with the owners of
+    explain why the task is closed but not done. A deadline constraint
+    of a dependency may forbid the move; then the owner has to negotiate with the owners of
     the dependent tasks.
   - A task has an owner (owner_id). There is no separate creator role.
   - Ownership can be transferred by the owner or by the owner''s direct
@@ -156,7 +258,8 @@ Key principles:
   - The deadline (finished_at) lives in an interval table. The current
     value = expired_at IS NULL. Clearing = closing the active row without
     opening a new one.
-  - A hard dependency (min_minutes_after IS NOT NULL) ties deadlines: a
+  - A dependency with a deadline constraint (min_minutes_after IS NOT
+    NULL) ties deadlines: a
     task cannot finish earlier than min_minutes_after after its
     dependency. To move a dependency''s deadline later, owners of the
     dependent tasks move theirs first — that is how a postponement is
@@ -538,7 +641,7 @@ INVARIANTS (forbidden; all checked in the database)
   Dependencies:
     - Self-dependency (task_id = value).
     - A cycle (A -> B -> A).
-    - Breaking a hard dependency: the dependent task has a deadline while
+    - Breaking a deadline constraint: the dependent task has a deadline while
       the dependency has none, or
       finished_at(value) + min_minutes_after > finished_at(task_id).
 
