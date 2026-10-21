@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { matchPath, Navigate, Route, Routes, useLocation } from 'react-router';
 import { useTRPC } from '#client/hooks/trpc.ts';
+import { useVisit } from '#client/hooks/visit.ts';
 import Header from './App/Header.tsx';
 import Notifications from './App/Notifications.tsx';
 import { useMe } from '#client/hooks/me.ts';
@@ -95,6 +96,8 @@ function SignedIn() {
   const taskId = Number(matchPath('/tasks/:id', pathname)?.params.id) || null;
   const employeeId = Number(matchPath('/employees/:id', pathname)?.params.id) || null;
   const employeeName = employees.data?.find((e) => e.id === employeeId)?.fullName;
+  // Every screen opened is a visit: a task with its number, any other without (decision 27).
+  useVisit(taskId, true, pathname);
 
   useEffect(() => {
     const name = t('app.name');

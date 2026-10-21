@@ -1511,6 +1511,24 @@ Only for someone with people under them (bots do not count).
 Safe with several workers (SKIP LOCKED, weekly_digest_on). p_now is the
 moment to act as of — NOW() for the cron, a chosen Monday in tests.';
 
+-- A visit is the opening of any screen, not only of a task or My day.
+COMMENT ON TABLE visit IS
+'Visits: an employee opened a task (task_id) or any other screen — My day,
+a person''s days, a new task (task_id IS NULL).
+Written by log_visit(), at most once per 10 minutes per (employee, task).
+The client logs on opening a screen and on coming back to a tab that was
+hidden for 10 minutes or more: sitting on a page is one visit.
+Used to:
+  - show the owner in the task who looked at it;
+  - show the history of a day in "My day" and on the employee page
+    (which tasks were opened, when the employee came in);
+  - suggest when a shift started and ended (first and last activity of
+    the day).
+Cron deletes visits older than a year.';
+
+COMMENT ON COLUMN visit.task_id IS
+'Which task. NULL — another screen.';
+
 -- The specification (COMMENT ON SCHEMA) as of this version.
 COMMENT ON SCHEMA public IS
 'yartt — a task tracker without projects, subtasks or assignments.
@@ -1620,7 +1638,7 @@ Key principles:
     narrow what its relationships allow. It has no timesheet, time or
     scores and manages nobody. Its manager — whoever created it or got it
     handed over — runs it; its notifications go to its own webhook.
-  - Visits are logged: opening a task and opening "My day". They show the
+  - Visits are logged: opening a task or any other screen. They show the
     owner who looked at a task and help to suggest when a shift started
     and ended.
   - One database — one company. No multi-tenancy.
@@ -1806,7 +1824,7 @@ the API is implemented.
     - Bring a dismissed employee back (restore_employee: the direct manager).
 
   Visits:
-    - Open a task / open "My day" -> log_visit().
+    - Open a task / any other screen -> log_visit().
 
   Tasks:
     - Create a task (owner = creator, tags, priority).

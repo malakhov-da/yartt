@@ -180,7 +180,7 @@ Key principles:
     narrow what its relationships allow. It has no timesheet, time or
     scores and manages nobody. Its manager — whoever created it or got it
     handed over — runs it; its notifications go to its own webhook.
-  - Visits are logged: opening a task and opening "My day". They show the
+  - Visits are logged: opening a task or any other screen. They show the
     owner who looked at a task and help to suggest when a shift started
     and ended.
   - One database — one company. No multi-tenancy.
@@ -366,7 +366,7 @@ the API is implemented.
     - Bring a dismissed employee back (restore_employee: the direct manager).
 
   Visits:
-    - Open a task / open "My day" -> log_visit().
+    - Open a task / any other screen -> log_visit().
 
   Tasks:
     - Create a task (owner = creator, tags, priority).
@@ -2104,7 +2104,8 @@ CREATE INDEX idx_visit_task ON visit(task_id, at) WHERE task_id IS NOT NULL;
 CREATE INDEX idx_visit_employee ON visit(employee_id, at);
 
 COMMENT ON TABLE visit IS
-'Visits: an employee opened a task (task_id) or "My day" (task_id IS NULL).
+'Visits: an employee opened a task (task_id) or any other screen — My day,
+a person''s days, a new task (task_id IS NULL).
 Written by log_visit(), at most once per 10 minutes per (employee, task).
 The client logs on opening a screen and on coming back to a tab that was
 hidden for 10 minutes or more: sitting on a page is one visit.
@@ -2123,7 +2124,7 @@ COMMENT ON COLUMN visit.employee_id IS
 'Who visited.';
 
 COMMENT ON COLUMN visit.task_id IS
-'Which task. NULL — "My day".';
+'Which task. NULL — another screen.';
 
 COMMENT ON COLUMN visit.at IS
 'When.';

@@ -1,10 +1,8 @@
 import { Box, Stack, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { useLocation } from 'react-router';
 import { useMe } from '#client/hooks/me.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
-import { useVisit } from '#client/hooks/visit.ts';
 import Bots from './MyDayPage/Bots.tsx';
 import CurrentTasks from './MyDayPage/CurrentTasks.tsx';
 import History from './MyDayPage/History.tsx';
@@ -14,15 +12,12 @@ import Todo from './MyDayPage/Todo.tsx';
 
 // The only screen (docs/product/interface.md, 1): what needs me, my current
 // tasks, my team (someone with reports), my days. It stays mounted while a
-// task or a person is open (App.tsx), so every return to it is logged as a
-// visit (useVisit). At the bottom, the product name and its release
-// (decision 30).
+// task or a person is open (App.tsx), which logs every screen opened as a
+// visit. At the bottom, the product name and its release (decision 30).
 export default function () {
   const { t } = useTranslation();
   const trpc = useTRPC();
   const me = useMe();
-  const { pathname } = useLocation();
-  useVisit(null, pathname === '/');
   const employees = useQuery(trpc.Employee.list.queryOptions());
   const reports = (employees.data ?? []).filter((e) => e.managerId === me.id);
   const isManager = reports.some((e) => e.kind === 'human');

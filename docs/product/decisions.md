@@ -273,7 +273,9 @@ private again).
 
 A visit is logged on opening a screen and on coming back to a tab that
 was hidden for 10 minutes or more; the database ignores repeats within 10
-minutes. Sitting on a page all day is one visit.
+minutes. Sitting on a page all day is one visit. Every screen counts — a
+task with its number, any other (My day, someone's days, a new task)
+without one: someone who spent the day in History was here too.
 
 ### 28. The feed is the whole story of a task
 

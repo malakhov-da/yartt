@@ -2,7 +2,6 @@ import { Box, CircularProgress, Stack } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { POLL_MS } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
-import { useVisit } from '#client/hooks/visit.ts';
 import Feed from './TaskPage/Feed.tsx';
 import MyTime from './TaskPage/MyTime.tsx';
 import NoAccess from './TaskPage/NoAccess.tsx';
@@ -15,7 +14,6 @@ import Sheet from './TaskPage/Sheet.tsx';
 export default function (p: { id: number }) {
   const trpc = useTRPC();
   const task = useQuery(trpc.Task.get.queryOptions({ id: p.id }, { refetchInterval: POLL_MS }));
-  useVisit(p.id, true);
 
   if (task.isPending) return <CircularProgress sx={{ m: 'auto' }} />;
   if (!task.data) return null;

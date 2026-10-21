@@ -6,11 +6,12 @@ import { useTRPC } from './trpc.ts';
 export const VISIT_GAP_MS = 10 * 60_000;
 
 /**
- * Logs a visit to a task, or to My day (taskId null), while `active`: on
- * opening, and on coming back to the tab after it was hidden for
- * VISIT_GAP_MS. Sitting on a page is one visit; the database also throttles.
+ * Logs a visit to a task, or to any other screen (taskId null), while
+ * `active`: on opening a screen (`screen` — its address), and on coming back
+ * to the tab after it was hidden for VISIT_GAP_MS. Sitting on a page is one
+ * visit; the database also throttles.
  */
-export function useVisit(taskId: number | null, active: boolean): void {
+export function useVisit(taskId: number | null, active: boolean, screen = ''): void {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const { mutate } = useMutation(trpc.Visit.log.mutationOptions({
@@ -31,5 +32,5 @@ export function useVisit(taskId: number | null, active: boolean): void {
     };
     document.addEventListener('visibilitychange', onChange);
     return () => document.removeEventListener('visibilitychange', onChange);
-  }, [taskId, active, mutate]);
+  }, [taskId, active, screen, mutate]);
 }
