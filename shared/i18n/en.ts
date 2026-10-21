@@ -241,7 +241,7 @@ export const en: Translation = {
     unfold: 'Show the people: {{name}}',
     fold: 'Hide the people: {{name}}',
     export: {
-      action: 'Export CSV',
+      action: 'Export',
       file: 'tags',
       tag: 'Tag',
       person: 'Employee',

@@ -297,7 +297,7 @@ export const ru = {
     unfold: 'Показать людей: {{name}}',
     fold: 'Скрыть людей: {{name}}',
     export: {
-      action: 'Выгрузить CSV',
+      action: 'Выгрузить',
       file: 'теги',
       tag: 'Тег',
       person: 'Сотрудник',

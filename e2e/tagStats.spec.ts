@@ -24,7 +24,7 @@ test('the tag summary: the most active rubrics, a tag unfolds into its people, p
   await expect(block.getByText(/^Любой из: /)).toBeVisible();
 
   const download = page.waitForEvent('download');
-  await block.getByRole('button', { name: 'Выгрузить CSV' }).click();
+  await block.getByRole('button', { name: 'Выгрузить' }).click();
   const file = await (await download).path();
   const text = await readFile(file, 'utf8');
   expect(text).toMatch(/^﻿Тег,Сотрудник,"?Списано, ч"?,Комментарии/);
