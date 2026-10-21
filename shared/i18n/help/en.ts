@@ -56,6 +56,15 @@ export const helpEn: Help = {
   scenariosTitle: 'Use cases',
   scenarios: [
     {
+      title: 'Sign in',
+      steps: [
+        'There are no passwords: enter your work email and a sign-in link is sent. If the company signs in through its own accounts '
+          + '(SSO), press the button to sign in with them.',
+        'The sign-in email is changed in the profile: the new address is confirmed by a link sent to it.',
+        'yartt can be installed as an app (Install in the browser menu): it works offline too.',
+      ],
+    },
+    {
       title: 'Start the day',
       steps: [
         'Waiting for me: mentions, new comments on your tasks, access requests. Reply, or press "Done".',
@@ -71,15 +80,42 @@ export const helpEn: Help = {
           + 'Add a priority, a deadline and a description.',
         'A follow-up task is created from the page of the original, under "Waits for" or "Waited on by": it gets its tags, '
           + 'and you add what is specific.',
+        'If a task with that title exists, a link to it appears under the field — go there and carry on.',
+      ],
+    },
+    {
+      title: 'Find a task',
+      steps: [
+        'The search of Current tasks forgives typos, transliteration and the wrong keyboard layout; a task is found by number too: #12.',
+        'Picked tags narrow every tab — I own, Others, Closed.',
+        'Hover a task in any list to see its description and how much each person has spent and still plans.',
+      ],
+    },
+    {
+      title: 'Run your task',
+      steps: [
+        'The owner changes the description, priority, deadline and title right on the task\'s page.',
+        'Participants and Opened it show who opened the task and when, how much each spent and plans.',
+        'A task without an owner (say, its owner left and had no manager) any participant can "Take it".',
+      ],
+    },
+    {
+      title: 'Discuss in a task',
+      steps: [
+        'A comment is formatted text with images and files; # attaches another task, @ mentions a participant.',
+        'After "Send" a comment can be pulled back into editing for a few seconds; then it is never changed or deleted.',
+        '"Reply" starts a thread under a comment; the feed keeps a mark at the moment of the reply.',
+        'An unfinished comment, form or edit is kept as a draft when you go to another page.',
       ],
     },
     {
       title: 'Link tasks',
       steps: [
         'On a task\'s page: "Waits for" — what it cannot be finished without; "Waited on by" — who needs it. A task is found by tags or number.',
-        'A dependency constrains the deadline or it does not. Without a constraint it only shows the task waits for another. With one '
-          + '("Constrain the deadline"), the waiting task ends no earlier than the one it waits for — with a margin if you like, say 1d. '
-          + 'To move that task\'s deadline later, the waiting one\'s is moved first.',
+        'Without a constraint a dependency only shows that a task waits for another. "Constrain the deadline" with "No earlier than" '
+          + 'means: the deadline of the waiting task is no earlier than the given time after the deadline of the one it waits for. '
+          + 'Say 1d: once that one is done, the waiting one still has at least a day.',
+        'The task waited for must have a deadline. It can be moved later only after the waiting task\'s deadline is moved.',
         'The owner of the task waited for is notified of a new dependency.',
       ],
     },
@@ -131,6 +167,8 @@ export const helpEn: Help = {
       steps: [
         '"Start the shift" and "Finish" act at this moment; add a forgotten shift with the clock icon of a day, or confirm the suggestion.',
         'Time on a task for a day is one entry: "Log time" shows what is there, a new value replaces it, 0 removes it.',
+        'If you worked on a past day but wrote no shift, yartt suggests one: "Looks like a shift" — confirm it with one click.',
+        'Shifts and entries of a day can be fixed until your manager scores it. To fix a scored day, ask your manager to withdraw the score.',
         '"My plan" is how much more you mean to spend on the task. If the plan does not fit your working time before the deadline, '
           + 'the task is marked "At risk".',
         'All your days are in History.',
@@ -143,10 +181,10 @@ export const helpEn: Help = {
     {
       title: 'Make it yours',
       steps: [
-        'Profile (your avatar in the top line): name, photo, about, language, time zone, keyboard layouts and your manager — '
-          + 'you pick them yourself, and they are notified.',
+        'Profile (your avatar in the top line): name, photo, about, language, time zone, keyboard layouts, light or dark theme '
+          + 'and your manager — you pick them yourself, and they are notified.',
         'My tags: the color and weight of a tag are yours alone. Weight sets the order of tags in a title, color helps spot tasks in lists.',
-        'Notifications come by email in your language; the company may connect other channels too.',
+        'Notifications: the bell in the top line and email in your language; the company may connect other channels too.',
       ],
     },
     {
@@ -158,9 +196,14 @@ export const helpEn: Help = {
       title: 'For a manager',
       steps: [
         'My team: the share of the timesheet in tasks, scores, tasks at risk and delays of each person; the longest unseen on top.',
-        "A line unfolds into charts; a person's page has their days, where you can score a day and say why.",
+        "A line unfolds into charts; a person's page has their days and figures for any period.",
+        'A score of the day is 0 to 100 with a reason: the quality of decisions, not the result of tasks. The person gets an email. '
+          + 'A score can be changed (another email goes out) or withdrawn so the person can fix their timesheet.',
+        '"Export" in My team: timesheet, entries and scores of the picked people for a period, for payroll, as Excel or CSV.',
+        'Every Monday an email comes: days waiting for a score, tasks closed by their deadline and tasks at risk.',
         'You are a participant of every task your reports take part in, automatically.',
-        'Only the direct manager dismisses someone: their tasks and reports go to that manager.',
+        'Only the direct manager dismisses someone: their tasks and reports go to that manager. The dismissed come back '
+          + 'from "My dismissed" under the team table.',
       ],
     },
     {
