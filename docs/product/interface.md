@@ -71,7 +71,8 @@ someone with reports:
   or the tags picked in its search with all of them together and any of
   them; a line unfolds into its people and their own time; CSV export
   (decision 58).
-- **My days** — today and the last day before it with activity (on
+- **Timesheet** ("My days" before: next to "My day" the two were
+  confused) — today and the last day before it with activity (on
   Monday that is usually Friday: what was I doing?); "History" leads to
   all of them, my own employee page (decision 54). A day in a few lines:
   - its totals — the time in its closed shifts and the time logged to

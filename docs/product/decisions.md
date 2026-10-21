@@ -948,3 +948,10 @@ before. The migration merged the entries of one day into their sum.
 *Implemented:* `uq_spent_minutes_day`, `spent_minutes.updated_at`,
 `trg_spent_minutes_check()` (migration `0.1-0.2`); `Time.set` instead of
 `Time.log` and `Time.remove`; `LogTimeDialog`, `MyTime`.
+
+### 61. The days are the Timesheet
+
+The block of one's days was called "My days" on a screen called "My
+day" — two names a letter apart for different things. It is the
+Timesheet now: shifts and time logged are what it holds. "History",
+which leads to all of one's days, keeps its name.

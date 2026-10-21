@@ -52,7 +52,7 @@ test.describe('My day', () => {
   });
 
   test('a shift is started now from the top line and finished with what was done', async ({ page }) => {
-    const history = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Мои дни' }) });
+    const history = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Табель' }) });
     await page.getByRole('banner').getByRole('button', { name: 'Начать смену' }).click();
     await expect(history.getByText(/Смена идёт с \d\d:\d\d/)).toBeVisible();
     await expect(page.getByRole('banner').getByRole('button', { name: 'Начать смену' })).toHaveCount(0);
@@ -63,7 +63,7 @@ test.describe('My day', () => {
   });
 
   test('history: time is logged to a task I opened, right from My day', async ({ page }) => {
-    const history = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Мои дни' }) });
+    const history = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Табель' }) });
     const entries = history.getByRole('button', { name: 'Удалить списание' });
     // Opened and nothing logged: folded under one line.
     await history.getByRole('button', { name: /Открывались без списания/ }).first().click();
@@ -79,7 +79,7 @@ test.describe('My day', () => {
   });
 
   test('history: a shift is added to a past day, corrected and deleted while the day is not scored', async ({ page }) => {
-    const history = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Мои дни' }) });
+    const history = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Табель' }) });
     await expect(history.getByRole('button', { name: 'Добавить смену' }).nth(1)).toBeVisible();
     await page.waitForLoadState('networkidle');
     const edits = history.getByRole('button', { name: 'Поправить смену' });
@@ -103,7 +103,7 @@ test.describe('My day', () => {
   test('history: activity after a written shift is offered as the shift that was not written down', async ({ page }) => {
     await signIn(page, 'pavel@example.com');
     // Older days are in History, Pavel's own page.
-    await page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Мои дни' }) })
+    await page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Табель' }) })
       .getByRole('link', { name: 'История' }).click();
     const hint = page.getByText('Похоже на смену 20:10–21:05');
     for (let page2 = 2; page2 <= 3; page2++) {

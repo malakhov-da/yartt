@@ -62,7 +62,7 @@ test.describe('My day', () => {
 
   test('My day keeps two days, History all of them; an entry deleted; the open shift deleted; a shift started now', async ({ page }) => {
     await signIn(page, 'pavel@example.com');
-    const history = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Мои дни' }) });
+    const history = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Табель' }) });
     await expect(history.getByText('Сегодня', { exact: true })).toBeVisible();
     await expect(history.locator('.MuiPagination-root')).toHaveCount(0);
     await expect(history.getByLabel('Лента дня: смены, заходы и действия')).toHaveCount(2);
@@ -197,7 +197,7 @@ test.describe('a task', () => {
     await page.getByLabel('Всего за день').fill('45');
     await page.getByRole('dialog').getByRole('button', { name: 'Сохранить' }).click();
     await page.getByRole('link', { name: 'Мой день', exact: true }).click();
-    const history = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Мои дни' }) });
+    const history = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Табель' }) });
     await expect(history.getByText('Списано на задачи: 45м')).toBeVisible();
   });
 });

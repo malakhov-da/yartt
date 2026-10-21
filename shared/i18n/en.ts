@@ -71,7 +71,7 @@ export const en: Translation = {
       closedEmpty: 'No closed tasks you see.',
     },
     history: {
-      title: 'My days',
+      title: 'Timesheet',
       today: 'Today',
       score: 'Score {{value}}%',
       withdrawnMine: 'The score is withdrawn: correct the timesheet and time entries of this day — your manager scores it again.',
