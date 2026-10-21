@@ -10,6 +10,7 @@ import {
 import { ChartsXAxis } from '@mui/x-charts/ChartsXAxis';
 import { ChartsYAxis } from '@mui/x-charts/ChartsYAxis';
 import { LinePlot, MarkPlot } from '@mui/x-charts/LineChart';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fromDay, useFormat } from '#client/hooks/format.ts';
 
@@ -17,13 +18,17 @@ import { fromDay, useFormat } from '#client/hooks/format.ts';
 const DAILY_UP_TO = 62;
 
 /**
- * A line. `detail` — a count of the same person's day that is not drawn,
- * told in the tooltip next to the value: the comments behind the time, the
- * tasks behind the plan. A week tells its total, or its largest with `peak`.
+ * A line. `legend` — its name in the legend, if it says more than the
+ * tooltip should (a share over the whole range is not the day's).
+ * `detail` — counts of the same person's day that are not drawn, told in
+ * the tooltip next to the value: the tasks and comments behind the time,
+ * the tasks behind the plan. A week tells its total, or its largest with
+ * `peak` (the same tasks day after day).
  */
+export type Detail = { values: number[]; render: (count: number) => ReactNode; peak?: boolean };
 export type Series = {
-  id: string; label: string; color: string; values: (number | null)[];
-  detail?: { values: number[]; format: (count: number) => string; peak?: boolean };
+  id: string; label: string; legend?: string; color: string; values: (number | null)[];
+  detail?: Detail[];
 };
 
 /** Days grouped into weeks (from Monday) when the range is long; a bucket is the average of its values. */
@@ -45,22 +50,21 @@ function buckets(days: string[], series: Series[]): { first: string[]; weekly: b
 }
 
 /** The details over the same buckets as the values. */
-function detailBuckets(days: string[], series: Series[], first: string[]): (number[] | null)[] {
-  return series.map((s) => {
-    if (!s.detail) return null;
+function detailBuckets(days: string[], series: Series[], first: string[]): number[][][] {
+  return series.map((s) => (s.detail ?? []).map((d) => {
     const out = first.map(() => 0);
     let bucket = -1;
     days.forEach((day, i) => {
       if (bucket + 1 < first.length && first[bucket + 1] === day) bucket++;
-      const v = s.detail!.values[i] ?? 0;
-      out[bucket] = s.detail!.peak ? Math.max(out[bucket]!, v) : out[bucket]! + v;
+      const v = d.values[i] ?? 0;
+      out[bucket] = d.peak ? Math.max(out[bucket]!, v) : out[bucket]! + v;
     });
     return out;
-  });
+  }));
 }
 
 /** The day's value of each line, with its detail. */
-function Tip(p: { series: Series[]; details: (number[] | null)[] }) {
+function Tip(p: { series: Series[]; details: number[][][] }) {
   const data = useAxesTooltip();
   if (!data) return null;
   return (
@@ -81,12 +85,15 @@ function Tip(p: { series: Series[]; details: (number[] | null)[] }) {
                   {item.formattedValue}
                   {(() => {
                     const i = p.series.findIndex((s) => s.id === item.seriesId);
-                    const count = p.details[i]?.[dataIndex] ?? 0;
-                    return count > 0 && (
-                      <Typography component="span" variant="caption" sx={{ color: 'text.secondary', ml: 1 }}>
-                        {p.series[i]!.detail!.format(count)}
-                      </Typography>
-                    );
+                    return (p.series[i]?.detail ?? []).map((d, j) => {
+                      const count = p.details[i]![j]![dataIndex] ?? 0;
+                      return count > 0 && (
+                        <Typography key={j} component="span" variant="caption"
+                          sx={{ color: 'text.secondary', ml: 1, display: 'inline-flex', alignItems: 'center', gap: 0.25, verticalAlign: 'middle' }}>
+                          {d.render(count)}
+                        </Typography>
+                      );
+                    });
                   })()}
                 </ChartsTooltipCell>
               </ChartsTooltipRow>
@@ -134,7 +141,7 @@ export default function (p: {
           {p.series.map((s) => (
             <Stack key={s.id} direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
               <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: s.color }} />
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>{s.label}</Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>{s.legend ?? s.label}</Typography>
             </Stack>
           ))}
         </Stack>

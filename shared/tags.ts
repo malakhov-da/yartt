@@ -72,12 +72,18 @@ export type TagGroup = z.infer<typeof TagGroup>;
 /** The first day of a range that ends today, in the viewer's time zone: the plans of now belong next to it. */
 export const Since = z.iso.date();
 
+/** What the lines are sorted by, the largest (or the latest) first. */
+export const TagSort = z.enum(['active', 'open', 'closed', 'comments', 'people', 'planners', 'last']);
+export type TagSort = z.infer<typeof TagSort>;
+
 export const TagStatsInput = z.object({
   /** The first day of the range; it always ends today, so the plans of now belong next to it. */
   since: Since,
   /** Picked tags: only them, and the lines of them all together and any of them; empty — every tag. */
   tagIds: Id.array().max(20),
   page: z.number().int().min(1),
+  /** 'active' — the tasks in work in the range, the default. */
+  sort: TagSort.default('active'),
 });
 export type TagStatsInput = z.infer<typeof TagStatsInput>;
 
@@ -141,6 +147,8 @@ export const TagPerson = z.object({
   comments: z.number().int(),
   /** Their time on it, day by day, as `days`. */
   daily: z.number().int().array(),
+  /** In how many of its tasks they logged that time, day by day. */
+  dailyTasks: z.number().int().array(),
   /** The comments they left on it, day by day: the detail of their time. */
   dailyComments: z.number().int().array(),
   /** Their plan of time left on its open tasks at the end of each day, as `days`. */

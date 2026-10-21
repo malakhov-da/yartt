@@ -203,6 +203,13 @@ describe('tag summary', () => {
 
     // Unpicked: rubrics only — the phrases of one task are not lines.
     const all = await api.Tags.stats({ since: today, tagIds: [], page: 1 });
+    // Any column sorts, the largest (the latest) first.
+    for (const sort of ['open', 'closed', 'comments', 'people', 'planners', 'last'] as const) {
+      const sorted = await api.Tags.stats({ since: today, tagIds: ids, page: 1, sort });
+      expect(sorted.rows.filter((r) => r.group.kind === 'tag')).toHaveLength(2);
+    }
+    const byClosed = await api.Tags.stats({ since: today, tagIds: ids, page: 1, sort: 'closed' });
+    expect(byClosed.rows[0]!.tags[0]!.name).toBe(a);
     expect(all.rows.every((r) => !r.tags[0]!.name.startsWith('phrase'))).toBe(true);
 
     await devApi.Time.setLeft({ taskId: both, minutes: 120 });
@@ -211,7 +218,7 @@ describe('tag summary', () => {
     // Each person's time and plan, each with its detail: the comments of the day, the tasks the plan covers.
     expect(detail.persons).toEqual([{
       employeeId: dev.id, minutes: 90, share: 1, leftMinutes: 120, comments: 1,
-      daily: [90], dailyComments: [1], planned: [120], plannedTasks: [1],
+      daily: [90], dailyTasks: [1], dailyComments: [1], planned: [120], plannedTasks: [1],
     }]);
     expect((await api.Tags.stats({ since: today, tagIds: ids, page: 1 })).rows[0]).toMatchObject({ planners: 1 });
   });

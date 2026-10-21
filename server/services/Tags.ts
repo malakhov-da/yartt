@@ -1,4 +1,4 @@
-import type { MyTags, SetTagInput, Suggestions, TagDetail, TagDetailInput, TagGroup, TagPart, TagStatsInput } from '#shared/tags.ts';
+import type { MyTags, SetTagInput, Suggestions, TagDetail, TagDetailInput, TagGroup, TagPart, TagSort, TagStatsInput } from '#shared/tags.ts';
 import { MyTag, TagPerson, TagStats as TagStatsSummary, TagStatsRow } from '#shared/tags.ts';
 import { defaultKeyboards, Keyboard, retype } from '#shared/keyboards.ts';
 import { Locale } from '#shared/employee.ts';
@@ -322,6 +322,19 @@ const figures = () => sql`
   max(m.last_day)::text AS last_day
 `;
 
+/** The order of the lines: the column picked, largest (latest) first, then the tasks in work. */
+function order(sort: TagSort) {
+  switch (sort) {
+    case 'active': return sql`active DESC, open DESC`;
+    case 'open': return sql`open DESC, active DESC`;
+    case 'closed': return sql`finished + expired DESC, active DESC`;
+    case 'comments': return sql`comments DESC, active DESC`;
+    case 'people': return sql`people DESC, active DESC`;
+    case 'planners': return sql`planners DESC, active DESC`;
+    case 'last': return sql`last_day DESC NULLS LAST, active DESC`;
+  }
+}
+
 /** The tasks of a line: carrying the tag, all the picked ones, or any of them. */
 function carrying(group: TagGroup, column = sql`tag_ids`) {
   return group.kind === 'tag' ? sql`${column} @> ARRAY[${group.tagId}::int]`
@@ -382,13 +395,15 @@ export async function stats(viewerId: number, input: TagStatsInput): Promise<z.i
   const which = picked ? sql`t.id = ANY(${input.tagIds}::int[])` : rubric();
   const rows = SummaryRow.array().parse(await sql`
     ${base}
-    SELECT t.id AS tag_id, ${figures()}
-      FROM m
-      CROSS JOIN LATERAL unnest(m.tag_ids) AS mt(id)
-      JOIN tag t ON t.id = mt.id
-     WHERE ${which}
-     GROUP BY t.id, t.name
-     ORDER BY active DESC, open DESC, t.name
+    SELECT * FROM (
+      SELECT t.id AS tag_id, t.name, ${figures()}
+        FROM m
+        CROSS JOIN LATERAL unnest(m.tag_ids) AS mt(id)
+        JOIN tag t ON t.id = mt.id
+       WHERE ${which}
+       GROUP BY t.id, t.name
+    ) x
+     ORDER BY ${order(input.sort)}, x.name
      ${picked ? sql`` : sql`LIMIT ${SUMMARY_PAGE} OFFSET ${(input.page - 1) * SUMMARY_PAGE}`}
   `);
   const [count] = Count.array().parse(await sql`
@@ -423,14 +438,14 @@ export async function stats(viewerId: number, input: TagStatsInput): Promise<z.i
 }
 
 const Days = z.object({ day: z.string() });
-const PersonRow = TagPerson.omit({ daily: true, dailyComments: true, planned: true, plannedTasks: true });
+const PersonRow = TagPerson.omit({ daily: true, dailyTasks: true, dailyComments: true, planned: true, plannedTasks: true });
 const PersonDay = z.object({ employeeId: z.number(), day: z.string(), n: z.number() });
 
 /**
  * A line of the summary unfolded, from a day to today on the tasks the
  * viewer sees: each person's own time and own plan of time left, day by
- * day, and with them the comments they left and the tasks their plan
- * covered that day; the share of all they logged and their plan now —
+ * day, and with them the tasks they logged time to and the comments they
+ * left, and the tasks their plan covered that day; the share of all they logged and their plan now —
  * most time first, never a total (decision 38).
  */
 export async function detail(viewerId: number, input: TagDetailInput): Promise<TagDetail> {
@@ -472,8 +487,10 @@ export async function detail(viewerId: number, input: TagDetailInput): Promise<T
      ORDER BY minutes DESC, left_minutes DESC NULLS LAST, comments DESC, mine.person
   `);
   const perDay = (query: ReturnType<typeof sql>) => query.then((rows) => PersonDay.array().parse(rows));
-  const [daily, comments, planned, tasks] = await Promise.all([
+  const [daily, spentTasks, comments, planned, tasks] = await Promise.all([
     perDay(sql`${base} SELECT sp."by" AS employee_id, sp.day::text AS day, sum(sp.value)::int AS n
+                 FROM sp WHERE sp.task_id IN (SELECT id FROM lt) GROUP BY sp."by", sp.day`),
+    perDay(sql`${base} SELECT sp."by" AS employee_id, sp.day::text AS day, count(DISTINCT sp.task_id)::int AS n
                  FROM sp WHERE sp.task_id IN (SELECT id FROM lt) GROUP BY sp."by", sp.day`),
     perDay(sql`${base} SELECT cm.created_by AS employee_id, cm.day::text AS day, count(*)::int AS n
                  FROM cm WHERE cm.task_id IN (SELECT id FROM lt) GROUP BY cm.created_by, cm.day`),
@@ -488,6 +505,7 @@ export async function detail(viewerId: number, input: TagDetailInput): Promise<T
     persons: persons.map((person) => ({
       ...person,
       daily: byDay(daily, person.employeeId),
+      dailyTasks: byDay(spentTasks, person.employeeId),
       dailyComments: byDay(comments, person.employeeId),
       planned: byDay(planned, person.employeeId),
       plannedTasks: byDay(tasks, person.employeeId),

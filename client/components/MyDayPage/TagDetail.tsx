@@ -1,3 +1,4 @@
+import { MailOutline } from '@mui/icons-material';
 import { Box, Button, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -7,7 +8,7 @@ import { useFormat } from '#client/hooks/format.ts';
 import { useEmployees } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import HelpTip from '../App/HelpTip.tsx';
-import TeamChart from './TeamChart.tsx';
+import TeamChart, { type Detail } from './TeamChart.tsx';
 
 /** Distinct lines for people, the same person the same color in both charts. */
 const PERSON_COLORS = ['#1e88e5', '#e53935', '#43a047', '#fb8c00', '#8e24aa', '#00897b', '#6d4c41', '#546e7a', '#d81b60', '#3949ab'];
@@ -21,7 +22,8 @@ export const percent = (share: number | null) => (share === null ? '—' : `${Ma
  * by day, then each one's own plan of time left at the end of each day —
  * a line each, never stacked: hours of different people are not added up
  * (decision 38). In the tooltip of a day each person's value comes with
- * its detail: the comments they left, the tasks their plan covered. The table under them: each one's time,
+ * its detail: in how many tasks, and ✉ the comments they left; the share
+ * stays in the legend, being the whole range's. The table under them: each one's time,
  * share of their own time, plan now and comments.
  */
 export default function (p: { group: TagGroup; since: string }) {
@@ -39,18 +41,21 @@ export default function (p: { group: TagGroup; since: string }) {
   const name = (id: number) => employees.get(id)?.fullName ?? `#${id}`;
   const color = new Map(data.persons.map((person, i) => [person.employeeId, PERSON_COLORS[i % PERSON_COLORS.length]!]));
   const drawn = all ? data.persons : data.persons.slice(0, SHOWN);
-  type Detail = { values: (person: TagPerson) => number[]; format: (count: number) => string; peak?: boolean };
-  const lines = (values: (person: TagPerson) => number[], label: (person: TagPerson) => string, detail: Detail) =>
+  const lines = (values: (person: TagPerson) => number[], legend: (person: TagPerson) => string, detail: (person: TagPerson) => Detail[]) =>
     drawn.filter((person) => values(person).some((v) => v > 0)).map((person) => ({
-      id: String(person.employeeId), label: label(person), color: color.get(person.employeeId)!, values: values(person),
-      detail: { values: detail.values(person), format: detail.format, peak: detail.peak },
+      id: String(person.employeeId), label: name(person.employeeId), legend: legend(person),
+      color: color.get(person.employeeId)!, values: values(person), detail: detail(person),
     }));
-  const spent = lines((person) => person.daily, (person) => `${name(person.employeeId)} · ${percent(person.share)}`, {
-    values: (person) => person.dailyComments, format: (count) => t('tagStats.detail.commentsOf', { count }),
-  });
-  const planned = lines((person) => person.planned, (person) => name(person.employeeId), {
-    values: (person) => person.plannedTasks, format: (count) => t('tagStats.detail.tasksOf', { count }), peak: true,
-  });
+  const inTasks = (count: number) => t('tagStats.detail.inTasks', { count });
+  const mail = (count: number) => <><MailOutline sx={{ fontSize: 14 }} />{count}</>;
+  // The tooltip names the person only: the share in the legend is the whole range's, not the day's.
+  const spent = lines((person) => person.daily, (person) => `${name(person.employeeId)} · ${percent(person.share)}`, (person) => [
+    { values: person.dailyTasks, render: inTasks, peak: true },
+    { values: person.dailyComments, render: mail },
+  ]);
+  const planned = lines((person) => person.planned, (person) => name(person.employeeId), (person) => [
+    { values: person.plannedTasks, render: inTasks, peak: true },
+  ]);
   const hours = (v: number) => format.minutes(Math.round(v));
   const axis = (v: number) => format.minutes(v >= 60 ? Math.round(v / 60) * 60 : Math.round(v));
   const heading = (title: string, hint: string) => (

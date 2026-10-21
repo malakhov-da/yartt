@@ -1,12 +1,12 @@
-import { ChevronRight, Download, ExpandMore, Search, WarningAmber } from '@mui/icons-material';
+import { ChevronRight, Download, ExpandMore, MailOutline, Search, WarningAmber } from '@mui/icons-material';
 import {
   Box, Button, Collapse, IconButton, InputAdornment, Pagination, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow,
-  Tooltip, Typography,
+  TableSortLabel, Tooltip, Typography,
 } from '@mui/material';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Fragment, useState } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { TagGroup, TagStatsRow } from '#shared/tags.ts';
+import type { TagGroup, TagSort, TagStatsRow } from '#shared/tags.ts';
 import type { Tag } from '#shared/task.ts';
 import { fromDay, today, useFormat } from '#client/hooks/format.ts';
 import { POLL_MS, useEmployees } from '#client/hooks/task.ts';
@@ -41,8 +41,9 @@ export default function () {
   const [tags, setTags] = useState<Tag[]>([]);
   const [input, setInput] = useState('');
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<TagSort>('active');
   const [opened, setOpened] = useState<Set<string>>(new Set());
-  const statsInput = { since, tagIds: tags.map((tag) => tag.id), page };
+  const statsInput = { since, tagIds: tags.map((tag) => tag.id), page, sort };
   const stats = useQuery(trpc.Tags.stats.queryOptions(statsInput, {
     refetchInterval: POLL_MS, placeholderData: keepPreviousData,
   }));
@@ -68,15 +69,29 @@ export default function () {
   const note = (text: string, warn = false, narrow = false) => (
     <Typography
       variant="caption"
-      sx={{ display: { xs: narrow ? 'none' : 'block', sm: 'block' }, lineHeight: 1.3, color: warn ? 'warning.dark' : 'text.secondary' }}
+      sx={{ display: { xs: narrow ? 'none' : 'block', sm: 'block' }, lineHeight: 1.3, whiteSpace: 'nowrap', color: warn ? 'warning.dark' : 'text.secondary' }}
     >
       {text}
     </Typography>
   );
-  const head = (label: string, hint: string, narrow = false) => (
-    <TableCell align="right" sx={narrow ? { display: { xs: 'none', sm: 'table-cell' } } : undefined}>
+  // A column heading sorts by it, the largest first; the arrow shows what the order is.
+  const head = (by: TagSort, label: ReactNode, hint: string, narrow = false) => (
+    <TableCell
+      align="right"
+      sortDirection={sort === by ? 'desc' : false}
+      sx={narrow ? { display: { xs: 'none', sm: 'table-cell' } } : undefined}
+    >
       <Stack direction="row" spacing={0.25} sx={{ justifyContent: 'flex-end', alignItems: 'center' }}>
-        <span>{label}</span><HelpTip title={hint} />
+        <TableSortLabel
+          active={sort === by}
+          direction="desc"
+          onClick={() => { setSort(by); setPage(1); }}
+          // The arrow only by the column sorted by: the room it keeps everywhere else the table needs.
+          sx={sort === by ? undefined : { '& .MuiTableSortLabel-icon': { display: 'none' } }}
+        >
+          {label}
+        </TableSortLabel>
+        <HelpTip title={hint} />
       </Stack>
     </TableCell>
   );
@@ -126,23 +141,24 @@ export default function () {
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>{t('tagStats.empty')}</Typography>
       )}
       {rows.length > 0 && (
-        <Box sx={{ opacity: stats.isPlaceholderData ? 0.6 : 1 }}>
+        <Box sx={{ opacity: stats.isPlaceholderData ? 0.6 : 1, overflowX: 'auto' }}>
           <Table
             size="small"
             sx={{
-              '& td, & th': { px: { xs: 0.25, sm: 0.75 } },
+              '& td, & th': { px: { xs: 0.25, sm: 0.5 } },
               '& th': { color: 'text.secondary', fontSize: 12, whiteSpace: 'nowrap' },
             }}
           >
             <TableHead>
               <TableRow>
                 <TableCell>{t('tagStats.tag')}</TableCell>
-                {head(t('tagStats.open'), t('tagStats.openHint'))}
-                {head(t('tagStats.closed'), t('tagStats.closedHint'), true)}
-                {head(t('tagStats.comments'), t('tagStats.commentsHint'), true)}
-                {head(t('tagStats.people'), t('tagStats.peopleHint'))}
-                {head(t('tagStats.planners'), t('tagStats.plannersHint'), true)}
-                {head(t('tagStats.last'), t('tagStats.lastHint'), true)}
+                {head('active', t('tagStats.active'), t('tagStats.activeHint'))}
+                {head('open', t('tagStats.open'), t('tagStats.openHint'))}
+                {head('closed', t('tagStats.closed'), t('tagStats.closedHint'), true)}
+                {head('comments', <MailOutline sx={{ fontSize: 18 }} aria-label={t('tagStats.comments')} />, t('tagStats.commentsHint'), true)}
+                {head('people', t('tagStats.people'), t('tagStats.peopleHint'), true)}
+                {head('planners', t('tagStats.planners'), t('tagStats.plannersHint'), true)}
+                {head('last', t('tagStats.last'), t('tagStats.lastHint'), true)}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -153,7 +169,7 @@ export default function () {
                   <Fragment key={k}>
                     <TableRow hover selected={open} onClick={() => flip(k)} aria-expanded={open} sx={{ cursor: 'pointer' }}>
                       <TableCell>
-                        <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                        <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
                           <IconButton size="small" aria-label={t(open ? 'tagStats.fold' : 'tagStats.unfold', { name: label(row) })}>
                             {open ? <ExpandMore fontSize="small" /> : <ChevronRight fontSize="small" />}
                           </IconButton>
@@ -162,6 +178,7 @@ export default function () {
                             : <Typography variant="body2" sx={{ fontWeight: 600 }}>{label(row)}</Typography>}
                         </Stack>
                       </TableCell>
+                      <TableCell align="right" sx={{ fontWeight: sort === 'active' ? 600 : undefined }}>{row.active}</TableCell>
                       <TableCell align="right">
                         <Stack direction="row" sx={{ justifyContent: 'flex-end', alignItems: 'center', gap: 0.5 }}>
                           {row.atRisk > 0 && (
@@ -183,15 +200,15 @@ export default function () {
                         {row.comments}
                         {row.discussed > 0 && note(t('tagStats.discussed', { count: row.discussed }))}
                       </TableCell>
-                      <TableCell align="right">
+                      <TableCell align="right" sx={wide}>
                         {row.people}
-                        {row.share !== null && note(t('tagStats.shareNote', { share: percent(row.share) }), false, true)}
+                        {row.share !== null && note(t('tagStats.shareNote', { share: percent(row.share) }))}
                       </TableCell>
                       <TableCell align="right" sx={wide}>{row.planners}</TableCell>
                       <TableCell align="right" sx={{ ...wide, whiteSpace: 'nowrap' }}>{ago(row.lastDay)}</TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell colSpan={7} sx={{ p: 0, borderBottom: open ? undefined : 0, display: 'table-cell !important' }}>
+                      <TableCell colSpan={8} sx={{ p: 0, borderBottom: open ? undefined : 0, display: 'table-cell !important' }}>
                         <Collapse in={open} unmountOnExit>
                           <TagDetail group={row.group} since={since} />
                         </Collapse>

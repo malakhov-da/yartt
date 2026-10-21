@@ -168,6 +168,7 @@ export const helpEn: Help = {
       steps: [
         'The Tags block: what happened to the tasks of each tag from any day to today — open, closed, comments, people, who plans time. '
           + '"?" by a column explains each figure.',
+        'By default the tags with the most tasks "In work" are on top; click a column\'s heading to sort by it.',
         'Pick several tags to see them together and one by one.',
         'A line unfolds into charts by day: how much time each person logged and how much they still plan.',
         '"Export" saves it all as CSV.',

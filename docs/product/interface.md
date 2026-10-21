@@ -70,13 +70,14 @@ someone with reports:
   in a click), on the tasks I see — open now, at risk and not moving;
   closed, by hand and by deadline; comments and in how many tasks;
   people and the average share of their own time; who plans time on it
-  now; when it last moved. The rubrics whose tasks moved most first
-(tasks with a comment, time or a closing in the range), or the tags
+  now; when it last moved. Sorted by a column, shown by its arrow — by
+default "In work", the tasks with a comment, time or a closing in the
+range; a click on another heading sorts by it — or the tags
   picked in its search with all of them together and any of them. "?"
   by the title and each column says what it means. A line unfolds into
   two charts by day, a line per person — time logged and plan of time
-  left; the tooltip of a day puts each person's comments next to their
-  time and the tasks their plan covers next to their plan — and a table of people; CSV export (decision 58).
+  left; the tooltip of a day puts next to each person's time the tasks and ✉
+  comments behind it, and next to their plan the tasks it covers — and a table of people; CSV export (decision 58).
 - **Timesheet** ("My days" before: next to "My day" the two were
   confused) — today and the last day before it with activity (on
   Monday that is usually Friday: what was I doing?); "History" leads to
