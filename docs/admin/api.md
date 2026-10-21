@@ -23,7 +23,9 @@ instead of a browser session. People have no API keys.
      ask for access to others'.
    A bot never keeps a timesheet, logs time, scores, invites or manages
    anyone: those are for people, whatever is ticked.
-3. **Add it to tasks** it should see, as a participant, or mention it.
+3. **Add it to tasks** it should see: the owner of a task adds it as a
+   participant. Only participants are mentioned in a private task, a bot
+   too; one with the Participants permission adds people to its own tasks.
 
 Only its direct manager changes a bot, replaces its key or hands it to
 someone else; managers above see it. The key does not expire: replace it

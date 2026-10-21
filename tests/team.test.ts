@@ -217,6 +217,7 @@ describe('team', () => {
     const dev = await createEmployee({ managerId: lead.id });
     const day = await shift(dev.id, 2, 8); // written two days late, minus the 8 hours
     const task = await createTask(lead.id);
+    await (await client(lead.id)).Observer.add({ taskId: task, employeeId: dev.id });
     const ask = (await client(lead.id)).Comment.create;
     const asked = await ask({ taskId: task, html: '<p>Look</p>', replyToId: null, files: [], mentionIds: [dev.id], taskIds: [] });
     await ask({ taskId: task, html: '<p>And this</p>', replyToId: null, files: [], mentionIds: [dev.id], taskIds: [] });

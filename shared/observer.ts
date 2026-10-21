@@ -66,3 +66,12 @@ export const Minutes = z.number().int().min(1).max(100_000);
 
 /** A day's whole time on a task; 0 — none: the entry goes. */
 export const DayMinutes = z.number().int().min(0).max(24 * 60);
+
+/** Whom a comment on a task may mention: in a private task its participants only, in a public one anyone. */
+export const Mentionable = z.object({
+  /** A public task: anyone working. */
+  everyone: z.boolean(),
+  /** A private task: its active participants. */
+  ids: Id.array(),
+});
+export type Mentionable = z.infer<typeof Mentionable>;

@@ -15,6 +15,7 @@ describe('todo', () => {
     const owner = await createEmployee();
     const helper = await createEmployee();
     const id = await createTask(owner.id);
+    await (await client(owner.id)).Observer.add({ taskId: id, employeeId: helper.id });
     const commentId = await (await client(owner.id)).Comment.create(comment(id, '<p>Please look</p>', [helper.id]));
 
     const api = await client(helper.id);

@@ -154,11 +154,8 @@ things: writes comments, logs time, sets their own time left, closes their
 own mentions, leaves the task. Adding and hiding observers, approving
 requests, making the task public or private — the owner only.
 
-Anyone can still bring a colleague into a private task: a mention of
-someone who does not observe it makes them an observer, like a manager
-joins when a report of theirs does. A request for help is the only
-legitimate reason for an observer to widen access, and it leaves a trace
-in the feed. Access opened or closed — added, mentioned, request approved
+*Changed by 64:* a mention no longer brings anyone in — only the owner
+adds participants. Access opened or closed — added, mentioned, request approved
 or rejected, hidden, task made private — is always notified, so nobody
 discovers a task appearing or vanishing by accident.
 
@@ -1012,10 +1009,30 @@ column of people who were active in the range is "People" ("Люди"), so it
 is not taken for a task's participants.
 
 The guide was checked against the rules while at it: only the owner
-adds participants; any participant brings a colleague in by a mention;
-managers of every participant join by themselves; access requests,
+adds participants (and, since decision 64, a mention addresses only
+them); managers of every participant join by themselves; access requests,
 public tasks, handing over, leaving, links, reminders, the plan, the
 profile and invitations each got a use case.
 
 *Implemented:* `shared/i18n/ru.ts`, `en.ts`, `help/`; the product docs;
 `docs/admin/api.md` names the permission "Participants" (`observers`).
+
+### 64. Only the owner brings people in; a mention addresses participants
+
+A mention in a private task used to make the person a participant: any
+participant could widen the circle of a task by asking someone for help.
+That broke the rule that access is the owner's: the owner answers for
+the task and for who sees it, and an important idea could spread one
+mention at a time, the owner learning of it afterwards.
+
+Now only the owner adds participants (or approves a request for access),
+and a private task mentions only its participants: the mention picker
+offers just them and says the owner adds people; the database refuses
+anyone else (`mention_not_participant`). In a public task anyone can be
+mentioned, and still nobody is added. Someone who needs a colleague not
+in the task asks the owner, or the colleague requests access. Managers
+still join with their reports: that is the org chart, not a choice.
+
+*Implemented:* `trg_mention_check()` (migration `0.2-0.3`);
+`Observer.mentionable`; the mention picker in `Composer`.
+

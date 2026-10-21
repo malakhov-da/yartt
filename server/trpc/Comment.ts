@@ -18,11 +18,12 @@ export default router({
 
   /**
    * Leaves a comment (rich text, sanitized) with files, mentions and
-   * attached tasks; returns its id. A mention in a private task makes the
-   * person an observer. Comments are never edited: the client holds a sent
+   * attached tasks; returns its id. In a private task only its observers
+   * can be mentioned (Observer.mentionable). Comments are never edited: the client holds a sent
    * comment back for a few seconds before calling this.
    * @throws no_access
    * @throws self_mention
+   * @throws mention_not_participant — a private task, and they do not take part.
    * @throws unknown_attachment — a file the author may not read.
    * @throws not_found — unknown task, employee or reply.
    */

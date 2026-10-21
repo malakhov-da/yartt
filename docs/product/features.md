@@ -72,7 +72,7 @@ persona goal it serves. Status: **now** — stage one, **next** — stage two,
 |---|---|---|
 | Comments in rich text with images, never edited or deleted, with a few seconds to take one back | everyone: a reliable record | now (done) |
 | Reply to a comment; replies live in a thread under the first comment, a line in the feed marks each | everyone: keep threads readable | now (done) |
-| Attach a colleague (mention); in a private task it makes them an participant; it stays in their TODO until they close it | Pavel: ask the right person | now (done) |
+| Attach a colleague (mention) — a participant of a private task, anyone in a public one; it stays in their TODO until they close it | Pavel: ask the right person | now (done) |
 | Attach another task | everyone: link related work without dependencies | now (done) |
 | Attachments with deduplication | everyone: share files where the discussion is | now (done) |
 | Notifications and sign-in links by email, in each person's language | everyone: works right after installation | now (done) |

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Id } from '#shared/employee.ts';
-import { People } from '#shared/observer.ts';
+import { Mentionable, People } from '#shared/observer.ts';
 import * as Observers from '../services/Observer.ts';
 import { authedProcedure, router } from '../trpc.ts';
 
@@ -17,6 +17,16 @@ export default router({
     .input(z.object({ taskId: Id, page: z.number().int().min(1) }))
     .output(People)
     .query(({ input, ctx }) => Observers.list(ctx.employeeId, input.taskId, input.page)),
+
+  /**
+   * Whom a comment on the task may mention: in a private task only its
+   * participants (active observers), in a public one anyone working.
+   * @throws no_access
+   */
+  mentionable: authedProcedure
+    .input(z.object({ taskId: Id }))
+    .output(Mentionable)
+    .query(({ input, ctx }) => Observers.mentionable(ctx.employeeId, input.taskId)),
 
   /**
    * The owner adds an observer to a private task or brings a former one

@@ -20,8 +20,8 @@ export const helpEn: Help = {
     },
     {
       title: 'Access only for those invited',
-      text: 'A task is seen only by its participants: the owner, those the owner added, those mentioned in a comment or whose request '
-        + 'the owner approved — and their managers up the chain, who join by themselves. An important idea does not spread to '
+      text: 'A task is seen only by its participants: the owner, those the owner added or whose request for access the owner approved — '
+        + 'and their managers up the chain, who join by themselves. An important idea does not spread to '
         + '"everyone on the project". Tags, priority and deadline are visible to all — a task can be found and access asked for. '
         + 'A task that concerns everyone the owner makes public.',
     },
@@ -84,9 +84,10 @@ export const helpEn: Help = {
     {
       title: 'Give access or ask for help',
       steps: [
-        'The owner adds a participant: "Add a participant" on the task\'s page. That is access, not an order — nothing is expected of them.',
-        'Any participant can bring a colleague in with a mention (@) in a comment, saying what is needed. The request lands in their '
-          + 'Waiting for me and they become a participant by themselves — a trace in the feed, not a quiet widening of access.',
+        'Only the owner adds participants: "Add a participant" on the task\'s page. That is access, not an order — nothing is expected of them.',
+        'To ask a participant to do something, mention them (@) in a comment and say what is needed: it lands in their Waiting for me. '
+          + 'Only those already in the task can be mentioned; in a public task, anyone.',
+        'If you need someone who is not in the task and you are not the owner, ask the owner to add them. They can request access themselves.',
         'The mention is closed when they reply and press "Done". If there is a lot of work, they make a follow-up task, and yours waits for it.',
       ],
     },
@@ -206,9 +207,10 @@ export const helpEn: Help = {
         + 'watch it and move it in advance. A manager sees tasks closed by their deadline apart from those closed by hand.',
     },
     {
-      q: 'Why can a participant not add a colleague themselves?',
-      a: "Who has access is the owner's decision. A participant can bring a colleague in with a mention: that is a request for help, "
-        + 'seen in the feed, and every access opened or closed is notified. So a task never spreads quietly.',
+      q: 'Why can I not mention someone who is not in the task?',
+      a: "Who has access is the owner's decision: they answer for the task and for who sees it. So only those already taking part "
+        + 'can be mentioned — a mention addresses a participant, it does not open access. Every access opened or closed is notified, '
+        + 'so a task never spreads quietly.',
     },
     {
       q: "Why do managers see their reports' tasks?",

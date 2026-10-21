@@ -195,6 +195,9 @@ describe('bots', () => {
         const { id } = await leadApi.Bot.create({ ...newBot(), webhookUrl: `http://localhost:${(hook.address() as AddressInfo).port}/hook` });
         const secret = (await leadApi.Bot.list()).find((b) => b.id === id)!.webhookSecret!;
         const task = await leadApi.Task.create({ tags: [`hook-${id}`] });
+        await leadApi.Observer.add({ taskId: task, employeeId: id }); // only a participant can be mentioned
+        expect(await deliverNotifications(sql)).toBe(1); // access_opened
+        got.length = 0;
         await leadApi.Comment.create({ taskId: task, html: '<p>Deploy?</p>', replyToId: null, files: [], mentionIds: [id], taskIds: [] });
 
         expect(await deliverNotifications(sql)).toBe(1);
@@ -214,7 +217,7 @@ describe('bots', () => {
         expect(got).toHaveLength(2);
         const today = new Date().toISOString().slice(0, 10);
         expect((await leadApi.Bot.stats({ since: today })).find((b) => b.id === id))
-          .toMatchObject({ deliveries: 2, failedDeliveries: 1 });
+          .toMatchObject({ deliveries: 3, failedDeliveries: 1 });
       } finally {
         hook.close();
       }

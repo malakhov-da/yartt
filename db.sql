@@ -37,7 +37,7 @@ CREATE TABLE schema_version (
 CREATE UNIQUE INDEX uq_schema_version_active
     ON schema_version((TRUE)) WHERE expired_at IS NULL;
 
-INSERT INTO schema_version (version) VALUES ('0.2');
+INSERT INTO schema_version (version) VALUES ('0.3');
 
 COMMENT ON TABLE schema_version IS
 'History of database schema versions (major.minor). Current = expired_at IS NULL.
@@ -125,8 +125,8 @@ Key principles:
     their time entries, their time left, their reminders, their mentions.
     Access belongs to the owner: only the owner adds and removes
     observers, answers requests and makes the task public or private.
-    Anyone who sees a private task can still bring a colleague in by
-    mentioning them — the mention makes them an observer.
+    A mention in a private task addresses only its observers; anyone
+    else is brought in by the owner or asks for access.
   - Access is revoked explicitly: an observer can leave, the owner can
     remove an observer. There is also an access request flow: an employee
     files a request (added_at = NULL), the owner is notified and approves
@@ -466,9 +466,8 @@ ACCESS RULES
   Comments:
     - Leave a comment — anyone who sees the task.
     - Attach an employee or a task — anyone who sees the task.
-    - A private task: an attached employee who does not observe it
-      becomes an observer (added_by = the author). A public task: any
-      active employee can be attached.
+    - A private task: only an active observer can be attached (mentioned).
+      A public task: any active employee can be attached.
 
   Scores:
     - score — only the current manager (employee.manager_id).
@@ -1361,8 +1360,6 @@ WHO CREATES A ROW:
     added_at = NULL. The owner is notified.
   - The owner adds someone (add_observer): added_by = the owner,
     added_at = NOW(). The new observer is notified (access_opened).
-  - A mention in a private task adds the mentioned employee:
-    added_by = the comment author. The mention notifies them.
   - The system: added_by = NULL, added_at = NOW(). This is how the owner
     (on task creation and transfer, unless the task is public) and the
     managers of all active observers, recursively, are added (triggers).
@@ -1875,10 +1872,9 @@ reply: the mentioned employee must have commented in the task after the
 mention, so whoever asked sees the answer (trigger). An open mention is the only way a
 task the employee merely observes gets into their TODO in My day.
 Self-mention and mentioning a dismissed employee are forbidden. In a
-private task the mentioned employee becomes an observer if they are not
-one (added_by = the author) — a request for help is how anyone who sees
-the task brings a colleague in. A public task gets no observers from a
-mention (trigger).
+private task only an active observer can be mentioned: who takes part is
+the owner''s decision, a mention only addresses those already in. In a
+public task anyone can be mentioned, and it adds no observer (trigger).
 The mentioned employee is always notified.';
 
 COMMENT ON COLUMN mention.task_id IS
@@ -2854,7 +2850,7 @@ FOR EACH ROW EXECUTE FUNCTION trg_attachment_in_use();
 
 
 -- ----------------------------------------------------------------------------
--- mention: not oneself, and only an observer
+-- mention: not oneself, and in a private task only an observer
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION trg_mention_check()
 RETURNS TRIGGER AS $$
@@ -2874,17 +2870,21 @@ BEGIN
             USING HINT = 'not_found';
     END IF;
 
-    IF NOT is_public(NEW.task_id) THEN
-        PERFORM grant_observer(NEW.task_id, NEW.value, v_author_id);
+    IF NOT is_public(NEW.task_id) AND NOT is_observer(NEW.task_id, NEW.value) THEN
+        RAISE EXCEPTION 'employee % is not an observer of task %', NEW.value, NEW.task_id
+            USING HINT = 'mention_not_participant',
+                  DETAIL = json_build_object('employeeId', NEW.value, 'taskId', NEW.task_id)::text;
     END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION trg_mention_check() IS
-'Forbids self-mentions and mentioning a dismissed employee. In a private
-task makes the mentioned employee an observer (added_by = the author);
-a public task stays without observers.';
+'Forbids self-mentions, mentioning a dismissed employee and, in a private
+task, mentioning anyone who is not an active observer: who takes part is
+the owner''s decision (add_observer, approve_access), a mention only
+addresses those already in. In a public task anyone may be mentioned and
+no observer is added.';
 
 CREATE TRIGGER mention_check
 BEFORE INSERT ON mention

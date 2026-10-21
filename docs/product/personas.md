@@ -75,7 +75,7 @@ relationships that already exist in the company:
 |---|---|---|
 | Employee | anyone with an account | invite colleagues, request access to a task, edit own profile, choose own manager (the manager is notified) |
 | Owner | one per task | change tags, context, priority, deadline and dependencies; approve or reject access; transfer ownership |
-| Participant | anyone the task is open to: added by the owner, mentioned, approved on request, or a manager of a participant | comment, mention people (which brings them in), link tasks, log own time, set own time left and reminders, leave; adding and hiding participants is the owner's |
+| Participant | anyone the task is open to: added by the owner, approved on request, or a manager of a participant | comment, mention other participants, link tasks, log own time, set own time left and reminders, leave; adding and hiding participants is the owner's |
 | Direct manager | the manager of an employee | dismiss the employee or bring them back (their tasks and reports move to the manager); score their past days, if the manager wants to; transfer their tasks |
 | Manager up the chain | any manager above | automatically a participant of every task a report below takes part in, seen on the Team screen |
 | First employee | created on installation | nothing special — an ordinary employee |

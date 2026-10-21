@@ -97,16 +97,23 @@ describe('access', () => {
 });
 
 describe('mentions', () => {
-  test('a mention in a private task makes an observer; in a public one it does not', async () => {
+  test('a private task mentions only its participants; a public one anyone, adding nobody', async () => {
     const owner = await createEmployee();
     const colleague = await createEmployee();
     const id = await createTask(owner.id);
     const api = await client(owner.id);
 
+    // Who takes part is the owner's decision: a mention does not bring anyone in.
+    await expect(api.Comment.create(comment(id, '<p>Help?</p>', [colleague.id])))
+      .rejects.toMatchObject({ message: 'mention_not_participant' });
+    expect(await (await client(colleague.id)).Task.get({ id })).toMatchObject({ access: 'none' });
+    expect(await api.Observer.mentionable({ taskId: id })).toEqual({ everyone: false, ids: [owner.id] });
+    await api.Observer.add({ taskId: id, employeeId: colleague.id });
     await api.Comment.create(comment(id, '<p>Help?</p>', [colleague.id]));
-    expect(await (await client(colleague.id)).Task.get({ id })).toMatchObject({ access: 'observer' });
+    expect((await api.Observer.mentionable({ taskId: id })).ids.sort()).toEqual([owner.id, colleague.id].sort());
 
     await api.Task.makePublic({ id });
+    expect(await api.Observer.mentionable({ taskId: id })).toEqual({ everyone: true, ids: [] });
     const outsider = await createEmployee();
     await api.Comment.create(comment(id, '<p>You too</p>', [outsider.id]));
     expect(await (await client(outsider.id)).Task.get({ id })).toMatchObject({ access: 'public', isPublic: true });
@@ -145,6 +152,7 @@ describe('mentions', () => {
     const id = await createTask(owner.id);
     const api = await client(owner.id);
     await api.Comment.create(comment(id, '<p>Plain</p>'));
+    await api.Observer.add({ taskId: id, employeeId: dev.id });
     const asked = await api.Comment.create(comment(id, '<p>Check this</p>', [dev.id]));
     await api.Task.setDeadline({ id, deadline: new Date(Date.now() + 86_400_000) });
 

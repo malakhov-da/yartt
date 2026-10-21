@@ -2,7 +2,7 @@ import { AlternateEmail, AttachFile, Close, Tag } from '@mui/icons-material';
 import {
   Alert, Autocomplete, Box, Button, Chip, IconButton, Paper, Stack, TextField, Tooltip, Typography,
 } from '@mui/material';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Employee } from '#shared/employee.ts';
@@ -58,6 +58,7 @@ export default function (p: {
   const setTaskIds = (next: number[]) => setDraft((d) => ({ ...d, taskIds: next }));
   const [uploading, setUploading] = useState(0);
   const [showMention, setShowMention] = useState(false);
+  const mentionable = useQuery(trpc.Observer.mentionable.queryOptions({ taskId: p.taskId }));
   const [taskInput, setTaskInput] = useState<string | null>(null);
   const [held, setHeld] = useState<(Draft & { replyTo: ReplyTo | null; seconds: number }) | null>(null);
   const [editorKey, setEditorKey] = useState(0);
@@ -154,7 +155,9 @@ export default function (p: {
 
   const plain = (html: string) => new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
   const replyAuthor = p.replyTo ? employees.get(p.replyTo.authorId)?.fullName : null;
-  const candidates = [...employees.values()].filter((e) => e.dismissedAt === null && e.id !== me.id);
+  // A private task: its participants only — who takes part is the owner's decision.
+  const candidates = [...employees.values()].filter((e) => e.dismissedAt === null && e.id !== me.id
+    && (mentionable.data?.everyone || mentionable.data?.ids.includes(e.id)));
 
   return (
     <Stack ref={root} spacing={1.5} sx={{ scrollMarginTop: 16 }}>
@@ -207,7 +210,7 @@ export default function (p: {
             getOptionLabel={(e) => e.fullName}
             onChange={(_e, value) => { if (value) setMentions([...mentions, value]); setShowMention(false); }}
             onBlur={() => setShowMention(false)}
-            renderInput={(params) => <TextField {...params} autoFocus placeholder={t('task.composer.mention')} helperText={t('task.composer.mentionHint')} />}
+            renderInput={(params) => <TextField {...params} autoFocus placeholder={t('task.composer.mention')} helperText={t(mentionable.data?.everyone ? 'task.composer.mentionHintPublic' : 'task.composer.mentionHint')} />}
             openOnFocus
           />
         )}

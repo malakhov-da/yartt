@@ -52,14 +52,24 @@ test.describe.serial('a task from creation to hand-over', () => {
     await expect(page.getByRole('button', { name: 'Вернуть в редактирование' })).toHaveCount(0, { timeout: 15_000 });
   });
 
-  test('a mention makes the person an observer; a reply quotes its parent', async () => {
+  test('only a participant is mentioned: the owner adds them first; a reply quotes its parent', async () => {
+    await page.getByRole('button', { name: 'Упомянуть сотрудника' }).click();
+    await page.keyboard.type('Павел');
+    await expect(page.getByText('Упомянуть можно участников задачи; добавляет участников владелец')).toBeVisible();
+    await expect(page.getByRole('option', { name: 'Павел Орлов' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await page.getByPlaceholder('Добавить участника').click();
+    await page.keyboard.type('Павел');
+    await page.getByRole('option', { name: 'Павел Орлов' }).click();
+    await expect(page.getByPlaceholder('Добавить участника')).toHaveValue('');
+
     await page.getByRole('button', { name: 'Упомянуть сотрудника' }).click();
     await page.keyboard.type('Павел');
     await page.getByRole('option', { name: 'Павел Орлов' }).click();
     await editable(page).fill('Павел, посмотри');
     await page.getByRole('button', { name: 'Отправить' }).click();
     await expect(page.getByText('@Павел Орлов · открыто')).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText(/Упомянут — остаётся/)).toBeVisible(); // he observes now, and says why
+    await expect(page.getByText(/Упомянут — остаётся/)).toBeVisible(); // an open mention keeps him, and says why
 
     await page.getByRole('button', { name: 'Ответить' }).first().click();
     await expect(page.getByText(/Ответ на комментарий/)).toBeVisible();
@@ -89,7 +99,7 @@ test.describe.serial('a task from creation to hand-over', () => {
     await expect(page.getByText(/Алексей Громов: в плане ещё 2ч/)).toBeVisible();
   });
 
-  test('observers: add, hide, public and private again', async () => {
+  test('participants: add, hide, public and private again', async () => {
     await page.getByPlaceholder('Добавить участника').click();
     await page.keyboard.type('Иван');
     await page.getByRole('option', { name: 'Иван Кузнецов' }).click();

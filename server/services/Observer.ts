@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { People, Period, Person } from '#shared/observer.ts';
+import type { Mentionable, People, Period, Person } from '#shared/observer.ts';
 import { sql } from '../pg.ts';
 import { assertCanSee } from './Task.ts';
 
@@ -92,6 +92,17 @@ export async function list(viewerId: number, taskId: number, page: number): Prom
      ORDER BY id
   `);
   return { requests, items, total: rows[0]?.total ?? 0 };
+}
+
+/** Whom a comment may mention: a private task's active participants, or anyone in a public one. */
+export async function mentionable(viewerId: number, taskId: number): Promise<Mentionable> {
+  await assertCanSee(taskId, viewerId);
+  const [pub] = Bool.array().parse(await sql`SELECT is_public(${taskId}) AS value`);
+  if (pub!.value) return { everyone: true, ids: [] };
+  const rows = z.object({ id: z.number() }).array().parse(await sql`
+    SELECT value AS id FROM observer WHERE task_id = ${taskId} AND added_at IS NOT NULL AND deleted_at IS NULL
+  `);
+  return { everyone: false, ids: rows.map((r) => r.id) };
 }
 
 export async function add(actorId: number, taskId: number, employeeId: number): Promise<void> {

@@ -181,21 +181,24 @@ Right, the side panel:
 No tabs, no "details" section, no activity log apart from the feed and the
 periods of taking part. Opening a task is logged as a visit.
 
-### What an participant sees
+### What a participant sees
 
 Exactly what the owner sees — header, context, dependencies, feed,
 participants with their time — but as text, without the requests, "Add",
-"Hide" and "Bring back". An participant writes comments, logs their
+"Hide" and "Bring back". A participant writes comments, logs their
 own time and sets their own time left; nothing else (decision 15). Their
 own open mention is shown in the header with "Done". They can leave the
 task.
 
 ### Access
 
-- In a private task the owner adds participants explicitly; anyone else
-  brings a person in only by mentioning them (decision 15).
-- Becoming an participant and stopping being one is always notified: "access
-  opened" (added, mentioned, request approved) and "access closed"
+- Only the owner adds participants. A mention addresses only those
+  already in a private task — the mention picker offers just them, with
+  a hint that the owner adds participants; in a public task anyone can
+  be mentioned (decision 64). Anyone else asks the owner or requests
+  access.
+- Becoming a participant and stopping being one is always notified: "access
+  opened" (added, request approved) and "access closed"
   (hidden, request rejected, the task made private without them).
 - Someone without access sees the task number, tags, priority and
   deadline — they are visible to everyone (decision 19) — and "Request
@@ -206,7 +209,7 @@ task.
 
 A task with no participants is **public**: every employee sees it, comments,
 logs time; it is in everyone's "others" in My day. A mention in a public
-task does not add an participant. A new task is private, with its owner as
+task does not add a participant. A new task is private, with its owner as
 the only participant. The owner makes it public (all participants go). Making it
 private again leaves the owner, the managers above and everyone with an
 open mention; the people who commented are offered back with one click
@@ -369,7 +372,7 @@ A dialog behind my avatar, not a screen.
 - Log out on all devices.
 
 There is no list of all employees: a person is picked where needed (my
-manager, a mention, an participant), and a new one is invited from the top
+manager, a mention, a participant), and a new one is invited from the top
 line.
 
 ## Interaction rules
