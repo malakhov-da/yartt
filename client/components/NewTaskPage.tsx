@@ -13,6 +13,7 @@ import RichEditor, { type RichEditorHandle } from './App/RichEditor.tsx';
 import TagInput, { useTitle } from './App/TagInput.tsx';
 import PriorityChip from './TaskPage/PriorityChip.tsx';
 import TaskLine from './TaskPage/TaskLine.tsx';
+import TakenLink from './App/TakenLink.tsx';
 
 type Draft = { tags: TagPart[]; input: string; priority: Priority; deadline: string; context: string };
 const EMPTY: Draft = { tags: [], input: '', priority: 'NORMAL', deadline: '', context: '' };
@@ -104,7 +105,7 @@ export default function () {
         onInputChange={(next) => change({ input: next })}
         allowNew
         label={t('newTask.tags')}
-        helperText={title.taken ? t('title.taken', { id: title.taken.id })
+        helperText={title.taken ? <TakenLink id={title.taken.id} />
           : title.pickFirst ? t('title.pickFirst', { name: title.pickFirst }) : t('newTask.tagsHint')}
         autoFocus
       />

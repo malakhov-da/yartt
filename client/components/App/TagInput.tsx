@@ -40,7 +40,7 @@ export default function (p: {
   allowNew?: boolean;
   label?: string;
   placeholder?: string;
-  helperText?: string;
+  helperText?: ReactNode;
   autoFocus?: boolean;
   inputRef?: Ref<HTMLInputElement>;
   startAdornment?: ReactNode;

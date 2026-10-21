@@ -21,6 +21,7 @@ import PriorityChip from './PriorityChip.tsx';
 import RiskChip from './RiskChip.tsx';
 import Dependencies from './Dependencies.tsx';
 import TransferDialog from './TransferDialog.tsx';
+import TakenLink from '../App/TakenLink.tsx';
 
 const label = { fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'text.secondary' } as const;
 
@@ -89,7 +90,7 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
                 allowNew
                 autoFocus
                 label={t('task.tags')}
-                helperText={title.taken ? t('title.taken', { id: title.taken.id })
+                helperText={title.taken ? <TakenLink id={title.taken.id} />
                   : title.pickFirst ? t('title.pickFirst', { name: title.pickFirst }) : undefined}
                 sx={{ flexGrow: 1 }}
               />

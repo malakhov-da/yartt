@@ -9,6 +9,7 @@ import { useMe } from '#client/hooks/me.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import TagInput, { useTitle } from '../App/TagInput.tsx';
 import TaskLine from './TaskLine.tsx';
+import TakenLink from '../App/TakenLink.tsx';
 
 const SHOWN = 8;
 
@@ -53,7 +54,7 @@ export default function (p: {
         onInputChange={(input) => p.onChange({ parts: p.parts, input })}
         autoFocus
         label={t('task.dependency.find')}
-        helperText={title.taken ? t('title.taken', { id: title.taken.id })
+        helperText={title.taken ? <TakenLink id={title.taken.id} />
           : title.pickFirst ? t('title.pickFirst', { name: title.pickFirst }) : undefined}
         startAdornment={<InputAdornment position="start"><Search fontSize="small" /></InputAdornment>}
         endAdornment={(

@@ -1,9 +1,9 @@
 import { Add, Search } from '@mui/icons-material';
-import { IconButton, InputAdornment, Link as MuiLink, Pagination, Paper, Stack, Tab, Tabs, Tooltip, Typography } from '@mui/material';
+import { IconButton, InputAdornment, Pagination, Paper, Stack, Tab, Tabs, Tooltip, Typography } from '@mui/material';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useLocation, useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import type { CurrentTab } from '#shared/myDay.ts';
 import type { Tag } from '#shared/task.ts';
 import { useStore } from '#client/hooks/store.ts';
@@ -11,6 +11,7 @@ import { POLL_MS } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import TagInput, { useTitle } from '../App/TagInput.tsx';
 import TaskLine from '../TaskPage/TaskLine.tsx';
+import TakenLink from '../App/TakenLink.tsx';
 
 const PAGE_SIZE = 20;
 const TABS = ['mine', 'others', 'closed'] as const;
@@ -139,7 +140,7 @@ export default function () {
       />
       {title.taken && (
         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-          <MuiLink component={Link} to={`/tasks/${title.taken.id}`}>{t('title.taken', { id: title.taken.id })}</MuiLink>
+          <TakenLink id={title.taken.id} />
         </Typography>
       )}
       {title.pickFirst && (
