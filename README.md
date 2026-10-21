@@ -1,12 +1,15 @@
 # yartt
 
-A task tracker where every task has exactly one owner and every manager
-sees what is really going on — without configuring anything. Installed by
-a company on its own server.
+A task tracker built around responsibility and security: every task has
+exactly one owner, only the people invited to it see it, and every
+manager sees what is really going on — without configuring anything.
+Installed by a company on its own server.
 
-No projects, titles, subtasks, assignees, statuses or admins. Tasks are
-named by tags, linked by dependencies and closed by deadlines; access
-follows the org chart.
+Instead of projects, titles, subtasks, assignees, statuses and admins —
+mechanisms that bend further: tasks are named by tags, linked by
+dependencies, owned by whoever started them and closed by deadlines;
+access is by invitation and follows the org chart. The timesheet, time
+entries and scores of the day make work transparent, and are optional.
 
 ## Product
 

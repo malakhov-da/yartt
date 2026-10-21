@@ -2,8 +2,10 @@
 
 ## One sentence
 
-yartt is a task tracker where every task has exactly one owner and every
-manager sees what is really going on — without configuring anything.
+yartt is a task tracker built around responsibility and security: every
+task has exactly one owner, only the people invited to it see it, and
+every manager sees what is really going on — without configuring
+anything.
 
 ## The problem
 
@@ -17,22 +19,39 @@ questions that matter stay hard to answer:
   argument.
 - **What is actually happening in my team?** Statuses are stale, boards are
   decorative, and the manager learns about problems in a meeting.
+- **Who can see this?** Access comes by project: everyone on it sees
+  everything in it, so an important idea reaches far more people than
+  need it, and narrowing that takes an administrator.
 
 ## The bet
 
-Remove the constructs that create bureaucracy and keep the ones that create
-accountability:
+yartt does not merely drop the worn constructs of trackers; it replaces
+each with a more flexible, better thought-out mechanism. That is what is
+radical about it:
 
 | Instead of            | yartt has                                   |
 |-----------------------|---------------------------------------------|
-| Projects              | Tags: a task belongs to nothing but itself  |
-| Titles                | A unique set of tags                        |
-| Subtasks              | A dependency graph between equal tasks      |
-| Assignments           | One owner; everyone else observes and helps |
-| Statuses and workflows| A deadline: the task is done when it passes |
-| Task estimates        | A daily score of decisions, not of results  |
+| Projects              | Tags: a project, a kind of work, a direction, an action or any context; a task may carry several, and a new tag is made whenever a task needs one |
+| Access by project     | Observers invited to the task by name, and the owner's managers; nobody else sees what is inside |
+| Titles                | A unique set of tags, suggested as typed so the same thing keeps one name — synonyms become rare, nothing is lost |
+| Subtasks              | Dependencies between equal tasks: a follow-up takes the tags of its origin and adds its own; one task may be needed by several; hard ones tie deadlines, so promises are kept in check |
+| Assignments           | One owner — whoever started the task — who alone decides when it is done; observers solve their part, in a follow-up task or right there, and plan and log their own time |
+| Statuses and workflows| A deadline: the task is done when it passes, so whoever started it answers for a sensible one |
+| A single estimate     | Shifts, time entries and plans of time left side by side: several views of the same time instead of one figure taken on trust |
+| Performance reviews   | A daily score of decisions, not of results, with feedback |
 | Notification inbox    | Email in your language, or another channel  |
 | Admins and roles      | The org chart: managers see their reports   |
+
+**Transparency builds trust.** A manager sees the days of their people —
+shifts, entries, visits — as the people see them. An honest employee
+gains from it: the manager can trust them more. Looking busy only on
+paper gets hard, since the ribbon of a day shows whether the visits,
+shifts and entries agree.
+
+**Everything beyond tasks is optional.** The timesheet, time entries,
+plans and scores are there when a team wants transparency; a team that
+wants only tasks with tags still gets their flexibility and secure
+access.
 
 ## Positioning
 
@@ -45,12 +64,14 @@ show who is responsible,
 **yartt** is a self-hosted task tracker built around ownership and the
 org chart,
 
-**that** makes responsibility explicit and gives every manager an honest
-picture of their team in minutes a day,
+**that** makes responsibility explicit, keeps every task to the people
+invited to it and gives every manager an honest picture of their team in
+minutes a day,
 
 **unlike** Jira, YouTrack or Yandex Tracker, which describe *process*,
-yartt describes *responsibility*: no workflows, no assignees, no
-configuration.
+yartt describes *responsibility*: instead of workflows, assignees and
+project permissions — owners, deadlines, dependencies and invitations,
+with nothing to configure.
 
 The first market is companies that must keep data on their own servers and
 have a clear hierarchy (typical for small and mid-size businesses in the

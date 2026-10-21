@@ -8,13 +8,13 @@ test.describe('the guide', () => {
     await sql`UPDATE employee SET locale = 'ru' WHERE email = 'olga@example.com'`;
   });
 
-  test('opens from the top line: the essentials, how-tos and why it is so; in the person\'s language', async ({ page }) => {
+  test('opens from the top line: the essentials, use cases and why it is so; in the person\'s language', async ({ page }) => {
     await signIn(page, 'olga@example.com');
     await page.getByRole('link', { name: 'Как работать' }).click();
     await expect(page).toHaveURL(/\/help$/);
     await expect(page.getByRole('heading', { name: 'Как работать в яртт' })).toBeVisible();
     await page.getByRole('button', { name: 'Почему задача закрывается сама, когда наступает срок?' }).click();
-    await expect(page.getByText(/Иначе сроки перестают что-то значить/)).toBeVisible();
+    await expect(page.getByText(/настоящая ответственность за срок/)).toBeVisible();
 
     await sql`UPDATE employee SET locale = 'en' WHERE email = 'olga@example.com'`;
     await page.reload();

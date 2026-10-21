@@ -19,7 +19,8 @@ comes from the org chart, not from a role.
 ### 2. A passed deadline closes the task — on purpose
 
 A task whose deadline passes is closed automatically, even if the work is
-not finished. This is a feature: the owner has to move the deadline in
+not finished. This is a feature: it makes whoever started the task
+answer for its deadline — set a sensible one and watch it, move it in
 time, or explain why the task is closed but not done. Current tasks in
 **My day** are sorted by deadline, so the nearest ones are always on top.
 A closed task is not singled out — automatic and manual closing look the
@@ -117,9 +118,10 @@ it.
 The employee page shows the manager everything My day shows the employee,
 visits included: which tasks were opened and when the person came in. For
 someone who fills in the timesheet honestly this adds nothing new, so it
-does not hurt them; for someone tempted to pad the timesheet, or to let an
-agent work in their place, it removes the reason to try. Transparency is
-the same for everyone in the chain.
+does not hurt them — it helps them: the manager sees how the work really
+goes and can trust them more. For someone tempted to pad the timesheet,
+look busy only on paper, or let an agent work in their place, it removes
+the reason to try. Transparency is the same for everyone in the chain.
 
 ### 13. The context, the owner, priority and tags keep no history
 
@@ -985,6 +987,15 @@ yartt is and what it gives, short how-tos for the usual things, and
 answers to "why is it so" for every unusual rule. It is written for each
 language, not translated word by word, and kept in step with features
 like the demo.
+
+It speaks of what yartt gives, not only of what it lacks: each construct
+dropped is replaced by a mechanism that bends further — tags for
+projects, dependencies for subtasks, one owner for assignees, observers
+invited by name for access by project — with responsibility and
+security in front, transparency next and everything beyond tasks
+optional. It uses the interface's words only (tags, owner, observers):
+"rubric" and "phrase" are how we think about tags, not what people see.
+The how-tos are "use cases", and bots are presented as automation.
 
 *Implemented:* `shared/i18n/help/ru.ts` (the reference), `en.ts`;
 `client/components/HelpPage.tsx`, `/help`.
