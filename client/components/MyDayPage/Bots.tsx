@@ -10,10 +10,26 @@ import { useFormat } from '#client/hooks/format.ts';
 import { useMe } from '#client/hooks/me.ts';
 import { POLL_MS, useEmployees } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
-import RangePicker, { useRange } from '../App/RangePicker.tsx';
+import DaysPicker from '../App/DaysPicker.tsx';
 import BotDialog from './BotDialog.tsx';
 
 const YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+
+const share = (part: number, whole: number) => `${Math.round((part / Math.max(whole, 1)) * 100)}%`;
+
+/** Calls day by day as tiny bars: a bot that went quiet shows at once. */
+function Sparkline(p: { values: number[] }) {
+  const max = Math.max(1, ...p.values);
+  const width = 64;
+  const step = width / Math.max(p.values.length, 1);
+  return (
+    <Box component="svg" width={width} height={18} viewBox={`0 0 ${width} 18`} aria-hidden sx={{ color: 'primary.main', flexShrink: 0 }}>
+      {p.values.map((v, i) => (
+        <rect key={i} x={i * step} y={18 - (v / max) * 18} width={Math.max(step - 0.5, 0.5)} height={(v / max) * 18} fill="currentColor" opacity={v ? 0.7 : 0} />
+      ))}
+    </Box>
+  );
+}
 
 /**
  * Bots under My team (decision 49): mine and those of everyone under me,
@@ -28,10 +44,10 @@ export default function (p: { bare?: boolean }) {
   const me = useMe();
   const format = useFormat();
   const employees = useEmployees();
-  const [range, setRange, valid] = useRange();
+  const [days, setDays] = useState(30);
   const bots = useQuery(trpc.Bot.list.queryOptions(undefined, { refetchInterval: POLL_MS }));
-  const stats = useQuery(trpc.Bot.stats.queryOptions(range, {
-    refetchInterval: POLL_MS, placeholderData: keepPreviousData, enabled: valid,
+  const stats = useQuery(trpc.Bot.stats.queryOptions({ days }, {
+    refetchInterval: POLL_MS, placeholderData: keepPreviousData,
   }));
   const [opened, setOpened] = useState<Bot | 'new' | null>(null);
   const byId = new Map((stats.data ?? []).map((s) => [s.id, s]));
@@ -54,10 +70,15 @@ export default function (p: { bare?: boolean }) {
         {s && s.closedTasks > 0 && note(t('bots.closed', { count: s.closedTasks }))}
       </TableCell>
       <TableCell align="right">
-        {s?.requests ?? '—'}
-        {s && s.refused > 0 && note(t('bots.refused', { count: s.refused }), true)}
-        {s && s.failedDeliveries > 0 && note(t('bots.failedDeliveries', { count: s.failedDeliveries, total: s.deliveries }), true)}
-        {bot.webhookUrl && s && s.failedDeliveries === 0 && s.deliveries > 0 && note(t('bots.deliveries', { count: s.deliveries }))}
+        <Stack direction="row" sx={{ justifyContent: 'flex-end', alignItems: 'center', gap: 0.75 }}>
+          {s && <Sparkline values={s.daily.map((d) => d.requests)} />}
+          {s?.requests ?? '—'}
+        </Stack>
+        {s && s.refused > 0 && note(t('bots.refusedShare', { share: share(s.refused, s.requests) }), true)}
+        {s && s.deliveries > 0 && note(
+          t('bots.deliveredShare', { share: share(s.deliveries - s.failedDeliveries, s.deliveries) }),
+          s.failedDeliveries > 0,
+        )}
       </TableCell>
       <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
         {s?.lastRequestAt ? format.relative(s.lastRequestAt) : t('bots.never')}
@@ -77,7 +98,8 @@ export default function (p: { bare?: boolean }) {
       )}
       {list.length > 0 && (
         <>
-          <RangePicker range={range} onChange={setRange} />
+          {!p.bare && <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('bots.blockHint')}</Typography>}
+          <DaysPicker days={days} onChange={setDays} />
           <Box sx={{ opacity: stats.isPlaceholderData ? 0.6 : 1 }}>
             <Table
               size="small"
@@ -94,7 +116,7 @@ export default function (p: { bare?: boolean }) {
                     <Tooltip title={t('bots.activityHint')} describeChild><span>{t('bots.activity')}</span></Tooltip>
                   </TableCell>
                   <TableCell align="right"><Tooltip title={t('bots.requestsHint')} describeChild><span>{t('bots.requests')}</span></Tooltip></TableCell>
-                  <TableCell align="right">{t('bots.lastRequest')}</TableCell>
+                  <TableCell align="right"><Tooltip title={t('bots.lastRequestHint')} describeChild><span>{t('bots.lastRequest')}</span></Tooltip></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -132,7 +154,13 @@ export default function (p: { bare?: boolean }) {
           </Box>
         </>
       )}
-      {opened && <BotDialog bot={opened === 'new' ? null : opened} onClose={() => setOpened(null)} />}
+      {opened && (
+        <BotDialog
+          bot={opened === 'new' ? null : opened}
+          stats={opened === 'new' ? undefined : byId.get(opened.id)}
+          onClose={() => setOpened(null)}
+        />
+      )}
     </Stack>
   );
 

@@ -1,12 +1,13 @@
 import { ContentCopy } from '@mui/icons-material';
 import {
-  Alert, Autocomplete, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControlLabel, FormGroup,
+  Alert, Autocomplete, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControlLabel, FormGroup,
   IconButton, MenuItem, Stack, TextField, Tooltip, Typography,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BOT_PERMISSIONS, type Bot, type BotInput, type BotPermission } from '#shared/bot.ts';
+import { BOT_PERMISSIONS, type Bot, type BotInput, type BotPermission, type BotStats } from '#shared/bot.ts';
 import { PRONOUNS, type Employee, type Pronoun } from '#shared/employee.ts';
 import { useDraft } from '#client/hooks/drafts.ts';
 import { useFormat } from '#client/hooks/format.ts';
@@ -15,6 +16,7 @@ import { showInfo } from '#client/hooks/store.ts';
 import { useEmployees } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import { fieldErrors } from '#client/i18n/errors.ts';
+import TeamChart from './TeamChart.tsx';
 
 /** A key or a secret shown once, with a copy button. */
 function Secret(p: { label: string; value: string; onClose?: () => void }) {
@@ -44,12 +46,14 @@ const EMPTY: BotInput = { fullName: '', pronoun: null, about: null, permissions:
  * the key (shown once), hands the bot to someone, dismisses or brings it
  * back; managers above only look. `bot` NULL — a new bot under me.
  */
-export default function (p: { bot: Bot | null; onClose: () => void }) {
+export default function (p: { bot: Bot | null; stats?: BotStats; onClose: () => void }) {
   const { t } = useTranslation();
   const trpc = useTRPC();
   const me = useMe();
   const format = useFormat();
   const employees = useEmployees();
+  const theme = useTheme();
+  const palette = (theme.vars ?? theme).palette;
   const queryClient = useQueryClient();
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: trpc.Bot.pathKey() });
@@ -187,6 +191,19 @@ export default function (p: { bot: Bot | null; onClose: () => void }) {
               </Stack>
             )}
 
+            {bot && p.stats && p.stats.requests > 0 && (
+              <Box>
+                <Typography variant="subtitle2">{t('bots.chart')}</Typography>
+                <TeamChart
+                  days={p.stats.daily.map((d) => d.day)}
+                  format={(v) => String(Math.round(v))}
+                  series={[
+                    { id: 'requests', label: t('bots.requests'), color: palette.primary.main, values: p.stats.daily.map((d) => d.requests) },
+                    { id: 'refused', label: t('bots.refusedLabel'), color: palette.error.main, values: p.stats.daily.map((d) => d.refused) },
+                  ]}
+                />
+              </Box>
+            )}
             {bot && (
               <>
                 <Divider />

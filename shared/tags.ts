@@ -69,17 +69,18 @@ export const TagGroup = z.discriminatedUnion('kind', [
 ]);
 export type TagGroup = z.infer<typeof TagGroup>;
 
-const RangeShape = { from: z.iso.date(), to: z.iso.date() };
+/** The last N days, today included, in the viewer's time zone: the plans of now belong next to them. */
+export const LastDays = z.number().int().min(1).max(366);
 
 export const TagStatsInput = z.object({
-  ...RangeShape,
+  days: LastDays,
   /** Picked tags: only them, and the lines of them all together and any of them; empty — every tag. */
   tagIds: Id.array().max(20),
   page: z.number().int().min(1),
-}).refine((r) => r.from <= r.to, { path: ['to'] });
+});
 export type TagStatsInput = z.infer<typeof TagStatsInput>;
 
-/** What happened under a tag (or a group of tags) over a range, on the tasks the viewer sees. */
+/** What happened under a tag (or a group of tags) over the last days, on the tasks the viewer sees. */
 export const TagStatsRow = z.object({
   group: TagGroup,
   /** The tag, or the picked ones. */
@@ -90,6 +91,8 @@ export const TagStatsRow = z.object({
   open: z.number().int(),
   /** Of the open, at risk: a plan does not fit before the deadline. */
   atRisk: z.number().int(),
+  /** Of the open, untouched in the range: no comment, no time logged. */
+  stale: z.number().int(),
   /** Closed in the range by hand: "Finish", or a deadline moved to the past. */
   finished: z.number().int(),
   /** Closed in the range by a deadline set in advance. */
@@ -99,6 +102,12 @@ export const TagStatsRow = z.object({
   comments: z.number().int(),
   /** People who commented or logged time in the range. */
   people: z.number().int(),
+  /**
+   * Of those who logged time under it, the average share of their own time
+   * logged in the range that went here, 0..1 — an average over people,
+   * never hours added up (decision 38); NULL — nobody logged time.
+   */
+  share: z.number().nullable(),
 });
 export type TagStatsRow = z.infer<typeof TagStatsRow>;
 
@@ -109,14 +118,34 @@ export const TagStats = z.object({
 });
 export type TagStats = z.infer<typeof TagStats>;
 
-export const TagPeopleInput = z.object({ ...RangeShape, group: TagGroup });
-export type TagPeopleInput = z.infer<typeof TagPeopleInput>;
+export const TagDetailInput = z.object({ days: LastDays, group: TagGroup });
+export type TagDetailInput = z.infer<typeof TagDetailInput>;
 
-/** One person under a tag over a range: their own time — never added up with anyone's (decision 38). */
+/** One person under a line: their own time, share and plan — never added up with anyone's (decision 38). */
 export const TagPerson = z.object({
   employeeId: Id,
-  /** Time they logged to the tasks under the tag in the range. */
+  /** Time they logged to the tasks under it in the range. */
   minutes: z.number().int(),
+  /** Of all the time they logged in the range, the share that went here, 0..1; NULL — they logged none. */
+  share: z.number().nullable(),
+  /** Their "time left" now on its open tasks; NULL — no plan. */
+  leftMinutes: z.number().int().nullable(),
   comments: z.number().int(),
+  /** Their time on it, day by day, as `days`. */
+  daily: z.number().int().array(),
 });
 export type TagPerson = z.infer<typeof TagPerson>;
+
+/** A line unfolded: its activity day by day and its people, for the charts. */
+export const TagDetail = z.object({
+  /** The days of the range, oldest first. */
+  days: z.iso.date().array(),
+  /** Counts per day — counts may be added up. */
+  comments: z.number().int().array(),
+  closed: z.number().int().array(),
+  /** People who commented or logged time that day. */
+  people: z.number().int().array(),
+  /** Most time first. */
+  persons: TagPerson.array(),
+});
+export type TagDetail = z.infer<typeof TagDetail>;

@@ -1,4 +1,4 @@
-import type { MyTags, SetTagInput, Suggestions, TagGroup, TagPart, TagPeopleInput, TagStatsInput } from '#shared/tags.ts';
+import type { MyTags, SetTagInput, Suggestions, TagDetail, TagDetailInput, TagGroup, TagPart, TagStatsInput } from '#shared/tags.ts';
 import { MyTag, TagPerson, TagStats as TagStatsSummary, TagStatsRow } from '#shared/tags.ts';
 import { defaultKeyboards, Keyboard, retype } from '#shared/keyboards.ts';
 import { Locale } from '#shared/employee.ts';
@@ -235,18 +235,30 @@ export async function related(viewerId: number, tagIds: number[]): Promise<Tag[]
 
 const SUMMARY_PAGE = 20;
 const Count = z.object({ n: z.number() });
-const SummaryRow = TagStatsRow.omit({ group: true, tags: true }).extend({ tagId: z.number().nullable() });
+const SummaryRow = TagStatsRow.omit({ group: true, tags: true, share: true }).extend({ tagId: z.number().nullable() });
+const Range = z.object({ from: z.string(), to: z.string() });
+const ShareRow = z.object({ key: z.string(), share: z.number().nullable() });
+
+/** The last `days` days, today included, in the viewer's time zone. */
+async function lastDays(viewerId: number, days: number): Promise<{ from: string; to: string }> {
+  const [range] = Range.array().parse(await sql`
+    SELECT (local_today(${viewerId}) - ${days - 1}::int)::text AS from, local_today(${viewerId})::text AS to
+  `);
+  return range!;
+}
 
 /**
  * The tasks the viewer sees and what happened on them over a range of
- * their days (decision 58): `v` — the tasks, `tp` — who commented on or
- * logged time to each in the range, `m` — each task's figures.
+ * their days (decision 58): `v` — the tasks, `cm` — their comments in the
+ * range, `tp` — who commented on or logged time to each, `m` — each task's
+ * figures.
  */
 function scope(viewerId: number, from: string, to: string) {
   return sql`
     WITH r AS (
       SELECT (${from}::date)::timestamp AT TIME ZONE e.time_zone AS since,
-             (${to}::date + 1)::timestamp AT TIME ZONE e.time_zone AS until
+             (${to}::date + 1)::timestamp AT TIME ZONE e.time_zone AS until,
+             e.time_zone
         FROM employee e WHERE e.id = ${viewerId}
     ),
     v AS (
@@ -256,15 +268,18 @@ function scope(viewerId: number, from: string, to: string) {
        WHERE can_see(k.id, ${viewerId})
     ),
     cm AS (
-      SELECT c.task_id, c.created_by FROM comment c, r
+      SELECT c.task_id, c.created_by, (c.created_at AT TIME ZONE r.time_zone)::date AS day FROM comment c, r
        WHERE c.created_at >= r.since AND c.created_at < r.until AND c.task_id IN (SELECT id FROM v)
     ),
+    sp AS (
+      SELECT s.task_id, s."by", s.day, s.value FROM spent_minutes s
+       WHERE s.day BETWEEN ${from}::date AND ${to}::date AND s.task_id IN (SELECT id FROM v)
+    ),
     tp AS (
-      SELECT DISTINCT task_id, person FROM (
-        SELECT task_id, created_by AS person FROM cm
+      SELECT DISTINCT task_id, person, day FROM (
+        SELECT task_id, created_by AS person, day FROM cm
         UNION ALL
-        SELECT s.task_id, s."by" FROM spent_minutes s
-         WHERE s.day BETWEEN ${from}::date AND ${to}::date AND s.task_id IN (SELECT id FROM v)
+        SELECT task_id, "by", day FROM sp
       ) x
     ),
     m AS (
@@ -272,6 +287,7 @@ function scope(viewerId: number, from: string, to: string) {
              (v.deadline IS NULL OR v.deadline > NOW()) AS open,
              COALESCE(v.deadline > NOW() AND EXISTS (SELECT 1 FROM deadline_risk(v.id)), FALSE) AS at_risk,
              COALESCE(v.deadline <= NOW() AND v.deadline >= r.since AND v.deadline < r.until, FALSE) AS closed_in,
+             (v.deadline AT TIME ZONE r.time_zone)::date AS closed_day,
              COALESCE(v.deadline - v.entered_at > INTERVAL '1 minute', FALSE) AS auto,
              (SELECT count(*) FROM cm WHERE cm.task_id = v.id)::int AS comments,
              EXISTS (SELECT 1 FROM tp WHERE tp.task_id = v.id) AS touched
@@ -284,6 +300,7 @@ const figures = () => sql`
   count(*)::int AS tasks,
   count(*) FILTER (WHERE m.open)::int AS open,
   count(*) FILTER (WHERE m.at_risk)::int AS at_risk,
+  count(*) FILTER (WHERE m.open AND NOT m.touched)::int AS stale,
   count(*) FILTER (WHERE m.closed_in AND NOT m.auto)::int AS finished,
   count(*) FILTER (WHERE m.closed_in AND m.auto)::int AS expired,
   count(*) FILTER (WHERE m.closed_in OR m.touched)::int AS active,
@@ -298,6 +315,8 @@ function carrying(group: TagGroup, column = sql`tag_ids`) {
     : sql`${column} && ${group.tagIds}::int[]`;
 }
 
+const groupKey = (group: TagGroup) => (group.kind === 'tag' ? `t${group.tagId}` : group.kind);
+
 async function tagsByIds(viewerId: number, ids: number[]): Promise<Map<number, Tag>> {
   if (ids.length === 0) return new Map();
   const rows = Tag.array().parse(await sql`
@@ -309,17 +328,44 @@ async function tagsByIds(viewerId: number, ids: number[]): Promise<Map<number, T
 }
 
 /**
- * The tag summary for a range, on the tasks the viewer sees (decision 58).
- * No tags picked: every rubric — a tag on more than one task; a phrase of
- * one task is not a rubric — the most active first, with pages. Tags
- * picked: each of them, then, for two or more, their tasks all together
- * and any of them.
+ * For each line, the average over the people who logged time under it of
+ * the share of their own time logged in the range that went there — shares
+ * of each one's own time, never hours added up (decision 38).
+ */
+async function shares(viewerId: number, from: string, to: string, groups: TagGroup[]): Promise<Map<string, number | null>> {
+  if (groups.length === 0) return new Map();
+  const lines = groups.map((group) => sql`
+    SELECT ${groupKey(group)}::text AS key, sp."by", sum(sp.value) AS minutes
+      FROM sp JOIN v ON v.id = sp.task_id
+     WHERE ${carrying(group, sql`v.tag_ids`)}
+     GROUP BY sp."by"
+  `);
+  const union = lines.reduce((all, line) => sql`${all} UNION ALL ${line}`);
+  const rows = ShareRow.array().parse(await sql`
+    ${scope(viewerId, from, to)},
+    total AS (
+      SELECT s."by", sum(s.value) AS minutes FROM spent_minutes s
+       WHERE s.day BETWEEN ${from}::date AND ${to}::date GROUP BY s."by"
+    )
+    SELECT x.key, avg(x.minutes::float8 / NULLIF(total.minutes, 0))::float8 AS share
+      FROM (${union}) x JOIN total ON total."by" = x."by"
+     GROUP BY x.key
+  `);
+  return new Map(rows.map((r) => [r.key, r.share]));
+}
+
+/**
+ * The tag summary for the last days, on the tasks the viewer sees
+ * (decision 58). No tags picked: every rubric — a tag on more than one
+ * task; a phrase of one task is not a group — the most active first, with
+ * pages. Tags picked: each of them, then, for two or more, their tasks all
+ * together and any of them.
  */
 export async function stats(viewerId: number, input: TagStatsInput): Promise<z.infer<typeof TagStatsSummary>> {
+  const { from, to } = await lastDays(viewerId, input.days);
   const picked = input.tagIds.length > 0;
-  const base = scope(viewerId, input.from, input.to);
-  const which = picked ? sql`t.id = ANY(${input.tagIds}::int[])`
-    : rubric();
+  const base = scope(viewerId, from, to);
+  const which = picked ? sql`t.id = ANY(${input.tagIds}::int[])` : rubric();
   const rows = SummaryRow.array().parse(await sql`
     ${base}
     SELECT t.id AS tag_id, ${figures()}
@@ -350,30 +396,70 @@ export async function stats(viewerId: number, input: TagStatsInput): Promise<z.i
       groups.push({ group, tagIds: input.tagIds, figures: row! });
     }
   }
-  const tags = await tagsByIds(viewerId, [...new Set(groups.flatMap((g) => g.tagIds))]);
+  const [tags, shareOf] = await Promise.all([
+    tagsByIds(viewerId, [...new Set(groups.flatMap((g) => g.tagIds))]),
+    shares(viewerId, from, to, groups.map((g) => g.group)),
+  ]);
   return {
     rows: groups.map(({ group, tagIds, figures: { tagId: _, ...rest } }) => ({
-      group, tags: tagIds.flatMap((id) => tags.get(id) ?? []), ...rest,
+      group, tags: tagIds.flatMap((id) => tags.get(id) ?? []), ...rest, share: shareOf.get(groupKey(group)) ?? null,
     })),
     total: count?.n ?? 0,
   };
 }
 
+const DayCounts = z.object({ day: z.string(), comments: z.number(), closed: z.number(), people: z.number() });
+const PersonRow = TagPerson.omit({ daily: true });
+const PersonDay = z.object({ employeeId: z.number(), day: z.string(), minutes: z.number() });
+
 /**
- * Who worked under a line of the summary over the range, on the tasks the
- * viewer sees: each person's own time logged and comments, most time
- * first — one row per person, never a total (decision 38).
+ * A line of the summary unfolded, for the last days on the tasks the
+ * viewer sees: comments, closings and people day by day (counts), and
+ * each person's own time — day by day, its share of all they logged, their
+ * plan of time left now — most time first, never a total (decision 38).
  */
-export async function people(viewerId: number, input: TagPeopleInput): Promise<TagPerson[]> {
-  return TagPerson.array().parse(await sql`
-    ${scope(viewerId, input.from, input.to)}
-    , lt AS (SELECT id FROM v WHERE ${carrying(input.group, sql`v.tag_ids`)})
+export async function detail(viewerId: number, input: TagDetailInput): Promise<TagDetail> {
+  const { from, to } = await lastDays(viewerId, input.days);
+  const base = sql`${scope(viewerId, from, to)}, lt AS (SELECT id FROM v WHERE ${carrying(input.group, sql`v.tag_ids`)})`;
+  const counts = DayCounts.array().parse(await sql`
+    ${base}
+    SELECT d::date::text AS day,
+           (SELECT count(*) FROM cm WHERE cm.day = d::date AND cm.task_id IN (SELECT id FROM lt))::int AS comments,
+           (SELECT count(*) FROM m WHERE m.closed_in AND m.closed_day = d::date AND m.id IN (SELECT id FROM lt))::int AS closed,
+           (SELECT count(DISTINCT person) FROM tp WHERE tp.day = d::date AND tp.task_id IN (SELECT id FROM lt))::int AS people
+      FROM generate_series(${from}::date, ${to}::date, INTERVAL '1 day') d
+     ORDER BY d
+  `);
+  const persons = PersonRow.array().parse(await sql`
+    ${base},
+    total AS (
+      SELECT s."by", sum(s.value) AS minutes FROM spent_minutes s
+       WHERE s.day BETWEEN ${from}::date AND ${to}::date GROUP BY s."by"
+    )
     SELECT p.person AS employee_id,
-           COALESCE((SELECT sum(s.value) FROM spent_minutes s
-                      WHERE s."by" = p.person AND s.day BETWEEN ${input.from}::date AND ${input.to}::date
-                        AND s.task_id IN (SELECT id FROM lt)), 0)::int AS minutes,
+           COALESCE((SELECT sum(sp.value) FROM sp WHERE sp."by" = p.person AND sp.task_id IN (SELECT id FROM lt)), 0)::int AS minutes,
+           (COALESCE((SELECT sum(sp.value) FROM sp WHERE sp."by" = p.person AND sp.task_id IN (SELECT id FROM lt)), 0)::float8
+             / NULLIF((SELECT minutes FROM total WHERE total."by" = p.person), 0))::float8 AS share,
+           (SELECT sum(e.value) FROM estimate_minutes e JOIN m ON m.id = e.task_id
+             WHERE e."by" = p.person AND e.expired_at IS NULL AND m.open AND e.task_id IN (SELECT id FROM lt))::int AS left_minutes,
            (SELECT count(*) FROM cm WHERE cm.created_by = p.person AND cm.task_id IN (SELECT id FROM lt))::int AS comments
       FROM (SELECT DISTINCT person FROM tp WHERE task_id IN (SELECT id FROM lt)) p
      ORDER BY minutes DESC, comments DESC, p.person
   `);
+  const daily = PersonDay.array().parse(await sql`
+    ${base}
+    SELECT sp."by" AS employee_id, sp.day::text AS day, sum(sp.value)::int AS minutes
+      FROM sp WHERE sp.task_id IN (SELECT id FROM lt) GROUP BY sp."by", sp.day
+  `);
+  const days = counts.map((c) => c.day);
+  return {
+    days,
+    comments: counts.map((c) => c.comments),
+    closed: counts.map((c) => c.closed),
+    people: counts.map((c) => c.people),
+    persons: persons.map((person) => ({
+      ...person,
+      daily: days.map((day) => daily.find((d) => d.employeeId === person.employeeId && d.day === day)?.minutes ?? 0),
+    })),
+  };
 }

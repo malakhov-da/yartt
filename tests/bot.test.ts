@@ -136,10 +136,11 @@ describe('bots', () => {
     await call(key, 'Task.get', { id: task }, 'GET');
 
     const today = new Date().toISOString().slice(0, 10);
-    const [stats] = (await leadApi.Bot.stats({ from: today, to: today })).filter((b) => b.id === id);
+    const [stats] = (await leadApi.Bot.stats({ days: 1 })).filter((b) => b.id === id);
     expect(stats).toMatchObject({ openTasks: 1, comments: 1, mentions: 1, requests: 4, refused: 1, deliveries: 0 });
+    expect(stats!.daily).toEqual([{ day: today, requests: 4, refused: 1 }]);
     expect(stats!.lastRequestAt).toBeInstanceOf(Date);
-    expect(await (await client((await createEmployee()).id)).Bot.stats({ from: today, to: today })).toEqual([]);
+    expect(await (await client((await createEmployee()).id)).Bot.stats({ days: 1 })).toEqual([]);
   });
 
   test('a key a year old is told to its manager once a year; replacing it starts again', async () => {
@@ -212,7 +213,7 @@ describe('bots', () => {
         expect(await deliverNotifications(sql)).toBe(2);
         expect(got).toHaveLength(2);
         const today = new Date().toISOString().slice(0, 10);
-        expect((await leadApi.Bot.stats({ from: today, to: today })).find((b) => b.id === id))
+        expect((await leadApi.Bot.stats({ days: 1 })).find((b) => b.id === id))
           .toMatchObject({ deliveries: 2, failedDeliveries: 1 });
       } finally {
         hook.close();

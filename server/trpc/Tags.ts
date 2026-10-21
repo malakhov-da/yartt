@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import {
-  MyTags, MyTagsInput, RelatedInput, SetTagInput, Suggestions, SuggestInput, TagPeopleInput, TagPerson, TagStats, TagStatsInput,
+  MyTags, MyTagsInput, RelatedInput, SetTagInput, Suggestions, SuggestInput, TagDetail, TagDetailInput, TagStats, TagStatsInput,
 } from '#shared/tags.ts';
 import { Tag } from '#shared/task.ts';
 import * as Tags from '../services/Tags.ts';
@@ -27,11 +27,12 @@ export default router({
     .query(({ input, ctx }) => Tags.related(ctx.employeeId, input.tagIds)),
 
   /**
-   * The tag summary for a range of days (decision 58), counting only the
-   * tasks the signed-in employee sees: tasks, open and at risk, closed by
-   * hand and by deadline, active, comments, people. Without picked tags —
-   * every rubric, the most active first, 20 per page; with them — those,
-   * and for two or more all of them together and any of them.
+   * The tag summary for the last days (decision 58), counting only the
+   * tasks the signed-in employee sees: tasks, open, at risk and untouched,
+   * closed by hand and by deadline, active, comments, people and the
+   * average share of their own time. Without picked tags — every rubric,
+   * the most active first, 20 per page; with them — those, and for two or
+   * more all of them together and any of them.
    */
   stats: authedProcedure
     .input(TagStatsInput)
@@ -39,13 +40,14 @@ export default router({
     .query(({ input, ctx }) => Tags.stats(ctx.employeeId, input)),
 
   /**
-   * Who worked under a line of the summary in the range, on the tasks the
-   * signed-in employee sees: each person's time logged and comments.
+   * A line of the summary unfolded: comments, closings and people day by
+   * day, and each person's own time day by day, its share of all they
+   * logged and their plan now — on the tasks the signed-in employee sees.
    */
-  people: authedProcedure
-    .input(TagPeopleInput)
-    .output(TagPerson.array())
-    .query(({ input, ctx }) => Tags.people(ctx.employeeId, input)),
+  detail: authedProcedure
+    .input(TagDetailInput)
+    .output(TagDetail)
+    .query(({ input, ctx }) => Tags.detail(ctx.employeeId, input)),
 
   /**
    * The tags of the tasks the signed-in employee sees, with task counts and

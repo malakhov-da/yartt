@@ -45,6 +45,8 @@ export default function (p: {
   days: string[];
   series: Series[];
   format: (value: number) => string;
+  /** The scale's labels, when the tooltip's format is too long for them. */
+  axisFormat?: (value: number) => string;
   /** The top of the scale; values above stretch it. */
   max?: number;
   /** Dots only: sparse values (scored days), a line between them would invent days. */
@@ -74,7 +76,7 @@ export default function (p: {
         height={130}
         margin={{ left: 0, right: 8, top: 8, bottom: 0 }}
         xAxis={[{ id: 'x', scaleType: 'point', data: labels }]}
-        yAxis={[{ id: 'y', min: 0, max: p.max === undefined ? undefined : Math.max(p.max, ...data.values.flat().map((v) => v ?? 0)), width: 40, valueFormatter: p.format }]}
+        yAxis={[{ id: 'y', min: 0, max: p.max === undefined ? undefined : Math.max(p.max, ...data.values.flat().map((v) => v ?? 0)), width: 40, valueFormatter: p.axisFormat ?? p.format }]}
         series={p.series.map((s, i) => ({
           type: 'line' as const, id: s.id, label: s.label, color: s.color, data: data.values[i]!,
           // A line needs no marks, except for a value standing alone: no line would show it.

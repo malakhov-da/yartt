@@ -12,20 +12,22 @@ import { useFormat } from '#client/hooks/format.ts';
 import { POLL_MS, useEmployees } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import { csv, download, type Cell } from '#client/hooks/xlsx.ts';
-import RangePicker, { useRange } from '../App/RangePicker.tsx';
+import DaysPicker from '../App/DaysPicker.tsx';
 import TagChip from '../App/TagChip.tsx';
 import TagInput from '../App/TagInput.tsx';
+import TagDetail, { percent } from './TagDetail.tsx';
 
 const PAGE_SIZE = 20;
 const key = (group: TagGroup) => (group.kind === 'tag' ? `t${group.tagId}` : `${group.kind}${group.tagIds.join(',')}`);
 
 /**
- * Tags (decision 58): what happened under each tag over a range, on the
- * tasks I see — anyone has it, counted only on what they may see. Without a
- * search every rubric, the most active first, with pages; with tags picked
- * — those, and for two or more all of them together and any of them. A
- * line unfolds into the people who worked under it — each one's own time,
- * never a total (decision 38) — and everything shown goes out as CSV.
+ * Tags (decision 58): what happened under each tag over the last days, on
+ * the tasks I see — anyone has it, counted only on what they may see.
+ * Without a search every rubric, the most active first, with pages; with
+ * tags picked — those, and for two or more all of them together and any of
+ * them. A line unfolds into charts of its activity and its people (TagDetail)
+ * — each one's own time, share and plan, never a total (decision 38) — and
+ * everything shown goes out as CSV.
  */
 export default function () {
   const { t } = useTranslation();
@@ -33,14 +35,14 @@ export default function () {
   const queryClient = useQueryClient();
   const format = useFormat();
   const employees = useEmployees();
-  const [range, setRange, valid] = useRange();
+  const [days, setDays] = useState(30);
   const [tags, setTags] = useState<Tag[]>([]);
   const [input, setInput] = useState('');
   const [page, setPage] = useState(1);
   const [opened, setOpened] = useState<Set<string>>(new Set());
-  const statsInput = { ...range, tagIds: tags.map((tag) => tag.id), page };
+  const statsInput = { days, tagIds: tags.map((tag) => tag.id), page };
   const stats = useQuery(trpc.Tags.stats.queryOptions(statsInput, {
-    enabled: valid, refetchInterval: POLL_MS, placeholderData: keepPreviousData,
+    refetchInterval: POLL_MS, placeholderData: keepPreviousData,
   }));
   const rows = stats.data?.rows ?? [];
   const picked = tags.length > 0;
@@ -57,16 +59,23 @@ export default function () {
   const name = (id: number) => employees.get(id)?.fullName ?? `#${id}`;
 
   // Every line shown and its people, one row per person and line: no total of anyone's hours.
+  const hours = (minutes: number | null) => (minutes === null ? null : Math.round((minutes / 60) * 100) / 100);
   const exportCsv = async () => {
-    const head: Cell[] = [t('tagStats.export.tag'), t('tagStats.export.person'), t('tagStats.export.hours'), t('tagStats.export.comments')];
+    const head: Cell[] = [
+      t('tagStats.export.tag'), t('tagStats.export.person'), t('tagStats.export.hours'), t('tagStats.export.share'),
+      t('tagStats.export.plan'), t('tagStats.export.comments'),
+    ];
     const lines: Cell[][] = [head];
     for (const row of rows) {
-      const people = await queryClient.fetchQuery(trpc.Tags.people.queryOptions({ ...range, group: row.group }));
-      for (const person of people) {
-        lines.push([label(row), name(person.employeeId), Math.round((person.minutes / 60) * 100) / 100, person.comments]);
+      const detail = await queryClient.fetchQuery(trpc.Tags.detail.queryOptions({ days, group: row.group }));
+      for (const person of detail.persons) {
+        lines.push([
+          label(row), name(person.employeeId), hours(person.minutes),
+          person.share === null ? null : Math.round(person.share * 100), hours(person.leftMinutes), person.comments,
+        ]);
       }
     }
-    download(`${t('tagStats.export.file')}-${range.from}-${range.to}.csv`, csv(lines), 'text/csv;charset=utf-8');
+    download(`${t('tagStats.export.file')}-${days}.csv`, csv(lines), 'text/csv;charset=utf-8');
   };
 
   return (
@@ -85,7 +94,8 @@ export default function () {
         placeholder={t('tagStats.search')}
         startAdornment={<InputAdornment position="start"><Search fontSize="small" /></InputAdornment>}
       />
-      <RangePicker range={range} onChange={(next) => { setRange(next); setPage(1); }} />
+      <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('tagStats.hint')}</Typography>
+      <DaysPicker days={days} onChange={(next) => { setDays(next); setPage(1); }} />
       {stats.isSuccess && rows.length === 0 && (
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>{t('tagStats.empty')}</Typography>
       )}
@@ -104,7 +114,7 @@ export default function () {
                 <TableCell>{t('tagStats.tag')}</TableCell>
                 <TableCell align="right"><Tooltip title={t('tagStats.tasksHint')} describeChild><span>{t('tagStats.tasks')}</span></Tooltip></TableCell>
                 <TableCell align="right"><Tooltip title={t('tagStats.closedHint')} describeChild><span>{t('tagStats.closed')}</span></Tooltip></TableCell>
-                <TableCell align="right">{t('tagStats.comments')}</TableCell>
+                <TableCell align="right"><Tooltip title={t('tagStats.commentsHint')} describeChild><span>{t('tagStats.comments')}</span></Tooltip></TableCell>
                 <TableCell align="right"><Tooltip title={t('tagStats.peopleHint')} describeChild><span>{t('tagStats.people')}</span></Tooltip></TableCell>
               </TableRow>
             </TableHead>
@@ -136,6 +146,11 @@ export default function () {
                           )}
                           {t('tagStats.openOf', { open: row.open, tasks: row.tasks })}
                         </Stack>
+                        {row.stale > 0 && (
+                          <Typography variant="caption" sx={{ display: 'block', color: 'warning.dark' }}>
+                            {t('tagStats.stale', { count: row.stale })}
+                          </Typography>
+                        )}
                       </TableCell>
                       <TableCell align="right">
                         {row.finished + row.expired}
@@ -145,13 +160,25 @@ export default function () {
                           </Typography>
                         )}
                       </TableCell>
-                      <TableCell align="right">{row.comments}</TableCell>
-                      <TableCell align="right">{row.people}</TableCell>
+                      <TableCell align="right">
+                        {row.comments}
+                        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                          {t('tagStats.activeTasks', { count: row.active })}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        {row.people}
+                        {row.share !== null && (
+                          <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                            {t('tagStats.shareNote', { share: percent(row.share) })}
+                          </Typography>
+                        )}
+                      </TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell colSpan={5} sx={{ p: 0, borderBottom: open ? undefined : 0, display: 'table-cell !important' }}>
                         <Collapse in={open} unmountOnExit>
-                          <People group={row.group} range={range} name={name} format={format.minutes} />
+                          <TagDetail group={row.group} days={days} />
                         </Collapse>
                       </TableCell>
                     </TableRow>
@@ -167,25 +194,3 @@ export default function () {
   );
 }
 
-/** The people under a line: each one's own time logged and comments, most time first. */
-function People(p: { group: TagGroup; range: { from: string; to: string }; name: (id: number) => string; format: (minutes: number) => string }) {
-  const { t } = useTranslation();
-  const trpc = useTRPC();
-  const people = useQuery(trpc.Tags.people.queryOptions({ ...p.range, group: p.group }));
-  return (
-    <Stack spacing={0.5} sx={{ py: 1, pl: { xs: 1, sm: 5 }, pr: 1 }}>
-      {people.data?.length === 0 && (
-        <Typography variant="body2" sx={{ color: 'text.secondary' }}>{t('tagStats.nobody')}</Typography>
-      )}
-      {people.data?.map((person) => (
-        <Stack key={person.employeeId} direction="row" sx={{ gap: 1, alignItems: 'baseline' }}>
-          <Typography variant="body2" sx={{ flexGrow: 1, minWidth: 0 }} noWrap>{p.name(person.employeeId)}</Typography>
-          <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums' }}>{p.format(person.minutes)}</Typography>
-          <Typography variant="caption" sx={{ color: 'text.secondary', minWidth: 72, textAlign: 'right' }}>
-            {t('tagStats.commentsCount', { count: person.comments })}
-          </Typography>
-        </Stack>
-      ))}
-    </Stack>
-  );
-}

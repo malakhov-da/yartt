@@ -1,7 +1,6 @@
 import { z } from 'zod';
-import { Bot, BotInput, BotKey, BotStats, BotTransferInput, BotUpdateInput } from '#shared/bot.ts';
+import { Bot, BotInput, BotKey, BotStats, BotStatsInput, BotTransferInput, BotUpdateInput } from '#shared/bot.ts';
 import { Id } from '#shared/employee.ts';
-import { SummaryInput } from '#shared/team.ts';
 import * as Bots from '../services/Bot.ts';
 import { authedProcedure, router } from '../trpc.ts';
 
@@ -13,14 +12,14 @@ export default router({
   list: authedProcedure.output(Bot.array()).query(({ ctx }) => Bots.list(ctx.employeeId)),
 
   /**
-   * What those bots did over a range of days (up to a year): their tasks,
-   * comments, mentions, API calls and refusals, webhook deliveries, and
-   * their last call.
+   * What those bots did over the last days (up to a year): their tasks,
+   * comments, mentions, API calls and refusals day by day, webhook
+   * deliveries, and their last call.
    */
   stats: authedProcedure
-    .input(SummaryInput)
+    .input(BotStatsInput)
     .output(BotStats.array())
-    .query(({ input, ctx }) => Bots.stats(ctx.employeeId, input.from, input.to)),
+    .query(({ input, ctx }) => Bots.stats(ctx.employeeId, input.days)),
 
   /**
    * Creates a bot under the signed-in person; its key is returned only now.

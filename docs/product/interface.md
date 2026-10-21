@@ -66,11 +66,13 @@ someone with reports:
   plan does not fit before its deadline says "At risk" (decision 40).
 - **My team** — only for someone with reports, under Current tasks; see 4.
 - **Tags** — for everyone, under My team: what happened under each tag
-  over a range, on the tasks I see — tasks open and at risk, closed by
-  hand and by deadline, comments, people; the most active rubrics first,
-  or the tags picked in its search with all of them together and any of
-  them; a line unfolds into its people and their own time; CSV export
-  (decision 58).
+  over the last 7, 30, 90 or 365 days, on the tasks I see — tasks open,
+  at risk and untouched, closed by hand and by deadline, comments, people
+  and the average share of their own time; the most active rubrics
+  first, or the tags picked in its search with all of them together and
+  any of them; a line unfolds into charts by day (activity; each
+  person's own time, with their share and plan in the legend) and a
+  table of people; CSV export (decision 58).
 - **Timesheet** ("My days" before: next to "My day" the two were
   confused) — today and the last day before it with activity (on
   Monday that is usually Friday: what was I doing?); "History" leads to
@@ -304,15 +306,16 @@ own (4b).
 A block of My day under My team — or on its own for someone whose only
 reports are bots — and the same list in the profile (decision 49): my
 bots and those of everyone under me, dismissed ones included, with what
-each may change; whose a bot is shows when it is not mine. For a range
-(as in My team): its open tasks and those it observes, its comments and
-the people it mentioned, its tasks closed, its API calls with the
-refusals (asked for what it may not — set up wrong or broken) and its
-webhook deliveries with the failures, and its last call — the quiet ones
+each may change; whose a bot is shows when it is not mine. For the last
+7, 30, 90 or 365 days: its open tasks and those it observes, its
+comments and the people it mentioned, its tasks closed, its API calls
+with a sparkline by day and the share refused (asked for what it may
+not — set up wrong or broken), the share of its webhook deliveries that
+got through, and its last call — the quiet ones
 on top, so a bot that stopped is seen. A key over a year old has a
 warning sign, and its manager gets a word once a year; it keeps working.
 **New bot** creates one under me. A click opens its
-settings: name, pronoun, what it does, what it may change (four
+settings, with a chart of its calls and refusals by day: name, pronoun, what it does, what it may change (four
 permissions; none — read only), its webhook and signing secret, its key
 (replaced on demand and shown once), handing it to someone (at once, the
 key changes) and dismissing or bringing it back. Only its direct manager

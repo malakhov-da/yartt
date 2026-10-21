@@ -9,11 +9,12 @@ test('the tag summary: the most active rubrics, a tag unfolds into its people, p
   await block.getByRole('button', { name: '30 дн.' }).click();
   await expect(block.getByRole('row').nth(1)).toBeVisible();
 
-  // A line unfolds into who worked under it.
-  await block.getByRole('button', { name: 'Показать людей: api' }).click();
-  await expect(block.getByText(/^комм\.: \d+$/).first()).toBeVisible();
+  // A line unfolds into its activity by day and its people: their time, share and plan.
+  await block.getByRole('button', { name: 'Показать подробности: api' }).click();
+  await expect(block.getByText('Активность по дням')).toBeVisible();
+  await expect(block.getByRole('columnheader', { name: 'Доля времени' })).toBeVisible();
 
-  const search = block.getByPlaceholder('Выбрать теги');
+  const search = block.getByRole('combobox');
   for (const tag of ['api', 'документация']) {
     await search.click();
     await page.keyboard.type(tag);
@@ -27,6 +28,6 @@ test('the tag summary: the most active rubrics, a tag unfolds into its people, p
   await block.getByRole('button', { name: 'Выгрузить' }).click();
   const file = await (await download).path();
   const text = await readFile(file, 'utf8');
-  expect(text).toMatch(/^﻿Тег,Сотрудник,"?Списано, ч"?,Комментарии/);
+  expect(text).toMatch(/^\uFEFFТег,Сотрудник,"Списано, ч","Доля времени, %","План, ч",Комментарии/);
   expect(text.split('\r\n').length).toBeGreaterThan(1);
 });

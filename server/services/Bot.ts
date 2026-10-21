@@ -103,13 +103,27 @@ export async function countRequest(id: number, refused: boolean): Promise<void> 
 }
 
 /**
- * What the bots the viewer answers for did over a range of days (from and
- * to included): their tasks now and closed in the range, comments and
+ * What the bots the viewer answers for did over the last `days` days, today
+ * included: their tasks now and closed in the range, comments and
  * mentions, API calls and refusals, webhook deliveries — and their last
  * call ever, for the quiet to show first.
  */
-export async function stats(viewerId: number, from: string, to: string): Promise<BotStats[]> {
-  return BotStats.array().parse(await sql`
+export async function stats(viewerId: number, days: number): Promise<BotStats[]> {
+  const [range] = z.object({ from: z.string(), to: z.string() }).array().parse(await sql`
+    SELECT (local_today(${viewerId}) - ${days - 1}::int)::text AS from, local_today(${viewerId})::text AS to
+  `);
+  const { from, to } = range!;
+  const daily = z.object({ botId: z.number(), day: z.string(), requests: z.number(), refused: z.number() }).array().parse(await sql`
+    SELECT bot_id, day::text, requests, refused FROM bot_usage
+     WHERE day BETWEEN ${from}::date AND ${to}::date
+       AND bot_id IN (SELECT e.id FROM employee e
+                       WHERE e.kind = 'bot' AND (e.manager_id = ${viewerId} OR e.manager_id IN (SELECT subordinates(${viewerId}))))
+  `);
+  const dates: string[] = [];
+  for (let d = new Date(`${from}T00:00:00Z`); d <= new Date(`${to}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 1)) {
+    dates.push(d.toISOString().slice(0, 10));
+  }
+  const rows = BotStats.omit({ daily: true }).array().parse(await sql`
     WITH b AS (
       SELECT e.id, e.time_zone FROM bot JOIN employee e ON e.id = bot.employee_id
        WHERE e.manager_id = ${viewerId} OR e.manager_id IN (SELECT subordinates(${viewerId}))
@@ -147,6 +161,13 @@ export async function stats(viewerId: number, from: string, to: string): Promise
          GROUP BY bot_id
       ) u ON u.bot_id = b.id
   `);
+  return rows.map((row) => ({
+    ...row,
+    daily: dates.map((day) => {
+      const d = daily.find((x) => x.botId === row.id && x.day === day);
+      return { day, requests: d?.requests ?? 0, refused: d?.refused ?? 0 };
+    }),
+  }));
 }
 
 /** Counts an attempt to post to the bot's webhook (count_bot_delivery()). */

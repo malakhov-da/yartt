@@ -711,9 +711,10 @@ A bot made as a person before stays a person: its manager creates a bot
 and dismisses the old one, handing its tasks over by hand.
 
 A bot has no timesheet or score, but a manager still needs to know it
-works: Bots under My team show, for a range, its tasks, comments and
-mentions, its API calls with the refusals and its webhook deliveries with
-the failures, the quiet ones first. Calls are counted per bot and day in
+works: Bots under My team show, for the last N days, its tasks, comments
+and mentions, its API calls with a sparkline by day and the share
+refused, the share of webhook deliveries that got through, the quiet ones
+first; its settings chart calls and refusals by day. Calls are counted per bot and day in
 the database, after each call and outside its transaction, so a refused
 one counts too. What it created or handed over is not shown: task
 creation and owner history are not kept (decision on `created_by`). A
@@ -905,19 +906,26 @@ priority, tasks without a deadline at the end, by priority.
 ### 58. Tags: what happened under each, for everyone
 
 Tags are how work is grouped, yet nothing showed how a tag was doing.
-Now My day has **Tags**, under My team, for everyone: for a range, each
-tag's tasks (open, at risk), those closed by hand and by deadline,
+Now My day has **Tags**, under My team, for everyone: for the last N
+days (7, 30, 90, 365 — ending today, so a plan of time left belongs
+next to them), each tag's tasks (open, at risk, untouched in the period),
+those closed by hand and by deadline,
 comments and the people who commented or logged time — counted only on
 the tasks the person sees, so it shows a director the company and anyone
 else their corner of it. Without a search every rubric (a tag on more
 than one task — a phrase of one task is not a group) is a line, the most
 active first, with pages; with tags picked, those lines and, for two or
-more, their tasks all together and any of them. A line unfolds into the
-people who worked under it with each one's own time logged and comments;
-there is no total of hours, not even here (decision 38). Everything shown
-goes out as CSV: a line per tag and person.
+more, their tasks all together and any of them. The People column
+adds the average over them of each one's share of their own time logged
+in the period. A line unfolds into charts: per day, comments, closings
+and people at work; then each person's own time per day, a line each,
+never stacked. Their legend and the table under it carry each one's
+share of their own time and their plan — the time they have left on the
+open tasks of the tag. A plan is never on the tag's line: it would be a
+sum of hours of different people (decision 38). Everything shown goes
+out as CSV: a line per tag and person, with share and plan.
 
-*Implemented:* `Tags.stats`, `Tags.people` in `server/services/Tags.ts`;
+*Implemented:* `Tags.stats`, `Tags.detail` in `server/services/Tags.ts`;
 `client/components/MyDayPage/TagStats.tsx`.
 
 ### 59. A task hovered anywhere shows what it is and who spends on it

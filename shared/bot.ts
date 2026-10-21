@@ -63,8 +63,14 @@ export const BotStats = z.object({
   failedDeliveries: z.number(),
   /** Its last API call ever; NULL — never. */
   lastRequestAt: z.date().nullable(),
+  /** Calls and refusals day by day over the range, oldest first. */
+  daily: z.object({ day: z.iso.date(), requests: z.number().int(), refused: z.number().int() }).array(),
 });
 export type BotStats = z.infer<typeof BotStats>;
+
+/** The last N days, today included, as in the Tags summary. */
+export const BotStatsInput = z.object({ days: z.number().int().min(1).max(366) });
+export type BotStatsInput = z.infer<typeof BotStatsInput>;
 
 /** A key: shown once, never again. */
 export const BotKey = z.object({ id: Id, key: z.string() });
