@@ -207,8 +207,12 @@ describe('tag summary', () => {
 
     await devApi.Time.setLeft({ taskId: both, minutes: 120 });
     const detail = await api.Tags.detail({ since: today, group: { kind: 'tag', tagId: ids[0]! } });
-    expect(detail).toMatchObject({ days: [today], comments: [1], planned: [1] });
-    expect(detail.persons).toEqual([{ employeeId: dev.id, minutes: 90, share: 1, leftMinutes: 120, comments: 1, daily: [90], planned: [120] }]);
+    expect(detail.days).toEqual([today]);
+    // Each person's time and plan, each with its detail: the comments of the day, the tasks the plan covers.
+    expect(detail.persons).toEqual([{
+      employeeId: dev.id, minutes: 90, share: 1, leftMinutes: 120, comments: 1,
+      daily: [90], dailyComments: [1], planned: [120], plannedTasks: [1],
+    }]);
     expect((await api.Tags.stats({ since: today, tagIds: ids, page: 1 })).rows[0]).toMatchObject({ planners: 1 });
   });
 });

@@ -141,8 +141,12 @@ export const TagPerson = z.object({
   comments: z.number().int(),
   /** Their time on it, day by day, as `days`. */
   daily: z.number().int().array(),
+  /** The comments they left on it, day by day: the detail of their time. */
+  dailyComments: z.number().int().array(),
   /** Their plan of time left on its open tasks at the end of each day, as `days`. */
   planned: z.number().int().array(),
+  /** How many open tasks their plan covered at the end of each day: the detail of their plan. */
+  plannedTasks: z.number().int().array(),
 });
 export type TagPerson = z.infer<typeof TagPerson>;
 
@@ -150,10 +154,6 @@ export type TagPerson = z.infer<typeof TagPerson>;
 export const TagDetail = z.object({
   /** The days of the range, oldest first. */
   days: z.iso.date().array(),
-  /** Comments per day — counts may be added up. */
-  comments: z.number().int().array(),
-  /** Open tasks with someone's plan at the end of each day. */
-  planned: z.number().int().array(),
   /** Most time first. */
   persons: TagPerson.array(),
 });

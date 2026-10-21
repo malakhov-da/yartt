@@ -16,9 +16,15 @@ import { fromDay, useFormat } from '#client/hooks/format.ts';
 /** Longer ranges are shown by weeks, like the employee page chart. */
 const DAILY_UP_TO = 62;
 
-export type Series = { id: string; label: string; color: string; values: (number | null)[] };
-/** A figure of the day that is not drawn, only told in the tooltip: comments, tasks. */
-export type Note = { label: string; values: number[] };
+/**
+ * A line. `detail` — a count of the same person's day that is not drawn,
+ * told in the tooltip next to the value: the comments behind the time, the
+ * tasks behind the plan. A week tells its total, or its largest with `peak`.
+ */
+export type Series = {
+  id: string; label: string; color: string; values: (number | null)[];
+  detail?: { values: number[]; format: (count: number) => string; peak?: boolean };
+};
 
 /** Days grouped into weeks (from Monday) when the range is long; a bucket is the average of its values. */
 function buckets(days: string[], series: Series[]): { first: string[]; weekly: boolean; values: (number | null)[][] } {
@@ -38,21 +44,23 @@ function buckets(days: string[], series: Series[]): { first: string[]; weekly: b
   };
 }
 
-/** Notes over the same buckets: a week tells its total. */
-function noteBuckets(days: string[], notes: Note[], first: string[]): number[][] {
-  return notes.map((note) => {
-    const sums = first.map(() => 0);
+/** The details over the same buckets as the values. */
+function detailBuckets(days: string[], series: Series[], first: string[]): (number[] | null)[] {
+  return series.map((s) => {
+    if (!s.detail) return null;
+    const out = first.map(() => 0);
     let bucket = -1;
     days.forEach((day, i) => {
       if (bucket + 1 < first.length && first[bucket + 1] === day) bucket++;
-      sums[bucket]! += note.values[i] ?? 0;
+      const v = s.detail!.values[i] ?? 0;
+      out[bucket] = s.detail!.peak ? Math.max(out[bucket]!, v) : out[bucket]! + v;
     });
-    return sums;
+    return out;
   });
 }
 
-/** The day's values of the lines, then its notes. */
-function Tip(p: { notes: Note[]; values: number[][] }) {
+/** The day's value of each line, with its detail. */
+function Tip(p: { series: Series[]; details: (number[] | null)[] }) {
   const data = useAxesTooltip();
   if (!data) return null;
   return (
@@ -69,13 +77,18 @@ function Tip(p: { notes: Note[]; values: number[][] }) {
                     <span>{item.formattedLabel}</span>
                   </Stack>
                 </ChartsTooltipCell>
-                <ChartsTooltipCell component="td">{item.formattedValue}</ChartsTooltipCell>
-              </ChartsTooltipRow>
-            ))}
-            {p.notes.map((note, i) => (
-              <ChartsTooltipRow key={note.label}>
-                <ChartsTooltipCell component="th" sx={{ color: 'text.secondary' }}>{note.label}</ChartsTooltipCell>
-                <ChartsTooltipCell component="td">{p.values[i]![dataIndex] ?? 0}</ChartsTooltipCell>
+                <ChartsTooltipCell component="td">
+                  {item.formattedValue}
+                  {(() => {
+                    const i = p.series.findIndex((s) => s.id === item.seriesId);
+                    const count = p.details[i]?.[dataIndex] ?? 0;
+                    return count > 0 && (
+                      <Typography component="span" variant="caption" sx={{ color: 'text.secondary', ml: 1 }}>
+                        {p.series[i]!.detail!.format(count)}
+                      </Typography>
+                    );
+                  })()}
+                </ChartsTooltipCell>
               </ChartsTooltipRow>
             ))}
           </tbody>
@@ -91,8 +104,8 @@ const alone = (values: (number | null)[]) => values.filter((v) => v !== null).le
 /**
  * A small chart of the details under a row of My team: one or a few lines
  * over the days of the range, with a legend, axes and a tooltip of the
- * day — what a sparkline could only hint at — and, under them, figures
- * of the day that are not lines (notes).
+ * day — what a sparkline could only hint at — each value with its
+ * detail, if it has one.
  */
 export default function (p: {
   days: string[];
@@ -104,8 +117,6 @@ export default function (p: {
   max?: number;
   /** Dots only: sparse values (scored days), a line between them would invent days. */
   dots?: boolean;
-  /** Figures of the day told in the tooltip under the lines. */
-  notes?: Note[];
 }) {
   const { t } = useTranslation();
   const format = useFormat();
@@ -113,8 +124,7 @@ export default function (p: {
     return <Typography variant="caption" sx={{ color: 'text.disabled' }}>{t('myDay.team.details.noData')}</Typography>;
   }
   const data = buckets(p.days, p.series);
-  const notes = p.notes ?? [];
-  const noted = noteBuckets(p.days, notes, data.first);
+  const details = detailBuckets(p.days, p.series, data.first);
   const labels = data.first.map((day) =>
     data.weekly ? t('employee.stats.weekOf', { day: format.date(fromDay(day)) }) : format.date(fromDay(day)));
   return (
@@ -151,7 +161,7 @@ export default function (p: {
           <ChartsXAxis axisId="x" tickLabelStyle={{ fontSize: 10 }} />
           <ChartsYAxis axisId="y" tickLabelStyle={{ fontSize: 10 }} />
         </ChartsSurface>
-        <ChartsTooltipContainer trigger="axis"><Tip notes={notes} values={noted} /></ChartsTooltipContainer>
+        <ChartsTooltipContainer trigger="axis"><Tip series={p.series} details={details} /></ChartsTooltipContainer>
       </ChartsDataProvider>
     </Box>
   );

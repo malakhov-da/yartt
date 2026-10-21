@@ -20,8 +20,8 @@ export const percent = (share: number | null) => (share === null ? '—' : `${Ma
  * A line of Tags unfolded (decision 58): each person's own time logged day
  * by day, then each one's own plan of time left at the end of each day —
  * a line each, never stacked: hours of different people are not added up
- * (decision 38). The tooltip of a day tells the comments of that day, or
- * how many open tasks had a plan. The table under them: each one's time,
+ * (decision 38). In the tooltip of a day each person's value comes with
+ * its detail: the comments they left, the tasks their plan covered. The table under them: each one's time,
  * share of their own time, plan now and comments.
  */
 export default function (p: { group: TagGroup; since: string }) {
@@ -39,12 +39,18 @@ export default function (p: { group: TagGroup; since: string }) {
   const name = (id: number) => employees.get(id)?.fullName ?? `#${id}`;
   const color = new Map(data.persons.map((person, i) => [person.employeeId, PERSON_COLORS[i % PERSON_COLORS.length]!]));
   const drawn = all ? data.persons : data.persons.slice(0, SHOWN);
-  const lines = (values: (person: TagPerson) => number[], label: (person: TagPerson) => string) =>
+  type Detail = { values: (person: TagPerson) => number[]; format: (count: number) => string; peak?: boolean };
+  const lines = (values: (person: TagPerson) => number[], label: (person: TagPerson) => string, detail: Detail) =>
     drawn.filter((person) => values(person).some((v) => v > 0)).map((person) => ({
       id: String(person.employeeId), label: label(person), color: color.get(person.employeeId)!, values: values(person),
+      detail: { values: detail.values(person), format: detail.format, peak: detail.peak },
     }));
-  const spent = lines((person) => person.daily, (person) => `${name(person.employeeId)} · ${percent(person.share)}`);
-  const planned = lines((person) => person.planned, (person) => name(person.employeeId));
+  const spent = lines((person) => person.daily, (person) => `${name(person.employeeId)} · ${percent(person.share)}`, {
+    values: (person) => person.dailyComments, format: (count) => t('tagStats.detail.commentsOf', { count }),
+  });
+  const planned = lines((person) => person.planned, (person) => name(person.employeeId), {
+    values: (person) => person.plannedTasks, format: (count) => t('tagStats.detail.tasksOf', { count }), peak: true,
+  });
   const hours = (v: number) => format.minutes(Math.round(v));
   const axis = (v: number) => format.minutes(v >= 60 ? Math.round(v / 60) * 60 : Math.round(v));
   const heading = (title: string, hint: string) => (
@@ -59,15 +65,13 @@ export default function (p: { group: TagGroup; since: string }) {
       <Box>
         {heading(t('tagStats.detail.time'), t('tagStats.detail.timeHint'))}
         {spent.length > 0
-          ? <TeamChart days={data.days} format={hours} axisFormat={axis} series={spent}
-              notes={[{ label: t('tagStats.detail.comments'), values: data.comments }]} />
+          ? <TeamChart days={data.days} format={hours} axisFormat={axis} series={spent} />
           : <Typography variant="caption" sx={{ color: 'text.disabled' }}>{t('tagStats.detail.noTime')}</Typography>}
       </Box>
       <Box>
         {heading(t('tagStats.detail.plan'), t('tagStats.detail.planChartHint'))}
         {planned.length > 0
-          ? <TeamChart days={data.days} format={hours} axisFormat={axis} series={planned}
-              notes={[{ label: t('tagStats.detail.plannedTasks'), values: data.planned }]} />
+          ? <TeamChart days={data.days} format={hours} axisFormat={axis} series={planned} />
           : <Typography variant="caption" sx={{ color: 'text.disabled' }}>{t('tagStats.detail.noPlan')}</Typography>}
       </Box>
       {data.persons.length > SHOWN && (

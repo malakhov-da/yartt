@@ -913,7 +913,10 @@ automation, not work under a tag. The range starts on any day (the last
 of now belong next to it. Without a search every rubric (a tag on more
 than one task — a phrase of one task is not a group) is a line, the most
 active first, with pages; with tags picked, those lines and, for two or
-more, their tasks all together and any of them.
+more, their tasks all together and any of them. "The most active" means
+the most tasks with anything in the range — a comment, time logged, a
+closing — counting tasks, not events, so one noisy thread does not lift
+a tag; then the most open tasks.
 
 A line: tasks open now (at risk, and not moving — no comment and no time
 logged in the range), closed in the range (and how many by their
@@ -925,9 +928,10 @@ block's title, not in a line of text read once and then scrolled past.
 
 A line unfolds into two charts, a line per person, never stacked: each
 one's time logged per day, with their share of their own time in the
-legend and the day's comments in the tooltip; and each one's plan of time
-left at the end of each day, with the open tasks in someone's plan that
-day in the tooltip. Comments, closings and people at work were a chart of
+legend; and each one's plan of time left at the end of each day. In the
+tooltip of a day each person's value carries its detail — the comments
+they left that day next to their time, the tasks their plan covered next
+to their plan: a count apart from its person says nothing about who. Comments, closings and people at work were a chart of
 their own at first, but counts of different things on one scale read as
 nothing, and the people at work show in the time chart anyway. A plan is
 never on the tag's line: it would be a sum of hours of different people

@@ -422,16 +422,16 @@ export async function stats(viewerId: number, input: TagStatsInput): Promise<z.i
   };
 }
 
-const DayCounts = z.object({ day: z.string(), comments: z.number(), planned: z.number() });
-const PersonRow = TagPerson.omit({ daily: true, planned: true });
-const PersonDay = z.object({ employeeId: z.number(), day: z.string(), minutes: z.number() });
+const Days = z.object({ day: z.string() });
+const PersonRow = TagPerson.omit({ daily: true, dailyComments: true, planned: true, plannedTasks: true });
+const PersonDay = z.object({ employeeId: z.number(), day: z.string(), n: z.number() });
 
 /**
  * A line of the summary unfolded, from a day to today on the tasks the
- * viewer sees: comments and the open tasks with a plan, day by day
- * (counts); and each person's own time and own plan of time left, day by
- * day, with the share of all they logged and their plan now — most time
- * first, never a total (decision 38).
+ * viewer sees: each person's own time and own plan of time left, day by
+ * day, and with them the comments they left and the tasks their plan
+ * covered that day; the share of all they logged and their plan now —
+ * most time first, never a total (decision 38).
  */
 export async function detail(viewerId: number, input: TagDetailInput): Promise<TagDetail> {
   const { from, to } = await untilToday(viewerId, input.since);
@@ -451,14 +451,7 @@ export async function detail(viewerId: number, input: TagDetailInput): Promise<T
             WHERE f.task_id = e.task_id AND f.entered_at <= dd.at AND (f.expired_at IS NULL OR f.expired_at > dd.at)
               AND f.value <= dd.at)
     )`;
-  const counts = DayCounts.array().parse(await sql`
-    ${base}
-    SELECT dd.day::text AS day,
-           (SELECT count(*) FROM cm WHERE cm.day = dd.day AND cm.task_id IN (SELECT id FROM lt))::int AS comments,
-           (SELECT count(DISTINCT pl.task_id) FROM pl WHERE pl.day = dd.day)::int AS planned
-      FROM dd
-     ORDER BY dd.day
-  `);
+  const days = Days.array().parse(await sql`${base} SELECT dd.day::text AS day FROM dd ORDER BY dd.day`).map((d) => d.day);
   const persons = PersonRow.array().parse(await sql`
     ${base},
     total AS (
@@ -478,26 +471,26 @@ export async function detail(viewerId: number, input: TagDetailInput): Promise<T
       FROM mine
      ORDER BY minutes DESC, left_minutes DESC NULLS LAST, comments DESC, mine.person
   `);
-  const [daily, planned] = await Promise.all([
-    sql`
-      ${base}
-      SELECT sp."by" AS employee_id, sp.day::text AS day, sum(sp.value)::int AS minutes
-        FROM sp WHERE sp.task_id IN (SELECT id FROM lt) GROUP BY sp."by", sp.day
-    `.then((rows) => PersonDay.array().parse(rows)),
-    sql`
-      ${base}
-      SELECT pl."by" AS employee_id, pl.day::text AS day, sum(pl.value)::int AS minutes FROM pl GROUP BY pl."by", pl.day
-    `.then((rows) => PersonDay.array().parse(rows)),
+  const perDay = (query: ReturnType<typeof sql>) => query.then((rows) => PersonDay.array().parse(rows));
+  const [daily, comments, planned, tasks] = await Promise.all([
+    perDay(sql`${base} SELECT sp."by" AS employee_id, sp.day::text AS day, sum(sp.value)::int AS n
+                 FROM sp WHERE sp.task_id IN (SELECT id FROM lt) GROUP BY sp."by", sp.day`),
+    perDay(sql`${base} SELECT cm.created_by AS employee_id, cm.day::text AS day, count(*)::int AS n
+                 FROM cm WHERE cm.task_id IN (SELECT id FROM lt) GROUP BY cm.created_by, cm.day`),
+    perDay(sql`${base} SELECT pl."by" AS employee_id, pl.day::text AS day, sum(pl.value)::int AS n FROM pl GROUP BY pl."by", pl.day`),
+    perDay(sql`${base} SELECT pl."by" AS employee_id, pl.day::text AS day, count(DISTINCT pl.task_id)::int AS n
+                 FROM pl GROUP BY pl."by", pl.day`),
   ]);
-  const days = counts.map((c) => c.day);
   const byDay = (rows: z.infer<typeof PersonDay>[], id: number) =>
-    days.map((day) => rows.find((d) => d.employeeId === id && d.day === day)?.minutes ?? 0);
+    days.map((day) => rows.find((d) => d.employeeId === id && d.day === day)?.n ?? 0);
   return {
     days,
-    comments: counts.map((c) => c.comments),
-    planned: counts.map((c) => c.planned),
     persons: persons.map((person) => ({
-      ...person, daily: byDay(daily, person.employeeId), planned: byDay(planned, person.employeeId),
+      ...person,
+      daily: byDay(daily, person.employeeId),
+      dailyComments: byDay(comments, person.employeeId),
+      planned: byDay(planned, person.employeeId),
+      plannedTasks: byDay(tasks, person.employeeId),
     })),
   };
 }
