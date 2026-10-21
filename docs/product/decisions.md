@@ -999,3 +999,23 @@ The how-tos are "use cases", and bots are presented as automation.
 
 *Implemented:* `shared/i18n/help/ru.ts` (the reference), `en.ts`;
 `client/components/HelpPage.tsx`, `/help`.
+
+### 63. Observers are participants
+
+"Observer" said the opposite of what the role is: someone who watches.
+In yartt the people of a task solve their part of it — review it, work on
+it, log time and plan it — and the owner is one of them. The interface,
+the guide and the product docs now say "participant" ("участник"). The
+code, the API and `db.sql` keep `observer`: a bot's permission stays
+`observers`, and the schema does not change for a word. In Tags the
+column of people who were active in the range is "People" ("Люди"), so it
+is not taken for a task's participants.
+
+The guide was checked against the rules while at it: only the owner
+adds participants; any participant brings a colleague in by a mention;
+managers of every participant join by themselves; access requests,
+public tasks, handing over, leaving, links, reminders, the plan, the
+profile and invitations each got a use case.
+
+*Implemented:* `shared/i18n/ru.ts`, `en.ts`, `help/`; the product docs;
+`docs/admin/api.md` names the permission "Participants" (`observers`).

@@ -206,6 +206,9 @@ and a `matchPath` in `client/components/App.tsx`.
 
 ## Interface
 
+- The interface and the product docs say "participant" for what the code,
+  the API and `db.sql` call an observer (decision 63): the names inside
+  stay, so bots' API and the schema do not change.
 - Hours of different people are never added up or weighted against each
   other (decision 38): their worth differs and is a trade secret. Combine
   shares of each person's own time, averages over people and counts.

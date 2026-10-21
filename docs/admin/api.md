@@ -12,18 +12,18 @@ instead of a browser session. People have no API keys.
    what it may change. You become its manager. The key is shown once —
    put it into the program's secrets right away.
 2. **Say what it may change.** A bot reads what an employee in its place
-   would see — its own tasks, public ones, those it observes. Changing
+   would see — its own tasks, public ones, those it takes part in. Changing
    needs permissions, nothing ticked is read only:
    - **Its tasks** (`task`) — create tasks and run its own: tags,
      priority, context, deadline, dependencies, public or private;
    - **Hand over tasks** (`task.transfer`) — give its tasks to people;
    - **Comments** (`comment`) — comment, mention, close its mentions,
      upload files for comments;
-   - **Observers** (`observers`) — add and remove observers of its tasks,
+   - **Participants** (`observers`) — add and remove participants of its tasks,
      ask for access to others'.
    A bot never keeps a timesheet, logs time, scores, invites or manages
    anyone: those are for people, whatever is ticked.
-3. **Add it to tasks** it should see, as an observer, or mention it.
+3. **Add it to tasks** it should see, as a participant, or mention it.
 
 Only its direct manager changes a bot, replaces its key or hands it to
 someone else; managers above see it. The key does not expire: replace it

@@ -90,15 +90,15 @@ test.describe.serial('a task from creation to hand-over', () => {
   });
 
   test('observers: add, hide, public and private again', async () => {
-    await page.getByPlaceholder('Добавить наблюдателя').click();
+    await page.getByPlaceholder('Добавить участника').click();
     await page.keyboard.type('Иван');
     await page.getByRole('option', { name: 'Иван Кузнецов' }).click();
-    await expect(page.getByPlaceholder('Добавить наблюдателя')).toHaveValue('');
+    await expect(page.getByPlaceholder('Добавить участника')).toHaveValue('');
     const ivan = page.getByText('Иван Кузнецов', { exact: true }).last();
     await expect(ivan).toBeVisible();
     await ivan.hover(); // "Hide" shows on hover
     await page.getByRole('button', { name: 'Скрыть' }).click();
-    await expect(page.getByText(/больше не наблюдает/)).toBeVisible();
+    await expect(page.getByText(/больше не участвует/)).toBeVisible();
 
     await page.getByRole('button', { name: 'Сделать публичной' }).click();
     await expect(page.getByText('Публичная — видят все')).toBeVisible();

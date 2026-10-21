@@ -7,7 +7,7 @@ export const helpEn: Help = {
   intro:
     'yartt is a task tracker built around responsibility and security. It does not just do without projects, subtasks '
     + 'and assignees — it replaces them with more flexible mechanisms: tags instead of projects, dependencies instead of '
-    + 'subtasks, one owner instead of an assignee, observers invited by name instead of access for "everyone on the project". '
+    + 'subtasks, one owner instead of an assignee, participants invited by name instead of access for "everyone on the project". '
     + 'The timesheet, time entries and scores of the day make work transparent, yet all of it is optional: you can use '
     + 'only tasks and tags. Everything for the day is on one screen, My day.',
   ideasTitle: 'The essentials',
@@ -15,14 +15,15 @@ export const helpEn: Help = {
     {
       title: 'Whoever starts a task answers for it',
       text: 'A task is run by its owner — whoever created it or was handed it. Only they decide when it is done and move its deadline. '
-        + 'Observers are not "assignees" but full participants: they solve their part in a task of their own or right in this one '
+        + 'The other participants are not "assignees": they solve their part in a task of their own or right in this one '
         + 'when the part is small, like a reviewer\'s — and they plan their time and log their effort just the same.',
     },
     {
       title: 'Access only for those invited',
-      text: "A task is seen by its observers and by the owner's managers up the chain. Observers are added by name, so an important "
-        + 'idea does not spread to "everyone on the project". Tags, priority and deadline are visible to all — a task can be found '
-        + 'and access asked for. A task without observers is public.',
+      text: 'A task is seen only by its participants: the owner, those the owner added, those mentioned in a comment or whose request '
+        + 'the owner approved — and their managers up the chain, who join by themselves. An important idea does not spread to '
+        + '"everyone on the project". Tags, priority and deadline are visible to all — a task can be found and access asked for. '
+        + 'A task that concerns everyone the owner makes public.',
     },
     {
       title: 'Tags instead of projects',
@@ -73,12 +74,42 @@ export const helpEn: Help = {
       ],
     },
     {
+      title: 'Link tasks',
+      steps: [
+        'On a task\'s page: "Waits for" — what it cannot be finished without; "Waited on by" — who needs it. A task is found by tags or number.',
+        'A soft link only shows the dependency. A hard one ties the deadlines: the waiting task ends no earlier than the one it waits for '
+          + '(with a margin, say 1d). To move a deadline later, the waiting task is moved first — its owner is notified.',
+      ],
+    },
+    {
       title: 'Give access or ask for help',
       steps: [
-        'For a colleague to see the task and take part, add them as an observer. That is access, not an order: nothing is expected of them.',
-        'To ask them to do something, mention them in a comment (@) and say what is needed. The request lands in their Waiting for me, '
-          + 'and they get access to the task on their own.',
+        'The owner adds a participant: "Add a participant" on the task\'s page. That is access, not an order — nothing is expected of them.',
+        'Any participant can bring a colleague in with a mention (@) in a comment, saying what is needed. The request lands in their '
+          + 'Waiting for me and they become a participant by themselves — a trace in the feed, not a quiet widening of access.',
         'The mention is closed when they reply and press "Done". If there is a lot of work, they make a follow-up task, and yours waits for it.',
+      ],
+    },
+    {
+      title: "Ask for access to someone else's task",
+      steps: [
+        "Someone else's private task shows in the search: tags, priority and deadline. Open it and press \"Request access\".",
+        'The owner approves or rejects the request, and you are notified. Until then you can withdraw it.',
+      ],
+    },
+    {
+      title: 'Make a task public',
+      steps: [
+        'A task that concerns everyone (an office move, a shared service) the owner makes public: everyone sees it, comments and '
+          + 'logs time on it. Its list of participants is then empty.',
+        '"Make private" keeps the owner, their managers and everyone with an open mention; those who commented come back with one click.',
+      ],
+    },
+    {
+      title: 'Hand a task over or leave it',
+      steps: [
+        '"Hand over" gives the whole task to another owner; you stay a participant. A manager can hand over their report\'s tasks too.',
+        '"Leave the task" when it is no longer your business. The owner cannot leave, nor a manager while their report takes part.',
       ],
     },
     {
@@ -89,10 +120,16 @@ export const helpEn: Help = {
       ],
     },
     {
-      title: 'Keep the timesheet',
+      title: 'Remind yourself',
+      steps: ['"Remind me" on a task\'s page: when and about what. You are notified at that moment; the reminder is seen only by you.'],
+    },
+    {
+      title: 'Keep the timesheet and a plan',
       steps: [
         '"Start the shift" and "Finish" act at this moment; add a forgotten shift with the clock icon of a day, or confirm the suggestion.',
         'Time on a task for a day is one entry: "Log time" shows what is there, a new value replaces it, 0 removes it.',
+        '"My plan" is how much more you mean to spend on the task. If the plan does not fit your working time before the deadline, '
+          + 'the task is marked "At risk".',
         'All your days are in History.',
       ],
     },
@@ -101,10 +138,25 @@ export const helpEn: Help = {
       steps: ['The calendar icon in the top line: say when you are back. Until then your notifications are copied to your manager.'],
     },
     {
+      title: 'Make it yours',
+      steps: [
+        'Profile (your avatar in the top line): name, photo, about, language, time zone, keyboard layouts and your manager — '
+          + 'you pick them yourself, and they are notified.',
+        'My tags: the color and weight of a tag are yours alone. Weight sets the order of tags in a title, color helps spot tasks in lists.',
+        'Notifications come by email in your language; the company may connect other channels too.',
+      ],
+    },
+    {
+      title: 'Invite a colleague',
+      steps: ['The person-with-a-plus icon in the top line: enter their email and an invitation is sent. If the company signs in '
+        + 'through its own accounts (SSO), people appear by themselves on their first sign-in.'],
+    },
+    {
       title: 'For a manager',
       steps: [
         'My team: the share of the timesheet in tasks, scores, tasks at risk and delays of each person; the longest unseen on top.',
         "A line unfolds into charts; a person's page has their days, where you can score a day and say why.",
+        'You are a participant of every task your reports take part in, automatically.',
         'Only the direct manager dismisses someone: their tasks and reports go to that manager.',
       ],
     },
@@ -154,6 +206,16 @@ export const helpEn: Help = {
         + 'watch it and move it in advance. A manager sees tasks closed by their deadline apart from those closed by hand.',
     },
     {
+      q: 'Why can a participant not add a colleague themselves?',
+      a: "Who has access is the owner's decision. A participant can bring a colleague in with a mention: that is a request for help, "
+        + 'seen in the feed, and every access opened or closed is notified. So a task never spreads quietly.',
+    },
+    {
+      q: "Why do managers see their reports' tasks?",
+      a: 'A manager answers for their people and needs to see what they are busy with. So they become a participant of every task '
+        + 'their reports take part in, all the way up the chain, with no permissions to set.',
+    },
+    {
       q: 'Why can a task not be deleted, nor a comment edited?',
       a: 'History should not get lost: metrics and links to the task stay right. An outdated comment is not edited but answered. '
         + 'To avoid sending something by mistake, a comment can be pulled back into editing for a few seconds.',
@@ -192,7 +254,7 @@ export const helpEn: Help = {
     },
     {
       q: 'Why are there no roles or admins?',
-      a: 'Rights follow relationships: the owner of a task, an observer, the direct manager. Nobody gets access by a title '
+      a: 'Rights follow relationships: the owner of a task, a participant, the direct manager. Nobody gets access by a title '
         + 'that is not in the org chart.',
     },
     {

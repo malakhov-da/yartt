@@ -44,7 +44,7 @@ someone with reports:
     ("Reply"; a comment elsewhere in the task does not count) the button
     waits, so whoever asked always gets an answer. Every reply shows
     inside the mention ("My reply: …"), oldest first. This is
-    the only way a task I merely observe gets here — its other comments
+    the only way a task I merely take part in gets here — its other comments
     stay quiet;
   - my own tasks with comments by others since I last confirmed that no
     intervention is needed (decision 16);
@@ -161,40 +161,40 @@ Right, the side panel:
 
 - **My time:** what I spent and what I have left, with "Log time" and
   "Time left" — on top, apart from the list.
-- **Observers**, one list:
+- **Participants**, one list:
   - access requests first, with "Approve" and "Reject", then "Add
-    observer" (owner only);
-  - every observer, sorted by the last visit, with pages. No roles, no
+    participant" (owner only);
+  - every participant, sorted by the last visit, with pages. No roles, no
     table and no totals: a clock icon if the person logged time, an
     hourglass if they gave their time left; the tooltip shows the
     number (decision 17);
-  - the owner and a manager whose report observes the task have a lock
+  - the owner and a manager whose report takes part in the task have a lock
     instead of "Hide"; its tooltip says why ("Task owner", "Pavel's
     manager");
-  - hovering a person shows their observation periods — from when to
+  - hovering a person shows their periods of taking part — from when to
     when, who added or removed them;
   - the owner sees "Hide" on hover, and "Bring back" on someone who no
-    longer observes the task. Former observers stay in the list, greyed
+    longer takes part in the task. Former participants stay in the list, greyed
     out;
   - "Make public" — owner only.
 
 No tabs, no "details" section, no activity log apart from the feed and the
-observation periods. Opening a task is logged as a visit.
+periods of taking part. Opening a task is logged as a visit.
 
-### What an observer sees
+### What an participant sees
 
 Exactly what the owner sees — header, context, dependencies, feed,
-observers with their time — but as text, without the requests, "Add",
-"Hide" and "Bring back". An observer writes comments, logs their
+participants with their time — but as text, without the requests, "Add",
+"Hide" and "Bring back". An participant writes comments, logs their
 own time and sets their own time left; nothing else (decision 15). Their
 own open mention is shown in the header with "Done". They can leave the
 task.
 
 ### Access
 
-- In a private task the owner adds observers explicitly; anyone else
+- In a private task the owner adds participants explicitly; anyone else
   brings a person in only by mentioning them (decision 15).
-- Becoming an observer and stopping being one is always notified: "access
+- Becoming an participant and stopping being one is always notified: "access
   opened" (added, mentioned, request approved) and "access closed"
   (hidden, request rejected, the task made private without them).
 - Someone without access sees the task number, tags, priority and
@@ -204,15 +204,15 @@ task.
 
 ### Public tasks
 
-A task with no observers is **public**: every employee sees it, comments,
+A task with no participants is **public**: every employee sees it, comments,
 logs time; it is in everyone's "others" in My day. A mention in a public
-task does not add an observer. A new task is private, with its owner as
-the only observer. The owner makes it public (all observers go). Making it
+task does not add an participant. A new task is private, with its owner as
+the only participant. The owner makes it public (all participants go). Making it
 private again leaves the owner, the managers above and everyone with an
 open mention; the people who commented are offered back with one click
 (decision 14). A public task shows a "Public" mark in its header; its
 side panel lists only the people who opened it, the same way as
-observers, with pages.
+participants, with pages.
 
 ## 2a. New task — "what is there to do?"
 
@@ -311,7 +311,7 @@ reports are bots — and the same list in the profile (decision 49): my
 bots and those of everyone under me, dismissed ones included, with what
 each may change; whose a bot is shows when it is not mine. From any day
 to today (the last 7, 30, 90 or 365 days in a click), with "?" by the
-title and each column: its open tasks and those it observes, its
+title and each column: its open tasks and those it takes part in, its
 comments and the people it mentioned, its tasks closed, its API calls
 with a sparkline by day and the share refused (asked for what it may
 not — set up wrong or broken), the share of its webhook deliveries that
@@ -369,7 +369,7 @@ A dialog behind my avatar, not a screen.
 - Log out on all devices.
 
 There is no list of all employees: a person is picked where needed (my
-manager, a mention, an observer), and a new one is invited from the top
+manager, a mention, an participant), and a new one is invited from the top
 line.
 
 ## Interaction rules
