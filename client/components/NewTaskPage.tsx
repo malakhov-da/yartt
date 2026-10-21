@@ -25,7 +25,8 @@ const label = { fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', textTran
  * `?waitsFor=<id>` — the new task waits for that one, `?waitedOnBy=<id>` —
  * that one (mine) waits for the new task: the "New task" buttons of a
  * task's dependencies open it so. The search in My day and a task's
- * dependencies pass the title typed there as the router state (decision 55).
+ * dependencies pass the title typed there as the router state (decision 55);
+ * opened from a task with nothing typed, it starts with that task's tags.
  * What is typed is a draft until "Create task" or
  * "Cancel": leaving for another page and coming back keeps it.
  */
@@ -45,14 +46,25 @@ export default function () {
   const change = (part: Partial<Draft>) => setDraft((prev) => ({ ...prev, ...part }));
   const editor = useRef<RichEditorHandle>(null);
 
-  // The title typed where the form was opened from replaces the draft's, once per opening.
+  // The title typed where the form was opened from replaces the draft's, once per opening;
+  // opened from another task with nothing typed, the title starts as that task's tags,
+  // to be told apart with a phrase or one more tag.
   const location = useLocation();
   const passed = (location.state as { parts?: TagPart[] } | null)?.parts;
   const opened = useRef('');
   useEffect(() => {
-    if (!passed?.length || opened.current === location.key) return;
-    opened.current = location.key;
-    setDraft((prev) => ({ ...prev, tags: passed, input: '' }));
+    if (opened.current === location.key) return;
+    if (passed?.length) {
+      opened.current = location.key;
+      setDraft((prev) => ({ ...prev, tags: passed, input: '' }));
+    } else if (related.data) {
+      opened.current = location.key;
+      if (draft.tags.length === 0 && draft.input === '') {
+        setDraft((prev) => ({ ...prev, tags: related.data.tags.map((tag) => ({ tag })) }));
+      }
+    } else if (relatedId === undefined) {
+      opened.current = location.key;
+    }
   });
 
   // Text typed but not turned into a chip becomes a tag of its own — unless a tag is spelled so.

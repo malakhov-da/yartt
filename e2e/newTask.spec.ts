@@ -40,6 +40,10 @@ test.describe('new task', () => {
     await expect(page).toHaveURL(new RegExp(`/tasks/new\\?waitsFor=${id}$`));
     await expect(page.getByText('Будет ждать задачу')).toBeVisible();
     await expect(page.getByLabel('Теги')).toBeFocused();
+    // The title starts as that task's tags; the same set is taken, so something must be added.
+    await expect(page.getByRole('button', { name: 'склад', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'инвентаризация за октябрь', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Создать задачу' })).toBeDisabled();
     // Text left unpicked becomes a tag of its own: one phrase, one tag.
     const phrase = `${unique('ждёт')} акта`;
     await page.keyboard.type(phrase);

@@ -220,7 +220,9 @@ often go with them are offered ("Often together"). Text left unpicked
 becomes a tag of its own, the whole phrase one tag — unless a tag is spelled exactly so, which has to be
 picked first. A title another task has is named under the field and
 "Create task" waits. Priority, deadline and context are optional; a
-dependency the form was opened with can be dropped. "Create task" opens
+dependency the form was opened with can be dropped; opened from a task,
+the title starts as that task's tags, to be told apart with a phrase or
+one more tag. "Create task" opens
 the new task.
 
 ## 3. Find — "where is that task?"

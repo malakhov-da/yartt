@@ -13,7 +13,7 @@ import { useMe } from '#client/hooks/me.ts';
 import { useEmployees, useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import EmployeeAvatar from '../App/EmployeeAvatar.tsx';
-import TaskTitle from '../App/TaskTitle.tsx';
+import TagChip from '../App/TagChip.tsx';
 import TagInput, { useTitle } from '../App/TagInput.tsx';
 import RichEditor, { type RichEditorHandle } from '../App/RichEditor.tsx';
 import RichView from '../App/RichView.tsx';
@@ -105,7 +105,7 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
           ) : (
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
               <Typography sx={{ fontFamily: 'monospace', fontSize: 18, color: 'text.secondary', pr: 0.5 }}>#{task.id}</Typography>
-              <TaskTitle tags={task.tags} large chipSx={{ fontSize: 18, height: 34, borderRadius: 2 }} />
+              {task.tags.map((tag) => <TagChip key={tag.id} tag={tag} sx={{ fontSize: 18, height: 34, borderRadius: 2 }} />)}
               {isOwner && (
                 <Tooltip title={t('task.edit')}>
                   <IconButton size="small" onClick={() => setEditingTags({ parts: task.tags.map((tag) => ({ tag })), input: '' })}>

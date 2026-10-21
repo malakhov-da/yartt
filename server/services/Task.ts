@@ -21,7 +21,6 @@ const HeaderRow = z.object({
   riskPlanned: z.number().nullable(),
   riskCapacity: z.number().nullable(),
 });
-const TagRow = Tag.extend({ phrase: z.boolean() });
 const Id = z.object({ id: z.number() });
 const Count = z.object({ n: z.number() });
 const Bool = z.object({ value: z.boolean() });
@@ -43,10 +42,8 @@ export async function headers(viewerId: number, ids: number[], db: Sql = sql): P
   `);
   const tagIds = [...new Set(rows.flatMap((r) => r.tagIds))];
   const tags = new Map(
-    TagRow.array().parse(await db`
-      -- A tag no other task carries is the task's phrase (decision 56).
-      SELECT t.id, t.name, u.color, (SELECT count(*) FROM task c WHERE c.tag_ids @> ARRAY[t.id]) = 1 AS phrase
-        FROM tag t
+    Tag.array().parse(await db`
+      SELECT t.id, t.name, u.color FROM tag t
         LEFT JOIN user_tag u ON u.tag_id = t.id AND u.employee_id = ${viewerId}
        WHERE t.id = ANY(${tagIds})
     `).map((t) => [t.id, t]),

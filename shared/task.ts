@@ -15,17 +15,7 @@ export const TagName = z.string().trim().toLowerCase().overwrite((s) => s.replac
 export const TagColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 
 /** A tag as the viewer sees it: with their own color (NULL — the default). */
-export const Tag = z.object({
-  id: Id,
-  name: z.string(),
-  color: TagColor.nullable(),
-  /**
-   * In a task's title only: no other task carries the tag — it is the
-   * phrase that says what this task is, shown as text, not as a tag to
-   * group by (decision 56).
-   */
-  phrase: z.boolean().optional(),
-});
+export const Tag = z.object({ id: Id, name: z.string(), color: TagColor.nullable() });
 export type Tag = z.infer<typeof Tag>;
 
 /** Rich text from the editor; the server sanitizes it. */

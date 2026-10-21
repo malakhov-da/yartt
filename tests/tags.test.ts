@@ -155,7 +155,7 @@ describe('suggestions', () => {
 });
 
 describe('phrases and rubrics', () => {
-  test('a tag no other task carries is the phrase of its task; the tags that go together are offered', async () => {
+  test('the tags that go together are offered: rubrics, never a phrase of one task', async () => {
     const me = await createEmployee();
     const api = await client(me.id);
     const rubric = `r-${randomUUID().slice(0, 8)}`;
@@ -165,7 +165,7 @@ describe('phrases and rubrics', () => {
     await api.Task.create({ tags: [rubric, often, `другое ${randomUUID().slice(0, 8)}`] });
 
     const page = await api.Task.get({ id });
-    expect(Object.fromEntries(page.tags.map((tag) => [tag.name, tag.phrase]))).toEqual({ [rubric]: false, [often]: false, [phrase]: true });
+    expect(page.tags.map((tag) => tag.name).sort()).toEqual([rubric, often, phrase].sort());
 
     const rubricId = page.tags.find((tag) => tag.name === rubric)!.id;
     expect((await api.Tags.related({ tagIds: [rubricId] })).map((tag) => tag.name)).toEqual([often]);

@@ -868,8 +868,12 @@ The main criticism of titles made of tags: "отчёт · q3", "api ·
 says nothing. A tag may be a whole phrase (decision 55), so a title is
 rubrics to group by and one phrase that says what this task is: "склад ·
 инвентаризация · подписать акт до пятницы". The phrase needs no flag of
-its own: a tag no other task carries is the task's phrase and is shown as
-plain text after the rubrics, which stay chips. Under a title being
+its own: a tag no other task carries is the task's phrase. It is shown as
+a chip like any tag — showing it as text set it apart, but a title read
+the same either way, and telling the two apart on every title cost a
+count per tag; the difference matters only where groups are listed.
+A new task made from another one starts with that task's tags, to be told
+apart with a phrase or one more tag. Under a title being
 typed, the rubrics that most often go with the picked ones are offered,
 so the same things keep the same names; a phrase of one task is never
 offered as one.
@@ -878,9 +882,9 @@ The demo company is written this way too — "сайт · новая главн�
 осенней кампании", "поддержка · тикет 1049: двойное списание по карте" —
 since it is the first thing anyone weighing yartt sees.
 
-*Implemented:* `Tag.phrase` from `headers()` in `server/services/Task.ts`;
-`Tags.related`; `client/components/App/TaskTitle.tsx`; "Often together"
-in `TagInput`.
+*Implemented:* `rubric()` (a tag on two tasks or more, read with `LIMIT 2`)
+in `Tags.related` and `Tags.stats`; "Often together" in `TagInput`; the
+title of a related new task in `NewTaskPage`.
 
 ### 57. Closed tasks have a tab of their own
 

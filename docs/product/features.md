@@ -34,7 +34,7 @@ persona goal it serves. Status: **now** — stage one, **next** — stage two,
 | Closed tasks in a tab of their own, the most recently closed first; the search finds them there | everyone: see what was just finished without losing it | now (done) |
 | A task hovered in any list shows its context and each person's time logged and left | everyone: know what a task is and what it took without opening it | now (done) |
 | Tags in My day: per tag over a range — tasks, at risk, closed, comments, people — on the tasks one sees; picked tags with all and any; people and their own time; CSV | Marina, the director: see how a direction is doing without a project | now (done) |
-| A title is rubrics and a phrase: the tag no other task carries is shown as text after the chips; the rubrics that often go together are offered while typing | everyone: a list of tasks reads as what is to be done | now (done) |
+| A title is rubrics and a phrase of what to do; the rubrics that often go together are offered while typing; a task made from another starts with its tags | everyone: a list of tasks reads as what is to be done | now (done) |
 | Dependencies, hard dependencies tie deadlines; the owner of the task waited for is told | Marina: see what blocks what | now (done) |
 | A new-task form: tags as the title, priority, deadline, context; opened from the search or tied to a task as its dependency; a dependency found by tags or number | everyone: write a task down whole, link it where it belongs | now (done) |
 | Unsaved comments, new tasks and edits are kept as drafts when going to another page | everyone: following a link never costs the typed text | now (done) |

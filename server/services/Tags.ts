@@ -207,6 +207,12 @@ export async function suggest(viewerId: number, text: string): Promise<Suggestio
 const RELATED = 6;
 
 /**
+ * A rubric is a tag on more than one task; a phrase of one task is not a
+ * group (decision 56). Two rows read at most, whatever the tag's size.
+ */
+const rubric = () => sql`(SELECT count(*) FROM (SELECT 1 FROM task c WHERE c.tag_ids @> ARRAY[t.id] LIMIT 2) two) > 1`;
+
+/**
  * The tags that most often go with these ones (decision 56): on the tasks
  * carrying all of them, the other tags by how many such tasks carry them —
  * rubrics only, not a phrase of one task. Offered under a title being typed,
@@ -220,7 +226,7 @@ export async function related(viewerId: number, tagIds: number[]): Promise<Tag[]
       JOIN tag t ON t.id = kt.id
       LEFT JOIN user_tag u ON u.tag_id = t.id AND u.employee_id = ${viewerId}
      WHERE k.tag_ids @> ${tagIds}::int[] AND NOT t.id = ANY(${tagIds}::int[])
-       AND (SELECT count(*) FROM task c WHERE c.tag_ids @> ARRAY[t.id]) > 1
+       AND ${rubric()}
      GROUP BY t.id, t.name, u.color
      ORDER BY count(*) DESC, t.name
      LIMIT ${RELATED}
@@ -313,7 +319,7 @@ export async function stats(viewerId: number, input: TagStatsInput): Promise<z.i
   const picked = input.tagIds.length > 0;
   const base = scope(viewerId, input.from, input.to);
   const which = picked ? sql`t.id = ANY(${input.tagIds}::int[])`
-    : sql`(SELECT count(*) FROM task x WHERE x.tag_ids @> ARRAY[t.id]) > 1`;
+    : rubric();
   const rows = SummaryRow.array().parse(await sql`
     ${base}
     SELECT t.id AS tag_id, ${figures()}
