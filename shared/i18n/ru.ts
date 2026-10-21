@@ -136,6 +136,7 @@ export const ru = {
       worked: 'В сменах: {{time}}',
       overLogged: 'Списано {{logged}} — больше, чем в табеле ({{worked}}).',
       removeEntry: 'Удалить списание',
+      entryChanged: 'Изменено {{at}}',
       quiet: 'Активности не было.',
       stats: 'История',
       opened: 'Открывались без списания · {{count}}',
@@ -440,6 +441,10 @@ export const ru = {
       planMinutes: 'Сколько ещё планирую потратить',
       clearPlan: 'Убрать план',
       timeHint: 'Например, 1ч 30м или 90',
+      today: 'Сегодня {{time}}',
+      dayMinutes: 'Всего за день',
+      dayHint: 'Всё время на задачу за этот день: заменит прежнее. 0 — убрать списание.',
+      remove: 'Убрать списание',
     },
     people: {
       observers: 'Наблюдатели · {{count}}',

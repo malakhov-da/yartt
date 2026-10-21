@@ -84,10 +84,11 @@ someone with reports:
     (decision 37); today "Start the shift" starts one now, and "Finish"
     closes it with what was done (the end offered is now, rounded up to
     the minute) — the top line does the same with its icons;
-  - every task once, in one line: the time logged to it that day and
-    "Log time" (15m, 30m, 1h, 2h a click away), so time is logged where
-    the day is reviewed; the tasks opened and not logged are folded under
-    one line, a reminder;
+  - every task once, in one line: its one entry of the day — the whole
+    time, set and replaced, 0 removes it, when it was last set on hover
+    (decision 60) — and "Log time" (15m, 30m, 1h, 2h a click away), so
+    time is logged where the day is reviewed; the tasks opened and not
+    logged are folded under one line, a reminder;
   - the visits one by one, folded too.
   Any shift is added by hand with the clock in the day's header; a past
   day suggests the shift its activity shows — a day without shifts, or 30

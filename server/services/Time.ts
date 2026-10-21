@@ -5,6 +5,7 @@ import { sql, type Sql } from '../pg.ts';
 import { assertCanSee } from './Task.ts';
 
 const MyTimeRow = z.object({ spentMinutes: z.number(), leftMinutes: z.number().nullable() });
+const DayRow = z.object({ day: z.string(), minutes: z.number(), updatedAt: z.date() });
 
 export async function myTime(employeeId: number, taskId: number): Promise<MyTime> {
   await assertCanSee(taskId, employeeId);
@@ -14,18 +15,28 @@ export async function myTime(employeeId: number, taskId: number): Promise<MyTime
            (SELECT value FROM estimate_minutes
              WHERE task_id = ${taskId} AND "by" = ${employeeId} AND expired_at IS NULL) AS left_minutes
   `);
-  return row!;
+  const days = DayRow.array().parse(await sql`
+    SELECT day::text, value AS minutes, updated_at FROM spent_minutes
+     WHERE task_id = ${taskId} AND "by" = ${employeeId}
+     ORDER BY day DESC
+  `);
+  return { ...row!, days };
 }
 
-/** Logs own time for a day (the trigger checks access, the day and scores). */
-export async function logTime(employeeId: number, taskId: number, day: string, minutes: number): Promise<void> {
-  await sql`INSERT INTO spent_minutes (task_id, "by", day, value) VALUES (${taskId}, ${employeeId}, ${day}, ${minutes})`;
-}
-
-/** Deletes an own time entry (the trigger forbids it on a scored day). */
-export async function removeEntry(employeeId: number, id: number): Promise<void> {
-  const rows = await sql`DELETE FROM spent_minutes WHERE id = ${id} AND "by" = ${employeeId} RETURNING id`;
-  if (rows.length === 0) throw new AppError('not_found');
+/**
+ * Sets own time on a task for a day — the day's whole time, replacing what
+ * was there; 0 removes the entry. The trigger checks access, the day and
+ * scores.
+ */
+export async function setDay(employeeId: number, taskId: number, day: string, minutes: number): Promise<void> {
+  if (minutes === 0) {
+    await sql`DELETE FROM spent_minutes WHERE task_id = ${taskId} AND "by" = ${employeeId} AND day = ${day}`;
+    return;
+  }
+  await sql`
+    INSERT INTO spent_minutes (task_id, "by", day, value) VALUES (${taskId}, ${employeeId}, ${day}, ${minutes})
+    ON CONFLICT (task_id, "by", day) DO UPDATE SET value = EXCLUDED.value
+  `;
 }
 
 /** Sets own time left; NULL clears it. History is kept: the old value expires. */

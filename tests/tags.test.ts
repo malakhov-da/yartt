@@ -184,7 +184,7 @@ describe('tag summary', () => {
     const onlyA = await devApi.Task.create({ tags: [a, `phrase ${randomUUID().slice(0, 6)}`] });
     const hidden = await (await client((await createEmployee()).id)).Task.create({ tags: [a, `phrase ${randomUUID().slice(0, 6)}`] });
     const today = (await devApi.MyDay.history({ page: 1 })).today;
-    await devApi.Time.log({ taskId: both, day: today, minutes: 90 });
+    await devApi.Time.set({ taskId: both, day: today, minutes: 90 });
     await devApi.Comment.create({ taskId: onlyA, html: '<p>Done</p>', replyToId: null, files: [], mentionIds: [], taskIds: [] });
     await sql`SELECT set_finished_at(${onlyA}, NOW() - INTERVAL '1 minute')`;
     expect(hidden).toBeGreaterThan(0);

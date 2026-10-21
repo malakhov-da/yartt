@@ -341,9 +341,9 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
     await visit(me, report, await at(me, d, '14:40'));
     if (i % 3 === 0) await visit(me, stock, await at(me, d, '16:05'));
     await visit(me, null, await at(me, d, `18:1${i % 6}`));
-    await I.Time.log({ taskId: site, day: await day(me, d), minutes: 90 + (i % 4) * 30 });
-    await I.Time.log({ taskId: report, day: await day(me, d), minutes: 60 + (i % 3) * 15 });
-    if (i % 4 === 0) await I.Time.log({ taskId: hiring, day: await day(me, d), minutes: 45 });
+    await I.Time.set({ taskId: site, day: await day(me, d), minutes: 90 + (i % 4) * 30 });
+    await I.Time.set({ taskId: report, day: await day(me, d), minutes: 60 + (i % 3) * 15 });
+    if (i % 4 === 0) await I.Time.set({ taskId: hiring, day: await day(me, d), minutes: 45 });
     if (i === myDays.length - 1 || i === myDays.length - 4) continue;
     await I.Work.add({
       startedAt: await at(me, d, '09:00'),
@@ -354,7 +354,7 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
   // Today: came in, opened a task, logged time — the shift is not started yet.
   await visit(me, null, await todayAgo(me, 95));
   await visit(me, site, await todayAgo(me, 70));
-  await I.Time.log({ taskId: report, day: await day(me, 0), minutes: 45 });
+  await I.Time.set({ taskId: report, day: await day(me, 0), minutes: 45 });
 
   // Pavel: closed shifts, and the last workday's shift is still open.
   const pavelDays = await workdays(pavel, 7);
@@ -367,8 +367,8 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
       await visit(pavel, site, await at(pavel, d, '20:10'));
       await visit(pavel, null, await at(pavel, d, '21:05'));
     }
-    await P.Time.log({ taskId: site, day: await day(pavel, d), minutes: 300 + (i % 3) * 30 });
-    await P.Time.log({ taskId: auth, day: await day(pavel, d), minutes: 90 });
+    await P.Time.set({ taskId: site, day: await day(pavel, d), minutes: 300 + (i % 3) * 30 });
+    await P.Time.set({ taskId: auth, day: await day(pavel, d), minutes: 90 });
     if (i === pavelDays.length - 1) await P.Work.start({ startedAt: await at(pavel, d, '09:20') });
     else await P.Work.add({ startedAt: await at(pavel, d, '09:20'), endedAt: await at(pavel, d, '18:30'), about: t.shifts.pavel });
   }
@@ -378,7 +378,7 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
   for (const d of marinaDays) {
     await visit(marina, null, await at(marina, d, '08:50'));
     await visit(marina, stock, await at(marina, d, '11:00'));
-    await M.Time.log({ taskId: stock, day: await day(marina, d), minutes: 120 });
+    await M.Time.set({ taskId: stock, day: await day(marina, d), minutes: 120 });
     await M.Work.add({ startedAt: await at(marina, d, '08:50'), endedAt: await at(marina, d, '17:45'), about: t.shifts.marina });
   }
 

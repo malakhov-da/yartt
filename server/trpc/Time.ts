@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Day, Id } from '#shared/employee.ts';
-import { Minutes, MyTime } from '#shared/observer.ts';
+import { DayMinutes, Minutes, MyTime } from '#shared/observer.ts';
 import * as Times from '../services/Time.ts';
 import { authedProcedure, router } from '../trpc.ts';
 
@@ -15,26 +15,17 @@ export default router({
     .query(({ input, ctx }) => Times.myTime(ctx.employeeId, input.taskId)),
 
   /**
-   * Logs the signed-in employee's own time to a task for a day.
+   * Sets the signed-in employee's own time on a task for a day: the day's
+   * whole time, replacing what was there — one entry per task and day; 0
+   * removes it.
    * @throws no_access
    * @throws spent_in_future
    * @throws day_scored
    */
-  log: authedProcedure
-    .input(z.object({ taskId: Id, day: Day, minutes: Minutes }))
+  set: authedProcedure
+    .input(z.object({ taskId: Id, day: Day, minutes: DayMinutes }))
     .output(z.void())
-    .mutation(({ input, ctx }) => Times.logTime(ctx.employeeId, input.taskId, input.day, input.minutes)),
-
-  /**
-   * Deletes the signed-in employee's own time entry. An entry is never
-   * changed: delete it and log again.
-   * @throws not_found — no such entry of theirs.
-   * @throws day_scored
-   */
-  remove: authedProcedure
-    .input(z.object({ id: Id }))
-    .output(z.void())
-    .mutation(({ input, ctx }) => Times.removeEntry(ctx.employeeId, input.id)),
+    .mutation(({ input, ctx }) => Times.setDay(ctx.employeeId, input.taskId, input.day, input.minutes)),
 
   /**
    * Sets how much more time the signed-in employee plans to spend on the

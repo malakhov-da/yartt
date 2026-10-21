@@ -399,8 +399,8 @@ the API is implemented.
       the task).
 
   Time entries:
-    - Log spent_minutes for oneself (anyone who sees the task).
-    - Delete one''s own time entry.
+    - Set one''s time on a task for a day (anyone who sees the task): the
+      day''s whole time, replacing what was there; 0 removes the entry.
 
   Timesheet:
     - Open a shift (started_at = NOW, spent_minutes = NULL).
@@ -547,7 +547,8 @@ INVARIANTS (forbidden; all checked in the database)
   Time entries:
     - An entry by someone who does not see the task, for a future day,
       for a scored day.
-    - Changing an entry (only delete and create).
+    - Two entries of one person for one task and day.
+    - Moving an entry to another task, person or day.
 
   Deadlines:
     - finished_at.value IS NULL (clearing = closing the row without a new one).
@@ -1607,18 +1608,21 @@ CREATE TABLE spent_minutes (
     by INT NOT NULL REFERENCES human(employee_id),
     day DATE NOT NULL,
     value INT NOT NULL CHECK (value > 0),
-    added_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT uq_spent_minutes_day UNIQUE (task_id, "by", day)
 );
 CREATE INDEX idx_spent_minutes_task ON spent_minutes(task_id);
 CREATE INDEX idx_spent_minutes_by_day ON spent_minutes(by, day);
 
 COMMENT ON TABLE spent_minutes IS
-'Time entries.
+'Time entries: one per task, person and day (uq_spent_minutes_day).
 by — who logged it. Only for oneself, only someone who sees the task
 (can_see). Checked by a trigger.
 Time cannot be logged for a future day or a scored day (trigger).
-No updates: delete your own entry and create it again (except for
-scored days).
+The value is the day''s whole time on the task: a new value replaces it
+(updated_at follows), 0 removes the entry — never on a scored day.
 When the day''s entries exceed the timesheet hours, the frontend shows
 a warning (in the employee''s timesheet).
 Does not notify the task owner.';
@@ -1636,7 +1640,16 @@ COMMENT ON COLUMN spent_minutes.day IS
 'The day the time is logged for (in the time zone of by).';
 
 COMMENT ON COLUMN spent_minutes.value IS
-'Minutes spent. CHECK > 0.';
+'Minutes spent that day on the task, all of them. CHECK > 0: none is no row.';
+
+COMMENT ON COLUMN spent_minutes.added_at IS
+'When the entry was first made.';
+
+COMMENT ON COLUMN spent_minutes.updated_at IS
+'When its value was last set: shown over the entry.';
+
+COMMENT ON CONSTRAINT uq_spent_minutes_day ON spent_minutes IS
+'One entry per task, person and day: time is set for the day, not added up.';
 
 
 -- ============================================================================
@@ -3021,17 +3034,21 @@ people are never added up.';
 CREATE OR REPLACE FUNCTION trg_spent_minutes_check()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF TG_OP = 'UPDATE' THEN
-        RAISE EXCEPTION 'spent_minutes cannot be changed, delete and add again'
+    IF TG_OP = 'UPDATE' AND (NEW.task_id <> OLD.task_id OR NEW."by" <> OLD."by" OR NEW.day <> OLD.day) THEN
+        RAISE EXCEPTION 'a time entry keeps its task, person and day'
             USING HINT = 'spent_immutable';
     END IF;
 
-    IF TG_OP = 'DELETE' THEN
+    IF TG_OP IN ('UPDATE', 'DELETE') THEN
         IF EXISTS (SELECT 1 FROM score WHERE employee_id = OLD."by" AND day = OLD.day AND value IS NOT NULL) THEN
             RAISE EXCEPTION 'day is already scored'
             USING HINT = 'day_scored';
         END IF;
-        RETURN OLD;
+        IF TG_OP = 'DELETE' THEN
+            RETURN OLD;
+        END IF;
+        NEW.updated_at := NOW();
+        RETURN NEW;
     END IF;
 
     IF NOT can_see(NEW.task_id, NEW."by") THEN
@@ -3055,7 +3072,8 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION trg_spent_minutes_check() IS
 'Time entries: only by someone who sees the task, not for a future day,
-not for a scored day. UPDATE is forbidden.';
+not for a scored day. An UPDATE sets the value of the same task, person
+and day (updated_at follows); a scored day changes in no way.';
 
 CREATE TRIGGER spent_minutes_check
 BEFORE INSERT OR UPDATE OR DELETE ON spent_minutes

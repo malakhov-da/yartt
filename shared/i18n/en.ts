@@ -80,6 +80,7 @@ export const en: Translation = {
       worked: 'In shifts: {{time}}',
       overLogged: '{{logged}} logged — more than in the timesheet ({{worked}}).',
       removeEntry: 'Delete the entry',
+      entryChanged: 'Changed {{at}}',
       quiet: 'No activity.',
       stats: 'History',
       opened: 'Opened, nothing logged · {{count}}',
@@ -384,6 +385,10 @@ export const en: Translation = {
       planMinutes: 'How much more I plan to spend',
       clearPlan: 'Clear the plan',
       timeHint: 'For example 1h 30m or 90',
+      today: 'Today {{time}}',
+      dayMinutes: 'For the whole day',
+      dayHint: 'All the time on the task that day: it replaces what was there. 0 removes the entry.',
+      remove: 'Remove the entry',
     },
     people: {
       observers: 'Observers · {{count}}',

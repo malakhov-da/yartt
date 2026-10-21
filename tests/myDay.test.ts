@@ -105,7 +105,7 @@ describe('history', () => {
     const id = await createTask(me.id);
     await api.Visit.log({ taskId: null });
     await api.Visit.log({ taskId: id });
-    await api.Time.log({ taskId: id, day: empty.today, minutes: 30 });
+    await api.Time.set({ taskId: id, day: empty.today, minutes: 30 });
     // An hour ago, but not before today began in their time zone: the shift must be today's.
     const [midnight] = await sql<{ at: Date }[]>`
       SELECT local_today(id)::timestamp AT TIME ZONE time_zone AS at FROM employee WHERE id = ${me.id}
@@ -126,7 +126,10 @@ describe('history', () => {
     expect(closed!.shifts[0]!.spentMinutes).toBe(Math.floor(Date.now() / 60_000) - Math.floor(startedAt.getTime() / 60_000));
     await expect(api.Work.remove({ startedAt: new Date(0) })).rejects.toMatchObject({ message: 'not_found' });
 
-    await api.Time.remove({ id: today!.entries[0]!.id });
+    // One entry a day: a new value replaces it, 0 removes it.
+    await api.Time.set({ taskId: id, day: empty.today, minutes: 50 });
+    expect((await api.MyDay.history({ page: 1 })).days[0]!.entries).toMatchObject([{ taskId: id, minutes: 50 }]);
+    await api.Time.set({ taskId: id, day: empty.today, minutes: 0 });
     expect((await api.MyDay.history({ page: 1 })).days[0]!.entries).toEqual([]);
   });
 
@@ -136,7 +139,7 @@ describe('history', () => {
     const id = await createTask(me.id);
     const { today } = await api.MyDay.history({ page: 1 });
     await api.Comment.create({ taskId: id, html: '<p>Started</p>', replyToId: null, files: [], mentionIds: [], taskIds: [] });
-    await api.Time.log({ taskId: id, day: today, minutes: 15 });
+    await api.Time.set({ taskId: id, day: today, minutes: 15 });
     const [day] = (await api.MyDay.history({ page: 1, size: 2 })).days;
     expect(day!.actions.map((a) => [a.kind, a.taskId])).toEqual([['comment', id], ['time', id]]);
 
@@ -214,12 +217,23 @@ describe('history', () => {
     expect((await api.Team.stats(range)).stats.workMinutes).toBe(180);
   });
 
-  test('a time entry of someone else cannot be deleted', async () => {
+  test('one entry per task and day: replaced, not added; 0 removes it; the last change is kept', async () => {
     const me = await createEmployee();
     const other = await createEmployee();
     const id = await createTask(me.id);
-    await (await client(me.id)).Time.log({ taskId: id, day: '2026-01-01', minutes: 10 });
-    const [entry] = await sql<{ id: number }[]>`SELECT id FROM spent_minutes WHERE "by" = ${me.id}`;
-    await expect((await client(other.id)).Time.remove({ id: entry!.id })).rejects.toMatchObject({ message: 'not_found' });
+    const api = await client(me.id);
+    await api.Time.set({ taskId: id, day: '2026-01-01', minutes: 10 });
+    await sql`UPDATE spent_minutes SET updated_at = NOW() - INTERVAL '1 day' WHERE "by" = ${me.id}`;
+    await api.Time.set({ taskId: id, day: '2026-01-01', minutes: 40 });
+    const rows = await sql<{ value: number; updatedAt: Date }[]>`SELECT value, updated_at FROM spent_minutes WHERE "by" = ${me.id}`;
+    expect(rows.map((r) => r.value)).toEqual([40]);
+    expect(rows[0]!.updatedAt.getTime()).toBeGreaterThan(Date.now() - 60_000);
+    expect((await api.Time.mine({ taskId: id })).days).toMatchObject([{ day: '2026-01-01', minutes: 40 }]);
+    // Someone else's entry is never theirs to change: setting 0 touches only their own.
+    await (await client(other.id)).Time.set({ taskId: id, day: '2026-01-01', minutes: 0 }).catch(() => {});
+    expect(await sql`SELECT 1 FROM spent_minutes WHERE "by" = ${me.id}`).toHaveLength(1);
+    await expect(sql`UPDATE spent_minutes SET day = '2026-01-02' WHERE "by" = ${me.id}`).rejects.toMatchObject({ hint: 'spent_immutable' });
+    await api.Time.set({ taskId: id, day: '2026-01-01', minutes: 0 });
+    expect(await sql`SELECT 1 FROM spent_minutes WHERE "by" = ${me.id}`).toHaveLength(0);
   });
 });

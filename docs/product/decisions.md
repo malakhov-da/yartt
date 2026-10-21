@@ -933,3 +933,18 @@ shows its whole title, wrapped, not cut.
 
 *Implemented:* `Task.preview`; `client/components/App/TaskHint.tsx` in
 `TaskLine` and the day rows.
+
+### 60. One time entry per task and day, set, not added up
+
+Time was logged as entries added up: logging twice for one task and day
+made two entries, a correction meant deleting one and logging again, and
+the timesheet listed them all. Now a person has one entry per task and
+day — the day's whole time on it. Logging shows what is there and
+replaces it; 0 removes the entry; when it was last set shows over it. The
+same entry is set from the timesheet and from the task ("Today 1h 30m"
+in My time) — two places, one record. A scored day changes in no way, as
+before. The migration merged the entries of one day into their sum.
+
+*Implemented:* `uq_spent_minutes_day`, `spent_minutes.updated_at`,
+`trg_spent_minutes_check()` (migration `0.1-0.2`); `Time.set` instead of
+`Time.log` and `Time.remove`; `LogTimeDialog`, `MyTime`.

@@ -178,7 +178,7 @@ describe('public tasks', () => {
     await api.Task.makePublic({ id });
     expect(await api.Time.mine({ taskId: id })).toMatchObject({ leftMinutes: 60 });
     await (await client(commenter.id)).Comment.create(comment(id, '<p>Count me in</p>'));
-    await (await client(commenter.id)).Time.log({ taskId: id, day: '2026-01-05', minutes: 30 });
+    await (await client(commenter.id)).Time.set({ taskId: id, day: '2026-01-05', minutes: 30 });
     await api.Comment.create(comment(id, '<p>Bring the keys</p>', [mentioned.id]));
     await expect(api.Observer.add({ taskId: id, employeeId: commenter.id })).rejects.toMatchObject({ message: 'task_public' });
 
@@ -189,7 +189,7 @@ describe('public tasks', () => {
     expect(await (await client(mentioned.id)).Task.get({ id })).toMatchObject({ access: 'observer' });
     expect(await (await client(commenter.id)).Task.get({ id })).toMatchObject({ access: 'none' });
     expect((await notifications(commenter.id)).at(-1)).toEqual({ kind: 'access_closed', by: owner.id });
-    await expect((await client(commenter.id)).Time.log({ taskId: id, day: '2026-01-05', minutes: 30 }))
+    await expect((await client(commenter.id)).Time.set({ taskId: id, day: '2026-01-05', minutes: 30 }))
       .rejects.toMatchObject({ message: 'no_access' });
   });
 });
@@ -282,7 +282,7 @@ describe('feed events', () => {
     const api = await client(owner.id);
 
     await api.Comment.create({ ...comment(other, '<p>See this</p>'), taskIds: [id] });
-    await api.Time.log({ taskId: id, day: '2026-01-02', minutes: 30 });
+    await api.Time.set({ taskId: id, day: '2026-01-02', minutes: 30 });
     await api.Time.setLeft({ taskId: id, minutes: 120 });
     await api.Time.setLeft({ taskId: id, minutes: 60 });
     await api.Time.setLeft({ taskId: id, minutes: null });
@@ -427,12 +427,12 @@ describe('time in the feed', () => {
     const theirs = await client(helper.id);
 
     // Oldest first: mine ×3, a comment, mine ×1, theirs ×2, mine ×1.
-    for (const day of ['2026-01-01', '2026-01-02', '2026-01-03']) await mine.Time.log({ taskId: id, day, minutes: 60 });
+    for (const day of ['2026-01-01', '2026-01-02', '2026-01-03']) await mine.Time.set({ taskId: id, day, minutes: 60 });
     await mine.Comment.create(comment(id, '<p>Between</p>'));
-    await mine.Time.log({ taskId: id, day: '2026-01-04', minutes: 30 });
-    await theirs.Time.log({ taskId: id, day: '2026-01-04', minutes: 20 });
-    await theirs.Time.log({ taskId: id, day: '2026-01-05', minutes: 25 });
-    await mine.Time.log({ taskId: id, day: '2026-01-05', minutes: 15 });
+    await mine.Time.set({ taskId: id, day: '2026-01-04', minutes: 30 });
+    await theirs.Time.set({ taskId: id, day: '2026-01-04', minutes: 20 });
+    await theirs.Time.set({ taskId: id, day: '2026-01-05', minutes: 25 });
+    await mine.Time.set({ taskId: id, day: '2026-01-05', minutes: 15 });
 
     const feed = await mine.Comment.list({ taskId: id, filter: 'all', page: 1 });
     const shape = feed.items.map((i) => (i.kind === 'spent' ? [i.employeeId, i.minutes, i.entries.length] : i.kind));
@@ -507,7 +507,7 @@ describe('preview', () => {
     const devApi = await client(dev.id);
     const id = await devApi.Task.create({ tags: [`p-${randomUUID().slice(0, 8)}`], context: '<p>Сверить акт</p>' });
     const today = (await devApi.MyDay.history({ page: 1 })).today;
-    await devApi.Time.log({ taskId: id, day: today, minutes: 45 });
+    await devApi.Time.set({ taskId: id, day: today, minutes: 45 });
     await devApi.Time.setLeft({ taskId: id, minutes: 60 });
 
     expect(await (await client(me.id)).Task.preview({ id })).toEqual({

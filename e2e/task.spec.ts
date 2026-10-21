@@ -69,7 +69,13 @@ test.describe.serial('a task from creation to hand-over', () => {
 
   test('my time: logged and planned; both show in the feed as events', async () => {
     await page.getByRole('button', { name: 'Списать время' }).click();
-    await page.getByLabel('Сколько', { exact: true }).fill('1ч 30м');
+    await page.getByLabel('Всего за день').fill('1ч');
+    await page.getByRole('dialog').getByRole('button', { name: 'Сохранить' }).click();
+    await expect(page.getByText('Сегодня 1ч')).toBeVisible();
+    // One entry a day: the dialog shows it, a new value replaces it.
+    await page.getByRole('button', { name: 'Списать время' }).click();
+    await expect(page.getByLabel('Всего за день')).toHaveValue('1ч');
+    await page.getByLabel('Всего за день').fill('1ч 30м');
     await page.getByRole('dialog').getByRole('button', { name: 'Сохранить' }).click();
     await expect(page.getByText('Потратил 1ч 30м')).toBeVisible();
 

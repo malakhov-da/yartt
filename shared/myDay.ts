@@ -75,6 +75,8 @@ export const Entry = z.object({
   id: Id,
   taskId: Id,
   minutes: z.number().int(),
+  /** When its value was last set. */
+  updatedAt: z.date(),
 });
 export type Entry = z.infer<typeof Entry>;
 

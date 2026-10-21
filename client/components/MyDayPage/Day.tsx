@@ -1,5 +1,5 @@
 import { AlarmAdd, ChevronRight, DeleteOutline, Edit, ExpandMore, MoreTime, PlayArrow, Stop } from '@mui/icons-material';
-import { Alert, Box, Button, Chip, IconButton, Menu, MenuItem, Stack, Tooltip, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -96,11 +96,10 @@ export default function (p: {
   const [logging, setLogging] = useState<TaskHeader | null>(null);
   const [showOpened, setShowOpened] = useState(false);
   const [showVisits, setShowVisits] = useState(false);
-  const [entriesMenu, setEntriesMenu] = useState<{ anchor: HTMLElement; taskId: number } | null>(null);
   const start = useMutation(trpc.Work.start.mutationOptions({ onSuccess: refresh }));
   const add = useMutation(trpc.Work.add.mutationOptions({ onSuccess: refresh }));
   const removeShift = useMutation(trpc.Work.remove.mutationOptions({ onSuccess: refresh }));
-  const removeEntry = useMutation(trpc.Time.remove.mutationOptions({ onSuccess: refresh }));
+  const setTime = useMutation(trpc.Time.set.mutationOptions({ onSuccess: refresh }));
 
   const { day } = p;
   const mine = p.employeeId === undefined;
@@ -157,24 +156,26 @@ export default function (p: {
     </TaskHint>
   );
 
-  const taskRow = (taskId: number, note: string, entries: typeof day.entries) => {
+  // A task of the day with its one entry: the time, when it was last set on hover.
+  const taskRow = (taskId: number) => {
     const header = task(taskId);
+    const entry = day.entries.find((e) => e.taskId === taskId);
     return header && (
       <Stack key={taskId} direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
         {title(header)}
-        <Typography variant="body2" sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{note}</Typography>
+        <Tooltip title={entry ? t('myDay.history.entryChanged', { at: format.dateTime(entry.updatedAt) }) : ''}>
+          <Typography variant="body2" sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+            {format.minutes(entry?.minutes ?? 0)}
+          </Typography>
+        </Tooltip>
         {editable && (
           <Tooltip title={t('task.myTime.log')}>
             <IconButton size="small" onClick={() => setLogging(header)}><MoreTime fontSize="small" /></IconButton>
           </Tooltip>
         )}
-        {editable && entries.length > 0 && (
+        {editable && entry && (
           <Tooltip title={t('myDay.history.removeEntry')}>
-            <IconButton
-              size="small"
-              disabled={removeEntry.isPending}
-              onClick={(e) => (entries.length === 1 ? removeEntry.mutate({ id: entries[0]!.id }) : setEntriesMenu({ anchor: e.currentTarget, taskId }))}
-            >
+            <IconButton size="small" disabled={setTime.isPending} onClick={() => setTime.mutate({ taskId, day: day.day, minutes: 0 })}>
               <DeleteOutline fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -314,7 +315,7 @@ export default function (p: {
       )}
 
       {logged.length > 0 && (
-        <Stack spacing={0.5}>{logged.map((l) => taskRow(l.taskId, format.minutes(l.minutes), l.entries))}</Stack>
+        <Stack spacing={0.5}>{logged.map((l) => taskRow(l.taskId))}</Stack>
       )}
 
       {/* Opened and not logged: folded, a reminder to log it. */}
@@ -324,7 +325,7 @@ export default function (p: {
             aria-expanded={showOpened} onClick={() => setShowOpened((v) => !v)}>
             {t('myDay.history.opened', { count: opened.length })}
           </Button>
-          {showOpened && <Stack spacing={0.5}>{opened.map((id) => taskRow(id, format.minutes(0), []))}</Stack>}
+          {showOpened && <Stack spacing={0.5}>{opened.map((id) => taskRow(id))}</Stack>}
         </Box>
       )}
 
@@ -357,15 +358,16 @@ export default function (p: {
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>{t('myDay.history.quiet')}</Typography>
       )}
 
-      <Menu anchorEl={entriesMenu?.anchor} open={!!entriesMenu} onClose={() => setEntriesMenu(null)}>
-        {day.entries.filter((e) => e.taskId === entriesMenu?.taskId).map((e) => (
-          <MenuItem key={e.id} onClick={() => { removeEntry.mutate({ id: e.id }); setEntriesMenu(null); }}>
-            <DeleteOutline fontSize="small" sx={{ mr: 1 }} />{format.minutes(e.minutes)}
-          </MenuItem>
-        ))}
-      </Menu>
       {dialog && <ShiftDialog {...dialog} onClose={() => setDialog(null)} />}
-      {logging && <LogTimeDialog task={logging} day={day.day} onClose={() => setLogging(null)} />}
+      {logging && (
+        <LogTimeDialog
+          taskId={logging.id}
+          task={logging}
+          day={day.day}
+          current={() => day.entries.find((e) => e.taskId === logging.id)?.minutes ?? 0}
+          onClose={() => setLogging(null)}
+        />
+      )}
       {scoring && p.employeeId !== undefined && (
         <ScoreDialog employeeId={p.employeeId} day={day.day} current={day.score} onClose={() => setScoring(false)} />
       )}

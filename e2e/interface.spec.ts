@@ -71,12 +71,10 @@ test.describe('My day', () => {
     await expect(page.getByLabel('Лента дня: смены, заходы и действия').nth(2)).toBeVisible();
     await page.goto('/');
 
-    // Every task once; several entries of one task are deleted one by one from a menu.
+    // Every task once, with its one entry of the day: deleting it sets 0.
     const total = history.getByText(/^Списано на задачи: /).first();
     const before = await total.textContent();
     await history.getByRole('button', { name: 'Удалить списание' }).first().click();
-    const menu = page.getByRole('menuitem');
-    if (await menu.count()) await menu.first().click();
     await expect(total).not.toHaveText(before!);
 
     // Pavel's last shift is open: deleting it lets a shift start again — now.
@@ -195,8 +193,8 @@ test.describe('a task', () => {
     await page.getByRole('button', { name: 'Списать время' }).click();
     const day = new Date(Date.now() - 2 * 86_400_000);
     const ymd = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
-    await page.getByRole('dialog').getByLabel('День').fill(ymd);
-    await page.getByLabel('Сколько', { exact: true }).fill('45');
+    await page.getByRole('dialog').getByLabel('День', { exact: true }).fill(ymd);
+    await page.getByLabel('Всего за день').fill('45');
     await page.getByRole('dialog').getByRole('button', { name: 'Сохранить' }).click();
     await page.getByRole('link', { name: 'Мой день', exact: true }).click();
     const history = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Мои дни' }) });

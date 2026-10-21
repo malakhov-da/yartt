@@ -128,7 +128,7 @@ const ShiftRow = z.object({
   spentMinutes: z.number().nullable(),
   about: z.string().nullable(),
 });
-const EntryRow = z.object({ day: z.string(), id: z.number(), taskId: z.number(), minutes: z.number() });
+const EntryRow = z.object({ day: z.string(), id: z.number(), taskId: z.number(), minutes: z.number(), updatedAt: z.date() });
 const VisitRow = z.object({ day: z.string(), taskId: z.number().nullable(), at: z.date() });
 const ActivityRow = z.object({ day: z.string(), first: z.date(), last: z.date() });
 const ActionRow = z.object({ day: z.string(), kind: z.enum(['comment', 'time']), taskId: z.number(), at: z.date() });
@@ -169,7 +169,7 @@ export async function history(me: number, page: number, size: number): Promise<H
      ORDER BY started_at
   `);
   const entries = EntryRow.array().parse(await sql`
-    SELECT day::text, id, task_id, value AS minutes
+    SELECT day::text, id, task_id, value AS minutes, updated_at
       FROM spent_minutes
      WHERE "by" = ${me} AND day = ANY(${days}::date[])
      ORDER BY id
