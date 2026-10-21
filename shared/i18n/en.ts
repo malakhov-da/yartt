@@ -212,6 +212,11 @@ export const en: Translation = {
     noDependency: 'Without this link',
     create: 'Create task',
   },
+  taskHint: {
+    private: 'A private task: its observers see the context and the time.',
+    noTime: 'No time logged to it yet.',
+    left: '{{time}} left',
+  },
   tagStats: {
     title: 'Tags',
     region: 'Tag summary',

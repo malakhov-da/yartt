@@ -913,3 +913,17 @@ goes out as CSV: a line per tag and person.
 
 *Implemented:* `Tags.stats`, `Tags.people` in `server/services/Tags.ts`;
 `client/components/MyDayPage/TagStats.tsx`.
+
+### 59. A task hovered anywhere shows what it is and who spends on it
+
+A title says what a task is; deciding what to open or where to log time
+needs a little more — what is wanted and how much it has taken. Hovering
+a task in any list (Current tasks, What waits for me, dependencies, the
+search, the days) for a moment shows its context, cut short, and each
+person's time logged on it and time left — one's own first, then the
+others, each their own, with no total (decision 38). Someone who does not
+see a private task gets only that it is private. In the days a task now
+shows its whole title, wrapped, not cut.
+
+*Implemented:* `Task.preview`; `client/components/App/TaskHint.tsx` in
+`TaskLine` and the day rows.

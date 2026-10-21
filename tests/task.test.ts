@@ -498,3 +498,21 @@ describe('titles', () => {
     expect(found.counts).toEqual({ mine: 1, others: 0, closed: 2 });
   });
 });
+
+describe('preview', () => {
+  test('the hint over a task: its context and each one\'s time, only for someone who sees it', async () => {
+    const me = await createEmployee();
+    const dev = await createEmployee({ managerId: me.id });
+    const stranger = await createEmployee();
+    const devApi = await client(dev.id);
+    const id = await devApi.Task.create({ tags: [`p-${randomUUID().slice(0, 8)}`], context: '<p>Сверить акт</p>' });
+    const today = (await devApi.MyDay.history({ page: 1 })).today;
+    await devApi.Time.log({ taskId: id, day: today, minutes: 45 });
+    await devApi.Time.setLeft({ taskId: id, minutes: 60 });
+
+    expect(await (await client(me.id)).Task.preview({ id })).toEqual({
+      visible: true, context: '<p>Сверить акт</p>', people: [{ employeeId: dev.id, spentMinutes: 45, leftMinutes: 60 }],
+    });
+    expect(await (await client(stranger.id)).Task.preview({ id })).toEqual({ visible: false, context: null, people: [] });
+  });
+});

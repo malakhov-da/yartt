@@ -11,6 +11,7 @@ import { useTRPC } from '#client/hooks/trpc.ts';
 import ScoreDialog from '../EmployeePage/ScoreDialog.tsx';
 import { Link } from 'react-router';
 import LogTimeDialog from './LogTimeDialog.tsx';
+import TaskHint from '../App/TaskHint.tsx';
 import DayRibbon from './DayRibbon.tsx';
 import ShiftDialog, { shiftEnd, type ShiftDialogMode } from './ShiftDialog.tsx';
 
@@ -137,21 +138,23 @@ export default function (p: {
     to: p.isToday || !day.lastActivity || day.lastActivity <= shift.startedAt ? shiftEnd() : day.lastActivity,
   });
 
-  // A task in one line of text, a link to it: a day lists many, cards are narrow.
+  // A task as its whole title in text, a link to it; hovered, its context and everyone's time.
   const title = (header: TaskHeader) => (
-    <Typography
-      variant="body2"
-      component={Link}
-      to={`/tasks/${header.id}`}
-      noWrap
-      sx={{
-        flexGrow: 1, minWidth: 0, color: 'text.primary', textDecoration: 'none', '&:hover': { textDecoration: 'underline' },
-        ...(header.deadline !== null && header.deadline <= new Date() && { color: 'text.secondary' }),
-      }}
-    >
-      <Box component="span" sx={{ fontFamily: 'monospace', color: 'text.secondary', mr: 0.75 }}>#{header.id}</Box>
-      {header.tags.map((tag) => tag.name).join(' · ')}
-    </Typography>
+    <TaskHint taskId={header.id}>
+      <Typography
+        variant="body2"
+        component={Link}
+        to={`/tasks/${header.id}`}
+        sx={{
+          flexGrow: 1, minWidth: 0, color: 'text.primary', textDecoration: 'none', overflowWrap: 'anywhere',
+          '&:hover': { textDecoration: 'underline' },
+          ...(header.deadline !== null && header.deadline <= new Date() && { color: 'text.secondary' }),
+        }}
+      >
+        <Box component="span" sx={{ fontFamily: 'monospace', color: 'text.secondary', mr: 0.75 }}>#{header.id}</Box>
+        {header.tags.map((tag) => tag.name).join(' · ')}
+      </Typography>
+    </TaskHint>
   );
 
   const taskRow = (taskId: number, note: string, entries: typeof day.entries) => {

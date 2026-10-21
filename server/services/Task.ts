@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import {
   type CreateInput, type Dependency, type SearchInput, type SearchResult, Tag, type TaskDetails,
-  type TaskHeader, type TaskPage, type TitleTaken, type UpdateInput, Access, Priority,
+  type TaskHeader, type TaskPage, TaskPreview, type TitleTaken, type UpdateInput, Access, Priority,
 } from '#shared/task.ts';
 import { AppError } from '../errors.ts';
 import { cleanHtml } from '../html.ts';
@@ -353,4 +353,22 @@ export async function get(viewerId: number, taskId: number): Promise<TaskPage> {
     waitedOnBy: await dependencies(viewerId, waitedOnBy),
   };
   return { ...header, access, details };
+}
+
+/** The hint over a task in a list: its context and each person's time on it, for someone who sees it. */
+export async function preview(viewerId: number, taskId: number): Promise<TaskPreview> {
+  if (!(await canSee(taskId, viewerId))) return { visible: false, context: null, people: [] };
+  const [task] = z.object({ context: z.string().nullable() }).array().parse(await sql`
+    SELECT context FROM task WHERE id = ${taskId}
+  `);
+  const people = TaskPreview.shape.people.parse(await sql`
+    SELECT p.employee_id,
+           COALESCE((SELECT sum(s.value) FROM spent_minutes s WHERE s.task_id = ${taskId} AND s."by" = p.employee_id), 0)::int AS spent_minutes,
+           (SELECT e.value FROM estimate_minutes e
+             WHERE e.task_id = ${taskId} AND e."by" = p.employee_id AND e.expired_at IS NULL) AS left_minutes
+      FROM (SELECT "by" AS employee_id FROM spent_minutes WHERE task_id = ${taskId}
+            UNION SELECT "by" FROM estimate_minutes WHERE task_id = ${taskId} AND expired_at IS NULL) p
+     ORDER BY p.employee_id = ${viewerId} DESC, spent_minutes DESC, p.employee_id
+  `);
+  return { visible: true, context: task?.context ?? null, people };
 }

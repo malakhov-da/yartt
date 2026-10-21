@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Id } from '#shared/employee.ts';
-import { CreateInput, SearchInput, SearchResult, TaskPage, TitleInput, TitleTaken, TransferInput, UpdateInput } from '#shared/task.ts';
+import { CreateInput, SearchInput, SearchResult, TaskPage, TaskPreview, TitleInput, TitleTaken, TransferInput, UpdateInput } from '#shared/task.ts';
 import * as Tasks from '../services/Task.ts';
 import { authedProcedure, router } from '../trpc.ts';
 
@@ -15,6 +15,16 @@ export default router({
     .input(SearchInput)
     .output(SearchResult)
     .query(({ input, ctx }) => Tasks.search(ctx.employeeId, input)),
+
+  /**
+   * A task at a glance, for the hint over it in lists: its context and each
+   * person's time logged and left on it. Empty unless the signed-in
+   * employee sees the task.
+   */
+  preview: authedProcedure
+    .input(z.object({ id: Id }))
+    .output(TaskPreview)
+    .query(({ input, ctx }) => Tasks.preview(ctx.employeeId, input.id)),
 
   /**
    * The task that already has exactly this title (these tags), so a title

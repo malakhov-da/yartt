@@ -5,6 +5,7 @@ import type { TaskHeader } from '#shared/task.ts';
 import { useFormat } from '#client/hooks/format.ts';
 import { useEmployees } from '#client/hooks/task.ts';
 import EmployeeAvatar from '../App/EmployeeAvatar.tsx';
+import TaskHint from '../App/TaskHint.tsx';
 import TaskTitle from '../App/TaskTitle.tsx';
 import PriorityChip from './PriorityChip.tsx';
 import RiskChip from './RiskChip.tsx';
@@ -12,7 +13,8 @@ import RiskChip from './RiskChip.tsx';
 /**
  * A task as a line: number, tags, priority, a note, deadline, owner. A closed
  * one (its deadline passed) is struck through. `dense` — only the number,
- * tags and the note, for narrow lists.
+ * tags and the note, for narrow lists. Hovered, it shows its context and
+ * everyone's time on it (TaskHint).
  */
 export default function (p: { task: TaskHeader; note?: string; noteHint?: string; dense?: boolean }) {
   const { t } = useTranslation();
@@ -22,6 +24,7 @@ export default function (p: { task: TaskHeader; note?: string; noteHint?: string
   const closed = p.task.deadline !== null && p.task.deadline <= new Date();
 
   return (
+    <TaskHint taskId={p.task.id}>
     <Stack
       direction="row"
       component={Link}
@@ -57,5 +60,6 @@ export default function (p: { task: TaskHeader; note?: string; noteHint?: string
         </>
       )}
     </Stack>
+    </TaskHint>
   );
 }

@@ -124,3 +124,11 @@ test.describe('My day', () => {
     await expect(whole.getByText('20:10', { exact: true })).toBeVisible();
   });
 });
+
+test('a task hovered in any list shows its context and everyone\'s time', async ({ page }) => {
+  await signIn(page);
+  const line = page.getByRole('region', { name: 'Текущие задачи' }).getByRole('link', { name: /новая главная к осенней кампании/ }).first();
+  await line.hover();
+  await expect(page.getByRole('tooltip').getByText(/Новая главная к запуску осенней кампании/)).toBeVisible();
+  await expect(page.getByRole('tooltip').getByText(/Павел Орлов|Я/).first()).toBeVisible();
+});

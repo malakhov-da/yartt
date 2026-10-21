@@ -86,6 +86,26 @@ export const TaskPage = TaskHeader.extend({
 });
 export type TaskPage = z.infer<typeof TaskPage>;
 
+/**
+ * A task at a glance, for the hint over it in any list: its context and
+ * each person's time on it — their own, never a total (decision 38).
+ * Empty when the viewer does not see the task: only its header is public.
+ */
+export const TaskPreview = z.object({
+  visible: z.boolean(),
+  /** Sanitized HTML; NULL — not described. */
+  context: z.string().nullable(),
+  /** Who logged time or plans to, the viewer first, then by time logged. */
+  people: z.object({
+    employeeId: Id,
+    /** Logged to the task, all time. */
+    spentMinutes: z.number().int(),
+    /** Their current "time left"; NULL — none. */
+    leftMinutes: z.number().int().nullable(),
+  }).array(),
+});
+export type TaskPreview = z.infer<typeof TaskPreview>;
+
 export const SearchInput = z.object({
   tagIds: Id.array().min(1).max(20),
   /**

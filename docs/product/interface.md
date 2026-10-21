@@ -363,6 +363,10 @@ line.
 
 ## Interaction rules
 
+- **A task hovered shows itself.** In any list, a moment's hover over a
+  task shows its context, cut short, and each person's time logged and
+  left on it — never a total (decision 59).
+
 - **No confirmations for reversible actions.** Show what happened with
   "Undo" for a few seconds. Confirm only what cannot be undone and hurts
   others (dismissing an employee).
