@@ -47,13 +47,15 @@ export default function () {
   return (
     <>
       {away ? (
-        <Tooltip title={t('away.hint')} describeChild>
+        <Tooltip title={`${t('away.until', { day: format.date(fromDay(me.nextDay!)) })}. ${t('away.hint')}`} describeChild>
           <Chip
             color="warning"
             size="small"
             icon={<EventBusy />}
             label={t('away.until', { day: format.date(fromDay(me.nextDay!)) })}
             onClick={(e) => setAnchor(e.currentTarget)}
+            // At phone width the line is full: the sign alone, the date in the hint.
+            sx={{ '& .MuiChip-label': { display: { xs: 'none', sm: 'block' } }, '& .MuiChip-icon': { mx: { xs: 0.5, sm: undefined } } }}
           />
         </Tooltip>
       ) : (

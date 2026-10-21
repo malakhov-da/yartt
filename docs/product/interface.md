@@ -18,7 +18,7 @@ week or any date; while away it reads "Back Oct 24", and my
 notifications are copied to my manager; "I'm back at work" clears it),
 **Invite** (a person with a plus: a small dialog with a name and an
 email) and my avatar (a photo, or the initials in a circle). The avatar
-opens a menu: Profile, Log out. The search lives in My day (3). Without a connection
+opens a menu: Profile, How to work, Log out. "?" opens the guide (`/help`, decision 62): what yartt gives, how-tos, why the unusual rules are so — written for each language; at phone width it is only in the menu. The search lives in My day (3). Without a connection
 the top line says "Offline" or how many changes wait to be sent; the
 app installs on a phone and opens offline with what was loaded last
 (decision 43). The product name and its release are in a quiet footer at the bottom

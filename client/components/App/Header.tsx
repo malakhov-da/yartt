@@ -1,8 +1,9 @@
-import { PersonAddAlt1 } from '@mui/icons-material';
+import { HelpOutline, PersonAddAlt1 } from '@mui/icons-material';
 import { AppBar, Box, ButtonBase, Chip, Divider, IconButton, ListSubheader, Menu, MenuItem, Toolbar, Tooltip, Typography } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 import { useOutbox } from '#client/hooks/offline.ts';
 import { useSignedOut } from '#client/hooks/session.ts';
 import { useMe } from '#client/hooks/me.ts';
@@ -55,6 +56,12 @@ export default function () {
         <Box sx={{ flexGrow: 1 }} />
         <TopStatus />
         <AwayButton />
+        {/* The guide; at phone width the line is full — it is in the menu under the avatar too. */}
+        <Tooltip title={t('nav.help')}>
+          <IconButton component={Link} to="/help" aria-label={t('nav.help')} sx={{ display: { xs: 'none', sm: 'inline-flex' } }}>
+            <HelpOutline />
+          </IconButton>
+        </Tooltip>
         {/* With the company's identity provider people come in by signing in through it. */}
         {!sso && (
           <Tooltip title={t('nav.invite')}>
@@ -74,6 +81,7 @@ export default function () {
 
       <Menu anchorEl={menu} open={!!menu} onClose={() => setMenu(null)}>
         <MenuItem onClick={() => { setMenu(null); setProfileOpen(true); }}>{t('nav.profile')}</MenuItem>
+        <MenuItem component={Link} to="/help" onClick={() => setMenu(null)}>{t('nav.help')}</MenuItem>
         <MenuItem onClick={logOut} disabled={logout.isPending}>{t('nav.logout')}</MenuItem>
         {demo && <Divider />}
         {demo && <ListSubheader sx={{ lineHeight: 2.5 }}>{t('nav.viewAs')}</ListSubheader>}

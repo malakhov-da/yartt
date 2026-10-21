@@ -22,6 +22,7 @@ export const en: Translation = {
     back: 'I’m back at work',
   },
   nav: {
+    help: 'How to work',
     myDay: 'My day',
     invite: 'Invite an employee',
     profile: 'Profile',

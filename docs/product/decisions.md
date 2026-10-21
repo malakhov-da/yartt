@@ -955,3 +955,16 @@ The block of one's days was called "My days" on a screen called "My
 day" — two names a letter apart for different things. It is the
 Timesheet now: shifts and time logged are what it holds. "History",
 which leads to all of one's days, keeps its name.
+
+### 62. The guide is in the product, written for each language
+
+yartt drops things people expect — titles, projects, assignees, deleting
+— so they need to know why as much as how. "?" in the top line (in the
+menu under the avatar at phone width) opens a guide over My day: what
+yartt is and what it gives, short how-tos for the usual things, and
+answers to "why is it so" for every unusual rule. It is written for each
+language, not translated word by word, and kept in step with features
+like the demo.
+
+*Implemented:* `shared/i18n/help/ru.ts` (the reference), `en.ts`;
+`client/components/HelpPage.tsx`, `/help`.

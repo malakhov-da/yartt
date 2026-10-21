@@ -9,6 +9,7 @@ import Header from './App/Header.tsx';
 import Notifications from './App/Notifications.tsx';
 import { useMe } from '#client/hooks/me.ts';
 import EmployeePage from './EmployeePage.tsx';
+import HelpPage from './HelpPage.tsx';
 import EmailConfirmPage from './EmailConfirmPage.tsx';
 import LoginCallbackPage from './LoginCallbackPage.tsx';
 import OutsideDomainsPage from './OutsideDomainsPage.tsx';
@@ -95,6 +96,7 @@ function SignedIn() {
   const newTask = !!matchPath('/tasks/new', pathname);
   const taskId = Number(matchPath('/tasks/:id', pathname)?.params.id) || null;
   const employeeId = Number(matchPath('/employees/:id', pathname)?.params.id) || null;
+  const help = !!matchPath('/help', pathname);
   const employeeName = employees.data?.find((e) => e.id === employeeId)?.fullName;
   // Every screen opened is a visit: a task with its number, any other without (decision 27).
   useVisit(taskId, true, pathname);
@@ -104,8 +106,9 @@ function SignedIn() {
     document.title = newTask ? `${name}: ${t('newTask.title')}`
       : taskId ? `${name}: ${t('task.title', { id: taskId })}`
       : employeeId ? `${name}: ${employeeName ?? ''}`
+      : help ? `${name}: ${t('nav.help')}`
       : active ? `${name}: ${t(active.label)}` : name;
-  }, [active, newTask, taskId, employeeId, employeeName, t]);
+  }, [active, newTask, taskId, employeeId, employeeName, help, t]);
 
   // A page is mounted on first visit and then stays in the DOM to keep its state.
   const [loaded, setLoaded] = useState<Partial<Record<PagePath, true>>>({});
@@ -113,7 +116,7 @@ function SignedIn() {
     if (activePath && !loaded[activePath]) setLoaded((prev) => ({ ...prev, [activePath]: true }));
   }, [activePath, loaded]);
 
-  if (!activePath && !newTask && !taskId && !employeeId) return <Navigate to={pages[0].path} replace />;
+  if (!activePath && !newTask && !taskId && !employeeId && !help) return <Navigate to={pages[0].path} replace />;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -143,6 +146,11 @@ function SignedIn() {
       {employeeId && (
         <Box component="main" sx={{ display: 'flex', flexGrow: 1, p: 2, overflow: 'auto' }}>
           <EmployeePage key={employeeId} id={employeeId} />
+        </Box>
+      )}
+      {help && (
+        <Box component="main" sx={{ display: 'flex', flexGrow: 1, p: 2, overflow: 'auto' }}>
+          <HelpPage />
         </Box>
       )}
     </Box>

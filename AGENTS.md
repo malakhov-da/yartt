@@ -84,7 +84,8 @@ shared/
   <entity>.ts       — zod schemas shared by the client and the server
   errors.ts         — error codes and the error.data shape
   notification.ts   — notification payloads by kind
-  i18n/             — translations (ru.ts is the reference): UI, error messages, emails
+  i18n/             — translations (ru.ts is the reference): UI, error messages, emails;
+                      help/ — the in-app guide, written for each language (help/ru.ts is the reference)
   types.ts          — root router type for the client
 client/
   main.tsx          — providers; errors of all queries -> showError
@@ -228,6 +229,8 @@ and a `matchPath` in `client/components/App.tsx`.
 - `npm run seed -- --reset [--lang en]` — wipes the database in `DATABASE_URL` and fills it with demo data that
   touches every screen (`server/demo.ts`; in the image — every start and every night with `DEMO_DATA=ru|en`).
   Keep it in step with new features, in both languages (`server/demoTexts.ts`).
+- The in-app guide (`shared/i18n/help/`, "?" in the top line) — what yartt is, how-tos
+  and why the unusual rules are so: keep it in step with features, in every language.
 - `TEST_DATABASE_URL=postgres://<user>:<password>@localhost:5432/postgres npm test`
 - `TEST_DATABASE_URL=… npm run e2e` — end-to-end tests in Chrome over the demo data
   (`e2e/`, Playwright). How the suites divide the work: `docs/engineering/testing.md`.
