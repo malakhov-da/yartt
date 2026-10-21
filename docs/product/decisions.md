@@ -1050,8 +1050,11 @@ still join with their reports: that is the org chart, not a choice.
 whether the deadlines are tied. Now there is just a dependency — "Waits
 for" — and a checkbox "Constrain the deadline" with "no earlier than"
 a time after the other; a dependency without it only shows that one
-task waits for another. The line of a dependency says "deadline no
-earlier, +1d" when it has one. The guide, the docs and the
+task waits for another. The constraint is spelled out where it is set,
+with the numbers: "the deadline of #7 will be no earlier than 1d after
+the deadline of #3: once #3 is done, #7 still has at least 1d". The line
+of a dependency says "this one's deadline ≥ its + 1d" (or "its deadline
+≥ this one's + 1d" on the other side). The guide, the docs and the
 specification say the same. Names inside stay — `min_minutes_after`,
 the error `hard_dependency_violated` and the field `hard` of the
 `dependency_added` webhook payload — so integrations do not break.

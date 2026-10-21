@@ -50,17 +50,19 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
   const set = useMutation(trpc.Dependency.set.mutationOptions({ onSuccess: () => { refresh(); setDraft(null); } }));
   const remove = useMutation(trpc.Dependency.remove.mutationOptions({ onSuccess: refresh }));
 
-  const note = (dep: Dependency) =>
+  // Which deadline is constrained depends on the side: in "Waits for" this task's, in "Waited on by" the other's.
+  const note = (dep: Dependency, waits: boolean) =>
     dep.minMinutesAfter === null ? undefined
-    : dep.minMinutesAfter === 0 ? t('task.limitedNoLag')
-    : t('task.limited', { lag: format.minutes(dep.minMinutesAfter) });
-  const hint = (dep: Dependency, waits: boolean) =>
-    dep.minMinutesAfter === null ? undefined : t('task.limitedHint', {
-      // The dependent task finishes no earlier than lag after the one it waits for.
-      dependent: waits ? task.id : dep.id,
-      dependency: waits ? dep.id : task.id,
-      lag: format.minutes(dep.minMinutesAfter),
+    : t(waits ? 'task.limitedMine' : 'task.limitedTheirs', {
+      lag: dep.minMinutesAfter === 0 ? '' : ` + ${format.minutes(dep.minMinutesAfter)}`,
     });
+  const hint = (dep: Dependency, waits: boolean) => {
+    if (dep.minMinutesAfter === null) return undefined;
+    // The deadline of the waiting task is no earlier than lag after the deadline of the one it waits for.
+    const ids = { dependent: waits ? task.id : dep.id, dependency: waits ? dep.id : task.id };
+    return dep.minMinutesAfter === 0 ? t('task.limitedHintNoLag', ids)
+      : t('task.limitedHint', { ...ids, lag: format.minutes(dep.minMinutesAfter) });
+  };
 
   const lag = draft?.limited ? parseMinutes(draft.lag, true) : null;
   const valid = !!draft?.picked && draft.picked.id !== task.id && (!draft.limited || lag !== null);
@@ -98,7 +100,7 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
           {g.items.map((dep) => (
             <Stack key={dep.id} direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
               <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                <TaskLine task={dep} note={note(dep)} noteHint={hint(dep, g.waits)} />
+                <TaskLine task={dep} note={note(dep, g.waits)} noteHint={hint(dep, g.waits)} />
               </Box>
               {g.waits && isOwner && (
                 <>
@@ -167,7 +169,15 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
               <Button variant="contained" disabled={!valid || set.isPending} onClick={save}>{t('common.save')}</Button>
               <Button color="inherit" onClick={() => setDraft(null)}>{t('common.cancel')}</Button>
               <Typography variant="caption" sx={{ color: 'text.secondary', flexBasis: '100%' }}>
-                {draft.limited ? t('task.dependency.limitHelp') : t('task.dependency.freeHelp')}
+                {(() => {
+                  // Spelled out with the numbers: the deadline of the waiting task against the one it waits for.
+                  const ids = draft.waits
+                    ? { dependent: task.id, dependency: draft.picked!.id }
+                    : { dependent: draft.picked!.id, dependency: task.id };
+                  if (!draft.limited) return t('task.dependency.freeHelp', ids);
+                  if (lag === null) return t('task.dependency.limitHelp', { ...ids, lag: '…' });
+                  return lag === 0 ? t('task.dependency.limitHelpNoLag', ids) : t('task.dependency.limitHelp', { ...ids, lag: format.minutes(lag) });
+                })()}
               </Typography>
             </Stack>
           )}

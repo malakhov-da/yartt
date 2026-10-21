@@ -107,10 +107,10 @@ test.describe('a task', () => {
     await page.getByRole('button', { name: 'Добавить' }).first().click();
     await page.getByLabel('Найти задачу: теги или номер').fill(`#${site}`);
     await page.getByRole('button', { name: `Выбрать задачу #${site}` }).click();
-    await page.getByRole('checkbox', { name: 'Ограничить срок' }).check();
+    await page.getByRole('checkbox', { name: 'Ограничить дедлайн' }).check();
     await page.getByLabel('Не раньше чем через').fill('400д');
     await page.getByRole('button', { name: 'Сохранить' }).click();
-    await expect(page.getByText(/Сроки не сходятся с ограничением зависимости|Проверьте поля/)).toBeVisible();
+    await expect(page.getByText(/Дедлайны не сходятся с ограничением зависимости|Проверьте поля/)).toBeVisible();
   });
 
   test('a comment: back to editing restores it; Ctrl+Enter sends; a file and an image go with it', async ({ page }) => {

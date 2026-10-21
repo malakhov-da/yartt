@@ -330,9 +330,10 @@ export const en: Translation = {
     },
     waitsFor: 'Waits for',
     waitedOnBy: 'Waited on by',
-    limited: 'deadline no earlier, +{{lag}}',
-    limitedNoLag: 'deadline no earlier',
-    limitedHint: 'A deadline constraint: #{{dependent}} can finish no earlier than {{lag}} after #{{dependency}}. To move the deadline of #{{dependency}} later, move that of #{{dependent}} first.',
+    limitedMine: "this one's deadline ≥ its{{lag}}",
+    limitedTheirs: "its deadline ≥ this one's{{lag}}",
+    limitedHint: 'A deadline constraint: the deadline of #{{dependent}} is no earlier than {{lag}} after the deadline of #{{dependency}} — once #{{dependency}} is done, #{{dependent}} still has at least {{lag}}. To move the deadline of #{{dependency}} later, move that of #{{dependent}} first.',
+    limitedHintNoLag: 'A deadline constraint: the deadline of #{{dependent}} is no earlier than that of #{{dependency}}. To move the deadline of #{{dependency}} later, move that of #{{dependent}} first.',
     dependency: {
       add: 'Add',
       newTask: 'New task',
@@ -345,8 +346,9 @@ export const en: Translation = {
       limit: 'Constrain the deadline',
       lag: 'No earlier than',
       lagHint: 'For example 1d, 4h or 0',
-      freeHelp: 'No constraint: it shows this task waits for that one, the deadlines stay independent. The owner of that task is notified.',
-      limitHelp: 'With a constraint: this task finishes no earlier than the given time after that one, which must have a deadline. The owner of that task is notified.',
+      freeHelp: 'No constraint: it shows #{{dependent}} waits for #{{dependency}}, the deadlines are not tied. The owner of #{{dependency}} is notified.',
+      limitHelp: 'The deadline of #{{dependent}} will be no earlier than {{lag}} after the deadline of #{{dependency}}: once #{{dependency}} is done, #{{dependent}} still has at least {{lag}}. #{{dependency}} must have a deadline. Its owner is notified.',
+      limitHelpNoLag: 'The deadline of #{{dependent}} will be no earlier than the deadline of #{{dependency}}. #{{dependency}} must have a deadline. Its owner is notified.',
     },
     transfer: {
       action: 'Hand over',
@@ -711,7 +713,7 @@ export const en: Translation = {
     already_observer: 'Employee #{{employeeId}} already has access to task #{{taskId}} or a pending request.',
     no_pending_request: 'Employee #{{employeeId}} has no pending request for task #{{taskId}}.',
     dependency_cycle: 'Dependencies would form a cycle.',
-    hard_dependency_violated: 'The deadlines do not fit the dependency\'s constraint: #{{taskId}} must finish no earlier than the given time after #{{dependencyId}}, and #{{dependencyId}} must have a deadline. Move the deadline of #{{taskId}} first.',
+    hard_dependency_violated: 'The deadlines do not fit the dependency\'s constraint: the deadline of #{{taskId}} must be no earlier than the given time after the deadline of #{{dependencyId}}, and #{{dependencyId}} must have a deadline. Move the deadline of #{{taskId}} first.',
     unknown_attachment: 'Attachment not found.',
     attachment_in_use: 'Attachment #{{attachmentId}} is used by comments.',
     remind_in_past: 'A reminder can only be set for the future.',
@@ -787,7 +789,7 @@ export const en: Translation = {
     dependency_added: {
       subject: 'A task waits for yours: {{task}}',
       body: '{{by}}: the task “{{dependent}}” now waits for your task “{{task}}”.',
-      limited: 'The dependency constrains the deadline: to move the deadline of “{{task}}” later, the deadline of “{{dependent}}” has to move first.',
+      limited: 'The dependency constrains the deadline: the deadline of “{{dependent}}” must be no earlier than that of “{{task}}”, with the margin set. To move the deadline of “{{task}}” later, the deadline of “{{dependent}}” has to move first.',
     },
     owner_change: {
       subject: 'You own: {{task}}',

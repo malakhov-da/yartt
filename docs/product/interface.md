@@ -135,7 +135,9 @@ Left, top to bottom:
   priority and tags — they are the task's state, not its story.
 - **Dependencies:** "Waits for", then "Waited on by", one under the other.
   Each line — tags, priority, its deadline constraint if it has one
-  ("deadline no earlier, +1d"), deadline, owner's
+  — "this one's deadline ≥ its + 1d" in Waits for, "its deadline ≥ this
+  one's + 1d" in Waited on by, spelled out with the numbers on hover —
+  deadline, owner's
   avatar. Resolved dependencies stay in the list, struck through, so the
   history of what blocked the task is not lost.
   **New task** next to each list opens the new-task form tied to this
