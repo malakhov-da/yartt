@@ -190,22 +190,25 @@ describe('tag summary', () => {
     expect(hidden).toBeGreaterThan(0);
 
     const ids = (await sql<{ id: number }[]>`SELECT id FROM tag WHERE name IN (${a}, ${b}) ORDER BY name`).map((r) => r.id);
-    const summary = await api.Tags.stats({ days: 1, tagIds: ids, page: 1 });
+    const summary = await api.Tags.stats({ since: today, tagIds: ids, page: 1 });
     const line = (kind: string, name?: string) => summary.rows.find((r) => r.group.kind === kind && (!name || r.tags[0]!.name === name))!;
     // The hidden task of a stranger is not counted: only what I see (dev's tasks, through the manager chain).
     // The dev logged 90 minutes, all of them under a (and under b): their whole time, share 1.
-    expect(line('tag', a)).toMatchObject({ tasks: 2, open: 1, stale: 0, finished: 1, expired: 0, active: 2, comments: 1, people: 1, share: 1 });
-    expect(line('tag', b)).toMatchObject({ tasks: 1, open: 1, active: 1, comments: 0, people: 1, share: 1 });
-    expect(line('all')).toMatchObject({ tasks: 1 });
-    expect(line('any')).toMatchObject({ tasks: 2 });
+    expect(line('tag', a)).toMatchObject({
+      open: 1, stale: 0, finished: 1, expired: 0, active: 2, comments: 1, discussed: 1, people: 1, share: 1, planners: 0, lastDay: today,
+    });
+    expect(line('tag', b)).toMatchObject({ open: 1, finished: 0, active: 1, comments: 0, discussed: 0, people: 1, share: 1 });
+    expect(line('all')).toMatchObject({ open: 1, finished: 0 });
+    expect(line('any')).toMatchObject({ open: 1, finished: 1 });
 
     // Unpicked: rubrics only — the phrases of one task are not lines.
-    const all = await api.Tags.stats({ days: 1, tagIds: [], page: 1 });
+    const all = await api.Tags.stats({ since: today, tagIds: [], page: 1 });
     expect(all.rows.every((r) => !r.tags[0]!.name.startsWith('phrase'))).toBe(true);
 
     await devApi.Time.setLeft({ taskId: both, minutes: 120 });
-    const detail = await api.Tags.detail({ days: 1, group: { kind: 'tag', tagId: ids[0]! } });
-    expect(detail).toMatchObject({ days: [today], comments: [1], closed: [1], people: [1] });
-    expect(detail.persons).toEqual([{ employeeId: dev.id, minutes: 90, share: 1, leftMinutes: 120, comments: 1, daily: [90] }]);
+    const detail = await api.Tags.detail({ since: today, group: { kind: 'tag', tagId: ids[0]! } });
+    expect(detail).toMatchObject({ days: [today], comments: [1], planned: [1] });
+    expect(detail.persons).toEqual([{ employeeId: dev.id, minutes: 90, share: 1, leftMinutes: 120, comments: 1, daily: [90], planned: [120] }]);
+    expect((await api.Tags.stats({ since: today, tagIds: ids, page: 1 })).rows[0]).toMatchObject({ planners: 1 });
   });
 });

@@ -96,9 +96,9 @@ export const helpEn: Help = {
     {
       title: 'See how tags are doing',
       steps: [
-        'The Tags block: what happened under each rubric over the last 7, 30, 90 or 365 days — tasks, closings, comments, people.',
+        'The Tags block: what happened under each rubric from any day to today — tasks, closings, comments, people; "?" by a column explains each figure.',
         'Pick several tags to see them together and one by one.',
-        'A line unfolds into charts by day and people: what share of their own time each gave the rubric and how much their plan has left.',
+        'A line unfolds into charts by day: how much time each person logged and how much they still plan.',
         '"Export" saves it all as CSV.',
       ],
     },

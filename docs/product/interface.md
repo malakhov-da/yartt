@@ -65,14 +65,17 @@ someone with reports:
   "+" in the search opens a new task (2a). A task whose
   plan does not fit before its deadline says "At risk" (decision 40).
 - **My team** — only for someone with reports, under Current tasks; see 4.
-- **Tags** — for everyone, under My team: what happened under each tag
-  over the last 7, 30, 90 or 365 days, on the tasks I see — tasks open,
-  at risk and untouched, closed by hand and by deadline, comments, people
-  and the average share of their own time; the most active rubrics
-  first, or the tags picked in its search with all of them together and
-  any of them; a line unfolds into charts by day (activity; each
-  person's own time, with their share and plan in the legend) and a
-  table of people; CSV export (decision 58).
+- **Tags** — for everyone, under My team: what people (not bots) did
+  under each tag from any day to today (the last 7, 30, 90 or 365 days
+  in a click), on the tasks I see — open now, at risk and not moving;
+  closed, by hand and by deadline; comments and in how many tasks;
+  people and the average share of their own time; who plans time on it
+  now; when it last moved. The most active rubrics first, or the tags
+  picked in its search with all of them together and any of them. "?"
+  by the title and each column says what it means. A line unfolds into
+  two charts by day, a line per person — time logged (the day's comments
+  in the tooltip) and plan of time left (the tasks in plans in the
+  tooltip) — and a table of people; CSV export (decision 58).
 - **Timesheet** ("My days" before: next to "My day" the two were
   confused) — today and the last day before it with activity (on
   Monday that is usually Friday: what was I doing?); "History" leads to
@@ -306,8 +309,9 @@ own (4b).
 A block of My day under My team — or on its own for someone whose only
 reports are bots — and the same list in the profile (decision 49): my
 bots and those of everyone under me, dismissed ones included, with what
-each may change; whose a bot is shows when it is not mine. For the last
-7, 30, 90 or 365 days: its open tasks and those it observes, its
+each may change; whose a bot is shows when it is not mine. From any day
+to today (the last 7, 30, 90 or 365 days in a click), with "?" by the
+title and each column: its open tasks and those it observes, its
 comments and the people it mentioned, its tasks closed, its API calls
 with a sparkline by day and the share refused (asked for what it may
 not — set up wrong or broken), the share of its webhook deliveries that

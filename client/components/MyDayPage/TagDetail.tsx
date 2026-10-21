@@ -1,15 +1,15 @@
-import { Box, Button, Stack, Table, TableBody, TableCell, TableHead, TableRow, Tooltip, Typography } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import { Box, Button, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { TagGroup } from '#shared/tags.ts';
+import type { TagGroup, TagPerson } from '#shared/tags.ts';
 import { useFormat } from '#client/hooks/format.ts';
 import { useEmployees } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
+import HelpTip from '../App/HelpTip.tsx';
 import TeamChart from './TeamChart.tsx';
 
-/** Distinct lines for people; the theme's colors stay for the activity chart. */
+/** Distinct lines for people, the same person the same color in both charts. */
 const PERSON_COLORS = ['#1e88e5', '#e53935', '#43a047', '#fb8c00', '#8e24aa', '#00897b', '#6d4c41', '#546e7a', '#d81b60', '#3949ab'];
 /** People drawn at first; the rest a click away. */
 const SHOWN = 5;
@@ -17,97 +17,99 @@ const SHOWN = 5;
 export const percent = (share: number | null) => (share === null ? '—' : `${Math.round(share * 100)}%`);
 
 /**
- * A line of Tags unfolded (decision 58): what happened day by day — comments,
- * closings, people at work (counts) — then each person's own time day by
- * day, a line each, never stacked: hours of different people are not added
- * up (decision 38). The legend carries each one's share of their own time
- * and their plan of time left now; the table under it says the same.
+ * A line of Tags unfolded (decision 58): each person's own time logged day
+ * by day, then each one's own plan of time left at the end of each day —
+ * a line each, never stacked: hours of different people are not added up
+ * (decision 38). The tooltip of a day tells the comments of that day, or
+ * how many open tasks had a plan. The table under them: each one's time,
+ * share of their own time, plan now and comments.
  */
-export default function (p: { group: TagGroup; days: number }) {
+export default function (p: { group: TagGroup; since: string }) {
   const { t } = useTranslation();
   const trpc = useTRPC();
-  const theme = useTheme();
-  const palette = (theme.vars ?? theme).palette;
   const format = useFormat();
   const employees = useEmployees();
-  const detail = useQuery(trpc.Tags.detail.queryOptions({ days: p.days, group: p.group }));
+  const detail = useQuery(trpc.Tags.detail.queryOptions({ since: p.since, group: p.group }));
   const [all, setAll] = useState(false);
   const data = detail.data;
   if (!data) return <Typography variant="caption" sx={{ color: 'text.secondary', p: 1 }}>{t('common.loading')}</Typography>;
+  if (data.persons.length === 0) {
+    return <Typography variant="body2" sx={{ color: 'text.secondary', py: 1.5, px: 2 }}>{t('tagStats.nobody')}</Typography>;
+  }
   const name = (id: number) => employees.get(id)?.fullName ?? `#${id}`;
+  const color = new Map(data.persons.map((person, i) => [person.employeeId, PERSON_COLORS[i % PERSON_COLORS.length]!]));
   const drawn = all ? data.persons : data.persons.slice(0, SHOWN);
-  const legend = (person: (typeof data.persons)[number]) => [
-    name(person.employeeId),
-    percent(person.share),
-    person.leftMinutes !== null ? t('tagStats.planLeft', { time: format.minutes(person.leftMinutes) }) : null,
-  ].filter(Boolean).join(' · ');
+  const lines = (values: (person: TagPerson) => number[], label: (person: TagPerson) => string) =>
+    drawn.filter((person) => values(person).some((v) => v > 0)).map((person) => ({
+      id: String(person.employeeId), label: label(person), color: color.get(person.employeeId)!, values: values(person),
+    }));
+  const spent = lines((person) => person.daily, (person) => `${name(person.employeeId)} · ${percent(person.share)}`);
+  const planned = lines((person) => person.planned, (person) => name(person.employeeId));
+  const hours = (v: number) => format.minutes(Math.round(v));
+  const axis = (v: number) => format.minutes(v >= 60 ? Math.round(v / 60) * 60 : Math.round(v));
+  const heading = (title: string, hint: string) => (
+    <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+      <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>{title}</Typography>
+      <HelpTip title={hint} />
+    </Stack>
+  );
 
   return (
     <Stack spacing={2} sx={{ py: 1.5, px: { xs: 1, sm: 2 } }}>
       <Box>
-        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>{t('tagStats.detail.activity')}</Typography>
-        <TeamChart
-          days={data.days}
-          format={(v) => String(Math.round(v * 10) / 10)}
-          series={[
-            { id: 'comments', label: t('tagStats.detail.comments'), color: palette.primary.main, values: data.comments },
-            { id: 'closed', label: t('tagStats.detail.closed'), color: palette.success.main, values: data.closed },
-            { id: 'people', label: t('tagStats.detail.people'), color: palette.warning.main, values: data.people },
-          ]}
-        />
+        {heading(t('tagStats.detail.time'), t('tagStats.detail.timeHint'))}
+        {spent.length > 0
+          ? <TeamChart days={data.days} format={hours} axisFormat={axis} series={spent}
+              notes={[{ label: t('tagStats.detail.comments'), values: data.comments }]} />
+          : <Typography variant="caption" sx={{ color: 'text.disabled' }}>{t('tagStats.detail.noTime')}</Typography>}
       </Box>
-      {data.persons.length > 0 && (
-        <Box>
-          <Tooltip title={t('tagStats.detail.timeHint')} describeChild>
-            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>{t('tagStats.detail.time')}</Typography>
-          </Tooltip>
-          {data.persons.some((person) => person.minutes > 0) && (
-            <TeamChart
-              days={data.days}
-              format={(v) => format.minutes(Math.round(v))}
-              axisFormat={(v) => format.minutes(v >= 60 ? Math.round(v / 60) * 60 : Math.round(v))}
-              series={drawn.filter((person) => person.minutes > 0).map((person, i) => ({
-                id: String(person.employeeId), label: legend(person), color: PERSON_COLORS[i % PERSON_COLORS.length]!, values: person.daily,
-              }))}
-            />
-          )}
-          {data.persons.length > SHOWN && (
-            <Button size="small" onClick={() => setAll((v) => !v)}>
-              {all ? t('tagStats.detail.fewer') : t('tagStats.detail.all', { count: data.persons.length })}
-            </Button>
-          )}
-        </Box>
+      <Box>
+        {heading(t('tagStats.detail.plan'), t('tagStats.detail.planChartHint'))}
+        {planned.length > 0
+          ? <TeamChart days={data.days} format={hours} axisFormat={axis} series={planned}
+              notes={[{ label: t('tagStats.detail.plannedTasks'), values: data.planned }]} />
+          : <Typography variant="caption" sx={{ color: 'text.disabled' }}>{t('tagStats.detail.noPlan')}</Typography>}
+      </Box>
+      {data.persons.length > SHOWN && (
+        <Button size="small" sx={{ alignSelf: 'flex-start' }} onClick={() => setAll((v) => !v)}>
+          {all ? t('tagStats.detail.fewer') : t('tagStats.detail.all', { count: data.persons.length })}
+        </Button>
       )}
-      {data.persons.length === 0 ? (
-        <Typography variant="body2" sx={{ color: 'text.secondary' }}>{t('tagStats.nobody')}</Typography>
-      ) : (
-        <Table size="small" sx={{ '& td, & th': { px: 0.75 }, '& th': { color: 'text.secondary', fontSize: 12 } }}>
-          <TableHead>
-            <TableRow>
-              <TableCell>{t('tagStats.export.person')}</TableCell>
-              <TableCell align="right">{t('tagStats.detail.spent')}</TableCell>
-              <TableCell align="right">
-                <Tooltip title={t('tagStats.detail.shareHint')} describeChild><span>{t('tagStats.detail.share')}</span></Tooltip>
+      <Table
+        size="small"
+        sx={{
+          '& td, & th': { px: 0.75 },
+          '& th': { color: 'text.secondary', fontSize: 12 },
+          // On a phone: who, how much and the plan; the share and comments are in the charts' legend and tooltips.
+          '& td:nth-of-type(3), & th:nth-of-type(3), & td:nth-of-type(5), & th:nth-of-type(5)': { display: { xs: 'none', sm: 'table-cell' } },
+        }}
+      >
+        <TableHead>
+          <TableRow>
+            <TableCell>{t('tagStats.export.person')}</TableCell>
+            <TableCell align="right">{t('tagStats.detail.spent')} <HelpTip title={t('tagStats.detail.spentHint')} /></TableCell>
+            <TableCell align="right">{t('tagStats.detail.share')} <HelpTip title={t('tagStats.detail.shareHint')} /></TableCell>
+            <TableCell align="right">{t('tagStats.detail.planNow')} <HelpTip title={t('tagStats.detail.planHint')} /></TableCell>
+            <TableCell align="right">{t('tagStats.detail.comments')}</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {data.persons.map((person) => (
+            <TableRow key={person.employeeId}>
+              <TableCell>
+                <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, bgcolor: color.get(person.employeeId) }} />
+                  <span>{name(person.employeeId)}</span>
+                </Stack>
               </TableCell>
-              <TableCell align="right">
-                <Tooltip title={t('tagStats.detail.planHint')} describeChild><span>{t('tagStats.detail.plan')}</span></Tooltip>
-              </TableCell>
-              <TableCell align="right">{t('tagStats.comments')}</TableCell>
+              <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>{format.minutes(person.minutes)}</TableCell>
+              <TableCell align="right">{percent(person.share)}</TableCell>
+              <TableCell align="right">{person.leftMinutes !== null ? format.minutes(person.leftMinutes) : '—'}</TableCell>
+              <TableCell align="right">{person.comments}</TableCell>
             </TableRow>
-          </TableHead>
-          <TableBody>
-            {data.persons.map((person) => (
-              <TableRow key={person.employeeId}>
-                <TableCell>{name(person.employeeId)}</TableCell>
-                <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>{format.minutes(person.minutes)}</TableCell>
-                <TableCell align="right">{percent(person.share)}</TableCell>
-                <TableCell align="right">{person.leftMinutes !== null ? format.minutes(person.leftMinutes) : '—'}</TableCell>
-                <TableCell align="right">{person.comments}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+          ))}
+        </TableBody>
+      </Table>
     </Stack>
   );
 }

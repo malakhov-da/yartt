@@ -12,14 +12,14 @@ export default router({
   list: authedProcedure.output(Bot.array()).query(({ ctx }) => Bots.list(ctx.employeeId)),
 
   /**
-   * What those bots did over the last days (up to a year): their tasks,
+   * What those bots did from a day to today (up to two years): their tasks,
    * comments, mentions, API calls and refusals day by day, webhook
    * deliveries, and their last call.
    */
   stats: authedProcedure
     .input(BotStatsInput)
     .output(BotStats.array())
-    .query(({ input, ctx }) => Bots.stats(ctx.employeeId, input.days)),
+    .query(({ input, ctx }) => Bots.stats(ctx.employeeId, input.since)),
 
   /**
    * Creates a bot under the signed-in person; its key is returned only now.

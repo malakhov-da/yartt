@@ -68,8 +68,8 @@ export const BotStats = z.object({
 });
 export type BotStats = z.infer<typeof BotStats>;
 
-/** The last N days, today included, as in the Tags summary. */
-export const BotStatsInput = z.object({ days: z.number().int().min(1).max(366) });
+/** From a day to today, as in the Tags summary. */
+export const BotStatsInput = z.object({ since: z.iso.date() });
 export type BotStatsInput = z.infer<typeof BotStatsInput>;
 
 /** A key: shown once, never again. */

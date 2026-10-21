@@ -10,7 +10,8 @@ import { useFormat } from '#client/hooks/format.ts';
 import { useMe } from '#client/hooks/me.ts';
 import { POLL_MS, useEmployees } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
-import DaysPicker from '../App/DaysPicker.tsx';
+import HelpTip from '../App/HelpTip.tsx';
+import SincePicker, { lastDays } from '../App/SincePicker.tsx';
 import BotDialog from './BotDialog.tsx';
 
 const YEAR_MS = 365 * 24 * 60 * 60 * 1000;
@@ -33,10 +34,11 @@ function Sparkline(p: { values: number[] }) {
 
 /**
  * Bots under My team (decision 49): mine and those of everyone under me,
- * and what each did over a range — its tasks, comments and mentions, API
+ * and what each did from a day to today — its tasks, comments and mentions, API
  * calls and refusals, webhook deliveries — the quiet ones first, so a bot
  * that stopped is seen. A click opens its settings, "New bot" creates one
- * under me. `bare` — without the card, in the profile.
+ * under me. What a figure means is under a "?". `bare` — without the
+ * card, in the profile.
  */
 export default function (p: { bare?: boolean }) {
   const { t } = useTranslation();
@@ -44,9 +46,9 @@ export default function (p: { bare?: boolean }) {
   const me = useMe();
   const format = useFormat();
   const employees = useEmployees();
-  const [days, setDays] = useState(30);
+  const [since, setSince] = useState(() => lastDays(30));
   const bots = useQuery(trpc.Bot.list.queryOptions(undefined, { refetchInterval: POLL_MS }));
-  const stats = useQuery(trpc.Bot.stats.queryOptions({ days }, {
+  const stats = useQuery(trpc.Bot.stats.queryOptions({ since }, {
     refetchInterval: POLL_MS, placeholderData: keepPreviousData,
   }));
   const [opened, setOpened] = useState<Bot | 'new' | null>(null);
@@ -57,6 +59,14 @@ export default function (p: { bare?: boolean }) {
     Number(!!a.dismissedAt) - Number(!!b.dismissedAt) || last(a) - last(b) || a.fullName.localeCompare(b.fullName));
   const note = (text: ReactNode, warn = false) => (
     <Typography variant="caption" sx={{ display: 'block', lineHeight: 1.3, color: warn ? 'warning.dark' : 'text.secondary' }}>{text}</Typography>
+  );
+
+  const head = (label: string, hint: string, narrow = false) => (
+    <TableCell align="right" sx={narrow ? { display: { xs: 'none', sm: 'table-cell' } } : undefined}>
+      <Stack direction="row" spacing={0.25} sx={{ justifyContent: 'flex-end', alignItems: 'center' }}>
+        <span>{label}</span><HelpTip title={hint} />
+      </Stack>
+    </TableCell>
   );
 
   const cells = (bot: Bot, s: BotStats | undefined) => (
@@ -89,7 +99,12 @@ export default function (p: { bare?: boolean }) {
   const content = (
     <Stack spacing={1.5}>
       <Stack direction="row" sx={{ alignItems: 'center', gap: 1 }}>
-        {!p.bare && <Typography variant="h3" sx={{ fontWeight: 600, flexGrow: 1 }}>{t('bots.title')}</Typography>}
+        {!p.bare && (
+          <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', flexGrow: 1 }}>
+            <Typography variant="h3" sx={{ fontWeight: 600 }}>{t('bots.title')}</Typography>
+            <HelpTip title={t('bots.blockHint')} />
+          </Stack>
+        )}
         {p.bare && <Typography variant="body2" sx={{ color: 'text.secondary', flexGrow: 1 }}>{t('bots.hint')}</Typography>}
         <Button size="small" startIcon={<Add />} onClick={() => setOpened('new')}>{t('bots.create')}</Button>
       </Stack>
@@ -98,8 +113,7 @@ export default function (p: { bare?: boolean }) {
       )}
       {list.length > 0 && (
         <>
-          {!p.bare && <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('bots.blockHint')}</Typography>}
-          <DaysPicker days={days} onChange={setDays} />
+          <SincePicker since={since} onChange={setSince} />
           <Box sx={{ opacity: stats.isPlaceholderData ? 0.6 : 1 }}>
             <Table
               size="small"
@@ -111,12 +125,10 @@ export default function (p: { bare?: boolean }) {
               <TableHead>
                 <TableRow>
                   <TableCell>{t('bots.bot')}</TableCell>
-                  <TableCell align="right"><Tooltip title={t('bots.tasksHint')} describeChild><span>{t('bots.tasks')}</span></Tooltip></TableCell>
-                  <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                    <Tooltip title={t('bots.activityHint')} describeChild><span>{t('bots.activity')}</span></Tooltip>
-                  </TableCell>
-                  <TableCell align="right"><Tooltip title={t('bots.requestsHint')} describeChild><span>{t('bots.requests')}</span></Tooltip></TableCell>
-                  <TableCell align="right"><Tooltip title={t('bots.lastRequestHint')} describeChild><span>{t('bots.lastRequest')}</span></Tooltip></TableCell>
+                  {head(t('bots.tasks'), t('bots.tasksHint'))}
+                  {head(t('bots.activity'), t('bots.activityHint'), true)}
+                  {head(t('bots.requests'), t('bots.requestsHint'))}
+                  {head(t('bots.lastRequest'), t('bots.lastRequestHint'))}
                 </TableRow>
               </TableHead>
               <TableBody>

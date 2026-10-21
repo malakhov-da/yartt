@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { Bot, BotPermission, BotStats, type BotInput, type BotKey } from '#shared/bot.ts';
 import { AppError } from '../errors.ts';
 import { sql, type Sql } from '../pg.ts';
+import { untilToday } from './Tags.ts';
 
 const KeyRow = z.object({ botId: z.number(), key: z.string() });
 const Key = z.object({ key: z.string() });
@@ -103,16 +104,12 @@ export async function countRequest(id: number, refused: boolean): Promise<void> 
 }
 
 /**
- * What the bots the viewer answers for did over the last `days` days, today
- * included: their tasks now and closed in the range, comments and
+ * What the bots the viewer answers for did from `since` to today: their tasks now and closed in the range, comments and
  * mentions, API calls and refusals, webhook deliveries — and their last
  * call ever, for the quiet to show first.
  */
-export async function stats(viewerId: number, days: number): Promise<BotStats[]> {
-  const [range] = z.object({ from: z.string(), to: z.string() }).array().parse(await sql`
-    SELECT (local_today(${viewerId}) - ${days - 1}::int)::text AS from, local_today(${viewerId})::text AS to
-  `);
-  const { from, to } = range!;
+export async function stats(viewerId: number, since: string): Promise<BotStats[]> {
+  const { from, to } = await untilToday(viewerId, since);
   const daily = z.object({ botId: z.number(), day: z.string(), requests: z.number(), refused: z.number() }).array().parse(await sql`
     SELECT bot_id, day::text, requests, refused FROM bot_usage
      WHERE day BETWEEN ${from}::date AND ${to}::date

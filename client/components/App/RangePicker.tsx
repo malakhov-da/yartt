@@ -7,7 +7,7 @@ import { today } from '#client/hooks/format.ts';
 export type Range = { from: string; to: string };
 
 /** YYYY-MM-DD `days` days before `day`. */
-function minusDays(day: string, days: number): string {
+export function minusDays(day: string, days: number): string {
   const d = new Date(`${day}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() - days);
   return d.toISOString().slice(0, 10);

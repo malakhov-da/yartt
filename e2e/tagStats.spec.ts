@@ -6,13 +6,26 @@ import { signIn } from './helpers.ts';
 test('the tag summary: the most active rubrics, a tag unfolds into its people, picked tags add all and any, a CSV', async ({ page }) => {
   await signIn(page, 'pavel@example.com');
   const block = page.getByRole('region', { name: 'Статистика по тегам' });
+  await expect(block.getByRole('row').nth(1)).toBeVisible();
+  // What the block shows is under a "?", not in a line of text.
+  await block.getByRole('img', { name: 'Пояснение' }).first().hover();
+  await expect(page.getByRole('tooltip')).toContainText('боты не учитываются');
+  await page.mouse.move(0, 0);
+  await expect(page.getByRole('tooltip')).toHaveCount(0);
+  await block.getByRole('button', { name: '7 дн.' }).click();
+  await block.getByLabel('С', { exact: true }).fill('2026-01-01');
+  await expect(block.getByRole('button', { name: '7 дн.' })).toHaveClass(/MuiChip-outlined/);
   await block.getByRole('button', { name: '30 дн.' }).click();
   await expect(block.getByRole('row').nth(1)).toBeVisible();
+  await expect(block.getByRole('columnheader', { name: /Открыто/ })).toBeVisible();
 
-  // A line unfolds into its activity by day and its people: their time, share and plan.
-  await block.getByRole('button', { name: 'Показать подробности: api' }).click();
-  await expect(block.getByText('Активность по дням')).toBeVisible();
-  await expect(block.getByRole('columnheader', { name: 'Доля времени' })).toBeVisible();
+  // A line unfolds into each person's time and plan by day; bots are not people here.
+  await block.getByRole('button', { name: 'Показать подробности: сайт' }).click();
+  await expect(block.getByText('Списанное время по дням')).toBeVisible();
+  await expect(block.getByText('План по дням')).toBeVisible();
+  await expect(block.getByRole('columnheader', { name: /Доля времени/ })).toBeVisible();
+  await expect(block.getByRole('cell', { name: 'Павел Орлов', exact: true })).toBeVisible();
+  await expect(block.getByRole('cell', { name: 'CI-бот', exact: true })).toHaveCount(0);
 
   const search = block.getByRole('combobox');
   for (const tag of ['api', 'документация']) {

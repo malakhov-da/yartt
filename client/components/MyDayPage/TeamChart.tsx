@@ -3,7 +3,10 @@ import { ChartsAxisHighlight } from '@mui/x-charts/ChartsAxisHighlight';
 import { ChartsDataProvider } from '@mui/x-charts/ChartsDataProvider';
 import { ChartsGrid } from '@mui/x-charts/ChartsGrid';
 import { ChartsSurface } from '@mui/x-charts/ChartsSurface';
-import { ChartsTooltip } from '@mui/x-charts/ChartsTooltip';
+import { ChartsLabelMark } from '@mui/x-charts/ChartsLabel';
+import {
+  ChartsTooltipCell, ChartsTooltipContainer, ChartsTooltipPaper, ChartsTooltipRow, ChartsTooltipTable, useAxesTooltip,
+} from '@mui/x-charts/ChartsTooltip';
 import { ChartsXAxis } from '@mui/x-charts/ChartsXAxis';
 import { ChartsYAxis } from '@mui/x-charts/ChartsYAxis';
 import { LinePlot, MarkPlot } from '@mui/x-charts/LineChart';
@@ -14,6 +17,8 @@ import { fromDay, useFormat } from '#client/hooks/format.ts';
 const DAILY_UP_TO = 62;
 
 export type Series = { id: string; label: string; color: string; values: (number | null)[] };
+/** A figure of the day that is not drawn, only told in the tooltip: comments, tasks. */
+export type Note = { label: string; values: number[] };
 
 /** Days grouped into weeks (from Monday) when the range is long; a bucket is the average of its values. */
 function buckets(days: string[], series: Series[]): { first: string[]; weekly: boolean; values: (number | null)[][] } {
@@ -33,13 +38,61 @@ function buckets(days: string[], series: Series[]): { first: string[]; weekly: b
   };
 }
 
+/** Notes over the same buckets: a week tells its total. */
+function noteBuckets(days: string[], notes: Note[], first: string[]): number[][] {
+  return notes.map((note) => {
+    const sums = first.map(() => 0);
+    let bucket = -1;
+    days.forEach((day, i) => {
+      if (bucket + 1 < first.length && first[bucket + 1] === day) bucket++;
+      sums[bucket]! += note.values[i] ?? 0;
+    });
+    return sums;
+  });
+}
+
+/** The day's values of the lines, then its notes. */
+function Tip(p: { notes: Note[]; values: number[][] }) {
+  const data = useAxesTooltip();
+  if (!data) return null;
+  return (
+    <ChartsTooltipPaper>
+      {data.map(({ axisId, axisFormattedValue, dataIndex, seriesItems }) => (
+        <ChartsTooltipTable key={axisId}>
+          <Typography component="caption">{axisFormattedValue}</Typography>
+          <tbody>
+            {seriesItems.map((item) => item.formattedValue != null && (
+              <ChartsTooltipRow key={item.seriesId}>
+                <ChartsTooltipCell component="th">
+                  <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                    <ChartsLabelMark type={item.markType} color={item.color} />
+                    <span>{item.formattedLabel}</span>
+                  </Stack>
+                </ChartsTooltipCell>
+                <ChartsTooltipCell component="td">{item.formattedValue}</ChartsTooltipCell>
+              </ChartsTooltipRow>
+            ))}
+            {p.notes.map((note, i) => (
+              <ChartsTooltipRow key={note.label}>
+                <ChartsTooltipCell component="th" sx={{ color: 'text.secondary' }}>{note.label}</ChartsTooltipCell>
+                <ChartsTooltipCell component="td">{p.values[i]![dataIndex] ?? 0}</ChartsTooltipCell>
+              </ChartsTooltipRow>
+            ))}
+          </tbody>
+        </ChartsTooltipTable>
+      ))}
+    </ChartsTooltipPaper>
+  );
+}
+
 /** Whether a value is the only one of its series: a line through one point is invisible. */
 const alone = (values: (number | null)[]) => values.filter((v) => v !== null).length === 1;
 
 /**
  * A small chart of the details under a row of My team: one or a few lines
  * over the days of the range, with a legend, axes and a tooltip of the
- * day — what a sparkline could only hint at.
+ * day — what a sparkline could only hint at — and, under them, figures
+ * of the day that are not lines (notes).
  */
 export default function (p: {
   days: string[];
@@ -51,6 +104,8 @@ export default function (p: {
   max?: number;
   /** Dots only: sparse values (scored days), a line between them would invent days. */
   dots?: boolean;
+  /** Figures of the day told in the tooltip under the lines. */
+  notes?: Note[];
 }) {
   const { t } = useTranslation();
   const format = useFormat();
@@ -58,6 +113,8 @@ export default function (p: {
     return <Typography variant="caption" sx={{ color: 'text.disabled' }}>{t('myDay.team.details.noData')}</Typography>;
   }
   const data = buckets(p.days, p.series);
+  const notes = p.notes ?? [];
+  const noted = noteBuckets(p.days, notes, data.first);
   const labels = data.first.map((day) =>
     data.weekly ? t('employee.stats.weekOf', { day: format.date(fromDay(day)) }) : format.date(fromDay(day)));
   return (
@@ -94,7 +151,7 @@ export default function (p: {
           <ChartsXAxis axisId="x" tickLabelStyle={{ fontSize: 10 }} />
           <ChartsYAxis axisId="y" tickLabelStyle={{ fontSize: 10 }} />
         </ChartsSurface>
-        <ChartsTooltip trigger="axis" />
+        <ChartsTooltipContainer trigger="axis"><Tip notes={notes} values={noted} /></ChartsTooltipContainer>
       </ChartsDataProvider>
     </Box>
   );

@@ -234,24 +234,28 @@ export async function related(viewerId: number, tagIds: number[]): Promise<Tag[]
 }
 
 const SUMMARY_PAGE = 20;
+/** How far back a range may start: two years. */
+const FURTHEST = 730;
 const Count = z.object({ n: z.number() });
 const SummaryRow = TagStatsRow.omit({ group: true, tags: true, share: true }).extend({ tagId: z.number().nullable() });
 const Range = z.object({ from: z.string(), to: z.string() });
 const ShareRow = z.object({ key: z.string(), share: z.number().nullable() });
 
-/** The last `days` days, today included, in the viewer's time zone. */
-async function lastDays(viewerId: number, days: number): Promise<{ from: string; to: string }> {
+/** From `since` to today in the viewer's time zone; a day in the future is today, one too far back is two years ago. */
+export async function untilToday(viewerId: number, since: string): Promise<{ from: string; to: string }> {
   const [range] = Range.array().parse(await sql`
-    SELECT (local_today(${viewerId}) - ${days - 1}::int)::text AS from, local_today(${viewerId})::text AS to
+    SELECT LEAST(GREATEST(${since}::date, local_today(${viewerId}) - ${FURTHEST}::int), local_today(${viewerId}))::text AS from,
+           local_today(${viewerId})::text AS to
   `);
   return range!;
 }
 
 /**
- * The tasks the viewer sees and what happened on them over a range of
+ * The tasks the viewer sees and what people did on them over a range of
  * their days (decision 58): `v` — the tasks, `cm` — their comments in the
  * range, `tp` — who commented on or logged time to each, `m` — each task's
- * figures.
+ * figures. Bots are not people here: their comments are automation, not
+ * work under a tag.
  */
 function scope(viewerId: number, from: string, to: string) {
   return sql`
@@ -268,7 +272,8 @@ function scope(viewerId: number, from: string, to: string) {
        WHERE can_see(k.id, ${viewerId})
     ),
     cm AS (
-      SELECT c.task_id, c.created_by, (c.created_at AT TIME ZONE r.time_zone)::date AS day FROM comment c, r
+      SELECT c.task_id, c.created_by, (c.created_at AT TIME ZONE r.time_zone)::date AS day
+        FROM comment c JOIN human h ON h.employee_id = c.created_by, r
        WHERE c.created_at >= r.since AND c.created_at < r.until AND c.task_id IN (SELECT id FROM v)
     ),
     sp AS (
@@ -290,14 +295,19 @@ function scope(viewerId: number, from: string, to: string) {
              (v.deadline AT TIME ZONE r.time_zone)::date AS closed_day,
              COALESCE(v.deadline - v.entered_at > INTERVAL '1 minute', FALSE) AS auto,
              (SELECT count(*) FROM cm WHERE cm.task_id = v.id)::int AS comments,
-             EXISTS (SELECT 1 FROM tp WHERE tp.task_id = v.id) AS touched
+             EXISTS (SELECT 1 FROM tp WHERE tp.task_id = v.id) AS touched,
+             GREATEST(
+               (SELECT max((c.created_at AT TIME ZONE r.time_zone)::date) FROM comment c
+                  JOIN human h ON h.employee_id = c.created_by WHERE c.task_id = v.id),
+               (SELECT max(s.day) FROM spent_minutes s WHERE s.task_id = v.id),
+               CASE WHEN v.deadline <= NOW() THEN (v.deadline AT TIME ZONE r.time_zone)::date END
+             ) AS last_day
         FROM v CROSS JOIN r
     )
   `;
 }
 
 const figures = () => sql`
-  count(*)::int AS tasks,
   count(*) FILTER (WHERE m.open)::int AS open,
   count(*) FILTER (WHERE m.at_risk)::int AS at_risk,
   count(*) FILTER (WHERE m.open AND NOT m.touched)::int AS stale,
@@ -305,7 +315,11 @@ const figures = () => sql`
   count(*) FILTER (WHERE m.closed_in AND m.auto)::int AS expired,
   count(*) FILTER (WHERE m.closed_in OR m.touched)::int AS active,
   COALESCE(sum(m.comments), 0)::int AS comments,
-  (SELECT count(DISTINCT tp.person) FROM tp WHERE tp.task_id = ANY(array_agg(m.id)))::int AS people
+  count(*) FILTER (WHERE m.comments > 0)::int AS discussed,
+  (SELECT count(DISTINCT tp.person) FROM tp WHERE tp.task_id = ANY(array_agg(m.id)))::int AS people,
+  (SELECT count(DISTINCT e."by") FROM estimate_minutes e
+    WHERE e.expired_at IS NULL AND e.task_id = ANY(array_agg(m.id) FILTER (WHERE m.open)))::int AS planners,
+  max(m.last_day)::text AS last_day
 `;
 
 /** The tasks of a line: carrying the tag, all the picked ones, or any of them. */
@@ -355,14 +369,14 @@ async function shares(viewerId: number, from: string, to: string, groups: TagGro
 }
 
 /**
- * The tag summary for the last days, on the tasks the viewer sees
+ * The tag summary from a day to today, on the tasks the viewer sees
  * (decision 58). No tags picked: every rubric — a tag on more than one
  * task; a phrase of one task is not a group — the most active first, with
  * pages. Tags picked: each of them, then, for two or more, their tasks all
  * together and any of them.
  */
 export async function stats(viewerId: number, input: TagStatsInput): Promise<z.infer<typeof TagStatsSummary>> {
-  const { from, to } = await lastDays(viewerId, input.days);
+  const { from, to } = await untilToday(viewerId, input.since);
   const picked = input.tagIds.length > 0;
   const base = scope(viewerId, from, to);
   const which = picked ? sql`t.id = ANY(${input.tagIds}::int[])` : rubric();
@@ -374,7 +388,7 @@ export async function stats(viewerId: number, input: TagStatsInput): Promise<z.i
       JOIN tag t ON t.id = mt.id
      WHERE ${which}
      GROUP BY t.id, t.name
-     ORDER BY active DESC, tasks DESC, t.name
+     ORDER BY active DESC, open DESC, t.name
      ${picked ? sql`` : sql`LIMIT ${SUMMARY_PAGE} OFFSET ${(input.page - 1) * SUMMARY_PAGE}`}
   `);
   const [count] = Count.array().parse(await sql`
@@ -408,58 +422,82 @@ export async function stats(viewerId: number, input: TagStatsInput): Promise<z.i
   };
 }
 
-const DayCounts = z.object({ day: z.string(), comments: z.number(), closed: z.number(), people: z.number() });
-const PersonRow = TagPerson.omit({ daily: true });
+const DayCounts = z.object({ day: z.string(), comments: z.number(), planned: z.number() });
+const PersonRow = TagPerson.omit({ daily: true, planned: true });
 const PersonDay = z.object({ employeeId: z.number(), day: z.string(), minutes: z.number() });
 
 /**
- * A line of the summary unfolded, for the last days on the tasks the
- * viewer sees: comments, closings and people day by day (counts), and
- * each person's own time — day by day, its share of all they logged, their
- * plan of time left now — most time first, never a total (decision 38).
+ * A line of the summary unfolded, from a day to today on the tasks the
+ * viewer sees: comments and the open tasks with a plan, day by day
+ * (counts); and each person's own time and own plan of time left, day by
+ * day, with the share of all they logged and their plan now — most time
+ * first, never a total (decision 38).
  */
 export async function detail(viewerId: number, input: TagDetailInput): Promise<TagDetail> {
-  const { from, to } = await lastDays(viewerId, input.days);
-  const base = sql`${scope(viewerId, from, to)}, lt AS (SELECT id FROM v WHERE ${carrying(input.group, sql`v.tag_ids`)})`;
+  const { from, to } = await untilToday(viewerId, input.since);
+  // `pl` — each plan of time left in force at the end of each day (now, for today) on a task still open then.
+  const base = sql`${scope(viewerId, from, to)},
+    lt AS (SELECT id FROM v WHERE ${carrying(input.group, sql`v.tag_ids`)}),
+    dd AS (
+      SELECT d::date AS day, LEAST((d::date + 1)::timestamp AT TIME ZONE r.time_zone, NOW()) AS at
+        FROM generate_series(${from}::date, ${to}::date, INTERVAL '1 day') d, r
+    ),
+    pl AS (
+      SELECT dd.day, e."by", e.task_id, e.value
+        FROM dd JOIN estimate_minutes e ON e.entered_at <= dd.at AND (e.expired_at IS NULL OR e.expired_at > dd.at)
+       WHERE e.task_id IN (SELECT id FROM lt)
+         AND NOT EXISTS (
+           SELECT 1 FROM finished_at f
+            WHERE f.task_id = e.task_id AND f.entered_at <= dd.at AND (f.expired_at IS NULL OR f.expired_at > dd.at)
+              AND f.value <= dd.at)
+    )`;
   const counts = DayCounts.array().parse(await sql`
     ${base}
-    SELECT d::date::text AS day,
-           (SELECT count(*) FROM cm WHERE cm.day = d::date AND cm.task_id IN (SELECT id FROM lt))::int AS comments,
-           (SELECT count(*) FROM m WHERE m.closed_in AND m.closed_day = d::date AND m.id IN (SELECT id FROM lt))::int AS closed,
-           (SELECT count(DISTINCT person) FROM tp WHERE tp.day = d::date AND tp.task_id IN (SELECT id FROM lt))::int AS people
-      FROM generate_series(${from}::date, ${to}::date, INTERVAL '1 day') d
-     ORDER BY d
+    SELECT dd.day::text AS day,
+           (SELECT count(*) FROM cm WHERE cm.day = dd.day AND cm.task_id IN (SELECT id FROM lt))::int AS comments,
+           (SELECT count(DISTINCT pl.task_id) FROM pl WHERE pl.day = dd.day)::int AS planned
+      FROM dd
+     ORDER BY dd.day
   `);
   const persons = PersonRow.array().parse(await sql`
     ${base},
     total AS (
       SELECT s."by", sum(s.value) AS minutes FROM spent_minutes s
        WHERE s.day BETWEEN ${from}::date AND ${to}::date GROUP BY s."by"
+    ),
+    mine AS (
+      SELECT p.person,
+             COALESCE((SELECT sum(sp.value) FROM sp WHERE sp."by" = p.person AND sp.task_id IN (SELECT id FROM lt)), 0)::int AS minutes
+        FROM (SELECT person FROM tp WHERE task_id IN (SELECT id FROM lt) UNION SELECT "by" FROM pl) p
     )
-    SELECT p.person AS employee_id,
-           COALESCE((SELECT sum(sp.value) FROM sp WHERE sp."by" = p.person AND sp.task_id IN (SELECT id FROM lt)), 0)::int AS minutes,
-           (COALESCE((SELECT sum(sp.value) FROM sp WHERE sp."by" = p.person AND sp.task_id IN (SELECT id FROM lt)), 0)::float8
-             / NULLIF((SELECT minutes FROM total WHERE total."by" = p.person), 0))::float8 AS share,
+    SELECT mine.person AS employee_id, mine.minutes,
+           (mine.minutes::float8 / NULLIF((SELECT minutes FROM total WHERE total."by" = mine.person), 0))::float8 AS share,
            (SELECT sum(e.value) FROM estimate_minutes e JOIN m ON m.id = e.task_id
-             WHERE e."by" = p.person AND e.expired_at IS NULL AND m.open AND e.task_id IN (SELECT id FROM lt))::int AS left_minutes,
-           (SELECT count(*) FROM cm WHERE cm.created_by = p.person AND cm.task_id IN (SELECT id FROM lt))::int AS comments
-      FROM (SELECT DISTINCT person FROM tp WHERE task_id IN (SELECT id FROM lt)) p
-     ORDER BY minutes DESC, comments DESC, p.person
+             WHERE e."by" = mine.person AND e.expired_at IS NULL AND m.open AND e.task_id IN (SELECT id FROM lt))::int AS left_minutes,
+           (SELECT count(*) FROM cm WHERE cm.created_by = mine.person AND cm.task_id IN (SELECT id FROM lt))::int AS comments
+      FROM mine
+     ORDER BY minutes DESC, left_minutes DESC NULLS LAST, comments DESC, mine.person
   `);
-  const daily = PersonDay.array().parse(await sql`
-    ${base}
-    SELECT sp."by" AS employee_id, sp.day::text AS day, sum(sp.value)::int AS minutes
-      FROM sp WHERE sp.task_id IN (SELECT id FROM lt) GROUP BY sp."by", sp.day
-  `);
+  const [daily, planned] = await Promise.all([
+    sql`
+      ${base}
+      SELECT sp."by" AS employee_id, sp.day::text AS day, sum(sp.value)::int AS minutes
+        FROM sp WHERE sp.task_id IN (SELECT id FROM lt) GROUP BY sp."by", sp.day
+    `.then((rows) => PersonDay.array().parse(rows)),
+    sql`
+      ${base}
+      SELECT pl."by" AS employee_id, pl.day::text AS day, sum(pl.value)::int AS minutes FROM pl GROUP BY pl."by", pl.day
+    `.then((rows) => PersonDay.array().parse(rows)),
+  ]);
   const days = counts.map((c) => c.day);
+  const byDay = (rows: z.infer<typeof PersonDay>[], id: number) =>
+    days.map((day) => rows.find((d) => d.employeeId === id && d.day === day)?.minutes ?? 0);
   return {
     days,
     comments: counts.map((c) => c.comments),
-    closed: counts.map((c) => c.closed),
-    people: counts.map((c) => c.people),
+    planned: counts.map((c) => c.planned),
     persons: persons.map((person) => ({
-      ...person,
-      daily: days.map((day) => daily.find((d) => d.employeeId === person.employeeId && d.day === day)?.minutes ?? 0),
+      ...person, daily: byDay(daily, person.employeeId), planned: byDay(planned, person.employeeId),
     })),
   };
 }

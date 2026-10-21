@@ -69,25 +69,27 @@ export const TagGroup = z.discriminatedUnion('kind', [
 ]);
 export type TagGroup = z.infer<typeof TagGroup>;
 
-/** The last N days, today included, in the viewer's time zone: the plans of now belong next to them. */
-export const LastDays = z.number().int().min(1).max(366);
+/** The first day of a range that ends today, in the viewer's time zone: the plans of now belong next to it. */
+export const Since = z.iso.date();
 
 export const TagStatsInput = z.object({
-  days: LastDays,
+  /** The first day of the range; it always ends today, so the plans of now belong next to it. */
+  since: Since,
   /** Picked tags: only them, and the lines of them all together and any of them; empty — every tag. */
   tagIds: Id.array().max(20),
   page: z.number().int().min(1),
 });
 export type TagStatsInput = z.infer<typeof TagStatsInput>;
 
-/** What happened under a tag (or a group of tags) over the last days, on the tasks the viewer sees. */
+/**
+ * What happened under a tag (or a group of tags) from a day to today, on
+ * the tasks the viewer sees. People are people: bots are left out.
+ */
 export const TagStatsRow = z.object({
   group: TagGroup,
   /** The tag, or the picked ones. */
   tags: Tag.array(),
-  /** Tasks carrying it. */
-  tasks: z.number().int(),
-  /** Of them, open now. */
+  /** Open now. */
   open: z.number().int(),
   /** Of the open, at risk: a plan does not fit before the deadline. */
   atRisk: z.number().int(),
@@ -100,6 +102,8 @@ export const TagStatsRow = z.object({
   /** Tasks with any activity in the range — comments, time, closing: what "popular" means here. */
   active: z.number().int(),
   comments: z.number().int(),
+  /** Tasks commented on in the range. */
+  discussed: z.number().int(),
   /** People who commented or logged time in the range. */
   people: z.number().int(),
   /**
@@ -108,6 +112,10 @@ export const TagStatsRow = z.object({
    * never hours added up (decision 38); NULL — nobody logged time.
    */
   share: z.number().nullable(),
+  /** People with a plan of time left on its open tasks now. */
+  planners: z.number().int(),
+  /** The last day anything happened on its tasks, ever: a comment, time logged, a closing; NULL — never. */
+  lastDay: z.iso.date().nullable(),
 });
 export type TagStatsRow = z.infer<typeof TagStatsRow>;
 
@@ -118,7 +126,7 @@ export const TagStats = z.object({
 });
 export type TagStats = z.infer<typeof TagStats>;
 
-export const TagDetailInput = z.object({ days: LastDays, group: TagGroup });
+export const TagDetailInput = z.object({ since: Since, group: TagGroup });
 export type TagDetailInput = z.infer<typeof TagDetailInput>;
 
 /** One person under a line: their own time, share and plan — never added up with anyone's (decision 38). */
@@ -133,18 +141,19 @@ export const TagPerson = z.object({
   comments: z.number().int(),
   /** Their time on it, day by day, as `days`. */
   daily: z.number().int().array(),
+  /** Their plan of time left on its open tasks at the end of each day, as `days`. */
+  planned: z.number().int().array(),
 });
 export type TagPerson = z.infer<typeof TagPerson>;
 
-/** A line unfolded: its activity day by day and its people, for the charts. */
+/** A line unfolded: day by day, for the charts. */
 export const TagDetail = z.object({
   /** The days of the range, oldest first. */
   days: z.iso.date().array(),
-  /** Counts per day — counts may be added up. */
+  /** Comments per day — counts may be added up. */
   comments: z.number().int().array(),
-  closed: z.number().int().array(),
-  /** People who commented or logged time that day. */
-  people: z.number().int().array(),
+  /** Open tasks with someone's plan at the end of each day. */
+  planned: z.number().int().array(),
   /** Most time first. */
   persons: TagPerson.array(),
 });

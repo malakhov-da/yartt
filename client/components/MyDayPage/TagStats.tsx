@@ -8,11 +8,12 @@ import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TagGroup, TagStatsRow } from '#shared/tags.ts';
 import type { Tag } from '#shared/task.ts';
-import { useFormat } from '#client/hooks/format.ts';
+import { fromDay, today, useFormat } from '#client/hooks/format.ts';
 import { POLL_MS, useEmployees } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import { csv, download, type Cell } from '#client/hooks/xlsx.ts';
-import DaysPicker from '../App/DaysPicker.tsx';
+import HelpTip from '../App/HelpTip.tsx';
+import SincePicker, { lastDays } from '../App/SincePicker.tsx';
 import TagChip from '../App/TagChip.tsx';
 import TagInput from '../App/TagInput.tsx';
 import TagDetail, { percent } from './TagDetail.tsx';
@@ -21,26 +22,27 @@ const PAGE_SIZE = 20;
 const key = (group: TagGroup) => (group.kind === 'tag' ? `t${group.tagId}` : `${group.kind}${group.tagIds.join(',')}`);
 
 /**
- * Tags (decision 58): what happened under each tag over the last days, on
- * the tasks I see — anyone has it, counted only on what they may see.
+ * Tags (decision 58): what happened under each tag from a day to today, on
+ * the tasks I see — anyone has it, counted only on what they may see, and
+ * only people's doing, not bots'.
  * Without a search every rubric, the most active first, with pages; with
  * tags picked — those, and for two or more all of them together and any of
- * them. A line unfolds into charts of its activity and its people (TagDetail)
- * — each one's own time, share and plan, never a total (decision 38) — and
- * everything shown goes out as CSV.
+ * them. A line unfolds into charts of its people (TagDetail) — each one's
+ * own time and plan day by day, never a total (decision 38) — and
+ * everything shown goes out as CSV. What a figure means is under a "?".
  */
 export default function () {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const format = useFormat();
   const employees = useEmployees();
-  const [days, setDays] = useState(30);
+  const [since, setSince] = useState(() => lastDays(30));
   const [tags, setTags] = useState<Tag[]>([]);
   const [input, setInput] = useState('');
   const [page, setPage] = useState(1);
   const [opened, setOpened] = useState<Set<string>>(new Set());
-  const statsInput = { days, tagIds: tags.map((tag) => tag.id), page };
+  const statsInput = { since, tagIds: tags.map((tag) => tag.id), page };
   const stats = useQuery(trpc.Tags.stats.queryOptions(statsInput, {
     refetchInterval: POLL_MS, placeholderData: keepPreviousData,
   }));
@@ -57,6 +59,28 @@ export default function () {
     tags: row.tags.map((tag) => tag.name).join(', '),
   }));
   const name = (id: number) => employees.get(id)?.fullName ?? `#${id}`;
+  // "today", "yesterday", "12 days ago": how long a rubric has been quiet.
+  const ago = (day: string | null) => {
+    if (!day) return t('tagStats.never');
+    const days = Math.round((fromDay(today()).getTime() - fromDay(day).getTime()) / 86_400_000);
+    return new Intl.RelativeTimeFormat(i18n.language, { numeric: 'auto' }).format(-days, 'day');
+  };
+  const note = (text: string, warn = false, narrow = false) => (
+    <Typography
+      variant="caption"
+      sx={{ display: { xs: narrow ? 'none' : 'block', sm: 'block' }, lineHeight: 1.3, color: warn ? 'warning.dark' : 'text.secondary' }}
+    >
+      {text}
+    </Typography>
+  );
+  const head = (label: string, hint: string, narrow = false) => (
+    <TableCell align="right" sx={narrow ? { display: { xs: 'none', sm: 'table-cell' } } : undefined}>
+      <Stack direction="row" spacing={0.25} sx={{ justifyContent: 'flex-end', alignItems: 'center' }}>
+        <span>{label}</span><HelpTip title={hint} />
+      </Stack>
+    </TableCell>
+  );
+  const wide = { display: { xs: 'none', sm: 'table-cell' } };
 
   // Every line shown and its people, one row per person and line: no total of anyone's hours.
   const hours = (minutes: number | null) => (minutes === null ? null : Math.round((minutes / 60) * 100) / 100);
@@ -67,7 +91,7 @@ export default function () {
     ];
     const lines: Cell[][] = [head];
     for (const row of rows) {
-      const detail = await queryClient.fetchQuery(trpc.Tags.detail.queryOptions({ days, group: row.group }));
+      const detail = await queryClient.fetchQuery(trpc.Tags.detail.queryOptions({ since, group: row.group }));
       for (const person of detail.persons) {
         lines.push([
           label(row), name(person.employeeId), hours(person.minutes),
@@ -75,13 +99,16 @@ export default function () {
         ]);
       }
     }
-    download(`${t('tagStats.export.file')}-${days}.csv`, csv(lines), 'text/csv;charset=utf-8');
+    download(`${t('tagStats.export.file')}-${since}.csv`, csv(lines), 'text/csv;charset=utf-8');
   };
 
   return (
     <Paper component="section" aria-label={t('tagStats.region')} sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
       <Stack direction="row" sx={{ alignItems: 'center', gap: 1 }}>
-        <Typography variant="h3" sx={{ fontWeight: 600, flexGrow: 1 }}>{t('tagStats.title')}</Typography>
+        <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', flexGrow: 1 }}>
+          <Typography variant="h3" sx={{ fontWeight: 600 }}>{t('tagStats.title')}</Typography>
+          <HelpTip title={t('tagStats.hint')} />
+        </Stack>
         <Button size="small" startIcon={<Download />} disabled={rows.length === 0} onClick={() => void exportCsv()}>
           {t('tagStats.export.action')}
         </Button>
@@ -94,8 +121,7 @@ export default function () {
         placeholder={t('tagStats.search')}
         startAdornment={<InputAdornment position="start"><Search fontSize="small" /></InputAdornment>}
       />
-      <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('tagStats.hint')}</Typography>
-      <DaysPicker days={days} onChange={(next) => { setDays(next); setPage(1); }} />
+      <SincePicker since={since} onChange={(next) => { setSince(next); setPage(1); }} />
       {stats.isSuccess && rows.length === 0 && (
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>{t('tagStats.empty')}</Typography>
       )}
@@ -106,16 +132,17 @@ export default function () {
             sx={{
               '& td, & th': { px: { xs: 0.25, sm: 0.75 } },
               '& th': { color: 'text.secondary', fontSize: 12, whiteSpace: 'nowrap' },
-              '& td:nth-of-type(3), & th:nth-of-type(3), & td:nth-of-type(4), & th:nth-of-type(4)': { display: { xs: 'none', sm: 'table-cell' } },
             }}
           >
             <TableHead>
               <TableRow>
                 <TableCell>{t('tagStats.tag')}</TableCell>
-                <TableCell align="right"><Tooltip title={t('tagStats.tasksHint')} describeChild><span>{t('tagStats.tasks')}</span></Tooltip></TableCell>
-                <TableCell align="right"><Tooltip title={t('tagStats.closedHint')} describeChild><span>{t('tagStats.closed')}</span></Tooltip></TableCell>
-                <TableCell align="right"><Tooltip title={t('tagStats.commentsHint')} describeChild><span>{t('tagStats.comments')}</span></Tooltip></TableCell>
-                <TableCell align="right"><Tooltip title={t('tagStats.peopleHint')} describeChild><span>{t('tagStats.people')}</span></Tooltip></TableCell>
+                {head(t('tagStats.open'), t('tagStats.openHint'))}
+                {head(t('tagStats.closed'), t('tagStats.closedHint'), true)}
+                {head(t('tagStats.comments'), t('tagStats.commentsHint'), true)}
+                {head(t('tagStats.people'), t('tagStats.peopleHint'))}
+                {head(t('tagStats.planners'), t('tagStats.plannersHint'), true)}
+                {head(t('tagStats.last'), t('tagStats.lastHint'), true)}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -144,41 +171,29 @@ export default function () {
                               </Stack>
                             </Tooltip>
                           )}
-                          {t('tagStats.openOf', { open: row.open, tasks: row.tasks })}
+                          {row.open}
                         </Stack>
-                        {row.stale > 0 && (
-                          <Typography variant="caption" sx={{ display: 'block', color: 'warning.dark' }}>
-                            {t('tagStats.stale', { count: row.stale })}
-                          </Typography>
-                        )}
+                        {row.stale > 0 && note(t('tagStats.stale', { count: row.stale }), true)}
                       </TableCell>
-                      <TableCell align="right">
+                      <TableCell align="right" sx={wide}>
                         {row.finished + row.expired}
-                        {row.expired > 0 && (
-                          <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
-                            {t('tagStats.expired', { count: row.expired })}
-                          </Typography>
-                        )}
+                        {row.expired > 0 && note(t('tagStats.expired', { count: row.expired }))}
                       </TableCell>
-                      <TableCell align="right">
+                      <TableCell align="right" sx={wide}>
                         {row.comments}
-                        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
-                          {t('tagStats.activeTasks', { count: row.active })}
-                        </Typography>
+                        {row.discussed > 0 && note(t('tagStats.discussed', { count: row.discussed }))}
                       </TableCell>
                       <TableCell align="right">
                         {row.people}
-                        {row.share !== null && (
-                          <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
-                            {t('tagStats.shareNote', { share: percent(row.share) })}
-                          </Typography>
-                        )}
+                        {row.share !== null && note(t('tagStats.shareNote', { share: percent(row.share) }), false, true)}
                       </TableCell>
+                      <TableCell align="right" sx={wide}>{row.planners}</TableCell>
+                      <TableCell align="right" sx={{ ...wide, whiteSpace: 'nowrap' }}>{ago(row.lastDay)}</TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell colSpan={5} sx={{ p: 0, borderBottom: open ? undefined : 0, display: 'table-cell !important' }}>
+                      <TableCell colSpan={7} sx={{ p: 0, borderBottom: open ? undefined : 0, display: 'table-cell !important' }}>
                         <Collapse in={open} unmountOnExit>
-                          <TagDetail group={row.group} days={days} />
+                          <TagDetail group={row.group} since={since} />
                         </Collapse>
                       </TableCell>
                     </TableRow>

@@ -27,10 +27,11 @@ export default router({
     .query(({ input, ctx }) => Tags.related(ctx.employeeId, input.tagIds)),
 
   /**
-   * The tag summary for the last days (decision 58), counting only the
-   * tasks the signed-in employee sees: tasks, open, at risk and untouched,
-   * closed by hand and by deadline, active, comments, people and the
-   * average share of their own time. Without picked tags — every rubric,
+   * The tag summary from a day to today (decision 58), counting only the
+   * tasks the signed-in employee sees and only people, not bots: open, at
+   * risk and untouched, closed by hand and by deadline, active, comments,
+   * people and the average share of their own time, who plans time on it
+   * now and the last day anything happened. Without picked tags — every rubric,
    * the most active first, 20 per page; with them — those, and for two or
    * more all of them together and any of them.
    */
@@ -40,9 +41,10 @@ export default router({
     .query(({ input, ctx }) => Tags.stats(ctx.employeeId, input)),
 
   /**
-   * A line of the summary unfolded: comments, closings and people day by
-   * day, and each person's own time day by day, its share of all they
-   * logged and their plan now — on the tasks the signed-in employee sees.
+   * A line of the summary unfolded: comments and open tasks with a plan
+   * day by day, and each person's own time and plan of time left day by
+   * day, the share of all they logged and their plan now — on the tasks
+   * the signed-in employee sees.
    */
   detail: authedProcedure
     .input(TagDetailInput)
