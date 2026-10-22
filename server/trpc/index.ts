@@ -7,6 +7,7 @@ import Employee from './Employee.ts';
 import MyDay from './MyDay.ts';
 import Observer from './Observer.ts';
 import Remind from './Remind.ts';
+import TagLimit from './TagLimit.ts';
 import Tags from './Tags.ts';
 import Task from './Task.ts';
 import Team from './Team.ts';
@@ -15,7 +16,7 @@ import Visit from './Visit.ts';
 import Work from './Work.ts';
 
 // Root router: keys are the namespaces on the client (trpc.Employee.list).
-const trpc = router({ Auth, Bot, Comment, Dependency, Employee, MyDay, Observer, Remind, Tags, Task, Team, Time, Visit, Work });
+const trpc = router({ Auth, Bot, Comment, Dependency, Employee, MyDay, Observer, Remind, TagLimit, Tags, Task, Team, Time, Visit, Work });
 
 export default trpc;
 export type AppRouter = typeof trpc;

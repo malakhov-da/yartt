@@ -428,6 +428,14 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
   // My reminders on the site: tomorrow morning and before the deadline.
   await I.Remind.add({ taskId: site, at: await at(me, -1, '09:30'), text: t.reminder });
   await I.Remind.add({ taskId: site, at: daysAhead(2), text: null });
+
+  // Hour budgets: mine on the site for half a year — what is logged and planned already goes past
+  // it, a forecast to see; Marina's on the warehouse, raised once, so it has a history.
+  const dayOf = (n: number) => daysAhead(n).toISOString().slice(0, 10);
+  await I.TagLimit.set({ replaces: null, tagIds: [await tagId(tags.site[0]!)], startsOn: dayOf(-30), endsOn: dayOf(150), minutes: 80 * 60 });
+  const stockLimit = { tagIds: [await tagId(tags.stock[0]!)], startsOn: dayOf(-30), endsOn: dayOf(60) };
+  const stockFirst = await M.TagLimit.set({ replaces: null, ...stockLimit, minutes: 10 * 60 });
+  await M.TagLimit.set({ replaces: stockFirst, ...stockLimit, minutes: 20 * 60 });
 }
 
 /** Who is in the demo. */

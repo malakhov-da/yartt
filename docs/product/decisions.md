@@ -1138,3 +1138,36 @@ next to them, in a tag's details.
 *Implemented:* `TagStatsRow.minutes`, `.leftMinutes`; `People.spentMinutes`,
 `.leftMinutes`; `TaskHint`, `TagStats`, `TagDetail`.
 
+### 69. Hour budgets on tag combinations, kept to rather than enforced
+
+Since hours of a tag add up (decision 68), a direction can have a budget:
+"the website — no more than 400 hours this half-year". Anyone sets one
+on a combination of tags (a task counts when it carries all of them) for
+a fixed period — for themselves and everyone under them: their hours
+and their people's count against it. A task under several budgets counts
+in each: one may come out underspent, none overspent.
+
+It is a line to keep to, not a rule. Nothing is forbidden and nothing is
+sent: a line shows what was logged of the limit, the forecast — logged
+plus what its people still plan on the open tasks — and the running
+total against the limit, coloured when the forecast or the spent passes
+it. It is shown where the decision is made: under My time on every task
+it covers, and in the plan dialog with the forecast the new plan would
+make. Whoever set it set it for themselves, so nobody can say they did
+not see it.
+
+A budget is seen by who set it, by their managers up the chain and by
+everyone under them — it counts their hours, so they keep to it. Other
+people's budgets are theirs alone: departments agree theirs in person.
+
+It is never edited: a change closes it and opens a new version, removing
+only closes it, and every version stays in its history — what the
+budget was and from when to when. A request to change someone's budget
+goes the way everything does, in a task; there is no mechanism of its
+own.
+
+*Implemented:* `tag_limit`, `can_see_tag_limit()`,
+`trg_tag_limit_immutable()` (migration `0.3-0.4`); `TagLimit.list`,
+`.forTask`, `.history`, `.set`, `.remove`;
+`client/components/MyDayPage/TagLimits.tsx`, `TaskPage/MyTime.tsx`.
+

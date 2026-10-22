@@ -7,12 +7,16 @@ import { useTranslation } from 'react-i18next';
 import { parseMinutes, today, useFormat } from '#client/hooks/format.ts';
 import { useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
+import TagChip from '../App/TagChip.tsx';
 import LogTimeDialog from '../MyDayPage/LogTimeDialog.tsx';
+import { LimitFigures } from '../MyDayPage/TagLimits.tsx';
 
 /**
  * My own time on the task, above the observer list (decision 17): all I
  * logged, today's entry — the same one the timesheet shows, set and
- * replaced, never added up (decision 60) — and my plan of time left.
+ * replaced, never added up (decision 60) — and my plan of time left. Under
+ * them, the hour budgets the task falls under (decision 69): seen while
+ * planning, and in the plan dialog with the forecast my new plan makes.
  */
 export default function (p: { taskId: number }) {
   const { t } = useTranslation();
@@ -20,6 +24,7 @@ export default function (p: { taskId: number }) {
   const format = useFormat();
   const refresh = useTaskRefresh();
   const mine = useQuery(trpc.Time.mine.queryOptions({ taskId: p.taskId }));
+  const limits = useQuery(trpc.TagLimit.forTask.queryOptions({ taskId: p.taskId }));
   const setLeft = useMutation(trpc.Time.setLeft.mutationOptions({ onSuccess: () => { refresh(); setDialog(null); } }));
 
   const [dialog, setDialog] = useState<'log' | 'plan' | null>(null);
@@ -51,6 +56,19 @@ export default function (p: { taskId: number }) {
         <Button variant="outlined" onClick={() => setDialog('log')}>{t('task.myTime.log')}</Button>
         <Button color="inherit" variant="outlined" onClick={openPlan}>{t('task.myTime.setPlan')}</Button>
       </Stack>
+      {(limits.data?.length ?? 0) > 0 && (
+        <Stack spacing={0.75} sx={{ mt: 0.5 }}>
+          <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>{t('tagLimits.inTask')}</Typography>
+          {limits.data!.map((limit) => (
+            <Stack key={limit.id} spacing={0.25}>
+              <Stack direction="row" sx={{ gap: 0.5, flexWrap: 'wrap' }}>
+                {limit.tags.map((tag) => <TagChip key={tag.id} size="small" tag={tag} />)}
+              </Stack>
+              <LimitFigures limit={limit} />
+            </Stack>
+          ))}
+        </Stack>
+      )}
 
       {dialog === 'log' && (
         <LogTimeDialog taskId={p.taskId} day={today()} pickDay current={ofDay} onClose={() => setDialog(null)} />
@@ -66,6 +84,15 @@ export default function (p: { taskId: number }) {
             error={text !== '' && minutes === null}
             helperText={minutes !== null ? format.minutes(minutes) : t('task.myTime.timeHint')}
           />
+          {/* Where my hours count: the forecast my new plan makes, before it is saved. */}
+          {limits.data?.filter((limit) => limit.includesMe && limit.endsOn >= today()).map((limit) => (
+            <Stack key={limit.id} spacing={0.25}>
+              <Stack direction="row" sx={{ gap: 0.5, flexWrap: 'wrap' }}>
+                {limit.tags.map((tag) => <TagChip key={tag.id} size="small" tag={tag} />)}
+              </Stack>
+              <LimitFigures limit={limit} forecast={limit.forecastMinutes - (mine.data?.leftMinutes ?? 0) + (minutes ?? 0)} />
+            </Stack>
+          ))}
         </DialogContent>
         <DialogActions>
           {mine.data?.leftMinutes !== null && (

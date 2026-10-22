@@ -221,6 +221,17 @@ export const helpEn: Help = {
       ],
     },
     {
+      title: 'Keep a direction within an hour budget',
+      steps: [
+        'Hour budgets → New budget: tags, a period and how many hours you and your reports may spend on them. '
+          + 'A task counts when it carries all those tags.',
+        'A line shows how much of the budget is logged and the forecast — logged plus still planned; unfolded, the running total '
+          + 'against the budget and the history of changes.',
+        'When you set My plan on a task under a budget, you see the forecast it would make. Nothing is forbidden — it is a guide.',
+        'Changing a budget makes a new version, the old one stays in the history. Your managers and your reports see it.',
+      ],
+    },
+    {
       title: 'Set up automation',
       steps: [
         'A bot is an account for automation: builds, monitoring, integrations. Profile → Bots: create one, tick what it may change '

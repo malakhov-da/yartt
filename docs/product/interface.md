@@ -85,6 +85,16 @@ range; a click on another heading sorts by it — or the tags
   two charts by day, everyone together and a line per person — time
   logged and plan of time left; the tooltip of a day puts next to each person's time the tasks and ✉
   comments behind it, and next to their plan the tasks it covers — and a table of people; CSV export (decision 58).
+- **Hour budgets** — for everyone, under Tags: limits of hours on a
+  combination of tags for a fixed period that I set for myself and
+  everyone under me, and those my managers set (they count my hours) and
+  my people set. A line: the tags, the period, "70h of 80h · 88% ·
+  forecast 89h" — logged and still planned — with a bar, coloured when
+  the forecast or the logged time passes the limit; unfolded, the
+  running total day by day against the limit and every version.
+  "New budget", the pencil (a new version; the old one stays in the
+  history) and the cross (removed, folded under "Removed") are mine
+  only. Nothing is forbidden or sent (decision 69).
 - **Timesheet** ("My days" before: next to "My day" the two were
   confused) — today and the last day before it with activity (on
   Monday that is usually Friday: what was I doing?); "History" leads to
@@ -172,12 +182,14 @@ Left, top to bottom:
 Right, the side panel:
 
 - **My time:** what I spent and what I have left, with "Log time" and
-  "Time left" — on top, apart from the list.
+  "Time left" — on top, apart from the list; under it the hour budgets
+  the task falls under, and in the plan dialog the forecast my new plan
+  would make in those my hours count against (decision 69).
 - **Participants**, one list:
   - access requests first, with "Approve" and "Reject", then "Add
     participant" (owner only);
   - every participant, sorted by the last visit, with pages. No roles, no
-    table and no totals: a clock icon if the person logged time, an
+    table: a clock icon if the person logged time, an
     hourglass if they gave their time left; the tooltip shows the
     number (decision 17);
   - the owner and a manager whose report takes part in the task have a lock

@@ -37,7 +37,7 @@ CREATE TABLE schema_version (
 CREATE UNIQUE INDEX uq_schema_version_active
     ON schema_version((TRUE)) WHERE expired_at IS NULL;
 
-INSERT INTO schema_version (version) VALUES ('0.3');
+INSERT INTO schema_version (version) VALUES ('0.4');
 
 COMMENT ON TABLE schema_version IS
 'History of database schema versions (major.minor). Current = expired_at IS NULL.
@@ -139,6 +139,11 @@ Key principles:
     tasks are at risk (at_risk()) — the waiting one is late because of
     the other, the other delays it — and the owner of the waiting task is
     told as the deadline moves.
+  - Anyone sets limits of hours on a combination of tags for a fixed
+    period (tag_limit): how much they and everyone under them may spend
+    on it. A task under several limits counts in each. A limit is never
+    edited: a change closes it and opens a new one, so its history is
+    kept. It warns, it forbids nothing.
   - Work quality is scored only per employee per day, never per task.
     The current manager (employee.manager_id) scores any past day with a
     filled timesheet. Scores are optional: the manager decides which days
@@ -1644,6 +1649,65 @@ COMMENT ON CONSTRAINT uq_spent_minutes_day ON spent_minutes IS
 
 
 -- ============================================================================
+-- 9a. tag_limit — limits of hours on a combination of tags
+-- ============================================================================
+CREATE TABLE tag_limit (
+    id SERIAL PRIMARY KEY,
+    employee_id INT NOT NULL REFERENCES human(employee_id),
+    tag_ids INT[] NOT NULL,
+    starts_on DATE NOT NULL,
+    ends_on DATE NOT NULL,
+    minutes INT NOT NULL CHECK (minutes > 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expired_at TIMESTAMPTZ,
+    replaced_by INT REFERENCES tag_limit(id),
+
+    CONSTRAINT chk_tag_limit_tag_ids CHECK (is_int_set(tag_ids)),
+    CONSTRAINT chk_tag_limit_period CHECK (starts_on <= ends_on AND ends_on - starts_on <= 731),
+    CONSTRAINT chk_tag_limit_replaced CHECK (replaced_by IS NULL OR expired_at IS NOT NULL)
+);
+CREATE INDEX idx_tag_limit_employee ON tag_limit(employee_id) WHERE expired_at IS NULL;
+CREATE INDEX idx_tag_limit_replaced_by ON tag_limit(replaced_by);
+
+COMMENT ON TABLE tag_limit IS
+'A limit of hours an employee sets on a combination of tags for a fixed
+period: they and everyone under them (subordinates()) may spend at most
+minutes on the tasks carrying all of tag_ids between starts_on and
+ends_on. A task under several limits counts in each: one may be
+underspent, none overspent. Set by anyone, for themselves and their
+people; seen by them, their managers up the chain and everyone under them
+(can_see_tag_limit()); other people''s limits are theirs alone. It
+forbids nothing and sends nothing: it is a line to keep to, shown with
+what has been spent and what is planned, so nobody can say they did not
+see it. A request to change one goes as anything else does — in a task.
+
+Never edited (trigger): a change closes the row (expired_at) and opens a
+new one (replaced_by points to it), removing only closes it — the history
+is the chain of rows. Current = expired_at IS NULL.';
+
+COMMENT ON COLUMN tag_limit.employee_id IS
+'Who set it: their own hours and their subordinates'' count against it.';
+
+COMMENT ON COLUMN tag_limit.tag_ids IS
+'The combination: a task counts when it carries all of them.';
+
+COMMENT ON COLUMN tag_limit.starts_on IS
+'The first day of the period, in the days of the time entries.';
+
+COMMENT ON COLUMN tag_limit.ends_on IS
+'The last day of the period, included. At most two years after starts_on.';
+
+COMMENT ON COLUMN tag_limit.minutes IS
+'The limit, in minutes.';
+
+COMMENT ON COLUMN tag_limit.expired_at IS
+'When it stopped being current: changed or removed. NULL = current.';
+
+COMMENT ON COLUMN tag_limit.replaced_by IS
+'The row that replaced it when it was changed; NULL when removed or current.';
+
+
+-- ============================================================================
 -- 10. work — timesheet
 -- ============================================================================
 CREATE TABLE work (
@@ -3125,6 +3189,34 @@ BEFORE INSERT OR UPDATE OR DELETE ON score
 FOR EACH ROW EXECUTE FUNCTION trg_score_check();
 
 
+-- ----------------------------------------------------------------------------
+-- tag_limit: never edited, never deleted
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION trg_tag_limit_immutable()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        RAISE EXCEPTION 'a tag limit cannot be deleted' USING HINT = 'forbidden';
+    END IF;
+    IF OLD.expired_at IS NOT NULL
+       OR NEW.expired_at IS NULL
+       OR (NEW.id, NEW.employee_id, NEW.tag_ids, NEW.starts_on, NEW.ends_on, NEW.minutes, NEW.created_at)
+          IS DISTINCT FROM (OLD.id, OLD.employee_id, OLD.tag_ids, OLD.starts_on, OLD.ends_on, OLD.minutes, OLD.created_at) THEN
+        RAISE EXCEPTION 'tag limit % can only be closed, once', OLD.id USING HINT = 'forbidden';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION trg_tag_limit_immutable() IS
+'A tag limit is history: it is only closed — expired_at, and replaced_by
+when a new row takes its place — once; never changed otherwise or deleted.';
+
+CREATE TRIGGER tag_limit_immutable
+BEFORE UPDATE OR DELETE ON tag_limit
+FOR EACH ROW EXECUTE FUNCTION trg_tag_limit_immutable();
+
+
 -- ============================================================================
 -- FUNCTIONS (API)
 -- ============================================================================
@@ -4207,3 +4299,20 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION send_due_reminds() IS
 'Cron, every minute: due reminders -> notification, the remind is deleted.';
+
+
+CREATE OR REPLACE FUNCTION can_see_tag_limit(p_limit_id INT, p_employee_id INT)
+RETURNS BOOLEAN AS $$
+    SELECT EXISTS (
+        SELECT 1 FROM tag_limit l
+         WHERE l.id = p_limit_id
+           AND (l.employee_id = p_employee_id
+                OR l.employee_id IN (SELECT subordinates(p_employee_id))
+                OR p_employee_id IN (SELECT subordinates(l.employee_id)))
+    )
+$$ LANGUAGE sql STABLE;
+
+COMMENT ON FUNCTION can_see_tag_limit(INT, INT) IS
+'Whether the employee sees the tag limit: they set it, they manage (up the
+chain) who set it, or it is set by a manager of theirs — it counts their
+hours, so they keep to it. Other people''s limits are theirs alone.';

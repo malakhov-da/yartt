@@ -8,6 +8,7 @@ import CurrentTasks from './MyDayPage/CurrentTasks.tsx';
 import History from './MyDayPage/History.tsx';
 import TagStats from './MyDayPage/TagStats.tsx';
 import Team from './MyDayPage/Team.tsx';
+import TagLimits from './MyDayPage/TagLimits.tsx';
 import Todo from './MyDayPage/Todo.tsx';
 import Waiting from './MyDayPage/Waiting.tsx';
 
@@ -34,6 +35,7 @@ export default function () {
           <CurrentTasks />
           {isManager && <Team />}
           <TagStats />
+          <TagLimits />
           {hasBots && <Bots />}
         </Stack>
         <Box sx={{ flex: '1 1 400px', minWidth: 0 }}>
