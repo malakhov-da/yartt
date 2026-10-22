@@ -107,18 +107,19 @@ describe('current tasks', () => {
     expect((await strangerApi.MyDay.current({ tab: 'others', page: 1 })).items.map((t) => t.id)).toContain(own);
   });
 
-  test('by deadline, nearest first, no deadline last', async () => {
-    const owner = await createEmployee();
-    const api = await client(owner.id);
-    const none = await createTask(owner.id);
-    const later = await createTask(owner.id);
-    const sooner = await createTask(owner.id);
-    await api.Task.setDeadline({ id: later, deadline: new Date(Date.now() + 2 * 86_400_000) });
-    await api.Task.setDeadline({ id: sooner, deadline: new Date(Date.now() + 86_400_000) });
-
-    const page = await api.MyDay.current({ tab: 'mine', page: 1 });
-    expect(page.items.map((t) => t.id)).toEqual([sooner, later, none]);
-    expect(page.counts.mine).toBe(3);
+  test('by deadline, nearest first; the same moment and no deadline — by priority, no deadline last', async () => {
+    const me = await createEmployee();
+    const api = await client(me.id);
+    const at = new Date(Date.now() + 86_400_000);
+    const make = (priority: 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL', deadline: Date | null) =>
+      api.Task.create({ tags: [`o-${randomUUID().slice(0, 8)}`], priority, deadline });
+    const later = await make('CRITICAL', new Date(at.getTime() + 60_000));
+    const low = await make('LOW', at);
+    const high = await make('HIGH', at);
+    const none = await make('NORMAL', null);
+    const noneCritical = await make('CRITICAL', null);
+    const { items } = await api.MyDay.current({ tab: 'mine', page: 1 });
+    expect(items.map((i) => i.id)).toEqual([high, low, later, noneCritical, none]);
   });
 });
 

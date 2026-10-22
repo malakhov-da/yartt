@@ -11,7 +11,7 @@ async function fits(page: Page) {
 test.describe('at phone width', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test('My day with the team, a task, an employee page', async ({ page }) => {
+  test('My day with the team, a task, an employee page, the guide', async ({ page }) => {
     await signIn(page);
     await fits(page);
     await page.goto(`/tasks/${await taskId('сайт', 'новая главная к осенней кампании')}`);
@@ -28,6 +28,9 @@ test.describe('at phone width', () => {
     await table.getByRole('row').filter({ hasText: 'Марина Соколова' }).first().getByRole('button', { name: /^(Подробнее и графики|Скрыть подробности)$/ }).click();
     await expect(page.getByText('Время', { exact: true })).toBeVisible();
     expect(await table.evaluate((el) => el.parentElement!.scrollWidth - el.parentElement!.clientWidth)).toBeLessThanOrEqual(1);
+    await fits(page);
+    await page.goto('/help');
+    await expect(page.getByRole('heading', { name: 'Как работать в яртт' })).toBeVisible();
     await fits(page);
   });
 });

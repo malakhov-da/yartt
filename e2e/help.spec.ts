@@ -22,13 +22,4 @@ test.describe('the guide', () => {
     await page.getByRole('button', { name: 'Create a task' }).click();
     await expect(page.getByText(/Press "New task" in the block/)).toBeVisible();
   });
-
-  test('fits a phone', async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await signIn(page, 'olga@example.com');
-    await page.goto('/help');
-    await expect(page.getByRole('heading', { name: 'Как работать в яртт' })).toBeVisible();
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    expect(overflow).toBeLessThanOrEqual(1);
-  });
 });

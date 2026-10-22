@@ -47,7 +47,7 @@ test.describe('search', () => {
     await expect(panel(page).getByRole('link', { name: /склад инвентаризация за октябрь/ })).toBeVisible();
   });
 
-  test('"+" takes the title typed: the picked tags and the rest as a new tag', async ({ page }) => {
+  test('"New task" takes the title typed: the picked tags and the rest as a new tag', async ({ page }) => {
     await search(page).click();
     await page.keyboard.type('склад');
     await page.getByRole('option', { name: 'склад', exact: true }).click();
@@ -58,7 +58,7 @@ test.describe('search', () => {
     await expect(page.getByRole('button', { name: phrase, exact: true })).toBeVisible();
   });
 
-  test('a title that is taken: "+" is off, and the task with it is named', async ({ page }) => {
+  test('a title that is taken: "New task" is off, and the task with it is named, with a link', async ({ page }) => {
     await search(page).click();
     // A title as the demo's office move has it: the rubric and its phrase.
     for (const tag of ['офис', 'переезд на 5-й этаж']) {

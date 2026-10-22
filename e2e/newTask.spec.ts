@@ -6,7 +6,7 @@ test.describe('new task', () => {
     await signIn(page);
   });
 
-  test('"+" in the search opens a new task: tags as the title, priority, then the task opens', async ({ page }) => {
+  test('"New task" over the search opens a new task: tags as the title, priority, then the task opens', async ({ page }) => {
     const tag = unique('форма');
     await page.getByRole('button', { name: 'Новая задача' }).click();
     await expect(page).toHaveURL(/\/tasks\/new$/);
@@ -31,19 +31,6 @@ test.describe('new task', () => {
     await expect(page.getByText(tag, { exact: true }).filter({ visible: true }).first()).toBeVisible();
     await expect(page.getByText('склад', { exact: true }).filter({ visible: true }).first()).toBeVisible();
     await expect(page.getByText('Высокий').filter({ visible: true }).first()).toBeVisible();
-  });
-
-  test('a title that is taken links to its task', async ({ page }) => {
-    const id = await taskId('склад', 'инвентаризация за октябрь');
-    await page.goto('/tasks/new');
-    for (const tag of ['склад', 'инвентаризация за октябрь']) {
-      await page.getByLabel('Теги').fill(tag);
-      await page.getByRole('option', { name: tag, exact: true }).first().click();
-    }
-    await page.keyboard.press('Escape');
-    await expect(page.getByRole('button', { name: 'Создать задачу' })).toBeDisabled();
-    await page.getByRole('link', { name: `Такая задача уже есть: #${id}` }).click();
-    await expect(page).toHaveURL(new RegExp(`/tasks/${id}$`));
   });
 
   test('"New task" under "Waited on by" makes a task that waits for this one', async ({ page }) => {
