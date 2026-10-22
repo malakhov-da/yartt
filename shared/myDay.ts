@@ -44,6 +44,32 @@ export type TodoRequest = z.infer<typeof TodoRequest>;
 export const TodoItem = z.discriminatedUnion('kind', [TodoMention, TodoReview, TodoRequest]);
 export type TodoItem = z.infer<typeof TodoItem>;
 
+/** My access request to someone's task, not answered yet. */
+export const WaitingRequest = z.object({
+  kind: z.literal('request'),
+  task: TaskHeader,
+});
+export type WaitingRequest = z.infer<typeof WaitingRequest>;
+
+/** My open mention of someone: it waits for their answer and their "Done". */
+export const WaitingMention = z.object({
+  kind: z.literal('mention'),
+  task: TaskHeader,
+  commentId: Id,
+  /** Whom I mentioned. */
+  employeeId: Id,
+  at: z.date(),
+  /** The beginning of my comment as plain text. */
+  excerpt: z.string(),
+  /** Their answers, oldest first; empty — none yet. */
+  replies: MentionReply.array(),
+});
+export type WaitingMention = z.infer<typeof WaitingMention>;
+
+/** What I wait for from others (decision 67): the counterpart of TODO. */
+export const WaitingItem = z.discriminatedUnion('kind', [WaitingRequest, WaitingMention]);
+export type WaitingItem = z.infer<typeof WaitingItem>;
+
 /** 'mine' — open tasks I own; 'others' — every other open task I see; 'closed' — the closed ones I see. */
 export const CurrentTab = z.enum(['mine', 'others', 'closed']);
 export type CurrentTab = z.infer<typeof CurrentTab>;

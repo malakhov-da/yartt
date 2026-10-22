@@ -53,6 +53,11 @@ someone with reports:
   approve or reject. When TODO is empty, the screen says so — that is the
   goal. Days of my reports waiting for a score are not here: scoring is
   never required, it lives on the employee's page.
+- **Waiting for others** — a list of its own under TODO, shown only when
+  there is something: my access requests the owner has not answered yet,
+  with "Withdraw", and my open mentions of people — whom, when, the
+  beginning of my comment and their answers so far, "Answered — waiting
+  for Done" or "No answer yet"; the longest waiting on top (decision 67).
 - **Current tasks** — every open task I see (no deadline, or a deadline
   ahead), in two tabs: **I own** (I answer for them) and **others** —
   and the closed ones I see in a third, **Closed** (decision 57); each

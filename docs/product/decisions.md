@@ -1090,3 +1090,17 @@ it.
 `notify_dependents()` (`late`) — migration `0.2-0.3`; `TaskHeader.late`,
 `.delays`; `Dependencies`, `RiskChip`.
 
+### 67. What I wait for from others is a list of its own
+
+TODO shows what waits for me; what I wait for from others was nowhere:
+an access request I filed, or a person I mentioned and who has not
+closed it, could only be found by remembering the task. Now My day has
+**Waiting for others** under TODO, shown only when there is something:
+my requests not answered yet, with "Withdraw" right there, and my open
+mentions — whom, when, my words and their answers so far — the longest
+waiting on top. It is a list apart, not part of TODO: nothing in it is
+mine to do, except to nudge or to withdraw.
+
+*Implemented:* `MyDay.waiting` in `server/services/MyDay.ts`;
+`client/components/MyDayPage/Waiting.tsx`.
+

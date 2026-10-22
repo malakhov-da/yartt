@@ -9,6 +9,7 @@ import History from './MyDayPage/History.tsx';
 import TagStats from './MyDayPage/TagStats.tsx';
 import Team from './MyDayPage/Team.tsx';
 import Todo from './MyDayPage/Todo.tsx';
+import Waiting from './MyDayPage/Waiting.tsx';
 
 // The only screen (docs/product/interface.md, 1): what needs me, my current
 // tasks, my team (someone with reports), my days. It stays mounted while a
@@ -29,6 +30,7 @@ export default function () {
       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 2 }}>
         <Stack spacing={2} sx={{ flex: '999 1 560px', minWidth: 0 }}>
           <Todo />
+          <Waiting />
           <CurrentTasks />
           {isManager && <Team />}
           <TagStats />

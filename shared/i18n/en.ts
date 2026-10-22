@@ -60,6 +60,14 @@ export const en: Translation = {
       review: 'New comments: {{count}}, from {{authors}}',
       request: '{{name}} asks for access',
     },
+    waiting: {
+      title: 'Waiting for others',
+      hint: 'What waits for others: your access requests the owner has not answered yet, and your mentions the person has not closed with "Done". The longest waiting on top.',
+      request: 'You asked for access — {{name}} decides',
+      mention: 'You mentioned: {{name}}',
+      answered: 'Answered — waiting for "Done".',
+      notAnswered: 'No answer yet.',
+    },
     current: {
       title: 'Current tasks',
       mine: 'I own · {{count}}',

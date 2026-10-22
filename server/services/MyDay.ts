@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Current, CurrentTab, DayHistory, History, TodoItem } from '#shared/myDay.ts';
+import type { Current, CurrentTab, DayHistory, History, TodoItem, WaitingItem } from '#shared/myDay.ts';
 import { plainText } from '../html.ts';
 import { sql } from '../pg.ts';
 import { mentionReplies, replyKey } from './Comment.ts';
@@ -89,6 +89,53 @@ export async function todo(me: number): Promise<TodoItem[]> {
       return task ? [{ kind: 'request' as const, task, employeeId: r.employeeId }] : [];
     }),
     ...timed,
+  ];
+}
+
+const MyMentionRow = z.object({
+  taskId: z.number(),
+  commentId: z.number(),
+  employeeId: z.number(),
+  createdAt: z.date(),
+  value: z.string(),
+});
+
+/**
+ * What I wait for from others (decision 67): my access requests not
+ * answered yet, then my open mentions of people — the longest waiting
+ * first, with whether they have answered. A mention in a task I no longer
+ * see is not shown.
+ */
+export async function waiting(me: number): Promise<WaitingItem[]> {
+  const requests = z.object({ taskId: z.number() }).array().parse(await sql`
+    SELECT task_id FROM observer
+     WHERE value = ${me} AND added_at IS NULL AND deleted_at IS NULL
+     ORDER BY id
+  `);
+  const mentions = MyMentionRow.array().parse(await sql`
+    SELECT m.task_id, m.comment_id, m.value AS employee_id, c.created_at, c.value
+      FROM mention m
+      JOIN comment c ON c.task_id = m.task_id AND c.id = m.comment_id
+     WHERE c.created_by = ${me} AND m.closed_at IS NULL AND can_see(m.task_id, ${me})
+     ORDER BY c.created_at, m.value
+  `);
+  const answers = await mentionReplies(mentions.map((m) => ({ taskId: m.taskId, commentId: m.commentId, employeeId: m.employeeId })));
+  const tasks = new Map((await headers(me, [...new Set([...requests, ...mentions].map((r) => r.taskId))])).map((h) => [h.id, h]));
+  return [
+    ...requests.flatMap((r) => {
+      const task = tasks.get(r.taskId);
+      return task ? [{ kind: 'request' as const, task }] : [];
+    }),
+    ...mentions.flatMap((m) => {
+      const task = tasks.get(m.taskId);
+      return task
+        ? [{
+            kind: 'mention' as const, task, commentId: m.commentId, employeeId: m.employeeId, at: m.createdAt,
+            excerpt: plainText(m.value).slice(0, EXCERPT),
+            replies: answers.get(replyKey(m.taskId, m.commentId, m.employeeId)) ?? [],
+          }]
+        : [];
+    }),
   ];
 }
 

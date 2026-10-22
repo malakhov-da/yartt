@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { editable, signIn } from './helpers.ts';
+import { createTask, editable, signIn, unique } from './helpers.ts';
 
 // My day of the first employee over the demo data (scripts/seed.ts).
 test.describe('My day', () => {
@@ -131,4 +131,23 @@ test('a task hovered in any list shows its context and everyone\'s time', async 
   await line.hover();
   await expect(page.getByRole('tooltip').getByText(/Новая главная к запуску осенней кампании/)).toBeVisible();
   await expect(page.getByRole('tooltip').getByText(/Павел Орлов|Я/).first()).toBeVisible();
+});
+
+// What I wait for from others is a list of its own (decision 67).
+test('Waiting for others: my request not answered yet, withdrawn from there', async ({ page }) => {
+  await signIn(page);
+  const tag = unique('доступ');
+  await createTask(page, [tag]);
+  const id = Number(page.url().split('/').pop());
+
+  await signIn(page, 'olga@example.com');
+  await page.goto(`/tasks/${id}`);
+  await page.getByRole('button', { name: 'Запросить доступ' }).click();
+  await expect(page.getByText('Заявка у владельца')).toBeVisible();
+  await page.goto('/');
+  const block = page.getByRole('region', { name: 'Жду ответа' });
+  await expect(block.getByText('Вы просили доступ — решает Алексей Громов')).toBeVisible();
+  await expect(block.getByText(tag)).toBeVisible();
+  await block.getByRole('button', { name: 'Отозвать заявку' }).click();
+  await expect(block.getByText(tag)).toHaveCount(0);
 });

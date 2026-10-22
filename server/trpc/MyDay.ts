@@ -1,4 +1,4 @@
-import { Current, CurrentInput, History, HistoryInput, TodoItem } from '#shared/myDay.ts';
+import { Current, CurrentInput, History, HistoryInput, TodoItem, WaitingItem } from '#shared/myDay.ts';
 import * as MyDay from '../services/MyDay.ts';
 import { authedProcedure, router } from '../trpc.ts';
 
@@ -11,6 +11,15 @@ export default router({
   todo: authedProcedure
     .output(TodoItem.array())
     .query(({ ctx }) => MyDay.todo(ctx.employeeId)),
+
+  /**
+   * What the signed-in employee waits for from others: their access
+   * requests not answered yet, then their open mentions of people, the
+   * longest waiting first, with the answers so far.
+   */
+  waiting: authedProcedure
+    .output(WaitingItem.array())
+    .query(({ ctx }) => MyDay.waiting(ctx.employeeId)),
 
   /**
    * Open tasks the signed-in employee sees (no deadline or one ahead):
