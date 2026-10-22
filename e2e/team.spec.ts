@@ -44,7 +44,7 @@ test.describe('Team and the employee page', () => {
     // A team's details: its manager's score, no backlog (hours of different people are not added up).
     await marinaTeam.getByRole('button', { name: /^(Подробнее и графики|Скрыть подробности)$/ }).click();
     await expect(team.getByText('Оценка руководителя')).toBeVisible();
-    await expect(team.getByText(/^Бэклог группы не считается/)).toBeVisible();
+    await expect(team.getByText(/^Бэклог группы не показывается/)).toBeVisible();
     await marinaTeam.getByRole('button', { name: /^(Подробнее и графики|Скрыть подробности)$/ }).click();
 
     // The team's tick picks all of it; a tick adds one more person.

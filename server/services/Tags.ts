@@ -237,9 +237,8 @@ const SUMMARY_PAGE = 20;
 /** How far back a range may start: two years. */
 const FURTHEST = 730;
 const Count = z.object({ n: z.number() });
-const SummaryRow = TagStatsRow.omit({ group: true, tags: true, share: true }).extend({ tagId: z.number().nullable() });
+const SummaryRow = TagStatsRow.omit({ group: true, tags: true }).extend({ tagId: z.number().nullable() });
 const Range = z.object({ from: z.string(), to: z.string() });
-const ShareRow = z.object({ key: z.string(), share: z.number().nullable() });
 
 /** From `since` to today in the viewer's time zone; a day in the future is today, one too far back is two years ago. */
 export async function untilToday(viewerId: number, since: string): Promise<{ from: string; to: string }> {
@@ -316,6 +315,9 @@ const figures = () => sql`
   count(*) FILTER (WHERE m.closed_in OR m.touched)::int AS active,
   COALESCE(sum(m.comments), 0)::int AS comments,
   count(*) FILTER (WHERE m.comments > 0)::int AS discussed,
+  (SELECT COALESCE(sum(sp.value), 0) FROM sp WHERE sp.task_id = ANY(array_agg(m.id)))::int AS minutes,
+  (SELECT COALESCE(sum(e.value), 0) FROM estimate_minutes e
+    WHERE e.expired_at IS NULL AND e.task_id = ANY(array_agg(m.id) FILTER (WHERE m.open)))::int AS left_minutes,
   (SELECT count(DISTINCT tp.person) FROM tp WHERE tp.task_id = ANY(array_agg(m.id)))::int AS people,
   (SELECT count(DISTINCT e."by") FROM estimate_minutes e
     WHERE e.expired_at IS NULL AND e.task_id = ANY(array_agg(m.id) FILTER (WHERE m.open)))::int AS planners,
@@ -329,8 +331,7 @@ function order(sort: TagSort) {
     case 'open': return sql`open DESC, active DESC`;
     case 'closed': return sql`finished + expired DESC, active DESC`;
     case 'comments': return sql`comments DESC, active DESC`;
-    case 'people': return sql`people DESC, active DESC`;
-    case 'planners': return sql`planners DESC, active DESC`;
+    case 'hours': return sql`minutes DESC, left_minutes DESC, active DESC`;
     case 'last': return sql`last_day DESC NULLS LAST, active DESC`;
   }
 }
@@ -342,7 +343,6 @@ function carrying(group: TagGroup, column = sql`tag_ids`) {
     : sql`${column} && ${group.tagIds}::int[]`;
 }
 
-const groupKey = (group: TagGroup) => (group.kind === 'tag' ? `t${group.tagId}` : group.kind);
 
 async function tagsByIds(viewerId: number, ids: number[]): Promise<Map<number, Tag>> {
   if (ids.length === 0) return new Map();
@@ -352,33 +352,6 @@ async function tagsByIds(viewerId: number, ids: number[]): Promise<Map<number, T
      WHERE t.id = ANY(${ids})
   `);
   return new Map(rows.map((t) => [t.id, t]));
-}
-
-/**
- * For each line, the average over the people who logged time under it of
- * the share of their own time logged in the range that went there — shares
- * of each one's own time, never hours added up (decision 38).
- */
-async function shares(viewerId: number, from: string, to: string, groups: TagGroup[]): Promise<Map<string, number | null>> {
-  if (groups.length === 0) return new Map();
-  const lines = groups.map((group) => sql`
-    SELECT ${groupKey(group)}::text AS key, sp."by", sum(sp.value) AS minutes
-      FROM sp JOIN v ON v.id = sp.task_id
-     WHERE ${carrying(group, sql`v.tag_ids`)}
-     GROUP BY sp."by"
-  `);
-  const union = lines.reduce((all, line) => sql`${all} UNION ALL ${line}`);
-  const rows = ShareRow.array().parse(await sql`
-    ${scope(viewerId, from, to)},
-    total AS (
-      SELECT s."by", sum(s.value) AS minutes FROM spent_minutes s
-       WHERE s.day BETWEEN ${from}::date AND ${to}::date GROUP BY s."by"
-    )
-    SELECT x.key, avg(x.minutes::float8 / NULLIF(total.minutes, 0))::float8 AS share
-      FROM (${union}) x JOIN total ON total."by" = x."by"
-     GROUP BY x.key
-  `);
-  return new Map(rows.map((r) => [r.key, r.share]));
 }
 
 /**
@@ -425,13 +398,10 @@ export async function stats(viewerId: number, input: TagStatsInput): Promise<z.i
       groups.push({ group, tagIds: input.tagIds, figures: row! });
     }
   }
-  const [tags, shareOf] = await Promise.all([
-    tagsByIds(viewerId, [...new Set(groups.flatMap((g) => g.tagIds))]),
-    shares(viewerId, from, to, groups.map((g) => g.group)),
-  ]);
+  const tags = await tagsByIds(viewerId, [...new Set(groups.flatMap((g) => g.tagIds))]);
   return {
     rows: groups.map(({ group, tagIds, figures: { tagId: _, ...rest } }) => ({
-      group, tags: tagIds.flatMap((id) => tags.get(id) ?? []), ...rest, share: shareOf.get(groupKey(group)) ?? null,
+      group, tags: tagIds.flatMap((id) => tags.get(id) ?? []), ...rest,
     })),
     total: count?.n ?? 0,
   };
@@ -446,7 +416,8 @@ const PersonDay = z.object({ employeeId: z.number(), day: z.string(), n: z.numbe
  * viewer sees: each person's own time and own plan of time left, day by
  * day, and with them the tasks they logged time to and the comments they
  * left, and the tasks their plan covered that day; the share of all they logged and their plan now —
- * most time first, never a total (decision 38).
+ * most time first; the client adds their hours up into the line's total
+ * (decision 68).
  */
 export async function detail(viewerId: number, input: TagDetailInput): Promise<TagDetail> {
   const { from, to } = await untilToday(viewerId, input.since);

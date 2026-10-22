@@ -33,8 +33,8 @@ type Pick = { checked: boolean; indeterminate?: boolean; onChange: (on: boolean)
  * unfolds into them and their people. Under the table, folded, my
  * dismissed reports, to bring back. Four columns that compare across rows; a click
  * on a row opens its details with charts. Ticks pick people for a line of
- * their own; a team's tick picks the whole team. Hours of different people
- * are never added up (decision 38); a team's score is its manager's.
+ * their own; a team's tick picks the whole team. People and teams are
+ * compared by shares, not hours (decision 68); a team's score is its manager's.
  */
 export default function () {
   const { t } = useTranslation();
@@ -111,7 +111,7 @@ export default function () {
   };
 
   // Payroll export: the picked people, or everyone; one row per person and per
-  // person-day — never a total of hours across people (decision 38).
+  // person-day: people are compared by shares, not by a total of hours (decision 68).
   const hours = (minutes: number) => Math.round((minutes / 60) * 100) / 100;
   const exported = picked.length ? picked : members;
   const name = (id: number) => employees.get(id)?.fullName ?? `#${id}`;

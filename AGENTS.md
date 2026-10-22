@@ -209,9 +209,11 @@ and a `matchPath` in `client/components/App.tsx`.
 - The interface and the product docs say "participant" for what the code,
   the API and `db.sql` call an observer (decision 63): the names inside
   stay, so bots' API and the schema do not change.
-- Hours of different people are never added up or weighted against each
-  other (decision 38): their worth differs and is a trade secret. Combine
-  shares of each person's own time, averages over people and counts.
+- Hours of a task or a tag add up: they measure the work, which barely
+  depends on who of those fit for it does it (decision 68). People and
+  teams are never compared by hours — by shares of each one's own time,
+  averages over people, scores and counts; "at risk" is each person's
+  plan against their own time.
 - Comments are never edited. After "Send" a comment stays in the
   interface for a few seconds with a "Back to editing" button and only
   then goes to the server.

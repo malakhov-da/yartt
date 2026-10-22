@@ -76,6 +76,12 @@ export default function (p: { task: TaskPage }) {
       <Typography variant="h3" sx={{ fontWeight: 600 }}>
         {p.task.isPublic ? t('task.people.visitors', { count: total }) : t('task.people.observers', { count: activeIds.size })}
       </Typography>
+      {/* The work the task took and has ahead: everyone's hours together (decision 68). */}
+      {people.data && (people.data.spentMinutes > 0 || people.data.leftMinutes > 0) && (
+        <Typography variant="body2" sx={{ color: 'text.secondary', mt: -0.75 }}>
+          {t('task.people.totals', { spent: format.minutes(people.data.spentMinutes), left: format.minutes(people.data.leftMinutes) })}
+        </Typography>
+      )}
 
       {leftOut.length > 0 && (
         <Alert

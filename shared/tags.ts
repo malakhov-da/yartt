@@ -73,7 +73,7 @@ export type TagGroup = z.infer<typeof TagGroup>;
 export const Since = z.iso.date();
 
 /** What the lines are sorted by, the largest (or the latest) first. */
-export const TagSort = z.enum(['active', 'open', 'closed', 'comments', 'people', 'planners', 'last']);
+export const TagSort = z.enum(['active', 'open', 'closed', 'comments', 'hours', 'last']);
 export type TagSort = z.infer<typeof TagSort>;
 
 export const TagStatsInput = z.object({
@@ -110,14 +110,12 @@ export const TagStatsRow = z.object({
   comments: z.number().int(),
   /** Tasks commented on in the range. */
   discussed: z.number().int(),
+  /** Time logged to its tasks in the range, everyone's together: the work it took (decision 68). */
+  minutes: z.number().int(),
+  /** Time left in everyone's plans on its open tasks now: the work still ahead. */
+  leftMinutes: z.number().int(),
   /** People who commented or logged time in the range. */
   people: z.number().int(),
-  /**
-   * Of those who logged time under it, the average share of their own time
-   * logged in the range that went here, 0..1 — an average over people,
-   * never hours added up (decision 38); NULL — nobody logged time.
-   */
-  share: z.number().nullable(),
   /** People with a plan of time left on its open tasks now. */
   planners: z.number().int(),
   /** The last day anything happened on its tasks, ever: a comment, time logged, a closing; NULL — never. */
@@ -135,7 +133,7 @@ export type TagStats = z.infer<typeof TagStats>;
 export const TagDetailInput = z.object({ since: Since, group: TagGroup });
 export type TagDetailInput = z.infer<typeof TagDetailInput>;
 
-/** One person under a line: their own time, share and plan — never added up with anyone's (decision 38). */
+/** One person under a line: their own time, its share of all they logged, and their plan. */
 export const TagPerson = z.object({
   employeeId: Id,
   /** Time they logged to the tasks under it in the range. */

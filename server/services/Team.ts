@@ -190,7 +190,7 @@ async function delaysByDay(ids: number[], from: string, to: string): Promise<z.i
  * reports, direct ones first — without those invited after the range or
  * dismissed before it — for a range of their days — workload and
  * score, days waiting for a score, tasks closed by hand and automatically
- * (decision 32). Nobody's hours are added up (decision 38).
+ * (decision 32). People are compared by shares, not hours (decision 68).
  */
 export async function summary(viewerId: number, from: string, to: string): Promise<Member[]> {
   const rows = MemberRow.array().parse(await sql`

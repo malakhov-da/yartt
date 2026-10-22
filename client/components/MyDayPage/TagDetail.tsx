@@ -1,5 +1,6 @@
 import { MailOutline } from '@mui/icons-material';
 import { Box, Button, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,10 +19,9 @@ const SHOWN = 5;
 export const percent = (share: number | null) => (share === null ? '—' : `${Math.round(share * 100)}%`);
 
 /**
- * A line of Tags unfolded (decision 58): each person's own time logged day
- * by day, then each one's own plan of time left at the end of each day —
- * a line each, never stacked: hours of different people are not added up
- * (decision 38). In the tooltip of a day each person's value comes with
+ * A line of Tags unfolded (decision 58): time logged day by day, then the
+ * plan of time left at the end of each day — everyone's together, the work
+ * the tag takes (decision 68), and each person's own line. In the tooltip of a day each person's value comes with
  * its detail: in how many tasks, and ✉ the comments they left; the share
  * stays in the legend, being the whole range's. The table under them: each one's time,
  * share of their own time, plan now and comments.
@@ -30,6 +30,8 @@ export default function (p: { group: TagGroup; since: string }) {
   const { t } = useTranslation();
   const trpc = useTRPC();
   const format = useFormat();
+  const theme = useTheme();
+  const palette = (theme.vars ?? theme).palette;
   const employees = useEmployees();
   const detail = useQuery(trpc.Tags.detail.queryOptions({ since: p.since, group: p.group }));
   const [all, setAll] = useState(false);
@@ -56,6 +58,14 @@ export default function (p: { group: TagGroup; since: string }) {
   const planned = lines((person) => person.planned, (person) => name(person.employeeId), (person) => [
     { values: person.plannedTasks, render: inTasks, peak: true },
   ]);
+  // Everyone's together first: the work of the day, then who did it (decision 68).
+  const sumOf = (values: (person: TagPerson) => number[]) =>
+    data.days.map((_, i) => data.persons.reduce((sum, person) => sum + (values(person)[i] ?? 0), 0));
+  const total = (values: (person: TagPerson) => number[]) =>
+    ({ id: 'total', label: t('tagStats.detail.total'), color: palette.text.primary, values: sumOf(values) });
+  const spentLines = spent.length ? [total((person) => person.daily), ...spent] : [];
+  const plannedLines = planned.length ? [total((person) => person.planned), ...planned] : [];
+  const sum = (pick: (person: TagPerson) => number) => data.persons.reduce((acc, person) => acc + pick(person), 0);
   const hours = (v: number) => format.minutes(Math.round(v));
   const axis = (v: number) => format.minutes(v >= 60 ? Math.round(v / 60) * 60 : Math.round(v));
   const heading = (title: string, hint: string) => (
@@ -70,13 +80,13 @@ export default function (p: { group: TagGroup; since: string }) {
       <Box>
         {heading(t('tagStats.detail.time'), t('tagStats.detail.timeHint'))}
         {spent.length > 0
-          ? <TeamChart days={data.days} format={hours} axisFormat={axis} series={spent} />
+          ? <TeamChart days={data.days} format={hours} axisFormat={axis} series={spentLines} />
           : <Typography variant="caption" sx={{ color: 'text.disabled' }}>{t('tagStats.detail.noTime')}</Typography>}
       </Box>
       <Box>
         {heading(t('tagStats.detail.plan'), t('tagStats.detail.planChartHint'))}
         {planned.length > 0
-          ? <TeamChart days={data.days} format={hours} axisFormat={axis} series={planned} />
+          ? <TeamChart days={data.days} format={hours} axisFormat={axis} series={plannedLines} />
           : <Typography variant="caption" sx={{ color: 'text.disabled' }}>{t('tagStats.detail.noPlan')}</Typography>}
       </Box>
       {data.persons.length > SHOWN && (
@@ -117,6 +127,13 @@ export default function (p: { group: TagGroup; since: string }) {
               <TableCell align="right">{person.comments}</TableCell>
             </TableRow>
           ))}
+          <TableRow sx={{ '& td': { fontWeight: 600 } }}>
+            <TableCell>{t('tagStats.detail.total')}</TableCell>
+            <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>{format.minutes(sum((person) => person.minutes))}</TableCell>
+            <TableCell align="right" />
+            <TableCell align="right">{format.minutes(sum((person) => person.leftMinutes ?? 0))}</TableCell>
+            <TableCell align="right">{sum((person) => person.comments)}</TableCell>
+          </TableRow>
         </TableBody>
       </Table>
     </Stack>

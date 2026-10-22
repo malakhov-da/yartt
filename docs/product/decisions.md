@@ -426,7 +426,7 @@ again.
 `trg_spent_minutes_check()`, `trg_score_check()` in `db.sql`;
 `Work.update`, `Work.remove`, `Team.unscore`.
 
-### 38. Hours of different people are never added up
+### 38. Hours of different people are never added up — changed by 68
 
 An hour of one person is not an hour of another: what each hour is worth
 — pay, grade, contract — differs, and the company keeps it to itself, so
@@ -1103,4 +1103,38 @@ mine to do, except to nudge or to withdraw.
 
 *Implemented:* `MyDay.waiting` in `server/services/MyDay.ts`;
 `client/components/MyDayPage/Waiting.tsx`.
+
+### 68. Hours of a task or a tag add up: they measure the work, not the people
+
+Decision 38 kept every hour with its person: the hours of different
+people were never added up, so a tag could only say how many people
+worked on it and an average share of their time — which told little: one
+person wholly in a tag and another who looked in for an hour averaged
+into a number that meant neither.
+
+The work, though, does not depend much on who does it. When tasks go to
+people by their level — the simple ones to juniors, the hard ones to
+seniors — a task takes about the same time whoever of those fit for it
+does it. So the hours logged to a task or a tag, and the hours left in
+everyone's plans, measure the work itself: how much the tag took and how
+much it has ahead. They add up.
+
+What they do not measure is people. A person who logs more hours is not
+doing more: they may be slower, or padding. So people and teams are
+still compared by their own shares — time in tasks as a share of each
+one's timesheet, scores, counts — and a team's line in My team shows no
+sum of hours. "At risk" is still each person's plan against their own
+working time: a total plan against a total of time would hide one
+overloaded person behind a free one.
+
+Now a task shows everyone's time together — spent and left — on its
+page and in its hint; a tag's line has one column "Hours", logged in the
+range → left in plans, with how many people worked and plan, instead of
+the people, the planners and the average share; its charts have a line
+for everyone together over each person's; the CSV has a total per tag.
+Each person's own share of their time stays where it says something:
+next to them, in a tag's details.
+
+*Implemented:* `TagStatsRow.minutes`, `.leftMinutes`; `People.spentMinutes`,
+`.leftMinutes`; `TaskHint`, `TagStats`, `TagDetail`.
 

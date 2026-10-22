@@ -91,7 +91,11 @@ export async function list(viewerId: number, taskId: number, page: number): Prom
      WHERE task_id = ${taskId} AND added_at IS NULL AND deleted_at IS NULL
      ORDER BY id
   `);
-  return { requests, items, total: rows[0]?.total ?? 0 };
+  const [sums] = z.object({ spentMinutes: z.number(), leftMinutes: z.number() }).array().parse(await sql`
+    SELECT (SELECT COALESCE(sum(value), 0) FROM spent_minutes WHERE task_id = ${taskId})::int AS spent_minutes,
+           (SELECT COALESCE(sum(value), 0) FROM estimate_minutes WHERE task_id = ${taskId} AND expired_at IS NULL)::int AS left_minutes
+  `);
+  return { requests, items, total: rows[0]?.total ?? 0, ...sums! };
 }
 
 /** Whom a comment may mention: a private task's active participants, or anyone in a public one. */

@@ -1,8 +1,8 @@
 import type { Member } from '#shared/team.ts';
 
 // The numbers of a row of My team: one person, a manager's team or the
-// picked people. Hours of different people are never added up (decision
-// 38): counts add up, shares and delays are averaged over people, and a
+// picked people. People and teams are compared by shares, not hours
+// (decision 68): counts add up, shares and delays are averaged over people, and a
 // team's score is its manager's.
 
 export const DELAYS = ['record', 'reply', 'scoreWait'] as const;

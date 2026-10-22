@@ -9,6 +9,7 @@ const TaskEmployee = z.object({ taskId: Id, employeeId: Id });
 export default router({
   /**
    * People of a task with their time and observation periods, 10 per page,
+   * and everyone's time on it together — logged and left (decision 68),
    * by last visit; access requests on top. A private task lists everyone
    * who ever observed it, a public one everyone who opened it or logged time.
    * @throws no_access

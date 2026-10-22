@@ -16,7 +16,7 @@ import HelpTip from '../App/HelpTip.tsx';
 import SincePicker, { lastDays } from '../App/SincePicker.tsx';
 import TagChip from '../App/TagChip.tsx';
 import TagInput from '../App/TagInput.tsx';
-import TagDetail, { percent } from './TagDetail.tsx';
+import TagDetail from './TagDetail.tsx';
 
 const PAGE_SIZE = 20;
 const key = (group: TagGroup) => (group.kind === 'tag' ? `t${group.tagId}` : `${group.kind}${group.tagIds.join(',')}`);
@@ -27,8 +27,9 @@ const key = (group: TagGroup) => (group.kind === 'tag' ? `t${group.tagId}` : `${
  * only people's doing, not bots'.
  * Without a search every rubric, the most active first, with pages; with
  * tags picked — those, and for two or more all of them together and any of
- * them. A line unfolds into charts of its people (TagDetail) — each one's
- * own time and plan day by day, never a total (decision 38) — and
+ * them. A line's hours are everyone's together — the work the tag took
+ * and has ahead (decision 68). It unfolds into charts of its people
+ * (TagDetail) — the total and each one's time and plan day by day — and
  * everything shown goes out as CSV. What a figure means is under a "?".
  */
 export default function () {
@@ -97,7 +98,7 @@ export default function () {
   );
   const wide = { display: { xs: 'none', sm: 'table-cell' } };
 
-  // Every line shown and its people, one row per person and line: no total of anyone's hours.
+  // Every line shown: its total, then its people, one row per person (decision 68).
   const hours = (minutes: number | null) => (minutes === null ? null : Math.round((minutes / 60) * 100) / 100);
   const exportCsv = async () => {
     const head: Cell[] = [
@@ -107,6 +108,9 @@ export default function () {
     const lines: Cell[][] = [head];
     for (const row of rows) {
       const detail = await queryClient.fetchQuery(trpc.Tags.detail.queryOptions({ since, group: row.group }));
+      lines.push([
+        label(row), t('tagStats.export.total'), hours(row.minutes), null, hours(row.leftMinutes), row.comments,
+      ]);
       for (const person of detail.persons) {
         lines.push([
           label(row), name(person.employeeId), hours(person.minutes),
@@ -156,8 +160,7 @@ export default function () {
                 {head('open', t('tagStats.open'), t('tagStats.openHint'))}
                 {head('closed', t('tagStats.closed'), t('tagStats.closedHint'), true)}
                 {head('comments', <MailOutline sx={{ fontSize: 18 }} aria-label={t('tagStats.comments')} />, t('tagStats.commentsHint'), true)}
-                {head('people', t('tagStats.people'), t('tagStats.peopleHint'), true)}
-                {head('planners', t('tagStats.planners'), t('tagStats.plannersHint'), true)}
+                {head('hours', t('tagStats.hours'), t('tagStats.hoursHint'))}
                 {head('last', t('tagStats.last'), t('tagStats.lastHint'), true)}
               </TableRow>
             </TableHead>
@@ -200,11 +203,12 @@ export default function () {
                         {row.comments}
                         {row.discussed > 0 && note(t('tagStats.discussed', { count: row.discussed }))}
                       </TableCell>
-                      <TableCell align="right" sx={wide}>
-                        {row.people}
-                        {row.share !== null && note(t('tagStats.shareNote', { share: percent(row.share) }))}
+                      <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                        {row.minutes + row.leftMinutes === 0
+                          ? '—'
+                          : t('tagStats.hoursValue', { spent: format.minutes(row.minutes), left: format.minutes(row.leftMinutes) })}
+                        {note(t('tagStats.hoursNote', { people: row.people, planners: row.planners }), false, true)}
                       </TableCell>
-                      <TableCell align="right" sx={wide}>{row.planners}</TableCell>
                       <TableCell align="right" sx={{ ...wide, whiteSpace: 'nowrap' }}>{ago(row.lastDay)}</TableCell>
                     </TableRow>
                     <TableRow>

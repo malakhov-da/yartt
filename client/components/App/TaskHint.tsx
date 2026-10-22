@@ -44,6 +44,16 @@ function Preview(p: { taskId: number }) {
                 <td style={{ opacity: 0.8 }}>{person.leftMinutes !== null ? t('taskHint.left', { time: format.minutes(person.leftMinutes) }) : ''}</td>
               </tr>
             ))}
+            {/* Everyone's together: the work the task took and has ahead (decision 68). */}
+            {data.people.length > 1 && (
+              <tr style={{ fontWeight: 600 }}>
+                <td>{t('taskHint.total')}</td>
+                <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                  {format.minutes(data.people.reduce((sum, x) => sum + x.spentMinutes, 0))}
+                </td>
+                <td>{t('taskHint.left', { time: format.minutes(data.people.reduce((sum, x) => sum + (x.leftMinutes ?? 0), 0)) })}</td>
+              </tr>
+            )}
           </tbody>
         </Box>
       )}
@@ -53,8 +63,8 @@ function Preview(p: { taskId: number }) {
 
 /**
  * The hint over a task in any list: its context and each person's time
- * logged and left on it — one's own and everyone else's, never a total
- * (decision 38). Fetched when it opens, after a moment's hover.
+ * logged and left on it — one's own and everyone else's — and, for two or
+ * more, everyone's together (decision 68). Fetched when it opens, after a moment's hover.
  */
 export default function (p: { taskId: number; children: ReactElement }) {
   return (

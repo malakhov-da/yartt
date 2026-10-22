@@ -193,18 +193,18 @@ describe('tag summary', () => {
     const summary = await api.Tags.stats({ since: today, tagIds: ids, page: 1 });
     const line = (kind: string, name?: string) => summary.rows.find((r) => r.group.kind === kind && (!name || r.tags[0]!.name === name))!;
     // The hidden task of a stranger is not counted: only what I see (dev's tasks, through the manager chain).
-    // The dev logged 90 minutes, all of them under a (and under b): their whole time, share 1.
+    // The dev logged 90 minutes under a (and under b): the line's hours are everyone's together.
     expect(line('tag', a)).toMatchObject({
-      open: 1, stale: 0, finished: 1, expired: 0, active: 2, comments: 1, discussed: 1, people: 1, share: 1, planners: 0, lastDay: today,
+      open: 1, stale: 0, finished: 1, expired: 0, active: 2, comments: 1, discussed: 1, minutes: 90, leftMinutes: 0, people: 1, planners: 0, lastDay: today,
     });
-    expect(line('tag', b)).toMatchObject({ open: 1, finished: 0, active: 1, comments: 0, discussed: 0, people: 1, share: 1 });
+    expect(line('tag', b)).toMatchObject({ open: 1, finished: 0, active: 1, comments: 0, discussed: 0, minutes: 90, people: 1 });
     expect(line('all')).toMatchObject({ open: 1, finished: 0 });
     expect(line('any')).toMatchObject({ open: 1, finished: 1 });
 
     // Unpicked: rubrics only — the phrases of one task are not lines.
     const all = await api.Tags.stats({ since: today, tagIds: [], page: 1 });
     // Any column sorts, the largest (the latest) first.
-    for (const sort of ['open', 'closed', 'comments', 'people', 'planners', 'last'] as const) {
+    for (const sort of ['open', 'closed', 'comments', 'hours', 'last'] as const) {
       const sorted = await api.Tags.stats({ since: today, tagIds: ids, page: 1, sort });
       expect(sorted.rows.filter((r) => r.group.kind === 'tag')).toHaveLength(2);
     }
@@ -220,6 +220,6 @@ describe('tag summary', () => {
       employeeId: dev.id, minutes: 90, share: 1, leftMinutes: 120, comments: 1,
       daily: [90], dailyTasks: [1], dailyComments: [1], planned: [120], plannedTasks: [1],
     }]);
-    expect((await api.Tags.stats({ since: today, tagIds: ids, page: 1 })).rows[0]).toMatchObject({ planners: 1 });
+    expect((await api.Tags.stats({ since: today, tagIds: ids, page: 1 })).rows[0]).toMatchObject({ planners: 1, leftMinutes: 120 });
   });
 });

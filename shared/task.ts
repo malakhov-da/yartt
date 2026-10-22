@@ -88,7 +88,7 @@ export type TaskPage = z.infer<typeof TaskPage>;
 
 /**
  * A task at a glance, for the hint over it in any list: its context and
- * each person's time on it — their own, never a total (decision 38).
+ * each person's time on it; the hint adds them up into the task's total (decision 68).
  * Empty when the viewer does not see the task: only its header is public.
  */
 export const TaskPreview = z.object({

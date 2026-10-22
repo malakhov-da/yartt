@@ -76,14 +76,14 @@ someone with reports:
   under each tag from any day to today (the last 7, 30, 90 or 365 days
   in a click), on the tasks I see — open now, at risk and not moving;
   closed, by hand and by deadline; comments and in how many tasks;
-  people and the average share of their own time; who plans time on it
-  now; when it last moved. Sorted by a column, shown by its arrow — by
+  hours logged in the range → hours left in plans, everyone's together,
+  with how many people worked and plan (decision 68); when it last moved. Sorted by a column, shown by its arrow — by
 default "In work", the tasks with a comment, time or a closing in the
 range; a click on another heading sorts by it — or the tags
   picked in its search with all of them together and any of them. "?"
   by the title and each column says what it means. A line unfolds into
-  two charts by day, a line per person — time logged and plan of time
-  left; the tooltip of a day puts next to each person's time the tasks and ✉
+  two charts by day, everyone together and a line per person — time
+  logged and plan of time left; the tooltip of a day puts next to each person's time the tasks and ✉
   comments behind it, and next to their plan the tasks it covers — and a table of people; CSV export (decision 58).
 - **Timesheet** ("My days" before: next to "My day" the two were
   confused) — today and the last day before it with activity (on
@@ -293,7 +293,7 @@ manager is part of it, so it unfolds into them first, then their people,
 with their own teams folded the same way. A team's line combines its
 manager and everyone under them: counts add up, shares and delays are
 averaged over people, its score is its manager's, its backlog is not
-shown (hours are never added up — decision 38). Only people who were
+shown (people and teams are compared by shares, not hours — decision 68). Only people who were
 there in the range are shown: not someone invited after it or dismissed
 before it.
 

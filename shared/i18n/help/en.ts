@@ -282,9 +282,11 @@ export const helpEn: Help = {
         + 'decisions: were the priorities right. A task may fail while the scores are good — then the plans are the problem, not the person.',
     },
     {
-      q: 'Why are hours of different people never added up?',
-      a: "Different people's hours cost differently, and that is a trade secret. So you see shares of each person's own time, "
-        + 'averages over people and counts — never the total hours of a team or a tag.',
+      q: 'Why do a task\'s hours add up, while people are not compared by hours?',
+      a: 'Hours on a task or a tag are the amount of work: when tasks go by level — the simple ones to juniors, the hard ones to seniors — '
+        + 'a task takes about the same time whoever fit for it does it. So a task and a tag show how much was logged in all and how much '
+        + 'is still planned. People are not compared by hours: more hours is not more done. My team shows shares of each one\'s own time, '
+        + 'scores and counts.',
     },
     {
       q: 'Why does my manager see my visits?',

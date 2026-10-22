@@ -51,6 +51,10 @@ export const People = z.object({
    */
   items: Person.array(),
   total: z.number().int(),
+  /** Everyone's time logged to the task, all time: the work it took (decision 68). */
+  spentMinutes: z.number().int(),
+  /** Everyone's current time left on it: the work still ahead. */
+  leftMinutes: z.number().int(),
 });
 export type People = z.infer<typeof People>;
 
