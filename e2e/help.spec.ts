@@ -20,7 +20,7 @@ test.describe('the guide', () => {
     await page.reload();
     await expect(page.getByRole('heading', { name: 'How to work in yartt' })).toBeVisible();
     await page.getByRole('button', { name: 'Create a task' }).click();
-    await expect(page.getByText(/Press "\+" at the end of the field/)).toBeVisible();
+    await expect(page.getByText(/Press "New task" in the block/)).toBeVisible();
   });
 
   test('fits a phone', async ({ page }) => {

@@ -1,5 +1,5 @@
 import { Add, Search } from '@mui/icons-material';
-import { IconButton, InputAdornment, Pagination, Paper, Stack, Tab, Tabs, Tooltip, Typography } from '@mui/material';
+import { Button, InputAdornment, Pagination, Paper, Stack, Tab, Tabs, Tooltip, Typography } from '@mui/material';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -113,7 +113,22 @@ export default function () {
 
   return (
     <Paper component="section" aria-label={t('myDay.current.title')} sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
-      <Typography variant="h3" sx={{ fontWeight: 600 }}>{t('myDay.current.title')}</Typography>
+      <Stack direction="row" sx={{ alignItems: 'center', gap: 1 }}>
+        <Typography variant="h3" sx={{ fontWeight: 600, flexGrow: 1 }}>{t('myDay.current.title')}</Typography>
+        {/* A button with a word, not a bare "+" in the field: creating is half of what this block is for. */}
+        <Tooltip title={createHint}>
+          <span>
+            <Button
+              size="small"
+              startIcon={<Add />}
+              disabled={!canCreate}
+              onClick={() => void navigate('/tasks/new', { state: { parts: title.parts } })}
+            >
+              {t('newTask.title')}
+            </Button>
+          </span>
+        </Tooltip>
+      </Stack>
       <TagInput
         value={tags.map((tag) => ({ tag }))}
         onChange={(next) => filter({ tags: next.flatMap((part) => ('tag' in part ? [part.tag] : [])) })}
@@ -122,20 +137,6 @@ export default function () {
         placeholder={t('search.placeholder')}
         inputRef={inputRef}
         startAdornment={<InputAdornment position="start"><Search fontSize="small" /></InputAdornment>}
-        endAdornment={(
-          <Tooltip title={createHint}>
-            <span>
-              <IconButton
-                size="small"
-                aria-label={t('newTask.title')}
-                disabled={!canCreate}
-                onClick={() => void navigate('/tasks/new', { state: { parts: title.parts } })}
-              >
-                <Add fontSize="small" />
-              </IconButton>
-            </span>
-          </Tooltip>
-        )}
         sx={{ mt: 0.5 }}
       />
       {title.taken && (

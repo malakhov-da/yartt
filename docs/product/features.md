@@ -30,7 +30,7 @@ persona goal it serves. Status: **now** — stage one, **next** — stage two,
 | "No intervention needed": the owner confirms nothing waits for them; new comments since then put the task back in TODO | Marina: know what changed since she last looked | now (done) |
 | Transfer ownership (owner or their manager) | Marina: hand over without losing history | now (done) |
 | Take an ownerless task | Pavel: pick up what nobody owns | now (done) |
-| Search by tags — in My day, filtering Current tasks; "+" creates a task with the title typed; a taken title is named as it is typed; a new tag only by its button, the whole phrase one tag | everyone: find a task in seconds, and never make a tag by accident | now (done) |
+| Search by tags — in My day, filtering Current tasks; "New task" over it creates a task with the title typed; a taken title is named as it is typed; a new tag only by its button, the whole phrase one tag | everyone: find a task in seconds, and never make a tag by accident | now (done) |
 | Closed tasks in a tab of their own, the most recently closed first; the search finds them there | everyone: see what was just finished without losing it | now (done) |
 | A task hovered in any list shows its context and each person's time logged and left | everyone: know what a task is and what it took without opening it | now (done) |
 | One time entry per task and day: set and replaced, 0 removes it, the last change on hover; the same entry from the timesheet and the task | Pavel: correct the day's time without adding and deleting entries | now (done) |

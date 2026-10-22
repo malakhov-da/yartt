@@ -67,7 +67,7 @@ someone with reports:
   pages. For a director "others" is hundreds of tasks — pages keep it
   usable, the search on top narrows it (3). Public tasks of others are in
   "others" for everyone: there should be few of them (decision 14).
-  "+" in the search opens a new task (2a). A task whose
+  "New task" in its title row opens a new task with what the search holds (2a). A task whose
   plan does not fit before its deadline, or that waits for a task due too
   late or delays one waiting for it, says "At risk", the reasons on hover
   (decisions 40, 66).
@@ -231,8 +231,8 @@ participants, with pages.
 
 ## 2a. New task — "what is there to do?"
 
-A form over My day (`/tasks/new`), opened by "+" in the search of Current
-tasks or of a task's dependencies, with the title typed there, or by "New
+A form over My day (`/tasks/new`), opened by "New task" over the search of Current
+tasks, by "+" in the search of a task's dependencies, with the title typed there, or by "New
 task" under a dependency. The title is the tags, typed as in Find (decision
 55): typos forgiven, several words offered as ready sets of tags. A tag is
 never made by Enter: a new one is the "New tag «…»" button under the field
@@ -253,8 +253,9 @@ One input at the top of Current tasks in My day; `/` anywhere (a task
 page too) brings My day back and focuses it. It finds by tags only.
 Typing suggests tags — despite typos, transliteration or the wrong
 layout, and several words as ready sets of tags (decision 33); Enter
-takes the best one. A tag nobody has finds nothing, but "+" at the end of
-the field opens a new task with the title as typed: the picked tags and
+takes the best one. A tag nobody has finds nothing, but "New task" in the
+title row of the block — a button with a word, not a bare "+" in the
+field — opens a new task with the title as typed: the picked tags and
 the rest as a new tag (decision 55); it waits while a tag spelled so is
 not picked, and when a task has that title already the field names it
 with a link. Picked tags narrow the tabs to the tasks carrying all of

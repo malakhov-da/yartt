@@ -78,7 +78,7 @@ export const helpEn: Help = {
       title: 'Create a task',
       steps: [
         'In the search of Current tasks, pick tags from the suggestions and type what is to be done.',
-        'Press "+" at the end of the field: a new task opens and the text typed becomes a new tag — dashed until the task is saved. '
+        'Press "New task" in the block\'s title row: a new task opens and the text typed becomes a new tag — dashed until the task is saved. '
           + 'Add a priority, a deadline and a description.',
         'A follow-up task is created from the page of the original, under "Waits for" or "Waited on by": it gets its tags, '
           + 'and you add what is specific.',
