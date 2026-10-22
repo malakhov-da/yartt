@@ -85,7 +85,7 @@ test.describe('My day', () => {
 });
 
 test.describe('a task', () => {
-  test('the owner edits tags in place; clears the deadline; a deadline constraint that does not fit is explained', async ({ page }) => {
+  test('the owner edits tags in place; clears the deadline; a latest deadline the other task misses puts mine at risk', async ({ page }) => {
     await signIn(page, 'olga@example.com');
     const tag = unique('if');
     await createTask(page, [tag]);
@@ -100,17 +100,26 @@ test.describe('a task', () => {
     await page.getByRole('button', { name: 'Убрать дедлайн' }).click();
     await expect(page.getByLabel('Дедлайн')).toHaveValue('');
 
-    // A dependency on the site with a deadline constraint (deadline in a few days) while mine is a year ahead is fine;
-    // a lag of a year is not.
+    // The site is due in a few days, but I need it by tomorrow: allowed, and both are at risk.
     await page.getByLabel('Дедлайн').fill(`${new Date().getFullYear() + 1}-01-10T12:00`);
     const site = await taskId('сайт', 'новая главная к осенней кампании');
     await page.getByRole('button', { name: 'Добавить' }).first().click();
     await page.getByLabel('Найти задачу: теги или номер').fill(`#${site}`);
     await page.getByRole('button', { name: `Выбрать задачу #${site}` }).click();
-    await page.getByRole('checkbox', { name: 'Ограничить дедлайн' }).check();
-    await page.getByLabel('Не раньше чем через').fill('400д');
+    await expect(page.getByText(`Без крайнего дедлайна видно только, что #`)).toBeVisible();
+    await page.getByRole('checkbox', { name: 'Указать крайний дедлайн' }).check();
+    const tomorrow = new Date(Date.now() + 86_400_000);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    await page.getByLabel(`Крайний дедлайн #${site}`)
+      .fill(`${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}T12:00`);
+    await expect(page.getByText(/обе задачи будут под угрозой/)).toBeVisible();
     await page.getByRole('button', { name: 'Сохранить' }).click();
-    await expect(page.getByText(/Дедлайны не сходятся с ограничением зависимости|Проверьте поля/)).toBeVisible();
+    await expect(page.getByText(/^нужна до /)).toBeVisible();
+    await page.getByText(/^нужна до /).hover();
+    await expect(page.getByRole('tooltip').filter({ hasText: 'обе задачи под угрозой' })).toBeVisible();
+    await page.mouse.move(0, 0);
+    await page.getByText('Под угрозой').first().hover();
+    await expect(page.getByRole('tooltip').filter({ hasText: `Ждёт #${site}` })).toBeVisible();
   });
 
   test('a comment: back to editing restores it; Ctrl+Enter sends; a file and an image go with it', async ({ page }) => {

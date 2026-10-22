@@ -20,6 +20,8 @@ const HeaderRow = z.object({
   riskEmployeeId: z.number().nullable(),
   riskPlanned: z.number().nullable(),
   riskCapacity: z.number().nullable(),
+  late: z.number().array(),
+  delays: z.number().array(),
 });
 const Id = z.object({ id: z.number() });
 const Count = z.object({ n: z.number() });
@@ -34,7 +36,12 @@ export async function headers(viewerId: number, ids: number[], db: Sql = sql): P
   const rows = HeaderRow.array().parse(await db`
     SELECT k.id, ordered_tags(${viewerId}, k.tag_ids) AS tag_ids, k.priority, k.owner_id,
            f.value AS deadline, is_public(k.id) AS is_public,
-           r.employee_id AS risk_employee_id, r.planned_minutes AS risk_planned, r.capacity_minutes AS risk_capacity
+           r.employee_id AS risk_employee_id, r.planned_minutes AS risk_planned, r.capacity_minutes AS risk_capacity,
+           -- Broken latest deadlines around an open task: what it waits for is late, or it delays others.
+           ARRAY(SELECT d.value FROM dependency_risk(k.id) d
+                  WHERE d.task_id = k.id AND (f.value IS NULL OR f.value > NOW())) AS late,
+           ARRAY(SELECT d.task_id FROM dependency_risk(k.id) d
+                  WHERE d.value = k.id AND (f.value IS NULL OR f.value > NOW())) AS delays
       FROM task k
       LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
       LEFT JOIN LATERAL deadline_risk(k.id) r ON TRUE
@@ -140,7 +147,7 @@ async function tagIds(names: string[], db: Sql): Promise<number[]> {
 
 /**
  * A new private task owned by its creator; tags are created as needed.
- * Priority, deadline, context and one dependency without a deadline constraint come in the same
+ * Priority, deadline, context and one dependency without a latest deadline come in the same
  * transaction, under the same rules as changing them later.
  */
 export async function create(ownerId: number, input: CreateInput): Promise<number> {
@@ -156,8 +163,8 @@ export async function create(ownerId: number, input: CreateInput): Promise<numbe
     `);
     const id = row!.id;
     if (input.deadline) await db`SELECT set_finished_at(${id}, ${input.deadline})`;
-    if (input.waitsFor) await Dependencies.setIn(db, ownerId, { taskId: id, value: input.waitsFor, minMinutesAfter: null });
-    if (input.waitedOnBy) await Dependencies.setIn(db, ownerId, { taskId: input.waitedOnBy, value: id, minMinutesAfter: null });
+    if (input.waitsFor) await Dependencies.setIn(db, ownerId, { taskId: id, value: input.waitsFor, latestAt: null });
+    if (input.waitedOnBy) await Dependencies.setIn(db, ownerId, { taskId: input.waitedOnBy, value: id, latestAt: null });
     return id;
   });
 }
@@ -279,11 +286,11 @@ export async function makePrivate(actorId: number, taskId: number): Promise<numb
   return row?.ids ?? [];
 }
 
-const DependencyRow = z.object({ id: z.number(), minMinutesAfter: z.number().nullable() });
+const DependencyRow = z.object({ id: z.number(), latestAt: z.date().nullable() });
 
-async function dependencies(viewerId: number, rows: { id: number; minMinutesAfter: number | null }[]): Promise<Dependency[]> {
-  const byId = new Map(rows.map((r) => [r.id, r.minMinutesAfter]));
-  return (await headers(viewerId, rows.map((r) => r.id))).map((h) => ({ ...h, minMinutesAfter: byId.get(h.id) ?? null }));
+async function dependencies(viewerId: number, rows: { id: number; latestAt: Date | null }[]): Promise<Dependency[]> {
+  const byId = new Map(rows.map((r) => [r.id, r.latestAt]));
+  return (await headers(viewerId, rows.map((r) => r.id))).map((h) => ({ ...h, latestAt: byId.get(h.id) ?? null }));
 }
 
 const AccessRow = z.object({
@@ -332,10 +339,10 @@ export async function get(viewerId: number, taskId: number): Promise<TaskPage> {
      WHERE task_id = ${taskId} AND added_at IS NULL AND deleted_at IS NULL
   `);
   const waitsFor = DependencyRow.array().parse(await sql`
-    SELECT value AS id, min_minutes_after FROM dependency WHERE task_id = ${taskId}
+    SELECT value AS id, latest_at FROM dependency WHERE task_id = ${taskId}
   `);
   const waitedOnBy = DependencyRow.array().parse(await sql`
-    SELECT task_id AS id, min_minutes_after FROM dependency WHERE value = ${taskId}
+    SELECT task_id AS id, latest_at FROM dependency WHERE value = ${taskId}
   `);
 
   const details: TaskDetails = {

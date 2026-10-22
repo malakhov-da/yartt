@@ -290,7 +290,7 @@ function scope(viewerId: number, from: string, to: string) {
     m AS (
       SELECT v.id, v.tag_ids,
              (v.deadline IS NULL OR v.deadline > NOW()) AS open,
-             COALESCE(v.deadline > NOW() AND EXISTS (SELECT 1 FROM deadline_risk(v.id)), FALSE) AS at_risk,
+             at_risk(v.id) AS at_risk,
              COALESCE(v.deadline <= NOW() AND v.deadline >= r.since AND v.deadline < r.until, FALSE) AS closed_in,
              (v.deadline AT TIME ZONE r.time_zone)::date AS closed_day,
              COALESCE(v.deadline - v.entered_at > INTERVAL '1 minute', FALSE) AS auto,

@@ -67,7 +67,7 @@ export const Member = z.object({
   expired: z.number().int(),
   /** Their open tasks now. */
   openTasks: z.number().int(),
-  /** Of them, at risk: a plan does not fit before the deadline (db.sql, deadline_risk). */
+  /** Of them, at risk (db.sql, at_risk): a plan does not fit before the deadline, or a latest deadline around it is broken. */
   atRisk: z.number().int(),
   /**
    * How late the timesheet is written: the median of minutes between a

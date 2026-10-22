@@ -47,7 +47,6 @@ export const ERROR_CODES = [
 
   // dependencies and deadlines
   'dependency_cycle',
-  'hard_dependency_violated',
 
   // comments
   'unknown_attachment',

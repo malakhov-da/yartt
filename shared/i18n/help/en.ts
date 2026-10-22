@@ -34,8 +34,8 @@ export const helpEn: Help = {
     {
       title: 'Dependencies instead of subtasks',
       text: 'A follow-up task takes the tags of the one it came from and adds its own — no need to know in advance whether there will be '
-        + '"subtasks". "Waits for" is more flexible than a subtask: one task may be needed by several. A dependency may constrain '
-        + 'the deadline, and then what people promised each other is seen and kept in check.',
+        + '"subtasks". "Waits for" is more flexible than a subtask: one task may be needed by several. A dependency may carry '
+        + 'a latest deadline — any later and the waiting task will not make it — and then what people promised each other is seen and kept in check.',
     },
     {
       title: 'A deadline closes the task by itself',
@@ -112,10 +112,11 @@ export const helpEn: Help = {
       title: 'Link tasks',
       steps: [
         'On a task\'s page: "Waits for" — what it cannot be finished without; "Waited on by" — who needs it. A task is found by tags or number.',
-        'Without a constraint a dependency only shows that a task waits for another. "Constrain the deadline" with "No earlier than" '
-          + 'means: the deadline of the waiting task is no earlier than the given time after the deadline of the one it waits for. '
-          + 'Say 1d: once that one is done, the waiting one still has at least a day.',
-        'The task waited for must have a deadline. It can be moved later only after the waiting task\'s deadline is moved.',
+        'Without a latest deadline a dependency only shows that a task waits for another.',
+        '"Set a latest deadline" — a date and time the task waited for must not finish after, or yours will not make it. '
+          + 'The pencil on the dependency\'s line changes it.',
+        'Nothing is forbidden: if its deadline is later or not set, the dependency\'s line is highlighted and both tasks are "At risk" — '
+          + 'yours waits for a late one, that one delays yours. You are told of every move of its deadline.',
         'The owner of the task waited for is notified of a new dependency.',
       ],
     },
@@ -307,7 +308,9 @@ export const helpEn: Help = {
     },
     {
       q: 'What does "At risk" mean?',
-      a: "Someone's plan of time left does not fit into their working time before the deadline. Each person's time is compared with their own.",
+      a: "One of two. Someone's plan of time left does not fit into their working time before the deadline — each person's time is "
+        + 'compared with their own. Or a latest deadline of a dependency is broken: the task waits for one due later than it can live with, '
+        + 'or it delays a task waiting for it. The reasons are in the hint on the mark.',
     },
   ],
 };

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import type { TagPart } from '#shared/tags.ts';
 import type { Dependency, TaskDetails, TaskHeader, TaskPage } from '#shared/task.ts';
-import { parseMinutes, useFormat } from '#client/hooks/format.ts';
+import { fromLocalInput, toLocalInput, useFormat } from '#client/hooks/format.ts';
 import { useDraft } from '#client/hooks/drafts.ts';
 import { useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
@@ -24,19 +24,21 @@ type Draft = {
   picked: TaskHeader | null;
   parts: TagPart[];
   input: string;
-  /** Constrains the deadline: this task finishes no earlier than `lag` after the other. */
+  /** A latest deadline is set: the task waited for has to be done by `latest` (a datetime-local value). */
   limited: boolean;
-  lag: string;
+  latest: string;
   editing: number | null;
 };
 
 /**
  * "Waits for", then "Waited on by". The owner links a task this one waits
  * for — found by tags or number as in the search (decision 55), with or
- * without a deadline constraint (no earlier than a time after it) —
- * changes and removes it; anyone
+ * without the latest deadline of it this one can live with — changes and
+ * removes it; anyone
  * who sees this task makes one of their own wait for it. "+" in the search
- * opens the new-task form with the title typed, tied to this one.
+ * opens the new-task form with the title typed, tied to this one. A latest
+ * deadline forbids nothing: broken, it is marked on the line and puts both
+ * tasks at risk (decision 66).
  */
 export default function (p: { task: TaskPage & { details: TaskDetails } }) {
   const { t } = useTranslation();
@@ -46,29 +48,38 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
   const { task } = p;
   const isOwner = task.access === 'owner';
   const [draft, setDraft] = useDraft<Draft | null>(`link:${task.id}`, null);
-  const start = (waits: boolean) => setDraft({ waits, picked: null, parts: [], input: '', limited: false, lag: '1д', editing: null });
+  // A latest deadline to start from: the deadline of the task waited for, else the waiting one's, else a week ahead.
+  const suggest = (dependency: Date | null, dependent: Date | null) =>
+    toLocalInput(dependency ?? dependent ?? new Date(Date.now() + 7 * 86_400_000));
+  const start = (waits: boolean) => setDraft({ waits, picked: null, parts: [], input: '', limited: false, latest: '', editing: null });
   const set = useMutation(trpc.Dependency.set.mutationOptions({ onSuccess: () => { refresh(); setDraft(null); } }));
   const remove = useMutation(trpc.Dependency.remove.mutationOptions({ onSuccess: refresh }));
 
-  // Which deadline is constrained depends on the side: in "Waits for" this task's, in "Waited on by" the other's.
+  // In "Waits for" the line is the task waited for, this one waits; in "Waited on by" the other way round.
+  const sides = (dep: Dependency, waits: boolean) => (waits
+    ? { dependent: task, dependency: dep as TaskHeader }
+    : { dependent: dep as TaskHeader, dependency: task as TaskHeader });
+  const isOpen = (x: TaskHeader) => x.deadline === null || x.deadline > new Date();
+  // Broken: the waiting task is open, and the one waited for is due later than it can live with, or has no deadline.
+  const broken = (dep: Dependency, waits: boolean) => {
+    const { dependent, dependency } = sides(dep, waits);
+    return dep.latestAt !== null && isOpen(dependent) && (dependency.deadline === null || dependency.deadline > dep.latestAt);
+  };
   const note = (dep: Dependency, waits: boolean) =>
-    dep.minMinutesAfter === null ? undefined
-    : t(waits ? 'task.limitedMine' : 'task.limitedTheirs', {
-      lag: dep.minMinutesAfter === 0 ? '' : ` + ${format.minutes(dep.minMinutesAfter)}`,
-    });
+    dep.latestAt === null ? undefined : t(waits ? 'task.latestMine' : 'task.latestTheirs', { date: format.dateTime(dep.latestAt) });
   const hint = (dep: Dependency, waits: boolean) => {
-    if (dep.minMinutesAfter === null) return undefined;
-    // The deadline of the waiting task is no earlier than lag after the deadline of the one it waits for.
-    const ids = { dependent: waits ? task.id : dep.id, dependency: waits ? dep.id : task.id };
-    return dep.minMinutesAfter === 0 ? t('task.limitedHintNoLag', ids)
-      : t('task.limitedHint', { ...ids, lag: format.minutes(dep.minMinutesAfter) });
+    if (dep.latestAt === null) return undefined;
+    const { dependent, dependency } = sides(dep, waits);
+    const params = { dependent: dependent.id, dependency: dependency.id, date: format.dateTime(dep.latestAt) };
+    if (dependency.deadline === null) return t('task.latestHintNone', params);
+    return t(broken(dep, waits) ? 'task.latestHintLate' : 'task.latestHint', { ...params, deadline: format.dateTime(dependency.deadline) });
   };
 
-  const lag = draft?.limited ? parseMinutes(draft.lag, true) : null;
-  const valid = !!draft?.picked && draft.picked.id !== task.id && (!draft.limited || lag !== null);
+  const latest = draft?.limited ? fromLocalInput(draft.latest) : null;
+  const valid = !!draft?.picked && draft.picked.id !== task.id && (!draft.limited || latest !== null);
   const save = () => valid && set.mutate(draft!.waits
-    ? { taskId: task.id, value: draft!.picked!.id, minMinutesAfter: draft!.limited ? lag : null }
-    : { taskId: draft!.picked!.id, value: task.id, minMinutesAfter: draft!.limited ? lag : null });
+    ? { taskId: task.id, value: draft!.picked!.id, latestAt: draft!.limited ? latest : null }
+    : { taskId: draft!.picked!.id, value: task.id, latestAt: draft!.limited ? latest : null });
 
   const groups = [
     { title: t('task.waitsFor'), items: task.details.waitsFor, waits: true },
@@ -100,7 +111,7 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
           {g.items.map((dep) => (
             <Stack key={dep.id} direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
               <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                <TaskLine task={dep} note={note(dep, g.waits)} noteHint={hint(dep, g.waits)} />
+                <TaskLine task={dep} note={note(dep, g.waits)} noteHint={hint(dep, g.waits)} noteWarn={broken(dep, g.waits)} />
               </Box>
               {g.waits && isOwner && (
                 <>
@@ -110,8 +121,8 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
                       picked: dep,
                       parts: [],
                       input: '',
-                      limited: dep.minMinutesAfter !== null,
-                      lag: dep.minMinutesAfter === null ? '1д' : format.minutes(dep.minMinutesAfter),
+                      limited: dep.latestAt !== null,
+                      latest: dep.latestAt ? toLocalInput(dep.latestAt) : suggest(dep.deadline, task.deadline),
                       editing: dep.id,
                     })}>
                       <Edit fontSize="small" />
@@ -151,32 +162,35 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
                 )}
               </Box>
               <FormControlLabel
-                control={<Checkbox checked={draft.limited} onChange={(e) => setDraft({ ...draft, limited: e.target.checked })} />}
+                control={<Checkbox checked={draft.limited} onChange={(e) => setDraft({
+                  ...draft,
+                  limited: e.target.checked,
+                  latest: draft.latest || (draft.waits ? suggest(draft.picked!.deadline, task.deadline) : suggest(task.deadline, draft.picked!.deadline)),
+                })} />}
                 label={t('task.dependency.limit')}
               />
               {draft.limited && (
                 <TextField
+                  type="datetime-local"
                   size="small"
-                  label={t('task.dependency.lag')}
-                  value={draft.lag}
-                  onChange={(e) => setDraft({ ...draft, lag: e.target.value })}
+                  label={t('task.dependency.latest', { dependency: draft.waits ? draft.picked.id : task.id })}
+                  value={draft.latest}
+                  onChange={(e) => setDraft({ ...draft, latest: e.target.value })}
                   onKeyDown={(e) => { if (e.key === 'Enter') save(); }}
-                  error={lag === null}
-                  helperText={lag === null ? t('task.dependency.lagHint') : format.minutes(lag)}
-                  sx={{ width: 150 }}
+                  error={latest === null}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  sx={{ width: 240 }}
                 />
               )}
               <Button variant="contained" disabled={!valid || set.isPending} onClick={save}>{t('common.save')}</Button>
               <Button color="inherit" onClick={() => setDraft(null)}>{t('common.cancel')}</Button>
               <Typography variant="caption" sx={{ color: 'text.secondary', flexBasis: '100%' }}>
                 {(() => {
-                  // Spelled out with the numbers: the deadline of the waiting task against the one it waits for.
+                  // Spelled out with the numbers: which task is waited for, and which one would not make it.
                   const ids = draft.waits
                     ? { dependent: task.id, dependency: draft.picked!.id }
                     : { dependent: draft.picked!.id, dependency: task.id };
-                  if (!draft.limited) return t('task.dependency.freeHelp', ids);
-                  if (lag === null) return t('task.dependency.limitHelp', { ...ids, lag: '…' });
-                  return lag === 0 ? t('task.dependency.limitHelpNoLag', ids) : t('task.dependency.limitHelp', { ...ids, lag: format.minutes(lag) });
+                  return t(draft.limited ? 'task.dependency.limitHelp' : 'task.dependency.freeHelp', ids);
                 })()}
               </Typography>
             </Stack>

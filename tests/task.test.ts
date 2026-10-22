@@ -306,33 +306,40 @@ describe('feed events', () => {
 });
 
 describe('dependencies', () => {
-  test('the owner sets them with and without a deadline constraint; cycles and broken deadlines are refused; the other owner is told', async () => {
+  test('the owner sets them, with or without a latest deadline; cycles are refused; a broken latest deadline is a risk, not an error', async () => {
     const owner = await createEmployee();
     const other = await createEmployee();
     const stranger = await createEmployee();
     const id = await createTask(owner.id);
     const base = await createTask(other.id);
     const api = await client(owner.id);
+    const otherApi = await client(other.id);
+    const day = (n: number) => new Date(Date.now() + n * 86_400_000);
 
-    await expect((await client(stranger.id)).Dependency.set({ taskId: id, value: base, minMinutesAfter: null }))
+    await expect((await client(stranger.id)).Dependency.set({ taskId: id, value: base, latestAt: null }))
       .rejects.toMatchObject({ message: 'forbidden' });
-    await api.Dependency.set({ taskId: id, value: base, minMinutesAfter: null });
-    expect((await api.Task.get({ id })).details?.waitsFor).toMatchObject([{ id: base, minMinutesAfter: null }]);
-    expect(await notifications(other.id)).toContainEqual(expect.objectContaining({ kind: 'dependency_added', by: owner.id }));
+    await api.Dependency.set({ taskId: id, value: base, latestAt: null });
+    expect((await api.Task.get({ id })).details?.waitsFor).toMatchObject([{ id: base, latestAt: null, late: [], delays: [] }]);
+    expect(await notifications(other.id)).toContainEqual(expect.objectContaining({ kind: 'dependency_added', by: owner.id, hard: false }));
 
-    await expect((await client(other.id)).Dependency.set({ taskId: base, value: id, minMinutesAfter: null }))
+    await expect(otherApi.Dependency.set({ taskId: base, value: id, latestAt: null }))
       .rejects.toMatchObject({ message: 'dependency_cycle' });
-    await expect(api.Dependency.set({ taskId: id, value: id, minMinutesAfter: null })).rejects.toMatchObject({ message: 'dependency_cycle' });
+    await expect(api.Dependency.set({ taskId: id, value: id, latestAt: null })).rejects.toMatchObject({ message: 'dependency_cycle' });
 
-    // With a constraint: my deadline must be at least a day after theirs, and theirs must exist.
-    await api.Task.setDeadline({ id, deadline: new Date(Date.now() + 2 * 86_400_000) });
-    await expect(api.Dependency.set({ taskId: id, value: base, minMinutesAfter: 1440 }))
-      .rejects.toMatchObject({ message: 'hard_dependency_violated' });
-    await (await client(other.id)).Task.setDeadline({ id: base, deadline: new Date(Date.now() + 86_400_000 / 2) });
-    await api.Dependency.set({ taskId: id, value: base, minMinutesAfter: 1440 });
+    // I need theirs by tomorrow; they have no deadline: both at risk, nothing refused.
+    await api.Dependency.set({ taskId: id, value: base, latestAt: day(1) });
+    expect(await api.Task.get({ id })).toMatchObject({ late: [base], delays: [] });
+    expect(await api.Task.get({ id: base })).toMatchObject({ late: [], delays: [id] });
     expect((await api.Task.get({ id: base })).details).toBeNull(); // header only for me — I do not observe it
-    await expect((await client(other.id)).Task.setDeadline({ id: base, deadline: new Date(Date.now() + 3 * 86_400_000) }))
-      .rejects.toMatchObject({ message: 'hard_dependency_violated' });
+
+    // In time: no risk. Moved past it: allowed, both at risk again, and I am told it is late.
+    await otherApi.Task.setDeadline({ id: base, deadline: new Date(Date.now() + 86_400_000 / 2) });
+    expect(await api.Task.get({ id })).toMatchObject({ late: [], delays: [] });
+    await otherApi.Task.setDeadline({ id: base, deadline: day(3) });
+    expect(await api.Task.get({ id })).toMatchObject({ late: [base] });
+    expect((await notifications(owner.id)).at(-1)).toEqual({ kind: 'finished_at_change', dependencyId: base, late: true });
+    const [risk] = await sql<{ value: boolean }[]>`SELECT at_risk(${base}) AS value`;
+    expect(risk!.value).toBe(true);
 
     await api.Dependency.remove({ taskId: id, value: base });
     expect((await api.Task.get({ id })).details?.waitsFor).toEqual([]);

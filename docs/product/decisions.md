@@ -24,9 +24,9 @@ answer for its deadline — set a sensible one and watch it, move it in
 time, or explain why the task is closed but not done. Current tasks in
 **My day** are sorted by deadline, so the nearest ones are always on top.
 A closed task is not singled out — automatic and manual closing look the
-same, and reopening a task closed by mistake is the owner's job. A deadline
-constraint of a dependency may forbid the move; then the owner has to go and
-negotiate with the owners of the dependent tasks.
+same, and reopening a task closed by mistake is the owner's job. Nothing forbids
+the move; a waiting task that needs this one earlier is then at risk
+(decision 66), and its owner is told.
 
 ### 3. Email is built in
 
@@ -1044,7 +1044,7 @@ still join with their reports: that is the org chart, not a choice.
 *Implemented:* `trg_mention_check()` (migration `0.2-0.3`);
 `Observer.mentionable`; the mention picker in `Composer`.
 
-### 65. A dependency constrains the deadline or it does not
+### 65. A dependency constrains the deadline or it does not — superseded by 66
 
 "Hard" and "soft" dependencies were two words to learn for one choice:
 whether the deadlines are tied. Now there is just a dependency — "Waits
@@ -1061,4 +1061,32 @@ the error `hard_dependency_violated` and the field `hard` of the
 
 *Implemented:* `Dependencies` in `client/components/TaskPage/`; the
 comments of `db.sql` (migration `0.2-0.3`).
+
+### 66. A dependency carries a latest deadline, and breaking it is a risk
+
+The deadline constraint of decision 65 — "no earlier than a time after
+the other" — still read as arithmetic, it was unclear how to change it,
+and it forbade moving a deadline until the waiting task moved first: a
+rule that blocked people instead of telling them. Now a dependency may
+carry the latest deadline of the task waited for that the waiting task
+can live with — a date and time, set by the owner of the waiting task in
+"Set a latest deadline" and changed by the pencil on its line.
+
+Nothing is forbidden by it. When the deadline waited for is later, or
+not set, while the waiting task is open, the line of the dependency is
+highlighted and both tasks are "At risk": the waiting one is late
+because of the other, the other delays it — each says so in the hint of
+its mark, and both count as at risk in My team, Tags and Monday's email.
+The owner of the waiting task is told of every move of the deadline
+waited for, and when it breaks the latest one. An old lag became the
+waiting task's deadline minus the lag, or, without one, the deadline
+waited for.
+
+The webhook field `hard` of `dependency_added` now means "has a latest
+deadline"; the error `hard_dependency_violated` is gone, nothing raises
+it.
+
+*Implemented:* `dependency.latest_at`, `dependency_risk()`, `at_risk()`,
+`notify_dependents()` (`late`) — migration `0.2-0.3`; `TaskHeader.late`,
+`.delays`; `Dependencies`, `RiskChip`.
 

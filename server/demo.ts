@@ -243,11 +243,12 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
   await I.Task.setDeadline({ id: budget, deadline: daysAhead(4) });
   await I.Task.setDeadline({ id: budget, deadline: new Date() });
 
-  // 7. Pavel's task depends on the site with a deadline constraint: a day after it (I am told).
+  // 7. Pavel's task waits for the site and needs it by the day after tomorrow — but the site is due
+  // later: both tasks are at risk, his late because of mine, mine delaying his (I am told).
   const auth = await P.Task.create({ tags: tags.auth });
   await P.Task.update({ id: auth, priority: 'HIGH' });
   await P.Task.setDeadline({ id: auth, deadline: daysAhead(7) });
-  await P.Dependency.set({ taskId: auth, value: site, minMinutesAfter: 1440 });
+  await P.Dependency.set({ taskId: auth, value: site, latestAt: daysAhead(2) });
 
   // 8. Sergey's task goes to Marina when he is dismissed.
   const laptops = await S.Task.create({ tags: tags.laptops });

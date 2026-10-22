@@ -2,6 +2,25 @@
 
 -- A mention in a private task addresses only its observers: who takes part
 -- is the owner's decision, so a mention no longer brings anyone in.
+--
+-- A dependency carries the latest deadline of the task waited for that the
+-- waiting task can live with, instead of a lag that forbade moving
+-- deadlines: nothing is forbidden, a broken constraint puts both tasks at
+-- risk. An old lag becomes the waiting task's deadline minus the lag, or,
+-- without one, the current deadline of the task waited for.
+DROP TRIGGER dependency_deadlines ON dependency;
+DROP TRIGGER finished_at_deadlines ON finished_at;
+DROP FUNCTION trg_check_deadlines();
+DROP FUNCTION check_deadlines(INT);
+ALTER TABLE dependency ADD COLUMN latest_at TIMESTAMPTZ;
+UPDATE dependency d
+   SET latest_at = COALESCE(
+       (SELECT f.value - d.min_minutes_after * INTERVAL '1 minute' FROM finished_at f
+         WHERE f.task_id = d.task_id AND f.expired_at IS NULL),
+       (SELECT f.value FROM finished_at f WHERE f.task_id = d.value AND f.expired_at IS NULL))
+ WHERE d.min_minutes_after IS NOT NULL;
+ALTER TABLE dependency DROP COLUMN min_minutes_after;
+
 CREATE OR REPLACE FUNCTION trg_mention_check()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -29,27 +48,111 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION trg_mention_check() IS
-'Forbids self-mentions, mentioning a dismissed employee and, in a private
-task, mentioning anyone who is not an active observer: who takes part is
-the owner''s decision (add_observer, approve_access), a mention only
-addresses those already in. In a public task anyone may be mentioned and
-no observer is added.';
+CREATE OR REPLACE FUNCTION dependency_risk(p_task_id INT)
+RETURNS TABLE (task_id INT, value INT, latest_at TIMESTAMPTZ, deadline TIMESTAMPTZ) AS $$
+    SELECT d.task_id, d.value, d.latest_at, fv.value
+      FROM dependency d
+      LEFT JOIN finished_at fv ON fv.task_id = d.value AND fv.expired_at IS NULL
+      LEFT JOIN finished_at ft ON ft.task_id = d.task_id AND ft.expired_at IS NULL
+     WHERE (d.task_id = p_task_id OR d.value = p_task_id)
+       AND d.latest_at IS NOT NULL
+       AND (ft.value IS NULL OR ft.value > NOW())
+       AND (fv.value IS NULL OR fv.value > d.latest_at)
+     ORDER BY d.task_id, d.value
+$$ LANGUAGE sql STABLE;
 
-COMMENT ON TABLE mention IS
-'An employee attached to a comment (a mention).
-Attached explicitly, the text is not parsed.
-closed_at IS NULL — the mention is open.
-Closed only explicitly, by the mentioned employee ("Done"): a reply alone
-does not mean the request is handled — but there is no "Done" without a
-reply: the mentioned employee must have commented in the task after the
-mention, so whoever asked sees the answer (trigger). An open mention is the only way a
-task the employee merely observes gets into their TODO in My day.
-Self-mention and mentioning a dismissed employee are forbidden. In a
-private task only an active observer can be mentioned: who takes part is
-the owner''s decision, a mention only addresses those already in. In a
-public task anyone can be mentioned, and it adds no observer (trigger).
-The mentioned employee is always notified.';
+CREATE OR REPLACE FUNCTION at_risk(p_task_id INT)
+RETURNS BOOLEAN AS $$
+    SELECT NOT EXISTS (SELECT 1 FROM finished_at f
+                        WHERE f.task_id = p_task_id AND f.expired_at IS NULL AND f.value <= NOW())
+       AND (EXISTS (SELECT 1 FROM deadline_risk(p_task_id))
+            OR EXISTS (SELECT 1 FROM dependency_risk(p_task_id)))
+$$ LANGUAGE sql STABLE;
+
+CREATE OR REPLACE FUNCTION send_weekly_digests(p_now TIMESTAMPTZ DEFAULT NOW())
+RETURNS INT AS $$
+DECLARE
+    v_manager RECORD;
+    v_unscored INT;
+    v_expired INT;
+    v_at_risk INT;
+    v_blocked INT;
+    v_sent INT := 0;
+BEGIN
+    FOR v_manager IN
+        SELECT e.id, e.time_zone FROM employee e JOIN human h ON h.employee_id = e.id
+         WHERE e.dismissed_at IS NULL
+           AND EXISTS (SELECT 1 FROM employee r
+                        WHERE r.manager_id = e.id AND r.kind = 'human' AND r.dismissed_at IS NULL)
+           AND extract(isodow FROM p_now AT TIME ZONE e.time_zone) = 1
+           AND (p_now AT TIME ZONE e.time_zone)::time >= TIME '09:00'
+           AND (h.weekly_digest_on IS NULL OR h.weekly_digest_on < (p_now AT TIME ZONE e.time_zone)::date)
+         FOR UPDATE OF h SKIP LOCKED
+    LOOP
+        -- Past days of direct reports (the last 30) with a closed timesheet and no standing score.
+        SELECT count(*) INTO v_unscored FROM (
+            SELECT w.employee_id, local_day(w.employee_id, w.started_at) AS day
+              FROM work w JOIN employee r ON r.id = w.employee_id
+             WHERE r.manager_id = v_manager.id AND r.dismissed_at IS NULL
+             GROUP BY 1, 2
+            HAVING bool_and(w.spent_minutes IS NOT NULL)
+        ) d
+         WHERE d.day < (p_now AT TIME ZONE v_manager.time_zone)::date
+           AND d.day >= (p_now AT TIME ZONE v_manager.time_zone)::date - 30
+           AND NOT EXISTS (SELECT 1 FROM score s
+                            WHERE s.employee_id = d.employee_id AND s.day = d.day AND s.value IS NOT NULL);
+        -- Tasks of the team closed automatically last week: a deadline set in advance came.
+        SELECT count(*) INTO v_expired
+          FROM task k JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
+         WHERE k.owner_id IN (SELECT subordinates(v_manager.id))
+           AND f.value <= p_now AND f.value > p_now - INTERVAL '7 days'
+           AND f.value - f.entered_at > INTERVAL '1 minute';
+        SELECT count(*) INTO v_at_risk
+          FROM task k
+         WHERE k.owner_id IN (SELECT subordinates(v_manager.id))
+           AND at_risk(k.id);
+        -- Direct reports the identity provider no longer lets in, not dismissed yet.
+        SELECT count(*) INTO v_blocked
+          FROM employee r JOIN human h ON h.employee_id = r.id
+         WHERE r.manager_id = v_manager.id AND r.dismissed_at IS NULL AND h.idp_blocked_at IS NOT NULL;
+
+        UPDATE human SET weekly_digest_on = (p_now AT TIME ZONE v_manager.time_zone)::date WHERE employee_id = v_manager.id;
+        -- Nothing to say, nothing sent: a quiet week needs no email.
+        IF v_unscored + v_expired + v_at_risk + v_blocked > 0 THEN
+            INSERT INTO notification (employee_id, task_id, payload)
+            VALUES (v_manager.id, NULL, jsonb_build_object(
+                'kind', 'weekly_digest', 'unscored', v_unscored, 'expired', v_expired, 'atRisk', v_at_risk,
+                'blocked', v_blocked));
+            v_sent := v_sent + 1;
+        END IF;
+    END LOOP;
+    RETURN v_sent;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION notify_dependents(p_task_id INT)
+RETURNS VOID AS $$
+DECLARE
+    v_actor_id INT;
+    v_dependent_id INT;
+    v_owner_id INT;
+BEGIN
+    SELECT owner_id INTO v_actor_id FROM task WHERE id = p_task_id;
+
+    FOR v_dependent_id, v_owner_id IN
+        SELECT t.id, t.owner_id
+          FROM dependency d JOIN task t ON t.id = d.task_id
+         WHERE d.value = p_task_id
+           AND t.owner_id IS NOT NULL
+           AND t.owner_id IS DISTINCT FROM v_actor_id
+    LOOP
+        PERFORM notify(v_owner_id, v_dependent_id, jsonb_build_object(
+            'kind', 'finished_at_change', 'dependencyId', p_task_id,
+            'late', EXISTS (SELECT 1 FROM dependency_risk(v_dependent_id) r
+                             WHERE r.task_id = v_dependent_id AND r.value = p_task_id)));
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
 
 COMMENT ON TABLE observer IS
 'Access to a task and access requests.
@@ -92,45 +195,12 @@ task.
 When an observer leaves, their current estimate_minutes row is closed
 (expired_at = NOW()) and their reminders (remind) are deleted (trigger).';
 
--- A dependency either constrains the deadlines or it does not: no "hard" and
--- "soft" kinds, in the words of the specification too.
-CREATE OR REPLACE FUNCTION check_deadlines(p_task_id INT)
-RETURNS VOID AS $$
-DECLARE
-    v_task_id INT;
-    v_value INT;
-BEGIN
-    PERFORM pg_advisory_xact_lock(hashtext('yartt.deadline'));
-
-    SELECT d.task_id, d.value INTO v_task_id, v_value
-      FROM dependency d
-      JOIN finished_at fa
-        ON fa.task_id = d.task_id AND fa.expired_at IS NULL
-      LEFT JOIN finished_at fb
-        ON fb.task_id = d.value AND fb.expired_at IS NULL
-     WHERE (d.task_id = p_task_id OR d.value = p_task_id)
-       AND d.min_minutes_after IS NOT NULL
-       AND (fb.value IS NULL
-            OR fb.value + d.min_minutes_after * INTERVAL '1 minute' > fa.value)
-     LIMIT 1;
-
-    IF FOUND THEN
-        RAISE EXCEPTION 'deadline of task % violates the deadline constraint of its dependency on task %',
-            v_task_id, v_value
-            USING HINT = 'hard_dependency_violated',
-                  DETAIL = json_build_object('taskId', v_task_id, 'dependencyId', v_value)::text;
-    END IF;
-END;
-$$ LANGUAGE plpgsql;
-
-COMMENT ON COLUMN dependency.min_minutes_after IS
-'Minimum minutes needed to finish task_id after value is finished.
-NULL = no deadline constraint: deadlines are not tied.
-NOT NULL = a deadline constraint: if task_id has a deadline, value must have one too
-and finished_at(value) + min_minutes_after <= finished_at(task_id).
-Checked at commit (deferred trigger). So the deadline of value can be
-moved later or cleared only after owners of the dependent tasks have
-moved theirs.';
+COMMENT ON COLUMN dependency.latest_at IS
+'The latest deadline of value that task_id can live with, set by the
+owner of task_id. NULL = no constraint: the dependency only says what
+waits for what. Nothing is forbidden by it: while task_id is open and
+the deadline of value is later than latest_at or not set, the constraint
+is broken (dependency_risk()) and both tasks are at risk (at_risk()).';
 
 COMMENT ON TABLE finished_at IS
 'Task deadline history.
@@ -141,8 +211,23 @@ Set, moved (later or earlier) and cleared only by the owner —
 through set_finished_at / clear_finished_at.
 Move: the old row is closed and a new one opened.
 Clear: the old row is closed, no new one is created.
-Owners of dependent tasks are notified.
-Deadline constraints of dependencies are checked at commit.';
+Owners of dependent tasks are notified, and told when the new deadline
+breaks the latest one their task can live with (dependency.latest_at).';
+
+COMMENT ON TABLE mention IS
+'An employee attached to a comment (a mention).
+Attached explicitly, the text is not parsed.
+closed_at IS NULL — the mention is open.
+Closed only explicitly, by the mentioned employee ("Done"): a reply alone
+does not mean the request is handled — but there is no "Done" without a
+reply: the mentioned employee must have commented in the task after the
+mention, so whoever asked sees the answer (trigger). An open mention is the only way a
+task the employee merely observes gets into their TODO in My day.
+Self-mention and mentioning a dismissed employee are forbidden. In a
+private task only an active observer can be mentioned: who takes part is
+the owner''s decision, a mention only addresses those already in. In a
+public task anyone can be mentioned, and it adds no observer (trigger).
+The mentioned employee is always notified.';
 
 COMMENT ON TABLE notification IS
 'Notification queue. Not an inbox.
@@ -164,8 +249,8 @@ RULES:
   - access closed (removed, request rejected, the task made private
     without them) -> the employee.
   - finished_at set / moved / cleared -> owners of dependent tasks.
-  - a new dependency -> the owner of the task waited for (one with a deadline
-    constraint ties their deadline).
+  - a new dependency -> the owner of the task waited for (with the latest
+    deadline the waiting task can live with, if set).
   - owner change -> the new owner. If the manager initiated it — the
     previous owner too.
   - score -> the scored employee.
@@ -179,20 +264,39 @@ Delivery is only through the outgoing webhook (URL and secret in the
 config). Channels (email, Telegram, Slack, ...) and texts in the
 employee.locale language are up to the webhook receiver.';
 
-COMMENT ON FUNCTION check_deadlines(INT) IS
-'Checks the deadline constraints of the task''s dependencies in both
-directions.
-A global advisory lock serializes the checks so that two concurrent
-transactions cannot break the invariant together.';
+COMMENT ON FUNCTION trg_mention_check() IS
+'Forbids self-mentions, mentioning a dismissed employee and, in a private
+task, mentioning anyone who is not an active observer: who takes part is
+the owner''s decision (add_observer, approve_access), a mention only
+addresses those already in. In a public task anyone may be mentioned and
+no observer is added.';
+
+COMMENT ON FUNCTION dependency_risk(INT) IS
+'Broken deadline constraints around the task, in both directions: a
+dependency whose waiting task (task_id) is open while the deadline of the
+task waited for (value) is later than the latest one the waiting task can
+live with (latest_at), or not set. Where p_task_id is task_id it is late
+because of value; where it is value it delays task_id.';
+
+COMMENT ON FUNCTION at_risk(INT) IS
+'An open task at risk: someone''s plan does not fit before its deadline
+(deadline_risk()), or a deadline constraint around it is broken
+(dependency_risk()) — it is late because of a task it waits for, or it
+delays a task that waits for it.';
+
+COMMENT ON FUNCTION notify_dependents(INT) IS
+'Notifies owners of the tasks that depend on p_task_id (except the owner
+of p_task_id itself); late — the deadline is now later than the latest
+one their task can live with, or gone.';
 
 COMMENT ON FUNCTION set_finished_at(INT, TIMESTAMPTZ) IS
 'Sets or moves the deadline (later or earlier). Permissions — in the
-application. Deadline constraints of dependencies are checked at commit.';
+application. Never forbidden by dependencies: a deadline later than one
+a dependent task can live with puts both at risk (at_risk()).';
 
 COMMENT ON FUNCTION clear_finished_at(INT) IS
-'Clears the deadline. Permissions — in the application.
-Forbidden if tasks with a deadline depend on this task with a deadline
-constraint.';
+'Clears the deadline. Permissions — in the application. Dependent tasks
+with a latest deadline for this one are then at risk (at_risk()).';
 
 -- The specification (COMMENT ON SCHEMA) as of this version.
 COMMENT ON SCHEMA public IS
@@ -236,9 +340,7 @@ Key principles:
     it — owners of dependent tasks are notified.
   - A passed deadline closes the task by itself — on purpose. An owner who
     did not finish in time has to move the deadline before it passes, or
-    explain why the task is closed but not done. A deadline constraint
-    of a dependency may forbid the move; then the owner has to negotiate with the owners of
-    the dependent tasks.
+    explain why the task is closed but not done.
   - A task has an owner (owner_id). There is no separate creator role.
   - Ownership can be transferred by the owner or by the owner''s direct
     manager. The previous owner stays an observer. When the owner is
@@ -258,12 +360,12 @@ Key principles:
   - The deadline (finished_at) lives in an interval table. The current
     value = expired_at IS NULL. Clearing = closing the active row without
     opening a new one.
-  - A dependency with a deadline constraint (min_minutes_after IS NOT
-    NULL) ties deadlines: a
-    task cannot finish earlier than min_minutes_after after its
-    dependency. To move a dependency''s deadline later, owners of the
-    dependent tasks move theirs first — that is how a postponement is
-    agreed.
+  - A dependency may carry the latest deadline of the task waited for that
+    the waiting task can live with (latest_at). Nothing is forbidden by
+    it: when the deadline waited for is later, or there is none, both
+    tasks are at risk (at_risk()) — the waiting one is late because of
+    the other, the other delays it — and the owner of the waiting task is
+    told as the deadline moves.
   - Work quality is scored only per employee per day, never per task.
     The current manager (employee.manager_id) scores any past day with a
     filled timesheet. Scores are optional: the manager decides which days
@@ -641,9 +743,6 @@ INVARIANTS (forbidden; all checked in the database)
   Dependencies:
     - Self-dependency (task_id = value).
     - A cycle (A -> B -> A).
-    - Breaking a deadline constraint: the dependent task has a deadline while
-      the dependency has none, or
-      finished_at(value) + min_minutes_after > finished_at(task_id).
 
   Observers:
     - Two open rows (task_id, value): request + access, two requests,

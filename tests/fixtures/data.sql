@@ -32,7 +32,7 @@ INSERT INTO comment ("attachment_ids", "attachment_names", "created_at", "create
 INSERT INTO comment ("attachment_ids", "attachment_names", "created_at", "created_by", "id", "image_ids", "reply_to_id", "task_id", "value") SELECT "attachment_ids", "attachment_names", "created_at", "created_by", "id", "image_ids", "reply_to_id", "task_id", "value" FROM json_populate_record(NULL::comment, '{"attachment_ids" : [], "attachment_names" : [], "created_at" : "2026-10-17T17:02:20.6237+00:00", "created_by" : 9, "id" : 4, "image_ids" : [], "reply_to_id" : null, "task_id" : 1, "value" : "<p>Сборка #512 упала на этапе e2e: форма заявки не отвечает.</p>"}');
 
 -- dependency
-INSERT INTO dependency ("min_minutes_after", "task_id", "value") SELECT "min_minutes_after", "task_id", "value" FROM json_populate_record(NULL::dependency, '{"min_minutes_after" : 1440, "task_id" : 7, "value" : 1}');
+INSERT INTO dependency ("latest_at", "task_id", "value") SELECT "latest_at", "task_id", "value" FROM json_populate_record(NULL::dependency, '{"latest_at" : "2026-10-23T17:02:20.521+00:00", "task_id" : 7, "value" : 1}');
 
 -- employee
 INSERT INTO employee ("about", "created_at", "dismissed_at", "email", "full_name", "id", "kind", "locale", "manager_id", "pronoun", "time_zone") SELECT "about", "created_at", "dismissed_at", "email", "full_name", "id", "kind", "locale", "manager_id", "pronoun", "time_zone" FROM json_populate_record(NULL::employee, '{"about" : "Директор. Пишите в задачах, срочное — звоните.", "created_at" : "2026-10-17T17:02:20.466426+00:00", "dismissed_at" : null, "email" : "first@example.com", "full_name" : "First Employee", "id" : 1, "kind" : "human", "locale" : "ru", "manager_id" : null, "pronoun" : null, "time_zone" : "Europe/Moscow"}');

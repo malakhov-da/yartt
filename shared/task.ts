@@ -40,13 +40,23 @@ export const TaskHeader = z.object({
    * NULL — it fits, or nothing to measure.
    */
   risk: z.object({ employeeId: Id, plannedMinutes: z.number().int(), capacityMinutes: z.number().int() }).nullable(),
+  /**
+   * Open, it waits for these tasks, and their deadline is later than the
+   * latest one it can live with, or not set (db.sql, dependency_risk).
+   */
+  late: Id.array(),
+  /** Open, it delays these tasks: its deadline is later than the latest one they can live with, or not set. */
+  delays: Id.array(),
 });
 export type TaskHeader = z.infer<typeof TaskHeader>;
 
 /** A line in "Waits for" / "Waited on by". */
 export const Dependency = TaskHeader.extend({
-  /** NULL — no deadline constraint; a number — the constraint's lag in minutes. */
-  minMinutesAfter: z.number().int().nullable(),
+  /**
+   * The latest deadline of the task waited for that the waiting task can
+   * live with; NULL — no constraint. Later, or no deadline: both at risk.
+   */
+  latestAt: z.date().nullable(),
 });
 export type Dependency = z.infer<typeof Dependency>;
 
@@ -129,9 +139,9 @@ export const CreateInput = z.object({
   /** NULL or left out — no deadline. */
   deadline: z.date().nullable().optional(),
   context: Html.nullable().optional(),
-  /** The new task waits for this one (no deadline constraint). */
+  /** The new task waits for this one (no latest deadline). */
   waitsFor: Id.optional(),
-  /** This task waits for the new one (no deadline constraint); the creator must own it. */
+  /** This task waits for the new one (no latest deadline); the creator must own it. */
   waitedOnBy: Id.optional(),
 });
 export type CreateInput = z.infer<typeof CreateInput>;

@@ -97,7 +97,7 @@ export const TagStatsRow = z.object({
   tags: Tag.array(),
   /** Open now. */
   open: z.number().int(),
-  /** Of the open, at risk: a plan does not fit before the deadline. */
+  /** Of the open, at risk (db.sql, at_risk): a plan does not fit before the deadline, or a latest deadline around it is broken. */
   atRisk: z.number().int(),
   /** Of the open, untouched in the range: no comment, no time logged. */
   stale: z.number().int(),

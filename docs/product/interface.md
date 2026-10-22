@@ -63,7 +63,9 @@ someone with reports:
   usable, the search on top narrows it (3). Public tasks of others are in
   "others" for everyone: there should be few of them (decision 14).
   "+" in the search opens a new task (2a). A task whose
-  plan does not fit before its deadline says "At risk" (decision 40).
+  plan does not fit before its deadline, or that waits for a task due too
+  late or delays one waiting for it, says "At risk", the reasons on hover
+  (decisions 40, 66).
 - **My team** — only for someone with reports, under Current tasks; see 4.
 - **Tags** — for everyone, under My team: what people (not bots) did
   under each tag from any day to today (the last 7, 30, 90 or 365 days
@@ -134,10 +136,10 @@ Left, top to bottom:
   the comments, so it keeps no history of its own; neither do the owner,
   priority and tags — they are the task's state, not its story.
 - **Dependencies:** "Waits for", then "Waited on by", one under the other.
-  Each line — tags, priority, its deadline constraint if it has one
-  — "this one's deadline ≥ its + 1d" in Waits for, "its deadline ≥ this
-  one's + 1d" in Waited on by, spelled out with the numbers on hover —
-  deadline, owner's
+  Each line — tags, priority, its latest deadline if it has one —
+  "needed by 24 Oct, 12:00" in Waits for, "needs this by …" in Waited on
+  by, highlighted when the deadline waited for is later or not set, and
+  spelled out with the numbers on hover (decision 66) — deadline, owner's
   avatar. Resolved dependencies stay in the list, struck through, so the
   history of what blocked the task is not lost.
   **New task** next to each list opens the new-task form tied to this

@@ -255,9 +255,7 @@ export async function summary(viewerId: number, from: string, to: string): Promi
            (SELECT count(*)::int FROM task k
               LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
              WHERE k.owner_id = e.id AND (f.value IS NULL OR f.value > NOW())) AS open_tasks,
-           (SELECT count(*)::int FROM task k
-              JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL AND f.value > NOW()
-             WHERE k.owner_id = e.id AND EXISTS (SELECT 1 FROM deadline_risk(k.id))) AS at_risk,
+           (SELECT count(*)::int FROM task k WHERE k.owner_id = e.id AND at_risk(k.id)) AS at_risk,
            (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY GREATEST(0,
                      extract(epoch FROM w.updated_at - (w.started_at + w.spent_minutes * INTERVAL '1 minute')) / 60))
               FROM work w

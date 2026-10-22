@@ -47,7 +47,7 @@ export default router({
 
   /**
    * Creates a private task owned by the signed-in employee; new tags are
-   * created. Priority, deadline, context and a dependency without a deadline constraint — the new
+   * created. Priority, deadline, context and a dependency without a latest deadline — the new
    * task waits for `waitsFor`, or `waitedOnBy` (the creator's own task)
    * waits for it — may come at once. Returns its id.
    * @throws tag_set_taken — a task with this set of tags exists.
@@ -78,7 +78,6 @@ export default router({
    * The owner sets, moves or clears (null) the deadline. A deadline in the
    * past closes the task; "Finish" is setting it to now.
    * @throws forbidden — not the owner.
-   * @throws hard_dependency_violated
    */
   setDeadline: authedProcedure
     .meta({ bot: 'task' })

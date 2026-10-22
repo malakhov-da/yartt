@@ -11,12 +11,12 @@ import PriorityChip from './PriorityChip.tsx';
 import RiskChip from './RiskChip.tsx';
 
 /**
- * A task as a line: number, tags, priority, a note, deadline, owner. A closed
+ * A task as a line: number, tags, priority, a note (`noteWarn` — something is wrong), deadline, owner. A closed
  * one (its deadline passed) is struck through. `dense` — only the number,
  * tags and the note, for narrow lists. Hovered, it shows its context and
  * everyone's time on it (TaskHint).
  */
-export default function (p: { task: TaskHeader; note?: string; noteHint?: string; dense?: boolean }) {
+export default function (p: { task: TaskHeader; note?: string; noteHint?: string; noteWarn?: boolean; dense?: boolean }) {
   const { t } = useTranslation();
   const format = useFormat();
   const employees = useEmployees();
@@ -45,7 +45,7 @@ export default function (p: { task: TaskHeader; note?: string; noteHint?: string
         <Tooltip title={p.noteHint ?? ''} describeChild>
           <Typography
             variant="caption"
-            sx={{ color: 'text.secondary', ...(p.noteHint && { cursor: 'help', borderBottom: 1, borderStyle: 'dotted', borderColor: 'text.disabled' }) }}
+            sx={{ color: p.noteWarn ? 'warning.dark' : 'text.secondary', fontWeight: p.noteWarn ? 600 : undefined, ...(p.noteHint && { cursor: 'help', borderBottom: 1, borderStyle: 'dotted', borderColor: 'text.disabled' }) }}
           >
             {p.note}
           </Typography>
