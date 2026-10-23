@@ -25,14 +25,19 @@ test.describe('search', () => {
     await expect(page).toHaveURL(/\/tasks\/\d+$/);
   });
 
-  test('a tag on a task finds the other tasks with it', async ({ page }) => {
-    await page.goto(`/tasks/${await taskId('склад', 'инвентаризация за октябрь')}`);
-    await page.getByRole('main').getByRole('button', { name: 'склад', exact: true }).click();
-    await expect(page).toHaveURL(/\/$/);
-    await expect(panel(page).getByRole('button', { name: 'склад', exact: true })).toBeVisible();
-    await expect(panel(page).getByRole('combobox')).toBeFocused();
-    await expect(panel(page).getByRole('link', { name: /^#/ }).first()).toBeVisible();
-    await expect(panel(page).getByRole('link', { name: /^#/ }).filter({ hasNotText: 'склад' })).toHaveCount(0);
+  test('a tag on a task finds the other tasks with it, in a new tab', async ({ page }) => {
+    const id = await taskId('склад', 'инвентаризация за октябрь');
+    await page.goto(`/tasks/${id}`);
+    const [found] = await Promise.all([
+      page.waitForEvent('popup'),
+      page.getByRole('main').getByRole('link', { name: 'склад', exact: true }).click(),
+    ]);
+    await expect(page).toHaveURL(new RegExp(`/tasks/${id}$`)); // the task stays open
+    await expect(found).toHaveURL(/\/$/); // the address is cleaned once taken
+    await expect(panel(found).getByRole('button', { name: 'склад', exact: true })).toBeVisible();
+    await expect(panel(found).getByRole('combobox')).toBeFocused();
+    await expect(panel(found).getByRole('link', { name: /^#/ }).first()).toBeVisible();
+    await expect(panel(found).getByRole('link', { name: /^#/ }).filter({ hasNotText: 'склад' })).toHaveCount(0);
   });
 
   test('a tag is found despite a typo or the other layout; words become a set of tags', async ({ page }) => {

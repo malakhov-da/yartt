@@ -337,7 +337,7 @@ export const en: Translation = {
   },
   task: {
     title: 'Task #{{id}}',
-    findByTag: 'Find tasks with this tag',
+    findByTag: 'Find tasks with this tag — in a new tab',
     priority: {
       LOW: 'Low',
       NORMAL: 'Normal',

@@ -1,9 +1,9 @@
 import { Add, Search } from '@mui/icons-material';
 import { Button, InputAdornment, Pagination, Paper, Stack, Tab, Tabs, Tooltip, Typography } from '@mui/material';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation, useNavigate } from 'react-router';
+import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import type { CurrentTab } from '#shared/myDay.ts';
 import type { Tag } from '#shared/task.ts';
 import { useStore } from '#client/hooks/store.ts';
@@ -14,6 +14,10 @@ import TaskLine from '../TaskPage/TaskLine.tsx';
 import TakenLink from '../App/TakenLink.tsx';
 
 const PAGE_SIZE = 20;
+
+/** My day with the search narrowed to these tags: `?tag=` by name, to open in a new tab. */
+export const searchUrl = (tags: Pick<Tag, 'name'>[]) =>
+  `/?${new URLSearchParams(tags.map((tag) => ['tag', tag.name])).toString()}`;
 const TABS = ['mine', 'others', 'closed'] as const;
 
 /**
@@ -100,6 +104,22 @@ export default function () {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  });
+
+  // Opened by a link with tags to search by (searchUrl): taken once, the address cleaned.
+  const queryClient = useQueryClient();
+  const [params, setParams] = useSearchParams();
+  const linked = params.getAll('tag');
+  useEffect(() => {
+    if (linked.length === 0) return;
+    setParams({}, { replace: true });
+    void Promise.all(linked.map(async (name) => {
+      const found = await queryClient.fetchQuery(trpc.Tags.suggest.queryOptions({ text: name }));
+      return found.tags.find((tag) => tag.name === name);
+    })).then((tags) => {
+      const known = tags.filter((tag) => tag !== undefined);
+      if (known.length) useStore.setState({ searchTags: known });
+    });
   });
 
   // Another place asked to search by tags (a tag in My tags).

@@ -90,7 +90,7 @@ export const helpEn: Help = {
       steps: [
         'The search of Current tasks forgives typos, transliteration and the wrong keyboard layout; a task is found by number too: #12.',
         'Picked tags narrow every tab — My open, Other open, Closed.',
-        "Click a tag in a task's card to search for the tasks with that tag.",
+        "Click a tag in a task's card: the search for the tasks with that tag opens in a new tab, the task stays open.",
         'Hover a task in any list to see its description and how much each person has spent and still plans.',
       ],
     },
