@@ -150,6 +150,8 @@ Left, top to bottom:
 - **Context:** the owner's description, edited in place. It follows from
   the comments, so it keeps no history of its own; neither do the owner,
   priority and tags — they are the task's state, not its story.
+  A task number in it or in a comment ("see #12") is a link to that
+  task — in what is shown only, nothing is stored.
 - **Dependencies:** "Waits for", then "Waited on by", one under the other.
   Each line — tags, priority, its latest deadline if it has one —
   "needed by 24 Oct, 12:00" in Waits for, "needs this by …" in Waited on

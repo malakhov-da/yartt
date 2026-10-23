@@ -106,6 +106,7 @@ export const helpEn: Help = {
       title: 'Discuss in a task',
       steps: [
         'A comment is formatted text with images and files; # attaches another task, @ mentions a participant.',
+        'A task number in a comment or the context, such as #12, is a link to that task.',
         'After "Send" a comment can be pulled back into editing for a few seconds; then it is never changed or deleted.',
         '"Reply" starts a thread under a comment; the feed keeps a mark at the moment of the reply.',
         'An unfinished comment, form or edit is kept as a draft when you go to another page.',

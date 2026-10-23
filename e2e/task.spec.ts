@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { createTask, editable, signIn, taskId, unique } from './helpers.ts';
+import { createTask, editable, signIn, sql, taskId, unique } from './helpers.ts';
 
 // One task goes through everything its owner and observers do.
 test.describe.serial('a task from creation to hand-over', () => {
@@ -177,4 +177,20 @@ test('a reply lives in its thread; the feed marks its moment with a line that un
   await expect(line).toHaveAttribute('aria-expanded', 'false');
   await line.click();
   await expect(page.getByText('Иван, пересчитай, пожалуйста, стеллаж B.')).toHaveCount(2); // unfolded in place too
+});
+
+test('a task number in the context is a link to that task', async ({ page }) => {
+  await signIn(page, 'marina@example.com');
+  const id = await taskId('склад', 'инвентаризация за октябрь');
+  const other = await taskId('сайт', 'новая главная к осенней кампании');
+  const [before] = await sql`SELECT context FROM task WHERE id = ${id}`;
+  await sql`UPDATE task SET context = ${`<p>Сначала #${other}, адрес https://example.com/#3 — не ссылка на задачу.</p>`} WHERE id = ${id}`;
+  try {
+    await page.goto(`/tasks/${id}`);
+    await expect(page.getByRole('main').getByRole('link', { name: '#3', exact: true })).toHaveCount(0);
+    await page.getByRole('main').getByRole('link', { name: `#${other}`, exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/tasks/${other}$`));
+  } finally {
+    await sql`UPDATE task SET context = ${before!.context} WHERE id = ${id}`;
+  }
 });
