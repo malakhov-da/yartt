@@ -314,10 +314,9 @@ export const helpEn: Help = {
         + 'a correction is replacing the value.',
     },
     {
-      q: 'Why does Enter not create a tag?',
-      a: 'Enter picks a tag that exists and never makes a new one: a typo should not become a tag. A new tag appears only on purpose — '
-        + 'by the "New tag" button under the field, or when you create a task with text typed; until it is saved it is dashed, '
-        + 'so you see it is new.',
+      q: 'How not to make a tag with a typo?',
+      a: 'Enter takes the tag spelled the same way, and if there is none, makes the text a new tag. The suggestions forgive typos: '
+        + 'if the tag you mean is among them, pick it. Until the task is saved a new tag is dashed — you see it is new and can remove it.',
     },
     {
       q: 'Why are there no roles or admins?',

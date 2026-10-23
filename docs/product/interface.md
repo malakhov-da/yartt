@@ -250,10 +250,11 @@ participants, with pages.
 A form over My day (`/tasks/new`), opened by "New task" over the search of Current
 tasks, by "+" in the search of a task's dependencies, with the title typed there, or by "New
 task" under a dependency. The title is the tags, typed as in Find (decision
-55): typos forgiven, several words offered as ready sets of tags. A tag is
-never made by Enter: a new one is the "New tag «…»" button under the field
-— only when no tag is spelled so; it is shown dashed and created when the
-task is saved. With tags picked and nothing typed, the ones that most
+55): typos forgiven, several words offered as ready sets of tags. Enter
+takes the tag spelled so, or, when none is, makes the text a new tag — as
+does the "New tag «…»" button under the field, which keeps the cursor in
+the field; a new tag is shown dashed and created when the task is saved
+(decision 71). With tags picked and nothing typed, the ones that most
 often go with them are offered ("Often together"). Text left unpicked
 becomes a tag of its own, the whole phrase one tag — unless a tag is spelled exactly so, which has to be
 picked first. A title another task has is named under the field and

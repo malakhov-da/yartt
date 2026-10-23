@@ -11,11 +11,24 @@ test.describe('new task', () => {
     await page.getByRole('button', { name: 'Новая задача' }).click();
     await expect(page).toHaveURL(/\/tasks\/new$/);
     await expect(page.getByLabel('Теги')).toBeFocused();
-    // Enter never makes a tag: a new one is its own button, under the field.
+    // Enter makes a new tag when none is spelled so; the cursor stays in the field.
     await page.keyboard.type(tag.toUpperCase());
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('button', { name: tag, exact: true })).toHaveCount(0);
-    await page.getByRole('button', { name: `Новый тег «${tag}»` }).click();
+    await expect(page.getByRole('button', { name: tag, exact: true })).toBeVisible();
+    await expect(page.getByLabel('Теги')).toHaveValue('');
+    await expect(page.getByLabel('Теги')).toBeFocused();
+    // The button for it holds its place while the letters are checked — the form does not jump —
+    // and leaves the cursor in the field too.
+    const second = unique('макет');
+    await page.keyboard.type(second.slice(0, 3));
+    const button = page.getByRole('button', { name: /^Новый тег «/ });
+    await expect(button).toBeVisible();
+    const element = await button.elementHandle();
+    await page.keyboard.type(second.slice(3), { delay: 30 });
+    expect(await element!.evaluate((e) => e.isConnected)).toBe(true);
+    await page.getByRole('button', { name: `Новый тег «${second}»` }).click();
+    await expect(page.getByRole('button', { name: second, exact: true })).toBeVisible();
+    await expect(page.getByLabel('Теги')).toBeFocused();
     // A new tag exists only once the task is saved: titles change while typed.
     expect(await sql`SELECT 1 FROM tag WHERE name = ${tag}`).toHaveLength(0);
     // A tag spelled exactly so exists: it has to be picked before the task is created.

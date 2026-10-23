@@ -1187,3 +1187,21 @@ This is not a digest — every settled move is still told, a minute late.
 
 *Implemented:* `change_deadline()`, `deadline_settles()` (migration
 `0.4-0.5`); the worker holds `finished_at_change` until it settles.
+
+### 71. Enter makes a new tag when none is spelled so
+
+Decision 55 kept Enter from ever making a tag, so that a typo would not
+become one: a new tag was only the button under the field. In practice
+a new task often needs a new tag, and reaching for the button broke the
+typing — the cursor left the field, and the button came and went with
+every letter while the suggestions were checked, so the form jumped. Now
+Enter takes the tag spelled exactly so, and when there is none, makes
+the text a new tag; the button stays for the mouse, keeps the cursor in
+the field and holds its place while the text is checked. The typo is
+still guarded against where it shows: suggestions forgive typos and sit
+right under the field, and a new tag is dashed until the task is saved.
+In the search, which cannot create, Enter still takes the best
+suggestion.
+
+*Implemented:* `TagInput` in `client/components/App/TagInput.tsx`.
+

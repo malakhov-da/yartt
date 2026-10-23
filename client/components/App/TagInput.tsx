@@ -1,7 +1,7 @@
 import { Add } from '@mui/icons-material';
 import { Autocomplete, Box, Button, Chip, Stack, TextField, type SxProps, type Theme } from '@mui/material';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ReactNode, Ref } from 'react';
+import { useRef, type ReactNode, type Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TagPart } from '#shared/tags.ts';
 import { TagName } from '#shared/task.ts';
@@ -26,10 +26,10 @@ function PartChip(p: { part: TagPart; outlined?: boolean } & Record<string, unkn
  * A title of tags — the search, a new task, a title being changed, a task to
  * link (decision 55). Suggestions forgive typos, transliteration and the
  * wrong layout; several words come as ready sets of tags (Tags.suggest).
- * A tag is never made by accident: Enter takes the tag spelled exactly so
- * (in the search, the best suggestion), and with `allowNew` a new tag is
- * the button under the field — only when no tag is spelled so, the whole
- * phrase one tag, created when the task is saved. Text left unpicked is
+ * Enter takes the tag spelled exactly so; when there is none — with
+ * `allowNew` a new tag (also the button under the field), the whole phrase
+ * one tag, dashed and created only when the task is saved; in the search,
+ * the best suggestion. Text left unpicked is
  * the caller's (useTitle): it becomes a tag of its own on creating a task.
  */
 export default function (p: {
@@ -50,6 +50,7 @@ export default function (p: {
   const { t } = useTranslation();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const input = useRef<HTMLInputElement | null>(null);
   const text = p.input.trim();
   const suggested = useQuery(trpc.Tags.suggest.queryOptions(
     { text: p.input },
@@ -73,8 +74,10 @@ export default function (p: {
     ...(data?.tags ?? []).filter((tag) => !names.has(tag.name)).map((tag) => ({ kind: 'part' as const, part: { tag } })),
   ];
   // A new tag is offered apart, under the field: only when no tag is spelled so.
-  const newTag = p.allowNew && typed.success && !names.has(typed.data) && data !== undefined && !data.exact && !suggested.isPlaceholderData
-    ? typed.data : null;
+  // While that is being checked it stays in place, off — appearing and going
+  // with every letter would make the form under it jump.
+  const checked = data !== undefined && !suggested.isPlaceholderData;
+  const newTag = p.allowNew && typed.success && !names.has(typed.data) && !(checked && data.exact) ? typed.data : null;
 
   const add = (parts: TagPart[]) => {
     p.onInputChange('');
@@ -82,8 +85,9 @@ export default function (p: {
     p.onChange([...p.value, ...parts.filter((part) => !seen.has(partName(part)) && !!seen.add(partName(part)))]);
   };
 
-  // Enter on typed text: the tag spelled so, else (search) the best
-  // suggestion — never a new tag — for this very text, so Enter pressed
+  // Enter on typed text: the tag spelled so, else a new tag (with
+  // `allowNew`; dashed until saved, so a typo shows) or, in the search, the
+  // best suggestion — for this very text, so Enter pressed
   // before the suggestions came waits for them (from the cache when they did).
   const enter = async (value: string) => {
     const name = TagName.safeParse(value);
@@ -91,7 +95,8 @@ export default function (p: {
     const found = await queryClient.fetchQuery(trpc.Tags.suggest.queryOptions({ text: value }));
     const exact = found.tags.find((tag) => tag.name === name.data);
     if (exact) add([{ tag: exact }]);
-    else if (!p.allowNew && found.tags[0]) add([{ tag: found.tags[0] }]);
+    else if (p.allowNew) add([{ name: name.data }]);
+    else if (found.tags[0]) add([{ tag: found.tags[0] }]);
     // Nothing taken: the text stays as typed (the field would clear itself on Enter).
     else p.onInputChange(value);
   };
@@ -143,7 +148,11 @@ export default function (p: {
       renderInput={(params) => (
         <TextField
           {...params}
-          inputRef={p.inputRef}
+          inputRef={(element: HTMLInputElement | null) => {
+            input.current = element;
+            if (typeof p.inputRef === 'function') p.inputRef(element);
+            else if (p.inputRef) p.inputRef.current = element;
+          }}
           autoFocus={p.autoFocus}
           label={p.label}
           helperText={p.helperText}
@@ -178,7 +187,14 @@ export default function (p: {
     )}
     {newTag && (
       <Box>
-        <Button size="small" startIcon={<Add />} onClick={() => add([{ name: newTag }])}>
+        <Button
+          size="small"
+          startIcon={<Add />}
+          disabled={!checked}
+          // The cursor stays in the field: the next tag is typed right away.
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => { add([{ name: newTag }]); input.current?.focus(); }}
+        >
           {t('tagInput.newTag', { name: newTag })}
         </Button>
       </Box>
