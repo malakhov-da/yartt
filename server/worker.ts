@@ -128,7 +128,8 @@ const BATCH_SIZE = 20;
 // committed, the rest stay in the queue. A bot's webhook is someone's
 // program and may be down for days: it gets one attempt, a failure is
 // logged and passed over, so people's notifications never wait for it. A payload that does not parse is
-// logged and skipped, so it cannot block the queue. The demo's people are
+// logged and skipped, so it cannot block the queue. A deadline change is
+// held until the deadline settles (deadline_settles() in db.sql). The demo's people are
 // made up: there nothing goes out, the queue is only marked sent (the bell
 // in the interface reads closed_at, not sent_at).
 export async function deliverNotifications(sql: Sql): Promise<number> {
@@ -146,6 +147,8 @@ export async function deliverNotifications(sql: Sql): Promise<number> {
         LEFT JOIN bot b ON b.employee_id = e.id
         LEFT JOIN human h ON h.employee_id = e.id
        WHERE n.sent_at IS NULL
+         -- A deadline change waits to settle: another one soon after replaces it.
+         AND NOT (n.payload->>'kind' = 'finished_at_change' AND n.added_at > NOW() - deadline_settles())
        ORDER BY n.id
        LIMIT ${BATCH_SIZE}
          FOR UPDATE OF n SKIP LOCKED

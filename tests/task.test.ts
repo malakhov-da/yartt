@@ -305,6 +305,74 @@ describe('feed events', () => {
   });
 });
 
+describe('deadline changes settle', () => {
+  const day = (n: number) => new Date(Date.UTC(2030, 0, n, 12));
+  const rows = async (id: number) => (await sql<{ value: Date; expired: boolean }[]>`
+    SELECT value, expired_at IS NOT NULL AS expired FROM finished_at WHERE task_id = ${id} ORDER BY entered_at, expired_at NULLS LAST
+  `).map((r) => [r.value.toISOString().slice(0, 10), r.expired ? 'old' : 'now']);
+  // A minute and more goes by: the last change has settled.
+  const later = (id: number) => Promise.all([
+    sql`UPDATE finished_at SET entered_at = entered_at - INTERVAL '2 minutes', expired_at = expired_at - INTERVAL '2 minutes' WHERE task_id = ${id}`,
+    sql`UPDATE notification SET added_at = added_at - INTERVAL '2 minutes' WHERE sent_at IS NULL AND payload->>'dependencyId' = ${String(id)}`,
+  ]);
+
+  test('a change within a minute replaces the last one in the history; changed back, nothing happened', async () => {
+    const owner = await createEmployee();
+    const id = await createTask(owner.id);
+    const api = await client(owner.id);
+    const deadlines = async () => (await api.Comment.list({ taskId: id, filter: 'all', page: 1 })).items
+      .flatMap((i) => (i.kind === 'deadline' ? [[i.from?.toISOString().slice(0, 10) ?? null, i.to?.toISOString().slice(0, 10) ?? null]] : []));
+
+    // Picking a date: only the last pick stays, as one move from no deadline.
+    await api.Task.setDeadline({ id, deadline: day(1) });
+    await api.Task.setDeadline({ id, deadline: day(2) });
+    expect(await rows(id)).toEqual([['2030-01-02', 'now']]);
+    expect(await deadlines()).toEqual([[null, '2030-01-02']]);
+
+    // Later, a move — and back again within the minute: as if never moved.
+    await later(id);
+    await api.Task.setDeadline({ id, deadline: day(3) });
+    expect(await rows(id)).toEqual([['2030-01-02', 'old'], ['2030-01-03', 'now']]);
+    await api.Task.setDeadline({ id, deadline: day(2) });
+    expect(await rows(id)).toEqual([['2030-01-02', 'now']]);
+
+    // A clear and a new date soon after: one move.
+    await api.Task.setDeadline({ id, deadline: null });
+    await api.Task.setDeadline({ id, deadline: day(4) });
+    expect(await rows(id)).toEqual([['2030-01-02', 'old'], ['2030-01-04', 'now']]);
+    // The same value again is no change at all.
+    await later(id);
+    await api.Task.setDeadline({ id, deadline: day(4) });
+    expect(await rows(id)).toEqual([['2030-01-02', 'old'], ['2030-01-04', 'now']]);
+    // A clear right after a move: the clear of what was before it.
+    await later(id);
+    await api.Task.setDeadline({ id, deadline: day(5) });
+    await api.Task.setDeadline({ id, deadline: null });
+    expect(await rows(id)).toEqual([['2030-01-02', 'old'], ['2030-01-04', 'old']]);
+    expect(await deadlines()).toEqual([['2030-01-04', null], ['2030-01-02', '2030-01-04'], [null, '2030-01-02']]);
+  });
+
+  test('a dependent task\'s owner is told once, about the deadline that settled', async () => {
+    const owner = await createEmployee();
+    const other = await createEmployee();
+    const id = await createTask(owner.id);
+    const base = await createTask(other.id);
+    const otherApi = await client(other.id);
+    await (await client(owner.id)).Dependency.set({ taskId: id, value: base, latestAt: day(2) });
+    const told = async () => (await notifications(owner.id)).filter((n) => n.kind === 'finished_at_change');
+
+    await otherApi.Task.setDeadline({ id: base, deadline: day(1) });
+    await otherApi.Task.setDeadline({ id: base, deadline: day(3) });
+    expect(await told()).toEqual([{ kind: 'finished_at_change', dependencyId: base, late: true }]);
+
+    // Settled, then moved and moved back: nothing more to tell.
+    await later(base);
+    await otherApi.Task.setDeadline({ id: base, deadline: day(1) });
+    await otherApi.Task.setDeadline({ id: base, deadline: day(3) });
+    expect(await told()).toHaveLength(1);
+  });
+});
+
 describe('dependencies', () => {
   test('the owner sets them, with or without a latest deadline; cycles are refused; a broken latest deadline is a risk, not an error', async () => {
     const owner = await createEmployee();

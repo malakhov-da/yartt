@@ -1171,3 +1171,18 @@ own.
 `.forTask`, `.history`, `.set`, `.remove`;
 `client/components/MyDayPage/TagLimits.tsx`, `TaskPage/MyTime.tsx`.
 
+### 70. A deadline settles for a minute before it counts
+
+Picking a date and time is often a few tries: the day, then the hour,
+then a day later after all. Each try was a move of the deadline — a row
+of its own in the task's history and a notification to the owner of
+every task waiting for it, so a minute of thinking read as a string of
+slips. Now a change less than a minute after the previous one replaces
+it: the history keeps the last decision, dated by it, and a deadline put
+back where it was is no change at all. The owners of dependent tasks are
+told once the deadline has stood for a minute, about the deadline that
+stood; a newer change in that minute replaces the waiting notification.
+This is not a digest — every settled move is still told, a minute late.
+
+*Implemented:* `change_deadline()`, `deadline_settles()` (migration
+`0.4-0.5`); the worker holds `finished_at_change` until it settles.

@@ -43,6 +43,17 @@ describe('notification delivery', () => {
     expect(await unsent()).toBe(0);
   });
 
+  test('a deadline change waits a minute to settle before it goes out', async () => {
+    const me = await createEmployee();
+    await sql`SELECT notify(${me.id}, NULL, ${sql.json({ kind: 'finished_at_change', dependencyId: 1, late: false })})`;
+    expect(await deliverNotifications(sql)).toBe(0);
+    expect(await unsent()).toBe(1);
+
+    await sql`UPDATE notification SET added_at = added_at - INTERVAL '1 minute' WHERE employee_id = ${me.id}`;
+    expect(await deliverNotifications(sql)).toBe(1);
+    expect(sent.map((m) => m.payload.kind)).toEqual(['finished_at_change']);
+  });
+
   test('the demo sends nothing: its people are made up, the queue is only marked sent', async () => {
     const boss = await createEmployee();
     const dev = await createEmployee();

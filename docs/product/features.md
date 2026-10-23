@@ -26,7 +26,7 @@ persona goal it serves. Status: **now** — stage one, **next** — stage two,
 | Context: what the owner wants, rich text with images, edited only by the owner | Marina: one source of truth | now (done) |
 | Finish a task: the deadline is set to now and the task is closed | everyone: one way to close, no status | now (done) |
 | Priority: low / normal / high / critical | Marina: order without debate | now (done) |
-| Deadline; move it later or earlier, clear it. A passed deadline closes the task by itself | Marina: plans that can change honestly, and nobody forgets to say they slipped | now (done) |
+| Deadline; move it later or earlier, clear it. A passed deadline closes the task by itself. Changes within a minute of each other are one: the history keeps the last decision, dependent tasks are told once it settles | Marina: plans that can change honestly, and nobody forgets to say they slipped | now (done) |
 | "No intervention needed": the owner confirms nothing waits for them; new comments since then put the task back in TODO | Marina: know what changed since she last looked | now (done) |
 | Transfer ownership (owner or their manager) | Marina: hand over without losing history | now (done) |
 | Take an ownerless task | Pavel: pick up what nobody owns | now (done) |

@@ -37,7 +37,7 @@ CREATE TABLE schema_version (
 CREATE UNIQUE INDEX uq_schema_version_active
     ON schema_version((TRUE)) WHERE expired_at IS NULL;
 
-INSERT INTO schema_version (version) VALUES ('0.4');
+INSERT INTO schema_version (version) VALUES ('0.5');
 
 COMMENT ON TABLE schema_version IS
 'History of database schema versions (major.minor). Current = expired_at IS NULL.
@@ -595,7 +595,8 @@ WHAT THE APPLICATION DOES ITSELF (not in the database)
     existing id. The file name is stored in the comment
     (attachment_names), not in the attachment.
   - Notification delivery: the worker reads notification WHERE sent_at
-    IS NULL, sends an email in the recipient''s language (SMTP from the
+    IS NULL (a finished_at_change only once deadline_settles() has
+    passed since it was added), sends an email in the recipient''s language (SMTP from the
     config) and/or posts it to the webhook (URL and secret in the config,
     body signed with HMAC-SHA256), then sets sent_at = NOW().
   - The close_delay metric (delay in closing a shift) — on the frontend.
@@ -1493,8 +1494,11 @@ Set, moved (later or earlier) and cleared only by the owner —
 through set_finished_at / clear_finished_at.
 Move: the old row is closed and a new one opened.
 Clear: the old row is closed, no new one is created.
-Owners of dependent tasks are notified, and told when the new deadline
-breaks the latest one their task can live with (dependency.latest_at).';
+A change within deadline_settles() of the previous one replaces it
+(change_deadline()): a person trying dates leaves only the last one.
+Owners of dependent tasks are notified once the deadline settles, and
+told when the new deadline breaks the latest one their task can live
+with (dependency.latest_at).';
 
 COMMENT ON COLUMN finished_at.task_id IS
 'Which task.';
@@ -2030,7 +2034,8 @@ COMMENT ON TABLE notification IS
 Created only through notify(), which handles absence and dismissal.
 payload JSONB — context; kind is stored inside payload.
 The worker takes WHERE sent_at IS NULL (FOR UPDATE SKIP LOCKED), sends
-to the webhook and sets sent_at. The user handles the notification —
+to the webhook and sets sent_at; a finished_at_change waits
+deadline_settles() first, and change_deadline() replaces it meanwhile. The user handles the notification —
 closed_at. Cleaned up after a year.
 
 RULES:
@@ -2044,7 +2049,8 @@ RULES:
     public while a request waited) -> the employee.
   - access closed (removed, request rejected, the task made private
     without them) -> the employee.
-  - finished_at set / moved / cleared -> owners of dependent tasks.
+  - finished_at set / moved / cleared -> owners of dependent tasks, once
+    it settles (deadline_settles(): the worker holds it that long).
   - a new dependency -> the owner of the task waited for (with the latest
     deadline the waiting task can live with, if set).
   - owner change -> the new owner. If the manager initiated it — the
@@ -4248,36 +4254,107 @@ of p_task_id itself); late — the deadline is now later than the latest
 one their task can live with, or gone.';
 
 
-CREATE OR REPLACE FUNCTION set_finished_at(p_task_id INT, p_value TIMESTAMPTZ)
+CREATE OR REPLACE FUNCTION deadline_settles()
+RETURNS INTERVAL AS $$
+    SELECT INTERVAL '1 minute';
+$$ LANGUAGE sql IMMUTABLE;
+
+COMMENT ON FUNCTION deadline_settles() IS
+'How long a deadline change stays a draft: another change within it
+replaces it in the history (change_deadline()), and the owners of
+dependent tasks are told only once it has passed without one (the worker
+holds finished_at_change notifications this long).';
+
+
+CREATE OR REPLACE FUNCTION change_deadline(p_task_id INT, p_value TIMESTAMPTZ)
 RETURNS VOID AS $$
+DECLARE
+    v_entered_at TIMESTAMPTZ;
+    v_changed BOOLEAN;
 BEGIN
-    UPDATE finished_at SET expired_at = NOW()
-     WHERE task_id = p_task_id AND expired_at IS NULL;
-    INSERT INTO finished_at (task_id, value) VALUES (p_task_id, p_value);
-    PERFORM notify_dependents(p_task_id);
-END;
-$$ LANGUAGE plpgsql;
-
-COMMENT ON FUNCTION set_finished_at(INT, TIMESTAMPTZ) IS
-'Sets or moves the deadline (later or earlier). Permissions — in the
-application. Never forbidden by dependencies: a deadline later than one
-a dependent task can live with puts both at risk (at_risk()).';
-
-
-CREATE OR REPLACE FUNCTION clear_finished_at(p_task_id INT)
-RETURNS VOID AS $$
-BEGIN
-    UPDATE finished_at SET expired_at = NOW()
-     WHERE task_id = p_task_id AND expired_at IS NULL;
+    -- The last change, made less than deadline_settles() ago, is undone:
+    -- the new one replaces it, so of a person picking a date only the
+    -- last pick stays.
+    SELECT entered_at INTO v_entered_at FROM finished_at
+     WHERE task_id = p_task_id AND expired_at IS NULL
+       FOR UPDATE;
     IF FOUND THEN
+        IF v_entered_at > NOW() - deadline_settles() THEN
+            DELETE FROM finished_at WHERE task_id = p_task_id AND expired_at IS NULL;
+            UPDATE finished_at SET expired_at = NULL
+             WHERE task_id = p_task_id AND expired_at = v_entered_at;
+        END IF;
+    ELSE
+        -- No deadline: the last change was a clear, the row closed last.
+        UPDATE finished_at SET expired_at = NULL
+         WHERE task_id = p_task_id
+           AND expired_at > NOW() - deadline_settles()
+           AND expired_at = (SELECT max(expired_at) FROM finished_at WHERE task_id = p_task_id);
+    END IF;
+
+    -- The change against what was there before: the same value is no change.
+    IF p_value IS NULL THEN
+        UPDATE finished_at SET expired_at = NOW()
+         WHERE task_id = p_task_id AND expired_at IS NULL;
+        v_changed := FOUND;
+    ELSE
+        v_changed := NOT EXISTS (SELECT 1 FROM finished_at
+                                  WHERE task_id = p_task_id AND expired_at IS NULL AND value = p_value);
+        IF v_changed THEN
+            UPDATE finished_at SET expired_at = NOW()
+             WHERE task_id = p_task_id AND expired_at IS NULL;
+            INSERT INTO finished_at (task_id, value) VALUES (p_task_id, p_value);
+        END IF;
+    END IF;
+
+    -- Told about the settled deadline only: what waits to be sent about the
+    -- replaced change is dropped, and nothing is sent when it came back.
+    DELETE FROM notification
+     WHERE sent_at IS NULL
+       AND added_at > NOW() - deadline_settles()
+       AND payload->>'kind' = 'finished_at_change'
+       AND payload->>'dependencyId' = p_task_id::text;
+    IF v_changed THEN
         PERFORM notify_dependents(p_task_id);
     END IF;
 END;
 $$ LANGUAGE plpgsql;
 
+COMMENT ON FUNCTION change_deadline(INT, TIMESTAMPTZ) IS
+'Sets, moves or (p_value NULL) clears the deadline. A change less than
+deadline_settles() after the previous one replaces it: that row is
+removed and the one before it reopened, then the new change is made — so
+the history keeps the last decision, dated by it, and a value changed
+back is no change at all. Owners of dependent tasks get one notification
+for the settled deadline (notify_dependents(); unsent ones about the
+replaced change are dropped).';
+
+
+CREATE OR REPLACE FUNCTION set_finished_at(p_task_id INT, p_value TIMESTAMPTZ)
+RETURNS VOID AS $$
+BEGIN
+    PERFORM change_deadline(p_task_id, p_value);
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION set_finished_at(INT, TIMESTAMPTZ) IS
+'Sets or moves the deadline (later or earlier) — change_deadline().
+Permissions — in the application. Never forbidden by dependencies: a
+deadline later than one a dependent task can live with puts both at risk
+(at_risk()).';
+
+
+CREATE OR REPLACE FUNCTION clear_finished_at(p_task_id INT)
+RETURNS VOID AS $$
+BEGIN
+    PERFORM change_deadline(p_task_id, NULL);
+END;
+$$ LANGUAGE plpgsql;
+
 COMMENT ON FUNCTION clear_finished_at(INT) IS
-'Clears the deadline. Permissions — in the application. Dependent tasks
-with a latest deadline for this one are then at risk (at_risk()).';
+'Clears the deadline — change_deadline(). Permissions — in the
+application. Dependent tasks with a latest deadline for this one are then
+at risk (at_risk()).';
 
 
 -- ----------------------------------------------------------------------------

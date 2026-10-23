@@ -161,6 +161,7 @@ export const helpEn: Help = {
       steps: [
         '"Finish" sets the deadline to now: the task is closed. To reopen it, clear or move the deadline.',
         'Closed tasks are in the Closed tab, the most recent first.',
+        'Several changes of the deadline within a minute are one: the history keeps the last, and owners of dependent tasks are told once it has stood for a minute.',
       ],
     },
     {
