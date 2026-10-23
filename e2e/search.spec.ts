@@ -40,7 +40,7 @@ test.describe('search', () => {
     await expect(page.getByRole('option', { name: 'склад', exact: true })).toBeVisible();
     await search(page).fill('скалд закупкм');
     await page.getByRole('option', { name: 'склад закупки', exact: true }).first().click();
-    await expect(page.getByRole('button', { name: 'закупки', exact: true })).toBeVisible();
+    await expect(picked(page).getByRole('button', { name: 'закупки', exact: true })).toBeVisible();
   });
 
   test('only tags are searched: a missing tag is not offered, Enter takes the best match', async ({ page }) => {
@@ -65,7 +65,7 @@ test.describe('search', () => {
     await page.keyboard.type(phrase);
     await panel(page).getByRole('button', { name: 'Новая задача' }).click();
     await expect(picked(page).getByRole('button', { name: 'склад', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: phrase, exact: true })).toBeVisible();
+    await expect(picked(page).getByRole('button', { name: phrase, exact: true })).toBeVisible();
   });
 
   test('a title that is taken: "New task" is off, and the task with it is named, with a link', async ({ page }) => {
@@ -74,7 +74,7 @@ test.describe('search', () => {
     for (const tag of ['офис', 'переезд на 5-й этаж']) {
       await page.keyboard.type(tag);
       await page.keyboard.press('Enter');
-      await expect(page.getByRole('button', { name: tag, exact: true })).toBeVisible();
+      await expect(picked(page).getByRole('button', { name: tag, exact: true })).toBeVisible();
     }
     await expect(panel(page).getByRole('button', { name: 'Новая задача' })).toBeDisabled();
     await panel(page).getByRole('link', { name: /^Такая задача уже есть: #\d+$/ }).click();
