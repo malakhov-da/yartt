@@ -360,7 +360,7 @@ changes anything; managers above look.
 
 All of their days, as in My day — shifts, time logged to tasks, the
 ribbon of visits and what was done, the score of each day if given — in
-pages of two weeks, laid out as a grid of day cards of one size; a day that does not fit fades out under "Details",
+pages of two weeks, laid out as a grid of day cards of one size; a day that does not fit scrolls in its card, with "Details" under it,
 which opens the whole day, with its actions, in a dialog. Nothing is hidden from the managers (decision 12). Seen by the employee and every manager
 above them. Only the direct manager scores a day — never required;
 managers higher up only look. A score is given in a small dialog, with a

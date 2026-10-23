@@ -6,9 +6,9 @@ import { useTranslation } from 'react-i18next';
 const HEIGHT = 260;
 
 /**
- * A day as a card of a fixed size, for the employee page's grid: what fits
- * is shown, the rest fades out under "Details", which opens the whole day
- * (with its actions — scoring included) in a dialog.
+ * A day as a card of a fixed size, for the employee page's grid: what does
+ * not fit scrolls, and "Details" under it opens the whole day (with its
+ * actions — scoring included) in a dialog.
  */
 export default function (p: { children: ReactNode; dialog: ReactNode }) {
   const { t } = useTranslation();
@@ -28,15 +28,11 @@ export default function (p: { children: ReactNode; dialog: ReactNode }) {
   });
 
   return (
-    <Paper variant="outlined" sx={{ height: HEIGHT, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
-      <Box ref={body} sx={{ p: 1.5, flexGrow: 1, overflow: 'hidden' }}>{p.children}</Box>
+    <Paper variant="outlined" sx={{ height: HEIGHT, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* What is unfolded in the card scrolls in it; "Details" sits under it, covering nothing. */}
+      <Box ref={body} sx={{ p: 1.5, flexGrow: 1, minHeight: 0, overflowY: 'auto' }}>{p.children}</Box>
       {overflows && (
-        <Box
-          sx={{
-            position: 'absolute', left: 0, right: 0, bottom: 0, pt: 4, pb: 0.5, display: 'flex', justifyContent: 'center',
-            background: (theme) => `linear-gradient(to bottom, transparent, ${(theme.vars ?? theme).palette.background.paper} 60%)`,
-          }}
-        >
+        <Box sx={{ display: 'flex', justifyContent: 'center', borderTop: 1, borderColor: 'divider', py: 0.25 }}>
           <Button size="small" onClick={() => setOpen(true)}>{t('employee.dayDetails')}</Button>
         </Box>
       )}

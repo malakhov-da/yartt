@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { employeeId, signIn } from './helpers.ts';
+import { employeeId, signIn, sql } from './helpers.ts';
 
 test.describe('Team and the employee page', () => {
   test.beforeEach(async ({ page }) => {
@@ -149,6 +149,28 @@ test.describe('Team and the employee page', () => {
     await expect(page.getByText('Руководитель: Марина Соколова')).toBeVisible();
     await expect(page.getByText(/Смена идёт с/)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Оценить' })).toHaveCount(0);
+  });
+
+  test('a day card scrolls what is unfolded in it, and "Details" covers none of it', async ({ page }) => {
+    const olga = await employeeId('olga@example.com');
+    // A busy morning: more visits than a card holds.
+    await sql`INSERT INTO visit (employee_id, task_id, at)
+              SELECT ${olga}, NULL, date_trunc('day', NOW()) + make_interval(mins => i) FROM generate_series(1, 12) i`;
+    try {
+      await page.goto(`/employees/${olga}`);
+      const today = page.locator('.MuiPaper-outlined').filter({ hasText: 'Сегодня' }).first();
+      await today.getByRole('button', { name: /^Заходы · \d+$/ }).click();
+      const body = today.locator('> div').first();
+      expect(await body.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true);
+      // The last visit scrolls into view and takes a click: nothing lies over it.
+      const last = today.getByText('Мой день').last();
+      await last.scrollIntoViewIfNeeded();
+      await last.click({ trial: true });
+      await expect(today.getByRole('button', { name: 'Подробнее' })).toBeVisible();
+    } finally {
+      await sql`DELETE FROM visit WHERE employee_id = ${olga} AND task_id IS NULL
+                   AND at IN (SELECT date_trunc('day', NOW()) + make_interval(mins => i) FROM generate_series(1, 12) i)`;
+    }
   });
 
   test('nobody else sees an employee page', async ({ page }) => {
