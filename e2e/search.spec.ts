@@ -19,9 +19,9 @@ test.describe('search', () => {
     await page.keyboard.type('склад');
     await page.getByRole('option', { name: 'склад', exact: true }).click();
     await page.keyboard.press('Escape');
-    await page.getByRole('tab', { name: /Остальные/ }).click();
+    await page.getByRole('tab', { name: /Активные/ }).click();
     await expect(panel(page).getByRole('link', { name: /^#/ }).filter({ hasNotText: 'склад' })).toHaveCount(0);
-    await panel(page).getByRole('link', { name: /склад инвентаризация за октябрь/ }).click();
+    await panel(page).getByRole('link', { name: /склад инвентаризация за октябрь/ }).first().click();
     await expect(page).toHaveURL(/\/tasks\/\d+$/);
   });
 
@@ -53,8 +53,8 @@ test.describe('search', () => {
     await page.keyboard.press('Enter');
     await expect(page.getByRole('button', { name: 'склад', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
-    await page.getByRole('tab', { name: /Остальные/ }).click();
-    await expect(panel(page).getByRole('link', { name: /склад инвентаризация за октябрь/ })).toBeVisible();
+    await page.getByRole('tab', { name: /Активные/ }).click();
+    await expect(panel(page).getByRole('link', { name: /склад инвентаризация за октябрь/ }).first()).toBeVisible();
   });
 
   test('"New task" takes the title typed: the picked tags and the rest as a new tag', async ({ page }) => {

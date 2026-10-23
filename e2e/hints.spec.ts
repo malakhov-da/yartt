@@ -2,12 +2,12 @@ import { expect, test } from '@playwright/test';
 import { signIn, taskId } from './helpers.ts';
 
 // Words that are not self-evident explain themselves on hover.
-test('"I own" and a deadline explain what they mean', async ({ page }) => {
+test('"My open" and a deadline explain what they mean', async ({ page }) => {
   await signIn(page);
   // Away from the task lines first: their hints would cover the tab.
   await page.mouse.move(0, 0);
   await expect(page.getByRole('tooltip')).toHaveCount(0);
-  await page.getByRole('tab', { name: /Я владелец/ }).hover();
+  await page.getByRole('tab', { name: /Мои открытые/ }).hover();
   await expect(page.getByRole('tooltip').filter({ hasText: /за которые отвечаете вы/ })).toBeVisible();
 
   await page.goto(`/tasks/${await taskId('сайт', 'новая главная к осенней кампании')}`);

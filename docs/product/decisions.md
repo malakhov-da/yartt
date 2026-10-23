@@ -79,9 +79,12 @@ default: invitations are often sent by someone from support or HR.
 Every manager up the chain observes all tasks of their reports, and the
 database does not remember why someone became an observer — that history
 is not needed. So Current tasks in My day lists every open task I see, in
-two columns: the ones I own and the rest. My own tasks never get lost
-among the subtree; the rest is a reference, not a to-do list — TODO is
-built only from my tasks and open mentions of me.
+two tabs: **My open** — the ones I own — and **Active** — all of them,
+mine too. My own tasks never get lost among the subtree; Active is a
+reference, not a to-do list — TODO is built only from my tasks and open
+mentions of me. Active was "Others" at first, without mine: but a
+search by tags looks for everything open on a subject, and mine split
+off into the other tab were easy to miss there.
 
 ### 8a. Scores live on the employee's page
 
@@ -894,7 +897,7 @@ Current tasks showed only open tasks, so what was just closed — by hand
 or by its deadline — disappeared, and the search mixed closed tasks into
 the open ones. Now a third tab, **Closed**, holds the closed tasks I see,
 the most recently closed first; with a search the closed ones found go
-there too, and "I own" and "Others" stay open tasks only. The open tabs
+there too, and "My open" and "Active" stay open tasks only. The open tabs
 keep their order: the nearest deadline first, the same moment by
 priority, tasks without a deadline at the end, by priority.
 
