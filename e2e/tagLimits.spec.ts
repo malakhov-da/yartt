@@ -23,3 +23,14 @@ test('a budget shows spent of the limit and the forecast; a change is a new vers
   await expect(page.getByText('Бюджеты этой задачи')).toBeVisible();
   await expect(page.getByText(/из 120ч · \d+% · прогноз/)).toBeVisible();
 });
+
+test('a tag picked for a budget clears the text typed to find it', async ({ page }) => {
+  await signIn(page, 'alexey@example.com');
+  const block = page.getByRole('region', { name: 'Бюджеты часов' });
+  await block.getByRole('button', { name: 'Новый бюджет' }).click();
+  const tags = block.getByLabel('Теги');
+  await tags.fill('сай');
+  await page.getByRole('option', { name: 'сайт', exact: true }).click();
+  await expect(block.getByRole('button', { name: 'сайт' })).toBeVisible();
+  await expect(tags).toHaveValue('');
+});

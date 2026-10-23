@@ -84,9 +84,9 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
             <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
               <TagInput
                 value={editingTags.parts}
-                onChange={(parts) => setEditingTags({ ...editingTags, parts })}
+                onChange={(parts) => setEditingTags((prev) => prev && { ...prev, parts })}
                 input={editingTags.input}
-                onInputChange={(input) => setEditingTags({ ...editingTags, input })}
+                onInputChange={(input) => setEditingTags((prev) => prev && { ...prev, input })}
                 allowNew
                 autoFocus
                 label={t('task.tags')}

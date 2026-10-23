@@ -95,9 +95,9 @@ export default function () {
         <Stack spacing={1.5} sx={{ p: 1.5, border: 1, borderColor: 'divider', borderRadius: 1 }}>
           <TagInput
             value={draft.tags.map((tag) => ({ tag }))}
-            onChange={(next: TagPart[]) => setDraft({ ...draft, tags: next.flatMap((part) => ('tag' in part ? [part.tag] : [])) })}
+            onChange={(next: TagPart[]) => setDraft((prev) => prev && { ...prev, tags: next.flatMap((part) => ('tag' in part ? [part.tag] : [])) })}
             input={draft.input}
-            onInputChange={(input) => setDraft({ ...draft, input })}
+            onInputChange={(input) => setDraft((prev) => prev && { ...prev, input })}
             label={t('tagLimits.tags')}
             helperText={t('tagLimits.tagsHint')}
             autoFocus
