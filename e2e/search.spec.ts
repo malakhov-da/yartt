@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { errorToast, signIn, taskId, unique } from './helpers.ts';
+import { errorToast, signIn, unique } from './helpers.ts';
 
 // The search in My day, over Current tasks (docs/product/interface.md, Find).
 test.describe('search', () => {
@@ -25,21 +25,6 @@ test.describe('search', () => {
     await expect(panel(page).getByRole('link', { name: /^#/ }).filter({ hasNotText: 'склад' })).toHaveCount(0);
     await panel(page).getByRole('link', { name: /склад инвентаризация за октябрь/ }).click();
     await expect(page).toHaveURL(/\/tasks\/\d+$/);
-  });
-
-  test('a tag on a task finds the other tasks with it, in a new tab', async ({ page }) => {
-    const id = await taskId('склад', 'инвентаризация за октябрь');
-    await page.goto(`/tasks/${id}`);
-    const [found] = await Promise.all([
-      page.waitForEvent('popup'),
-      page.getByRole('main').getByRole('link', { name: 'склад', exact: true }).click(),
-    ]);
-    await expect(page).toHaveURL(new RegExp(`/tasks/${id}$`)); // the task stays open
-    await expect(found).toHaveURL(/\/$/); // the address is cleaned once taken
-    await expect(picked(found).getByRole('button', { name: 'склад', exact: true })).toBeVisible();
-    await expect(panel(found).getByRole('combobox')).toBeFocused();
-    await expect(panel(found).getByRole('link', { name: /^#/ }).first()).toBeVisible();
-    await expect(panel(found).getByRole('link', { name: /^#/ }).filter({ hasNotText: 'склад' })).toHaveCount(0);
   });
 
   test('a tag in a task line adds itself to the search instead of opening the task', async ({ page }) => {

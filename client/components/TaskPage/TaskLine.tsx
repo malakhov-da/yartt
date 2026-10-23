@@ -10,12 +10,16 @@ import TagChip from '../App/TagChip.tsx';
 import PriorityChip from './PriorityChip.tsx';
 import RiskChip from './RiskChip.tsx';
 
+/** A title — the task's tags — as text, the way it reads outside Current tasks. */
+export const taskTitle = (tags: Pick<Tag, 'name'>[]) => tags.map((tag) => tag.name).join(' · ');
+
 /**
  * A task as a line: number, tags, priority, a note (`noteWarn` — something is wrong), deadline, owner. A closed
  * one (its deadline passed) is struck through. `dense` — only the number,
  * tags and the note, for narrow lists. Hovered, it shows its context and
- * everyone's time on it (TaskHint). `onTag` — a tag clicked does that
- * instead of opening the task (Current tasks: it narrows the search).
+ * everyone's time on it (TaskHint). The tags read as text; with `onTag`
+ * (Current tasks) they are chips, and a tag clicked does that instead of
+ * opening the task — it narrows the search.
  */
 export default function (p: {
   task: TaskHeader; note?: string; noteHint?: string; noteWarn?: boolean; dense?: boolean; onTag?: (tag: Tag) => void;
@@ -40,20 +44,26 @@ export default function (p: {
     >
       {/* The number looks like the link it is: the way into the task wherever it is shown. */}
       <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'primary.main', '*:hover > &': { textDecoration: 'underline' } }}>#{p.task.id}</Typography>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, flex: '1 1 160px', minWidth: 0, textDecoration: closed ? 'line-through' : 'none' }}>
-        {p.task.tags.map((tag) => {
-          const onTag = p.onTag;
-          return onTag ? (
+      {p.onTag ? (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, flex: '1 1 160px', minWidth: 0, textDecoration: closed ? 'line-through' : 'none' }}>
+          {p.task.tags.map((tag) => (
             <Tooltip key={tag.id} title={t('search.addTag')} describeChild>
               <TagChip
                 size="small"
                 tag={tag}
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onTag(tag); }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); p.onTag!(tag); }}
               />
             </Tooltip>
-          ) : <TagChip key={tag.id} size="small" tag={tag} />;
-        })}
-      </Box>
+          ))}
+        </Box>
+      ) : (
+        <Typography
+          variant="body2"
+          sx={{ flex: '1 1 160px', minWidth: 0, overflowWrap: 'anywhere', textDecoration: closed ? 'line-through' : 'none' }}
+        >
+          {taskTitle(p.task.tags)}
+        </Typography>
+      )}
       {!p.dense && !closed && <RiskChip task={p.task} />}
       {!p.dense && <PriorityChip priority={p.task.priority} />}
       {p.note && (

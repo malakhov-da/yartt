@@ -12,6 +12,7 @@ import ScoreDialog from '../EmployeePage/ScoreDialog.tsx';
 import { Link } from 'react-router';
 import LogTimeDialog from './LogTimeDialog.tsx';
 import TaskHint from '../App/TaskHint.tsx';
+import { taskTitle } from '../TaskPage/TaskLine.tsx';
 import DayRibbon from './DayRibbon.tsx';
 import ShiftDialog, { shiftEnd, type ShiftDialogMode } from './ShiftDialog.tsx';
 
@@ -151,7 +152,7 @@ export default function (p: {
         }}
       >
         <Box component="span" sx={{ fontFamily: 'monospace', color: 'primary.main', mr: 0.75 }}>#{header.id}</Box>
-        {header.tags.map((tag) => tag.name).join(' · ')}
+        {taskTitle(header.tags)}
       </Typography>
     </TaskHint>
   );

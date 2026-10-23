@@ -28,8 +28,10 @@ test.describe('new task', () => {
     await page.getByRole('option', { name: 'Высокий' }).click();
     await page.getByRole('button', { name: 'Создать задачу' }).click();
     await expect(page).toHaveURL(/\/tasks\/\d+$/);
-    await expect(page.getByText(tag, { exact: true }).filter({ visible: true }).first()).toBeVisible();
-    await expect(page.getByText('склад', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+    // The title reads as text: its tags with dots between.
+    const heading = page.getByRole('main').getByRole('heading', { level: 1 });
+    await expect(heading).toContainText(tag);
+    await expect(heading).toContainText('склад');
     await expect(page.getByText('Высокий').filter({ visible: true }).first()).toBeVisible();
   });
 
@@ -49,8 +51,8 @@ test.describe('new task', () => {
     await page.keyboard.type(phrase);
     await page.getByRole('button', { name: 'Создать задачу' }).click();
     await expect(page).toHaveURL(/\/tasks\/\d+$/);
-    await expect(page.getByRole('link', { name: new RegExp(`#${id} склад инвентаризация за октябрь`) })).toBeVisible();
-    await expect(page.getByText(phrase, { exact: true }).filter({ visible: true }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: new RegExp(`#${id} склад · инвентаризация за октябрь`) })).toBeVisible();
+    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toContainText(phrase);
   });
 
   test('"Add" under "Waits for" finds a task by tags and links it', async ({ page }) => {

@@ -6,7 +6,7 @@ import { useFormat } from '#client/hooks/format.ts';
 import { useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import PriorityChip from './PriorityChip.tsx';
-import TagChip from '../App/TagChip.tsx';
+import { taskTitle } from './TaskLine.tsx';
 
 /** A private task the employee does not see: the header and the request (decision 19). */
 export default function (p: { task: TaskPage }) {
@@ -22,8 +22,10 @@ export default function (p: { task: TaskPage }) {
     <Paper sx={{ p: 3, width: '100%', maxWidth: 640, mx: 'auto', alignSelf: 'flex-start' }}>
       <Stack spacing={1.5} sx={{ alignItems: 'flex-start' }}>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, alignItems: 'center' }}>
-          <Typography sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>#{p.task.id}</Typography>
-          {p.task.tags.map((tag) => <TagChip key={tag.id} tag={tag} />)}
+          <Typography sx={{ fontSize: 18, fontWeight: 600, overflowWrap: 'anywhere' }}>
+            <Box component="span" sx={{ fontFamily: 'monospace', fontWeight: 400, color: 'text.secondary', mr: 1 }}>#{p.task.id}</Box>
+            {taskTitle(p.task.tags)}
+          </Typography>
         </Box>
         <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
           <PriorityChip priority={p.task.priority} />

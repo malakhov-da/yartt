@@ -13,12 +13,11 @@ import { useMe } from '#client/hooks/me.ts';
 import { useEmployees, useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import EmployeeAvatar from '../App/EmployeeAvatar.tsx';
-import TagChip from '../App/TagChip.tsx';
 import TagInput, { useTitle } from '../App/TagInput.tsx';
-import { searchUrl } from '../MyDayPage/CurrentTasks.tsx';
 import RichEditor, { type RichEditorHandle } from '../App/RichEditor.tsx';
 import RichView from '../App/RichView.tsx';
 import PriorityChip from './PriorityChip.tsx';
+import { taskTitle } from './TaskLine.tsx';
 import RiskChip from './RiskChip.tsx';
 import Dependencies from './Dependencies.tsx';
 import TransferDialog from './TransferDialog.tsx';
@@ -106,21 +105,11 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
             </Stack>
           ) : (
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
-              <Typography sx={{ fontFamily: 'monospace', fontSize: 18, color: 'text.secondary', pr: 0.5 }}>#{task.id}</Typography>
-              {/* A tag finds the other tasks with it — in a new tab, the task stays open here. */}
-              {task.tags.map((tag) => (
-                <Tooltip key={tag.id} title={t('task.findByTag')} describeChild>
-                  <TagChip
-                    tag={tag}
-                    clickable
-                    component="a"
-                    href={searchUrl([tag])}
-                    target="_blank"
-                    rel="noopener"
-                    sx={{ fontSize: 18, height: 34, borderRadius: 2 }}
-                  />
-                </Tooltip>
-              ))}
+              {/* The title is its tags, read as text, as everywhere but Current tasks. */}
+              <Typography component="h1" sx={{ fontSize: 20, fontWeight: 600, overflowWrap: 'anywhere' }}>
+                <Box component="span" sx={{ fontFamily: 'monospace', fontWeight: 400, color: 'text.secondary', mr: 1 }}>#{task.id}</Box>
+                {taskTitle(task.tags)}
+              </Typography>
               {isOwner && (
                 <Tooltip title={t('task.edit')}>
                   <IconButton size="small" onClick={() => setEditingTags({ parts: task.tags.map((tag) => ({ tag })), input: '' })}>

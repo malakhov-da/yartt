@@ -1,6 +1,5 @@
 import { Chip, type ChipProps } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import type { ElementType } from 'react';
 import type { Tag } from '#shared/task.ts';
 
 /** Colors offered for a tag; any #RRGGBB is accepted. */
@@ -9,9 +8,7 @@ export const TAG_COLORS = [
 ] as const;
 
 /** A tag in the viewer's own color (Tags tab); without one — the default chip. */
-export default function (p: { tag: Pick<Tag, 'name' | 'color'> } & Omit<ChipProps, 'label' | 'color'>
-  // As a link: Chip renders it on its root.
-  & { component?: ElementType; href?: string; target?: string; rel?: string }) {
+export default function (p: { tag: Pick<Tag, 'name' | 'color'> } & Omit<ChipProps, 'label' | 'color'>) {
   const { tag, sx, ...rest } = p;
   return (
     <Chip

@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import type { Action, Shift, Visit } from '#shared/myDay.ts';
 import type { TaskHeader } from '#shared/task.ts';
 import { useFormat } from '#client/hooks/format.ts';
+import { taskTitle } from '../TaskPage/TaskLine.tsx';
 
 const HOUR = 3_600_000;
 
@@ -47,7 +48,7 @@ export default function (p: {
   const title = (taskId: number | null) => {
     if (taskId === null) return t('nav.myDay');
     const task = p.tasks.get(taskId);
-    return task ? `#${taskId} ${task.tags.map((tag) => tag.name).join(' · ')}` : `#${taskId}`;
+    return task ? `#${taskId} ${taskTitle(task.tags)}` : `#${taskId}`;
   };
   const hour = (at: number) => String(new Date(at).getHours()).padStart(2, '0');
 
