@@ -334,6 +334,7 @@ export const en: Translation = {
   search: {
     placeholder: 'Find by tags',
     noResults: 'Nothing found',
+    addTag: 'Add the tag to the search',
   },
   task: {
     title: 'Task #{{id}}',

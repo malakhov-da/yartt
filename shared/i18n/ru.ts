@@ -390,6 +390,7 @@ export const ru = {
   search: {
     placeholder: 'Найти по тегам',
     noResults: 'Ничего не найдено',
+    addTag: 'Добавить тег в поиск',
   },
   task: {
     title: 'Задача #{{id}}',

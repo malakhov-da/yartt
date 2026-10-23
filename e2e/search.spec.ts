@@ -9,6 +9,8 @@ test.describe('search', () => {
 
   const search = (page: Page) => page.getByPlaceholder('Найти по тегам');
   const panel = (page: Page) => page.getByRole('region', { name: 'Текущие задачи' });
+  /** The tags picked in the search field (tags in the lines below are buttons too). */
+  const picked = (page: Page) => panel(page).locator('.MuiAutocomplete-root');
 
   test('"/" focuses it from a task too; a tag narrows the tasks; a task opens', async ({ page }) => {
     await panel(page).getByRole('link', { name: /^#\d+/ }).first().click();
@@ -34,10 +36,18 @@ test.describe('search', () => {
     ]);
     await expect(page).toHaveURL(new RegExp(`/tasks/${id}$`)); // the task stays open
     await expect(found).toHaveURL(/\/$/); // the address is cleaned once taken
-    await expect(panel(found).getByRole('button', { name: 'склад', exact: true })).toBeVisible();
+    await expect(picked(found).getByRole('button', { name: 'склад', exact: true })).toBeVisible();
     await expect(panel(found).getByRole('combobox')).toBeFocused();
     await expect(panel(found).getByRole('link', { name: /^#/ }).first()).toBeVisible();
     await expect(panel(found).getByRole('link', { name: /^#/ }).filter({ hasNotText: 'склад' })).toHaveCount(0);
+  });
+
+  test('a tag in a task line adds itself to the search instead of opening the task', async ({ page }) => {
+    await panel(page).getByRole('link', { name: /^#\d+ сайт/ }).first().getByRole('button', { name: 'сайт', exact: true }).click();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(picked(page).getByRole('button', { name: 'сайт', exact: true })).toBeVisible();
+    await expect(panel(page).getByRole('link', { name: /^#/ }).first()).toBeVisible();
+    await expect(panel(page).getByRole('link', { name: /^#/ }).filter({ hasNotText: 'сайт' })).toHaveCount(0);
   });
 
   test('a tag is found despite a typo or the other layout; words become a set of tags', async ({ page }) => {
@@ -56,7 +66,7 @@ test.describe('search', () => {
     await search(page).fill('crkfl');
     await expect(page.getByRole('option', { name: 'склад', exact: true })).toBeVisible();
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('button', { name: 'склад', exact: true })).toBeVisible();
+    await expect(picked(page).getByRole('button', { name: 'склад', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
     await page.getByRole('tab', { name: /Остальные/ }).click();
     await expect(panel(page).getByRole('link', { name: /склад инвентаризация за октябрь/ })).toBeVisible();
@@ -69,7 +79,7 @@ test.describe('search', () => {
     const phrase = unique('новая приёмка');
     await page.keyboard.type(phrase);
     await panel(page).getByRole('button', { name: 'Новая задача' }).click();
-    await expect(page.getByRole('button', { name: 'склад', exact: true })).toBeVisible();
+    await expect(picked(page).getByRole('button', { name: 'склад', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: phrase, exact: true })).toBeVisible();
   });
 

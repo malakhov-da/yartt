@@ -15,5 +15,5 @@ test('My tags in the profile: my color and weight; a tag opens the search', asyn
   await row.getByRole('button', { name: 'найм', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0); // the profile closes
   await expect(page.getByRole('region', { name: 'Текущие задачи' }).getByRole('link', { name: /найм.*бэкенд/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'найм', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Текущие задачи' }).locator('.MuiAutocomplete-root').getByRole('button', { name: 'найм', exact: true })).toBeVisible();
 });

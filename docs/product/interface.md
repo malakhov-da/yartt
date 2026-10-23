@@ -278,7 +278,8 @@ with a link. Picked tags narrow the tabs to the tasks carrying all of
 them — any task then, ones the person does not see included (they open
 on "Request access"), since tags are visible to everyone; the closed
 ones found are in their own tab. When the current tab has nothing and
-another has, that one opens. A tag in a task's title is a link to the
+another has, that one opens. A tag in a line of the block, clicked, is
+added to the search instead of opening the task. A tag in a task's title is a link to the
 same, in a new browser tab so the task stays open: My day with the
 search narrowed to that tag (`/?tag=<name>`, taken once and cleaned
 from the address).

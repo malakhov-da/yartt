@@ -28,7 +28,8 @@ const TABS = ['mine', 'others', 'closed'] as const;
  * the typed text only finds tags ("/" focuses it from anywhere). Its "+"
  * opens a new task with the title as typed — the picked tags and the rest
  * as a new tag (decision 55); it waits while a tag spelled so is not
- * picked, and is off when a task has that title already.
+ * picked, and is off when a task has that title already. A tag in a line
+ * below adds itself to the search.
  */
 export default function () {
   const { t } = useTranslation();
@@ -189,7 +190,13 @@ export default function () {
         </Typography>
       )}
       <Stack spacing={0.75} sx={{ opacity: shown.isPlaceholderData ? 0.6 : 1 }}>
-        {shown.data?.items.map((task) => <TaskLine key={task.id} task={task} />)}
+        {shown.data?.items.map((task) => (
+          <TaskLine
+            key={task.id}
+            task={task}
+            onTag={(tag) => { if (!tags.some((picked) => picked.id === tag.id)) filter({ tags: [...tags, tag] }); }}
+          />
+        ))}
       </Stack>
       {total > PAGE_SIZE && (
         <Pagination
