@@ -241,7 +241,7 @@ export const helpEn: Help = {
       ],
     },
   ],
-  faqTitle: 'Why it is so',
+  faqTitle: 'Questions and answers',
   faq: [
     {
       q: 'Why does a task have no title?',
