@@ -77,7 +77,13 @@ test.describe('My day', () => {
     await history.getByRole('button', { name: 'Удалить списание' }).first().click();
     await expect(total).not.toHaveText(before!);
 
-    // Pavel's last shift is open: deleting it lets a shift start again — now.
+    // Pavel's last shift is open: deleting it asks first, then lets a shift start again — now.
+    let asked = '';
+    page.once('dialog', (d) => { asked = d.message(); void d.dismiss(); });
+    await history.getByRole('button', { name: 'Удалить открытую смену' }).click();
+    expect(asked).toMatch(/^Удалить открытую смену с \d\d:\d\d\?$/);
+    await expect(history.getByText(/Смена идёт с \d\d:\d\d/)).toBeVisible();
+    page.once('dialog', (d) => void d.accept());
     await history.getByRole('button', { name: 'Удалить открытую смену' }).click();
     await history.getByRole('button', { name: 'Начать смену' }).click();
     await expect(history.getByText(/Смена идёт с \d\d:\d\d/)).toBeVisible();

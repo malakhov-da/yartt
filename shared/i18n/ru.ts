@@ -262,6 +262,8 @@ export const ru = {
       editTitle: 'Поправить смену',
       edit: 'Поправить смену',
       delete: 'Удалить смену',
+      removeConfirm: 'Удалить открытую смену с {{from}}?',
+      deleteConfirm: 'Удалить смену {{from}}–{{to}}?',
       from: 'Начало',
       to: 'Конец',
       about: 'Что сделано',

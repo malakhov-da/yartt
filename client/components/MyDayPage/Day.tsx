@@ -285,7 +285,15 @@ export default function (p: {
           )}
           {editable && (
             <Tooltip title={t(shift === open ? 'myDay.shift.remove' : 'myDay.shift.delete')}>
-              <IconButton size="small" disabled={removeShift.isPending} onClick={() => removeShift.mutate({ startedAt: shift.startedAt })}>
+              <IconButton size="small" disabled={removeShift.isPending} onClick={() => {
+                const asked = shift.spentMinutes === null
+                  ? t('myDay.shift.removeConfirm', { from: format.time(shift.startedAt) })
+                  : t('myDay.shift.deleteConfirm', {
+                      from: format.time(shift.startedAt),
+                      to: format.time(new Date(shift.startedAt.getTime() + shift.spentMinutes * 60_000)),
+                    });
+                if (window.confirm(asked)) removeShift.mutate({ startedAt: shift.startedAt });
+              }}>
                 <DeleteOutline fontSize="small" />
               </IconButton>
             </Tooltip>

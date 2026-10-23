@@ -96,6 +96,7 @@ test.describe('My day', () => {
     await dialog.getByLabel('Что сделано').fill('Забытая смена, поправлено');
     await dialog.getByRole('button', { name: 'Сохранить' }).click();
     await expect(history.getByText('Забытая смена, поправлено')).toBeVisible();
+    page.once('dialog', (d) => void d.accept());
     await row.getByRole('button', { name: 'Удалить смену' }).click();
     await expect(history.getByText('Забытая смена, поправлено')).toHaveCount(0);
   });

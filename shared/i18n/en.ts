@@ -206,6 +206,8 @@ export const en: Translation = {
       editTitle: 'Correct the shift',
       edit: 'Correct the shift',
       delete: 'Delete the shift',
+      removeConfirm: 'Delete the open shift since {{from}}?',
+      deleteConfirm: 'Delete the shift {{from}}–{{to}}?',
       from: 'Start',
       to: 'End',
       about: 'What was done',
