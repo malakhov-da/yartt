@@ -435,6 +435,7 @@ export const ru = {
     latestHint: 'Крайний дедлайн #{{dependency}} для #{{dependent}} — {{date}}: позже #{{dependent}} не успеет. Сейчас дедлайн #{{dependency}} — {{deadline}}, укладывается.',
     latestHintLate: 'Крайний дедлайн #{{dependency}} для #{{dependent}} — {{date}}, а её дедлайн — {{deadline}}: обе задачи под угрозой.',
     latestHintNone: 'Крайний дедлайн #{{dependency}} для #{{dependent}} — {{date}}, а дедлайна у #{{dependency}} нет: обе задачи под угрозой.',
+    latestWho: 'Крайний дедлайн задаёт владелец #{{dependent}} — в своей задаче, в разделе «Ждёт».',
     dependency: {
       add: 'Добавить',
       newTask: 'Новая задача',

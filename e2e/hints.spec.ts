@@ -25,3 +25,11 @@ test('a task whose plan does not fit the deadline is marked at risk, and says wh
   // The site is also late for Pavel's task, which needs it earlier: both reasons are said.
   await expect(page.getByRole('tooltip').filter({ hasText: /Павел Орлов в плане/ })).toContainText(/Задерживает #\d+/);
 });
+
+test('a latest deadline on the task waited for says who sets it and where', async ({ page }) => {
+  await signIn(page);
+  const api = await taskId('сайт', 'api', 'перевести форму заявки на новый api');
+  await page.goto(`/tasks/${await taskId('сайт', 'новая главная к осенней кампании')}`);
+  await page.getByText(/^ждёт эту до /).first().hover();
+  await expect(page.getByRole('tooltip').filter({ hasText: `задаёт владелец #${api}` })).toBeVisible();
+});

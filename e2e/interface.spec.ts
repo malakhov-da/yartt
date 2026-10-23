@@ -126,6 +126,12 @@ test.describe('a task', () => {
     await page.mouse.move(0, 0);
     await page.getByText('Под угрозой').first().hover();
     await expect(page.getByRole('tooltip').filter({ hasText: `Ждёт #${site}` })).toBeVisible();
+    await page.mouse.move(0, 0);
+
+    // It is changed by a button that says so, next to the line.
+    await page.getByRole('button', { name: 'Изменить крайний дедлайн' }).click();
+    await expect(page.getByLabel(`Крайний дедлайн #${site}`)).toBeVisible();
+    await page.getByRole('button', { name: 'Отмена' }).last().click();
   });
 
   test('a comment: back to editing restores it; Ctrl+Enter sends; a file and an image go with it', async ({ page }) => {

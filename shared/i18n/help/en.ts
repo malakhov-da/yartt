@@ -118,7 +118,7 @@ export const helpEn: Help = {
         'On a task\'s page: "Waits for" — what it cannot be finished without; "Waited on by" — who needs it. A task is found by tags or number.',
         'Without a latest deadline a dependency only shows that a task waits for another.',
         '"Set a latest deadline" — a date and time the task waited for must not finish after, or yours will not make it. '
-          + 'The pencil on the dependency\'s line changes it.',
+          + 'Only the owner of the waiting task sets and changes it — by "Set" or "Change the latest deadline" to the right of the line in "Waits for".',
         'Nothing is forbidden: if its deadline is later or not set, the dependency\'s line is highlighted and both tasks are "At risk" — '
           + 'yours waits for a late one, that one delays yours. You are told of every move of its deadline.',
         'The owner of the task waited for is notified of a new dependency.',

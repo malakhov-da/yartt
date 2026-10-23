@@ -159,7 +159,10 @@ Left, top to bottom:
   "needed by 24 Oct, 12:00" in Waits for, "needs this by …" in Waited on
   by, highlighted when the deadline waited for is later or not set, and
   spelled out with the numbers on hover (decision 66) — deadline, owner's
-  avatar. Resolved dependencies stay in the list, struck through, so the
+  avatar. The latest deadline is the waiting task's owner's: in Waits for
+  a button next to the line says it — "Set a latest deadline" or "Change
+  the latest deadline"; in Waited on by its hint names who sets it and
+  where. Resolved dependencies stay in the list, struck through, so the
   history of what blocked the task is not lost.
   **New task** next to each list opens the new-task form tied to this
   task: one this task waits for (the owner only), or one that waits for

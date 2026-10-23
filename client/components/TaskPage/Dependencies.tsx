@@ -1,4 +1,4 @@
-import { Add, AddTask, Close, Edit } from '@mui/icons-material';
+import { Add, AddTask, Close } from '@mui/icons-material';
 import { Box, Button, Checkbox, FormControlLabel, IconButton, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -71,8 +71,10 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
     if (dep.latestAt === null) return undefined;
     const { dependent, dependency } = sides(dep, waits);
     const params = { dependent: dependent.id, dependency: dependency.id, date: format.dateTime(dep.latestAt) };
-    if (dependency.deadline === null) return t('task.latestHintNone', params);
-    return t(broken(dep, waits) ? 'task.latestHintLate' : 'task.latestHint', { ...params, deadline: format.dateTime(dependency.deadline) });
+    const state = dependency.deadline === null ? t('task.latestHintNone', params)
+      : t(broken(dep, waits) ? 'task.latestHintLate' : 'task.latestHint', { ...params, deadline: format.dateTime(dependency.deadline) });
+    // Who may change it — and where — unless it is me, with the button right here.
+    return waits && isOwner ? state : `${state} ${t('task.latestWho', params)}`;
   };
 
   const latest = draft?.limited ? fromLocalInput(draft.latest) : null;
@@ -115,19 +117,18 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
               </Box>
               {g.waits && isOwner && (
                 <>
-                  <Tooltip title={t('task.dependency.edit')}>
-                    <IconButton size="small" onClick={() => setDraft({
-                      waits: true,
-                      picked: dep,
-                      parts: [],
-                      input: '',
-                      limited: dep.latestAt !== null,
-                      latest: dep.latestAt ? toLocalInput(dep.latestAt) : suggest(dep.deadline, task.deadline),
-                      editing: dep.id,
-                    })}>
-                      <Edit fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+                  {/* Said in words: the latest deadline is set here, by the owner of the waiting task. */}
+                  <Button size="small" sx={{ flexShrink: 0, whiteSpace: 'nowrap' }} onClick={() => setDraft({
+                    waits: true,
+                    picked: dep,
+                    parts: [],
+                    input: '',
+                    limited: true,
+                    latest: dep.latestAt ? toLocalInput(dep.latestAt) : suggest(dep.deadline, task.deadline),
+                    editing: dep.id,
+                  })}>
+                    {t(dep.latestAt ? 'task.dependency.edit' : 'task.dependency.limit')}
+                  </Button>
                   <Tooltip title={t('task.dependency.remove')}>
                     <IconButton size="small" disabled={remove.isPending} onClick={() => remove.mutate({ taskId: task.id, value: dep.id })}>
                       <Close fontSize="small" />
