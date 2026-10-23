@@ -150,7 +150,7 @@ export default function (p: {
           ...(header.deadline !== null && header.deadline <= new Date() && { color: 'text.secondary' }),
         }}
       >
-        <Box component="span" sx={{ fontFamily: 'monospace', color: 'text.secondary', mr: 0.75 }}>#{header.id}</Box>
+        <Box component="span" sx={{ fontFamily: 'monospace', color: 'primary.main', mr: 0.75 }}>#{header.id}</Box>
         {header.tags.map((tag) => tag.name).join(' · ')}
       </Typography>
     </TaskHint>

@@ -152,3 +152,12 @@ test('Waiting for others: my request not answered yet, withdrawn from there', as
   await block.getByRole('button', { name: 'Отозвать заявку' }).click();
   await expect(block.getByText(tag)).toHaveCount(0);
 });
+
+test('what was done, a dot on the ribbon, opens its task', async ({ page }) => {
+  await signIn(page);
+  const ribbon = page.getByLabel('Лента дня: смены, заходы и действия').first();
+  const dot = ribbon.getByRole('link').last(); // dots of the same moment lie one on another: the top one
+  await expect(dot).toHaveAccessibleName(/#\d+ /);
+  await dot.click();
+  await expect(page).toHaveURL(/\/tasks\/\d+$/);
+});

@@ -30,6 +30,17 @@ describe('mail', () => {
     expect(ru.subject).toBe(`Вы владелец: billing-${me.id} · export-${me.id}`);
   });
 
+  test('the other task a message names is a link too', async () => {
+    const me = await createEmployee();
+    const mine = await taskWithTags(me.id, [`mine-${me.id}`]);
+    const theirs = await taskWithTags(me.id, [`theirs-${me.id}`]);
+    const to = { employeeId: me.id, kind: 'human' as const, email: me.email, fullName: 'Me', locale: 'en' as const, timeZone: 'Europe/Moscow' };
+
+    const moved = await renderMail({ to, taskId: mine, payload: { kind: 'finished_at_change', dependencyId: theirs, late: false } });
+    expect(moved.text).toContain(`Open: http://yartt.test/tasks/${mine}`);
+    expect(moved.text).toContain(`Open "theirs-${me.id}": http://yartt.test/tasks/${theirs}`);
+  });
+
   test('sign-in link and a copy for an absent employee', async () => {
     const me = await createEmployee();
     const absent = await createEmployee();

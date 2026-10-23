@@ -1,5 +1,6 @@
 import { Box, Stack, Tooltip, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 import type { Action, Shift, Visit } from '#shared/myDay.ts';
 import type { TaskHeader } from '#shared/task.ts';
 import { useFormat } from '#client/hooks/format.ts';
@@ -46,7 +47,7 @@ export default function (p: {
   const title = (taskId: number | null) => {
     if (taskId === null) return t('nav.myDay');
     const task = p.tasks.get(taskId);
-    return task ? task.tags.map((tag) => tag.name).join(' · ') : `#${taskId}`;
+    return task ? `#${taskId} ${task.tags.map((tag) => tag.name).join(' · ')}` : `#${taskId}`;
   };
   const hour = (at: number) => String(new Date(at).getHours()).padStart(2, '0');
 
@@ -85,7 +86,10 @@ export default function (p: {
         })}
         {p.actions.map((a) => (
           <Tooltip key={`a${a.kind}${a.at.getTime()}`} title={`${format.time(a.at)} · ${t(`myDay.ribbon.${a.kind}`)} · ${title(a.taskId)}`}>
+            {/* What was done is in a task: the dot opens it. */}
             <Box
+              component={Link}
+              to={`/tasks/${a.taskId}`}
               sx={{
                 position: 'absolute', top: 7, width: 8, height: 8, ml: '-4px', left: left(a.at.getTime()), borderRadius: '50%',
                 bgcolor: a.kind === 'comment' ? 'primary.dark' : 'success.main', border: 1, borderColor: 'background.paper',

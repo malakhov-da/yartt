@@ -76,6 +76,10 @@ export async function renderMail(message: Message): Promise<{ subject: string; t
   if (p.kind === 'finished_at_change' && p.late) lines.push(t.finished_at_change.late);
   if ('for' in p && p.for !== undefined) lines.push(interpolate(t.awayCopy, { name: person(p.for) }));
   if (message.taskId !== null) lines.push(interpolate(t.open, { url: `${env.PUBLIC_URL}/tasks/${message.taskId}` }));
+  // The other task the message names is a link too.
+  const other = p.kind === 'finished_at_change' ? { id: p.dependencyId, title: params.dependency }
+    : p.kind === 'dependency_added' ? { id: p.dependentId, title: params.dependent } : null;
+  if (other) lines.push(interpolate(t.openOther, { task: other.title ?? '', url: `${env.PUBLIC_URL}/tasks/${other.id}` }));
   if (p.kind === 'bot_key_old') lines.push(interpolate(t.weekly_digest.open, { url: `${env.PUBLIC_URL}/` }));
 
   return { subject: interpolate(template.subject, params), text: lines.join('\n\n') };

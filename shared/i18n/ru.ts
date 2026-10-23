@@ -786,6 +786,7 @@ export const ru = {
   mail: {
     awayCopy: 'Копия: {{name}} сейчас отсутствует.',
     open: 'Открыть: {{url}}',
+    openOther: 'Открыть «{{task}}»: {{url}}',
     login: {
       subject: 'Вход в яртт',
       body: 'Ссылка для входа — одноразовая, действует 10 минут:\n{{url}}',

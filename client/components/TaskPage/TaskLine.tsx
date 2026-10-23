@@ -38,7 +38,8 @@ export default function (p: {
         bgcolor: closed ? 'action.hover' : 'background.paper', '&:hover': { borderColor: 'primary.light' },
       }}
     >
-      <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>#{p.task.id}</Typography>
+      {/* The number looks like the link it is: the way into the task wherever it is shown. */}
+      <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'primary.main', '*:hover > &': { textDecoration: 'underline' } }}>#{p.task.id}</Typography>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, flex: '1 1 160px', minWidth: 0, textDecoration: closed ? 'line-through' : 'none' }}>
         {p.task.tags.map((tag) => {
           const onTag = p.onTag;

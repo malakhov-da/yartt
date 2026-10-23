@@ -778,6 +778,7 @@ export const en: Translation = {
   mail: {
     awayCopy: 'A copy: {{name}} is away.',
     open: 'Open: {{url}}',
+    openOther: 'Open "{{task}}": {{url}}',
     login: {
       subject: 'Sign in to yartt',
       body: 'Your sign-in link — single-use, valid for 10 minutes:\n{{url}}',
