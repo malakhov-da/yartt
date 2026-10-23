@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { errorToast, signIn, unique } from './helpers.ts';
+import { errorToast, signIn, taskId, unique } from './helpers.ts';
 
 // The search in My day, over Current tasks (docs/product/interface.md, Find).
 test.describe('search', () => {
@@ -23,6 +23,16 @@ test.describe('search', () => {
     await expect(panel(page).getByRole('link', { name: /^#/ }).filter({ hasNotText: 'склад' })).toHaveCount(0);
     await panel(page).getByRole('link', { name: /склад инвентаризация за октябрь/ }).click();
     await expect(page).toHaveURL(/\/tasks\/\d+$/);
+  });
+
+  test('a tag on a task finds the other tasks with it', async ({ page }) => {
+    await page.goto(`/tasks/${await taskId('склад', 'инвентаризация за октябрь')}`);
+    await page.getByRole('main').getByRole('button', { name: 'склад', exact: true }).click();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(panel(page).getByRole('button', { name: 'склад', exact: true })).toBeVisible();
+    await expect(panel(page).getByRole('combobox')).toBeFocused();
+    await expect(panel(page).getByRole('link', { name: /^#/ }).first()).toBeVisible();
+    await expect(panel(page).getByRole('link', { name: /^#/ }).filter({ hasNotText: 'склад' })).toHaveCount(0);
   });
 
   test('a tag is found despite a typo or the other layout; words become a set of tags', async ({ page }) => {

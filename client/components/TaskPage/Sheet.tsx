@@ -5,11 +5,13 @@ import {
 import { useMutation } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router';
 import type { TagPart } from '#shared/tags.ts';
 import { PRIORITIES, type Priority, type TaskDetails, type TaskPage } from '#shared/task.ts';
 import { useFormat } from '#client/hooks/format.ts';
 import { useDraft } from '#client/hooks/drafts.ts';
 import { useMe } from '#client/hooks/me.ts';
+import { searchByTags } from '#client/hooks/store.ts';
 import { useEmployees, useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import EmployeeAvatar from '../App/EmployeeAvatar.tsx';
@@ -38,6 +40,7 @@ function localInput(date: Date): string {
  */
 export default function (p: { task: TaskPage & { details: TaskDetails } }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const trpc = useTRPC();
   const format = useFormat();
   const employees = useEmployees();
@@ -106,7 +109,12 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
           ) : (
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
               <Typography sx={{ fontFamily: 'monospace', fontSize: 18, color: 'text.secondary', pr: 0.5 }}>#{task.id}</Typography>
-              {task.tags.map((tag) => <TagChip key={tag.id} tag={tag} sx={{ fontSize: 18, height: 34, borderRadius: 2 }} />)}
+              {/* A tag finds the other tasks with it: My day, the search narrowed to it. */}
+              {task.tags.map((tag) => (
+                <Tooltip key={tag.id} title={t('task.findByTag')} describeChild>
+                  <TagChip tag={tag} onClick={() => { searchByTags([tag]); void navigate('/'); }} sx={{ fontSize: 18, height: 34, borderRadius: 2 }} />
+                </Tooltip>
+              ))}
               {isOwner && (
                 <Tooltip title={t('task.edit')}>
                   <IconButton size="small" onClick={() => setEditingTags({ parts: task.tags.map((tag) => ({ tag })), input: '' })}>

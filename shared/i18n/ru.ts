@@ -393,6 +393,7 @@ export const ru = {
   },
   task: {
     title: 'Задача #{{id}}',
+    findByTag: 'Найти задачи с этим тегом',
     priority: {
       LOW: 'Низкий',
       NORMAL: 'Обычный',
