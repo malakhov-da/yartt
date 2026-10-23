@@ -98,7 +98,9 @@ range; a click on another heading sorts by it — or the tags
 - **Timesheet** ("My days" before: next to "My day" the two were
   confused) — today and the last day before it with activity (on
   Monday that is usually Friday: what was I doing?); "History" leads to
-  all of them, my own employee page (decision 54). A day in a few lines:
+  all of them, my own employee page (decision 54). On a wide screen it
+  sits beside the other blocks and scrolls on its own, staying in view
+  while they scroll. A day in a few lines:
   - its totals — the time in its closed shifts and the time logged to
     tasks, with a warning when more is logged than worked;
   - the ribbon: the day from 09 to 18 (wider if something happened

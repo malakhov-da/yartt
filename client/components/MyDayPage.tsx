@@ -1,5 +1,6 @@
 import { Box, Stack, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMe } from '#client/hooks/me.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
@@ -26,6 +27,24 @@ export default function () {
   // Under My team, or on its own for someone whose only reports are bots (created from the profile).
   const hasBots = isManager || reports.some((e) => e.kind === 'bot');
 
+  // Side by side, the days scroll on their own: the height of the page's
+  // scrolling area, less its padding, so the tasks scroll past them.
+  const side = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState<{ top: number; height: number }>();
+  useLayoutEffect(() => {
+    const main = side.current?.closest('main');
+    if (!main) return;
+    const measure = () => {
+      const style = getComputedStyle(main);
+      const top = parseFloat(style.paddingTop);
+      setFit({ top, height: main.clientHeight - top - parseFloat(style.paddingBottom) });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(main);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <Stack spacing={3} sx={{ width: '100%', maxWidth: 1280, mx: 'auto' }}>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 2 }}>
@@ -38,7 +57,16 @@ export default function () {
           <TagLimits />
           {hasBots && <Bots />}
         </Stack>
-        <Box sx={{ flex: '1 1 400px', minWidth: 0 }}>
+        <Box
+          ref={side}
+          sx={{
+            flex: '1 1 400px', minWidth: 0,
+            // Wide enough for the two columns (560 + 400 + the gaps).
+            ...(fit && fit.height > 0 && {
+              '@media (min-width: 1024px)': { position: 'sticky', top: 0, maxHeight: fit.height, overflowY: 'auto', overscrollBehavior: 'contain' },
+            }),
+          }}
+        >
           <History />
         </Box>
       </Box>

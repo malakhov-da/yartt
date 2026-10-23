@@ -34,3 +34,27 @@ test.describe('at phone width', () => {
     await fits(page);
   });
 });
+
+test.describe('wide', () => {
+  test.use({ viewport: { width: 1400, height: 800 } });
+
+  test('the timesheet beside the tasks scrolls on its own', async ({ page }) => {
+    await signIn(page);
+    const sheet = page.getByRole('heading', { name: 'Табель' }).locator('xpath=ancestor::div[contains(@class, "MuiBox-root")][1]');
+    const visits = sheet.getByRole('button', { name: /^Заходы · \d+$/ });
+    await expect(visits).toHaveCount(2);
+    for (const button of await visits.all()) await button.click();
+    const main = page.locator('main').first();
+    const scrolled = () => Promise.all([main.evaluate((e) => e.scrollTop), sheet.evaluate((e) => e.scrollTop)]);
+
+    // The tasks scroll; the timesheet stays in view.
+    await main.evaluate((e) => e.scrollBy(0, 900));
+    await expect(sheet.getByRole('heading', { name: 'Табель' })).toBeInViewport();
+    // The timesheet scrolls; the tasks do not move.
+    await sheet.hover();
+    const [mainBefore] = await scrolled();
+    await page.mouse.wheel(0, 400);
+    await expect.poll(async () => (await scrolled())[1]).toBeGreaterThan(0);
+    expect((await scrolled())[0]).toBe(mainBefore);
+  });
+});
