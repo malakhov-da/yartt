@@ -141,7 +141,7 @@ export async function waiting(me: number): Promise<WaitingItem[]> {
 
 /**
  * Tasks I see — public ones included (decision 14): the open ones (no
- * deadline or one ahead) I own, or all the open ones, mine too, by deadline,
+ * deadline or one ahead) I own, or all the other open ones, by deadline,
  * nearest first, the same moment and no deadline by priority; or the
  * closed ones, the most recently closed first (decision 57).
  */
@@ -154,13 +154,13 @@ export async function current(me: number, tab: CurrentTab, page: number): Promis
   `;
   const ids = z.object({ id: z.number() }).array().parse(await sql`
     SELECT id FROM (${seen}) t
-     WHERE ${tab === 'closed' ? sql`closed` : tab === 'mine' ? sql`NOT closed AND owner_id = ${me}` : sql`NOT closed`}
+     WHERE ${tab === 'closed' ? sql`closed` : sql`NOT closed AND (owner_id IS NOT DISTINCT FROM ${me}) = ${tab === 'mine'}`}
      ORDER BY ${tab === 'closed' ? sql`deadline DESC, priority DESC, id DESC` : sql`deadline NULLS LAST, priority DESC, id DESC`}
      LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}
   `).map((r) => r.id);
-  const [counts] = z.object({ mine: z.number(), active: z.number(), closed: z.number() }).array().parse(await sql`
+  const [counts] = z.object({ mine: z.number(), others: z.number(), closed: z.number() }).array().parse(await sql`
     SELECT count(*) FILTER (WHERE NOT closed AND owner_id = ${me})::int AS mine,
-           count(*) FILTER (WHERE NOT closed)::int AS active,
+           count(*) FILTER (WHERE NOT closed AND owner_id IS DISTINCT FROM ${me})::int AS others,
            count(*) FILTER (WHERE closed)::int AS closed
       FROM (${seen}) t
   `);

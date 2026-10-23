@@ -242,17 +242,15 @@ describe('rich text and attachments', () => {
 });
 
 describe('search', () => {
-  test('tags find any task: mine apart, and all the open ones', async () => {
+  test('tags find any task, mine apart from the others', async () => {
     const owner = await createEmployee();
     const stranger = await createEmployee();
     const tag = `s-${randomUUID().slice(0, 8)}`;
     const id = await (await client(owner.id)).Task.create({ tags: [tag] });
     const tagId = (await (await client(stranger.id)).Tags.suggest({ text: tag })).tags[0]!.id;
 
-    const byTag = await (await client(stranger.id)).Task.search({ tagIds: [tagId], tab: 'active', page: 1 });
-    expect(byTag).toMatchObject({ items: [{ id, canSee: false }], counts: { mine: 0, active: 1 } });
-    expect((await (await client(owner.id)).Task.search({ tagIds: [tagId], tab: 'active', page: 1 })).counts)
-      .toMatchObject({ mine: 1, active: 1 });
+    const byTag = await (await client(stranger.id)).Task.search({ tagIds: [tagId], tab: 'others', page: 1 });
+    expect(byTag).toMatchObject({ items: [{ id, canSee: false }], counts: { mine: 0, others: 1 } });
     expect((await (await client(owner.id)).Task.search({ tagIds: [tagId], tab: 'mine', page: 1 })).items)
       .toMatchObject([{ id, canSee: true }]);
     await expect((await client(stranger.id)).Task.create({ tags: [tag] })).rejects.toMatchObject({ message: 'tag_set_taken' });
@@ -565,7 +563,7 @@ describe('titles', () => {
     const [tagId] = (await sql<{ id: number }[]>`SELECT id FROM tag WHERE name = ${tag}`).map((r) => r.id);
     const found = await api.Task.search({ tagIds: [tagId!], tab: 'closed', page: 1 });
     expect(found.items.map((i) => i.id)).toEqual([second, first]);
-    expect(found.counts).toEqual({ mine: 1, active: 1, closed: 2 });
+    expect(found.counts).toEqual({ mine: 1, others: 0, closed: 2 });
   });
 });
 

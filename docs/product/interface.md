@@ -59,15 +59,14 @@ someone with reports:
   beginning of my comment and their answers so far, "Answered — waiting
   for Done" or "No answer yet"; the longest waiting on top (decision 67).
 - **Current tasks** — every open task I see (no deadline, or a deadline
-  ahead), in two tabs: **My open** (I answer for them) and **Active** —
-  all of them, mine too (decision 8) — and the closed ones I see in a
-  third, **Closed** (decision 57); each
+  ahead), in two tabs: **My open** (I answer for them) and **Other open** —
+  and the closed ones I see in a third, **Closed** (decision 57); each
   explains itself on hover. Open tasks are by deadline, nearest first,
   the same moment by priority; tasks without a deadline at the end, by
   priority. Closed ones are the most recently closed first. Every tab has
-  pages. For a director "Active" is hundreds of tasks — pages keep it
+  pages. For a director "Other open" is hundreds of tasks — pages keep it
   usable, the search on top narrows it (3). Public tasks of others are in
-  "Active" for everyone: there should be few of them (decision 14).
+  "Other open" for everyone: there should be few of them (decision 14).
   "New task" in its title row opens a new task with what the search holds (2a). A task whose
   plan does not fit before its deadline, or that waits for a task due too
   late or delays one waiting for it, says "At risk", the reasons on hover

@@ -85,7 +85,7 @@ describe('todo', () => {
 });
 
 describe('current tasks', () => {
-  test('mine apart, and all the open ones, mine too; closed tasks leave; public tasks are everyone\'s', async () => {
+  test('mine apart from the others; closed tasks leave; public tasks are everyone\'s', async () => {
     const boss = await createEmployee();
     const report = await createEmployee({ managerId: boss.id });
     const stranger = await createEmployee();
@@ -99,15 +99,12 @@ describe('current tasks', () => {
     expect(mine.items.map((t) => t.id)).toContain(own);
     expect(mine.items.map((t) => t.id)).not.toContain(closed);
     expect(mine.items.map((t) => t.id)).not.toContain(theirs);
-    const active = (await api.MyDay.current({ tab: 'active', page: 1 })).items.map((t) => t.id);
-    expect(active).toContain(theirs);
-    expect(active).toContain(own);
-    expect(active).not.toContain(closed);
+    expect((await api.MyDay.current({ tab: 'others', page: 1 })).items.map((t) => t.id)).toContain(theirs);
 
     const strangerApi = await client(stranger.id);
-    expect((await strangerApi.MyDay.current({ tab: 'active', page: 1 })).items.map((t) => t.id)).not.toContain(own);
+    expect((await strangerApi.MyDay.current({ tab: 'others', page: 1 })).items.map((t) => t.id)).not.toContain(own);
     await api.Task.makePublic({ id: own });
-    expect((await strangerApi.MyDay.current({ tab: 'active', page: 1 })).items.map((t) => t.id)).toContain(own);
+    expect((await strangerApi.MyDay.current({ tab: 'others', page: 1 })).items.map((t) => t.id)).toContain(own);
   });
 
   test('by deadline, nearest first; the same moment and no deadline — by priority, no deadline last', async () => {

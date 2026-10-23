@@ -88,15 +88,15 @@ async function assertOwner(taskId: number, employeeId: number, db: Sql = sql): P
 
 /**
  * Tasks carrying all the given tags — any task: tags are visible to
- * everyone. The tabs of Current tasks — my open ones, all the open ones,
+ * everyone. The tabs of Current tasks — my open ones, the other open ones,
  * the closed ones — in their orders; 'all' — open first, by deadline.
  */
 export async function search(viewerId: number, input: SearchInput): Promise<SearchResult> {
   const where = sql`k.tag_ids @> ${input.tagIds}::int[]`;
   const closed = sql`(f.value IS NOT NULL AND f.value <= NOW())`;
-  const [counts] = z.object({ mine: z.number(), active: z.number(), closed: z.number() }).array().parse(await sql`
+  const [counts] = z.object({ mine: z.number(), others: z.number(), closed: z.number() }).array().parse(await sql`
     SELECT count(*) FILTER (WHERE NOT ${closed} AND k.owner_id = ${viewerId})::int AS mine,
-           count(*) FILTER (WHERE NOT ${closed})::int AS active,
+           count(*) FILTER (WHERE NOT ${closed} AND k.owner_id IS DISTINCT FROM ${viewerId})::int AS others,
            count(*) FILTER (WHERE ${closed})::int AS closed
       FROM task k
       LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
@@ -104,8 +104,7 @@ export async function search(viewerId: number, input: SearchInput): Promise<Sear
   `);
   const tab = input.tab === 'all' ? sql`TRUE`
     : input.tab === 'closed' ? closed
-    : input.tab === 'mine' ? sql`NOT ${closed} AND k.owner_id = ${viewerId}`
-    : sql`NOT ${closed}`;
+    : sql`NOT ${closed} AND (k.owner_id IS NOT DISTINCT FROM ${viewerId}) = ${input.tab === 'mine'}`;
   const order = input.tab === 'closed' ? sql`f.value DESC, k.priority DESC, k.id DESC`
     : sql`${closed}, f.value NULLS LAST, k.priority DESC, k.id DESC`;
   const ids = Id.array().parse(await sql`
