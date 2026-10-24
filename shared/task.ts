@@ -146,6 +146,8 @@ export const CreateInput = z.object({
   waitsFor: Id.optional(),
   /** This task waits for the new one (no latest deadline); the creator must own it. */
   waitedOnBy: Id.optional(),
+  /** Brought in at once, as a participant brings people in (add_observer); each is told. */
+  participants: Id.array().max(100).optional(),
 });
 export type CreateInput = z.infer<typeof CreateInput>;
 

@@ -1,5 +1,5 @@
 import { Close } from '@mui/icons-material';
-import { Box, Button, IconButton, MenuItem, Paper, Stack, TextField, Tooltip, Typography } from '@mui/material';
+import { Autocomplete, Box, Button, IconButton, MenuItem, Paper, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -7,22 +7,25 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import type { TagPart } from '#shared/tags.ts';
 import { PRIORITIES, type Priority } from '#shared/task.ts';
 import { useDraft } from '#client/hooks/drafts.ts';
-import { useTaskRefresh } from '#client/hooks/task.ts';
+import { useMe } from '#client/hooks/me.ts';
+import { useEmployees, useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
+import { employeeFilter, employeeOption } from './App/employeeOption.tsx';
 import RichEditor, { type RichEditorHandle } from './App/RichEditor.tsx';
 import TagInput, { useTitle } from './App/TagInput.tsx';
 import PriorityChip from './TaskPage/PriorityChip.tsx';
 import TaskLine from './TaskPage/TaskLine.tsx';
 import TakenLink from './App/TakenLink.tsx';
 
-type Draft = { tags: TagPart[]; input: string; priority: Priority; deadline: string; context: string };
-const EMPTY: Draft = { tags: [], input: '', priority: 'NORMAL', deadline: '', context: '' };
+type Draft = { tags: TagPart[]; input: string; priority: Priority; deadline: string; context: string; participants: number[] };
+const EMPTY: Draft = { tags: [], input: '', priority: 'NORMAL', deadline: '', context: '', participants: [] };
 
 const label = { fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'text.secondary' } as const;
 
 /**
  * A new task (`/tasks/new`), over My day like a task. The title is its tags,
- * typed as in the search; priority, deadline and context are optional.
+ * typed as in the search; priority, deadline, context and the participants
+ * brought in at once are optional.
  * `?waitsFor=<id>` — the new task waits for that one, `?waitedOnBy=<id>` —
  * that one (mine) waits for the new task: the "New task" buttons of a
  * task's dependencies open it so. The search in My day and a task's
@@ -44,6 +47,10 @@ export default function () {
 
   const [draft, setDraft, clearDraft] = useDraft<Draft>('newTask', EMPTY);
   const { tags, input, priority, deadline } = draft;
+  const participants = draft.participants ?? []; // a draft from before the field
+  const me = useMe();
+  const employees = useEmployees();
+  const candidates = [...employees.values()].filter((e) => e.dismissedAt === null && e.id !== me.id);
   const change = (part: Partial<Draft>) => setDraft((prev) => ({ ...prev, ...part }));
   const editor = useRef<RichEditorHandle>(null);
 
@@ -87,6 +94,7 @@ export default function () {
     context: editor.current?.isEmpty() ? null : (editor.current?.getHtml() ?? null),
     waitsFor,
     waitedOnBy,
+    participants,
   });
   // Back where the form was opened from; a link opened in a new tab goes home.
   const cancel = () => {
@@ -139,6 +147,20 @@ export default function () {
           onChange={(html) => change({ context: html })}
         />
       </Stack>
+
+      <Autocomplete
+        multiple
+        options={candidates}
+        value={participants.flatMap((id) => employees.get(id) ?? [])}
+        onChange={(_e, value) => change({ participants: value.map((e) => e.id) })}
+        getOptionLabel={(e) => e.fullName}
+        filterOptions={employeeFilter}
+        renderOption={(props, e) => employeeOption(props, e)}
+        isOptionEqualToValue={(a, b) => a.id === b.id}
+        renderInput={(params) => (
+          <TextField {...params} label={t('newTask.participants')} helperText={t('newTask.participantsHint')} />
+        )}
+      />
 
       {relatedId !== undefined && (
         <Stack spacing={0.75}>

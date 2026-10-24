@@ -48,6 +48,28 @@ test.describe('new task', () => {
     await expect(page.getByText('Высокий').filter({ visible: true }).first()).toBeVisible();
   });
 
+  test('participants are brought in from the form: the task opens with them, I stay the owner', async ({ page }) => {
+    const tag = unique('для разработчика');
+    await page.getByRole('button', { name: 'Новая задача' }).click();
+    await expect(page.getByRole('combobox', { name: 'Теги' })).toBeFocused();
+    await page.keyboard.type(tag);
+    await page.keyboard.press('Enter');
+    await page.getByRole('combobox', { name: 'Участники' }).click();
+    await page.keyboard.type('фронтенд'); // found by what he wrote about himself
+    await page.getByRole('option', { name: /Павел Орлов/ }).click();
+    await page.getByRole('button', { name: 'Создать задачу' }).click();
+    await expect(page).toHaveURL(/\/tasks\/\d+$/);
+    const id = Number(page.url().split('/').pop());
+    const [row] = await sql`
+      SELECT k.owner_id = (SELECT id FROM employee WHERE full_name = 'Алексей Громов') AS mine,
+             EXISTS (SELECT 1 FROM observer o JOIN employee e ON e.id = o.value
+                      WHERE o.task_id = k.id AND e.full_name = 'Павел Орлов' AND o.added_at IS NOT NULL AND o.deleted_at IS NULL) AS pavel
+        FROM task k WHERE k.id = ${id}
+    `;
+    expect(row).toEqual({ mine: true, pavel: true });
+    await expect(page.getByText('Павел Орлов', { exact: true }).last()).toBeVisible();
+  });
+
   test('"New task" under "Waited on by" makes a task that waits for this one', async ({ page }) => {
     const id = await taskId('склад', 'инвентаризация за октябрь');
     await page.goto(`/tasks/${id}`);

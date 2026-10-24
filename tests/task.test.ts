@@ -37,6 +37,17 @@ describe('access', () => {
       .rejects.toMatchObject({ message: 'no_access' });
   });
 
+  test('participants come in with the new task, each told who brought them', async () => {
+    const owner = await createEmployee();
+    const dev = await createEmployee();
+    const stranger = await createEmployee();
+    const id = await (await client(owner.id)).Task.create({ tags: [`t-${randomUUID().slice(0, 8)}`], participants: [dev.id, owner.id, dev.id] });
+
+    expect(await (await client(dev.id)).Task.get({ id })).toMatchObject({ access: 'observer', ownerId: owner.id });
+    expect(await notifications(dev.id)).toEqual([expect.objectContaining({ kind: 'access_opened', by: owner.id })]);
+    expect(await (await client(stranger.id)).Task.get({ id })).toMatchObject({ access: 'none' });
+  });
+
   test('any participant adds observers, like a copy in an email; only the owner hides them; both are notified', async () => {
     const owner = await createEmployee();
     const helper = await createEmployee();

@@ -196,6 +196,9 @@ export async function create(ownerId: number, input: CreateInput): Promise<numbe
     if (input.deadline) await db`SELECT set_finished_at(${id}, ${input.deadline})`;
     if (input.waitsFor) await Dependencies.setIn(db, ownerId, { taskId: id, value: input.waitsFor, latestAt: null });
     if (input.waitedOnBy) await Dependencies.addPart(db, ownerId, input.waitedOnBy, id);
+    for (const employeeId of new Set(input.participants ?? [])) {
+      if (employeeId !== ownerId) await db`SELECT add_observer(${id}, ${employeeId}, ${ownerId})`;
+    }
     return id;
   });
 }

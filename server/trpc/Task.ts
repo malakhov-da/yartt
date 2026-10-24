@@ -50,7 +50,7 @@ export default router({
    * created. Priority, deadline, context and a dependency without a latest deadline — the new
    * task waits for `waitsFor`, or `waitedOnBy` (a task the creator sees: the
    * new one is their part of it, decision 76) waits for it — may come at
-   * once. Returns its id.
+   * once, and the `participants` brought in, each told. Returns its id.
    * @throws tag_set_taken — a task with this set of tags exists.
    * @throws no_access — the creator does not see `waitedOnBy`.
    * @throws not_found — an unknown task to depend on.

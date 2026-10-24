@@ -289,6 +289,9 @@ export const en: Translation = {
     waitsFor: 'Will wait for',
     waitedOnBy: 'Will be waited on by',
     noDependency: 'Without this link',
+    participants: 'Participants',
+    participantsHint: 'Whom to bring in at once: a participant sees the task and may start their own part of it, while you stay '
+      + 'the owner. They are not notified of comments — for an answer, mention them in a comment.',
     create: 'Create task',
   },
   taskHint: {
