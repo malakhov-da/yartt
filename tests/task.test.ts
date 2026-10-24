@@ -629,6 +629,23 @@ describe('time in the feed', () => {
     const run = feed.items[4]!;
     expect(run.kind === 'spent' && run.entries.map((e) => e.day)).toEqual(['2026-01-03', '2026-01-02', '2026-01-01']);
   });
+
+  test('a plan says what its hours are for; it goes with the plan and stays in the history', async () => {
+    const owner = await createEmployee();
+    const id = await createTask(owner.id);
+    const api = await client(owner.id);
+
+    await api.Time.setLeft({ taskId: id, minutes: 180, about: '  the export and its tests  ' });
+    expect(await api.Time.mine({ taskId: id })).toMatchObject({ leftMinutes: 180, leftAbout: 'the export and its tests' });
+    // Only minutes: not said, rather than empty.
+    await api.Time.setLeft({ taskId: id, minutes: 60, about: '   ' });
+    expect(await api.Time.mine({ taskId: id })).toMatchObject({ leftMinutes: 60, leftAbout: null });
+
+    const plans = (await api.Comment.list({ taskId: id, filter: 'all', page: 1 })).items
+      .flatMap((i) => (i.kind === 'plan' ? [[i.minutes, i.about]] : []));
+    expect(plans).toEqual([[60, null], [180, 'the export and its tests']]);
+    await expect(api.Time.setLeft({ taskId: id, minutes: 60, about: 'x'.repeat(1001) })).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+  });
 });
 
 describe('titles', () => {

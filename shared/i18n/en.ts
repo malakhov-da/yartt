@@ -539,6 +539,8 @@ export const en: Translation = {
       day: 'Day',
       minutes: 'How long',
       planMinutes: 'How much more I plan to spend',
+      planAbout: 'What is left to do',
+      planAboutHint: 'Optional: so the owner and the others know what these hours are for',
       clearPlan: 'Clear the plan',
       timeHint: 'For example 1h 30m or 90',
       today: 'Today {{time}}',

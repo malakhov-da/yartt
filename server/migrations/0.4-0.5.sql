@@ -1648,3 +1648,14 @@ COMMENT ON FUNCTION start_session(INT) IS
 'A new session for a person: returns the token for the cookie, keeps its
 hash. Called once the person is known — by a sign-in link (login()) or
 by the identity provider (sign_in_external(), confirm_external_email()).';
+
+
+-- A plan says what is left to do for its hours (decision 88).
+
+ALTER TABLE estimate_minutes
+    ADD COLUMN about TEXT CHECK (about <> '' AND length(about) <= 1000);
+
+COMMENT ON COLUMN estimate_minutes.about IS
+'What they still mean to do for these minutes, in their words (decision
+88): so the owner of a closed task knows what a plan left on it is about,
+and others what the hours are for. NULL — not said.';

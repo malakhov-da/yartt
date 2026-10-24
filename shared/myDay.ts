@@ -61,7 +61,7 @@ export const TodoClosing = z.object({
 export type TodoClosing = z.infer<typeof TodoClosing>;
 
 /** Time planned on a task, someone's own (estimate_minutes). */
-export const PlanLeft = z.object({ employeeId: Id, minutes: z.number().int() });
+export const PlanLeft = z.object({ employeeId: Id, minutes: z.number().int(), about: z.string().nullable() });
 export type PlanLeft = z.infer<typeof PlanLeft>;
 
 /**
@@ -103,6 +103,8 @@ export const TodoPlanLeft = z.object({
   /** When it closed — the deadline. */
   at: z.date(),
   minutes: z.number().int(),
+  /** What I said it is for; NULL — not said. */
+  about: z.string().nullable(),
 });
 export type TodoPlanLeft = z.infer<typeof TodoPlanLeft>;
 

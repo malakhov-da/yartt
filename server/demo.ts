@@ -287,7 +287,7 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
   const promo = await P.Task.create({ tags: tags.promo });
   await P.Task.setDeadline({ id: promo, deadline: daysAhead(7) });
   // Hours still planned on it when it closed: Pavel clears them before he confirms the closing.
-  await P.Time.setLeft({ taskId: promo, minutes: 120 });
+  await P.Time.setLeft({ taskId: promo, minutes: 120, about: t.planAbout });
   await sql`UPDATE finished_at SET value = NOW() - INTERVAL '3 days', entered_at = NOW() - INTERVAL '10 days' WHERE task_id = ${promo}`;
 
   // 13. What deadlines bring to Waiting for me: my report closes by itself tomorrow morning

@@ -93,7 +93,7 @@ its manager wants that.
 |---|---|---|
 | Timesheet: a shift suggested from the first and last activity, confirmed with one click | Pavel: log the day in seconds | now (done) |
 | Log own time to a task for a day | Marina: see where effort goes | now (done) |
-| Own time left per task, next to the time spent | Marina: compare plans with reality | now (done) |
+| Own time left per task, next to the time spent, with what is left to do in one's words | Marina: compare plans with reality | now (done) |
 | My day: TODO, what I wait for from others (my requests, my open mentions), current tasks (mine and others), today and the last day before it — the ribbon of shifts, visits and what was done, every task once; all days in History | Pavel: know what to do next; log the day in seconds | now (done) |
 | Employee page: their days and scores, seen by the employee and managers above | Marina: honest feedback with facts | now (done) |
 | Score a past day of a direct report on their page, 0–100, with an optional reason; correct it later, every version is emailed | Marina: honest feedback with facts | now (done) |

@@ -1649,6 +1649,7 @@ CREATE TABLE estimate_minutes (
     task_id INT NOT NULL REFERENCES task(id),
     by INT NOT NULL REFERENCES human(employee_id),
     value INT NOT NULL CHECK (value > 0),
+    about TEXT CHECK (about <> '' AND length(about) <= 1000),
     entered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expired_at TIMESTAMPTZ
 );
@@ -1672,6 +1673,11 @@ COMMENT ON COLUMN estimate_minutes.by IS
 
 COMMENT ON COLUMN estimate_minutes.value IS
 'How many more minutes they plan to spend. > 0.';
+
+COMMENT ON COLUMN estimate_minutes.about IS
+'What they still mean to do for these minutes, in their words (decision
+88): so the owner of a closed task knows what a plan left on it is about,
+and others what the hours are for. NULL — not said.';
 
 COMMENT ON COLUMN estimate_minutes.entered_at IS
 'When this value became current.';

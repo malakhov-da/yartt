@@ -18,6 +18,7 @@ const FeedRow = z.object({
   minutes: z.number().nullable(),
   day: z.string().nullable(),
   sourceTaskId: z.number().nullable(),
+  about: z.string().nullable(),
   entries: z.object({ day: z.string(), minutes: z.number() }).array().nullable(),
 });
 const CommentRow = z.object({
@@ -62,7 +63,7 @@ const tree = (taskId: number) => sql`
 function rawEvents(taskId: number, filter: FeedFilter) {
   const all = filter === 'all';
   const none = sql`NULL::timestamptz AS "from", NULL::timestamptz AS "to", NULL::int AS employee_id,
-                   NULL::int AS minutes, NULL::text AS day, NULL::int AS source_task_id`;
+                   NULL::int AS minutes, NULL::text AS day, NULL::int AS source_task_id, NULL::text AS about`;
   return sql`
     ${tree(taskId)}
     SELECT 'comment' AS kind, c.created_at AS at, c.id AS comment_id, ${none}
@@ -76,29 +77,29 @@ function rawEvents(taskId: number, filter: FeedFilter) {
       FROM comment c
      WHERE c.task_id = ${taskId} AND c.reply_to_id IS NOT NULL AND ${all}
     UNION ALL
-    SELECT 'deadline', f.entered_at, NULL, prev.value, f.value, NULL, NULL, NULL, NULL
+    SELECT 'deadline', f.entered_at, NULL, prev.value, f.value, NULL, NULL, NULL, NULL, NULL
       FROM finished_at f
       LEFT JOIN finished_at prev ON prev.task_id = f.task_id AND prev.expired_at = f.entered_at
      WHERE f.task_id = ${taskId} AND ${all}
     UNION ALL
-    SELECT 'deadline', f.expired_at, NULL, f.value, NULL, NULL, NULL, NULL, NULL
+    SELECT 'deadline', f.expired_at, NULL, f.value, NULL, NULL, NULL, NULL, NULL, NULL
       FROM finished_at f
      WHERE f.task_id = ${taskId} AND ${all} AND f.expired_at IS NOT NULL
        AND NOT EXISTS (SELECT 1 FROM finished_at n WHERE n.task_id = f.task_id AND n.entered_at = f.expired_at)
     UNION ALL
-    SELECT 'mentioned_in', c.created_at, NULL, NULL, NULL, NULL, NULL, NULL, tm.task_id
+    SELECT 'mentioned_in', c.created_at, NULL, NULL, NULL, NULL, NULL, NULL, tm.task_id, NULL
       FROM task_mention tm JOIN comment c ON c.task_id = tm.task_id AND c.id = tm.comment_id
      WHERE tm.value = ${taskId} AND ${all}
     UNION ALL
-    SELECT 'spent', s.added_at, NULL, NULL, NULL, s."by", s.value, s.day::text, NULL
+    SELECT 'spent', s.added_at, NULL, NULL, NULL, s."by", s.value, s.day::text, NULL, NULL
       FROM spent_minutes s
      WHERE s.task_id = ${taskId} AND ${all}
     UNION ALL
-    SELECT 'plan', e.entered_at, NULL, NULL, NULL, e."by", e.value, NULL, NULL
+    SELECT 'plan', e.entered_at, NULL, NULL, NULL, e."by", e.value, NULL, NULL, e.about
       FROM estimate_minutes e
      WHERE e.task_id = ${taskId} AND ${all}
     UNION ALL
-    SELECT 'plan', e.expired_at, NULL, NULL, NULL, e."by", NULL, NULL, NULL
+    SELECT 'plan', e.expired_at, NULL, NULL, NULL, e."by", NULL, NULL, NULL, NULL
       FROM estimate_minutes e
      WHERE e.task_id = ${taskId} AND ${all} AND e.expired_at IS NOT NULL
        AND NOT EXISTS (SELECT 1 FROM estimate_minutes n
@@ -121,10 +122,10 @@ function events(taskId: number, filter: FeedFilter) {
              - row_number() OVER (PARTITION BY kind, employee_id ORDER BY at, kind, comment_id, employee_id, day) AS run
         FROM e
     )
-    SELECT kind, at, comment_id, "from", "to", employee_id, minutes, day, source_task_id, NULL::jsonb AS entries
+    SELECT kind, at, comment_id, "from", "to", employee_id, minutes, day, source_task_id, about, NULL::jsonb AS entries
       FROM o WHERE kind <> 'spent'
     UNION ALL
-    SELECT 'spent', max(at), NULL, NULL, NULL, employee_id, sum(minutes)::int, NULL, NULL,
+    SELECT 'spent', max(at), NULL, NULL, NULL, employee_id, sum(minutes)::int, NULL, NULL, NULL,
            jsonb_agg(jsonb_build_object('day', day, 'minutes', minutes) ORDER BY day DESC, at DESC)
       FROM o WHERE kind = 'spent'
      GROUP BY employee_id, run
@@ -174,7 +175,7 @@ export async function list(viewerId: number, taskId: number, filter: FeedFilter,
       case 'spent':
         return [{ kind: 'spent', at: r.at, employeeId: r.employeeId!, minutes: r.minutes!, entries: r.entries ?? [] }];
       case 'plan':
-        return [{ kind: 'plan', at: r.at, employeeId: r.employeeId!, minutes: r.minutes }];
+        return [{ kind: 'plan', at: r.at, employeeId: r.employeeId!, minutes: r.minutes, about: r.about }];
     }
   });
   return { items, total: total?.n ?? 0, openMentions: mentions?.n ?? 0, all: all?.n ?? 0 };

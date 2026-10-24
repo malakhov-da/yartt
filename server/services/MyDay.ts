@@ -30,11 +30,11 @@ const DeadlineRow = z.object({
   taskId: z.number(),
   at: z.date(),
   closed: z.boolean(),
-  plans: z.object({ employeeId: z.number(), minutes: z.number() }).array(),
+  plans: z.object({ employeeId: z.number(), minutes: z.number(), about: z.string().nullable() }).array(),
   unread: z.number(),
 });
 const DoneRow = z.object({ taskId: z.number(), value: z.number(), at: z.date(), unread: z.number() });
-const PlanRow = z.object({ taskId: z.number(), at: z.date(), minutes: z.number() });
+const PlanRow = z.object({ taskId: z.number(), at: z.date(), minutes: z.number(), about: z.string().nullable() });
 
 /** Comments by others in my task since I last looked at it. */
 const unread = (me: number) => sql`
@@ -88,7 +88,7 @@ export async function todo(me: number, viewerId: number = me): Promise<TodoItem[
   // confirmation — wanted while the owner has not looked at it since it closed.
   const deadlines = DeadlineRow.array().parse(await sql`
     SELECT f.task_id, f.value AS at, f.value <= NOW() AS closed,
-           COALESCE((SELECT json_agg(json_build_object('employeeId', e."by", 'minutes', e.value) ORDER BY e.entered_at)
+           COALESCE((SELECT json_agg(json_build_object('employeeId', e."by", 'minutes', e.value, 'about', e.about) ORDER BY e.entered_at)
                        FROM estimate_minutes e WHERE e.task_id = k.id AND e.expired_at IS NULL), '[]') AS plans,
            ${unread(me)} AS unread
       FROM task k JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
@@ -98,7 +98,7 @@ export async function todo(me: number, viewerId: number = me): Promise<TodoItem[
   `);
   // Closed, yet my time is still planned on it: its owner confirms it only once it is cleared.
   const plansLeft = PlanRow.array().parse(await sql`
-    SELECT e.task_id, f.value AS at, e.value AS minutes
+    SELECT e.task_id, f.value AS at, e.value AS minutes, e.about
       FROM estimate_minutes e JOIN finished_at f ON f.task_id = e.task_id AND f.expired_at IS NULL
      WHERE e."by" = ${me} AND e.expired_at IS NULL AND f.value <= NOW()
   `);
@@ -150,7 +150,7 @@ export async function todo(me: number, viewerId: number = me): Promise<TodoItem[
     }),
     ...plansLeft.flatMap((r) => {
       const task = tasks.get(r.taskId);
-      return task ? [{ kind: 'plan_left' as const, task, at: r.at, minutes: r.minutes }] : [];
+      return task ? [{ kind: 'plan_left' as const, task, at: r.at, minutes: r.minutes, about: r.about }] : [];
     }),
     ...done.flatMap((r) => {
       const task = tasks.get(r.taskId);

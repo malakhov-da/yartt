@@ -210,7 +210,9 @@ function Item(p: { item: TodoItem; readOnly?: boolean }) {
     );
   } else if (item.kind === 'closed') {
     icon = <EventBusy fontSize="small" />;
-    const plans = item.plans.map((x) => t('myDay.todo.planOf', { name: name(x.employeeId), time: format.minutes(x.minutes) })).join(', ');
+    const plans = item.plans
+      .map((x) => t('myDay.todo.planOf', { name: name(x.employeeId), time: format.minutes(x.minutes) }) + (x.about ? ` («${x.about}»)` : ''))
+      .join(', ');
     text = (
       <>
         <Typography variant="body2">{t('myDay.todo.closed', { at: format.dateTime(item.at) })}</Typography>
@@ -241,6 +243,7 @@ function Item(p: { item: TodoItem; readOnly?: boolean }) {
     text = (
       <>
         <Typography variant="body2">{t('myDay.todo.planLeft', { time: format.minutes(item.minutes), at: format.dateTime(item.at) })}</Typography>
+        {item.about && <Typography variant="body2" sx={{ color: 'text.secondary' }}>«{item.about}»</Typography>}
         {!p.readOnly && <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.todo.planLeftHint')}</Typography>}
       </>
     );

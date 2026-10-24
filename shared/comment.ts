@@ -120,6 +120,8 @@ export const PlanEvent = z.object({
   employeeId: Id,
   /** NULL — cleared. */
   minutes: z.number().int().nullable(),
+  /** What the plan is for, in their words; NULL — not said. */
+  about: z.string().nullable(),
 });
 export type PlanEvent = z.infer<typeof PlanEvent>;
 

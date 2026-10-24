@@ -180,7 +180,7 @@ function EventLine(p: { taskId: number; item: Exclude<FeedItem, { kind: 'comment
       icon = <HourglassBottom fontSize="small" />;
       text = item.minutes === null
         ? t('task.feed.planCleared', { name: name(item.employeeId) })
-        : t('task.feed.plan', { name: name(item.employeeId), time: format.minutes(item.minutes) });
+        : t('task.feed.plan', { name: name(item.employeeId), time: format.minutes(item.minutes) }) + (item.about ? `: «${item.about}»` : '');
       break;
   }
 

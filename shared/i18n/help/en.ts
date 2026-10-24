@@ -271,7 +271,8 @@ export const helpEn: Help = {
         'If you worked on a past day but wrote no shift, yartt suggests one: "Looks like a shift" — confirm it with one click.',
         'Shifts and entries of a day can be fixed until your manager scores it. To fix a scored day, ask your manager to withdraw the score.',
         '"My plan" is how much more you mean to spend on the task. If the plan does not fit your working time before the deadline, '
-          + 'the task is marked "At risk".',
+          + 'the task is marked "At risk". A plan may say what is left to do: it shows in the task, and to the owner if the task '
+          + 'closes with the plan still on it.',
         'All your days are in History.',
       ],
     },

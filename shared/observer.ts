@@ -61,12 +61,17 @@ export type People = z.infer<typeof People>;
 export const MyTime = z.object({
   spentMinutes: z.number().int(),
   leftMinutes: z.number().int().nullable(),
+  /** What my plan is for, in my words; NULL — not said. */
+  leftAbout: z.string().nullable(),
   /** My entries on the task, one per day, newest first. */
   days: z.object({ day: z.iso.date(), minutes: z.number().int(), updatedAt: z.date() }).array(),
 });
 export type MyTime = z.infer<typeof MyTime>;
 
 export const Minutes = z.number().int().min(1).max(100_000);
+
+/** What a plan is for (decision 88): empty is not said. */
+export const PlanAbout = z.string().trim().max(1000).nullish().transform((s) => s || null);
 
 /** A day's whole time on a task; 0 — none: the entry goes. */
 export const DayMinutes = z.number().int().min(0).max(24 * 60);

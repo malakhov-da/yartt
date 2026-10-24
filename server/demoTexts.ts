@@ -37,6 +37,8 @@ const ru = {
     promo: ['сайт', 'лендинг осенней промо-акции'],
     docs: ['найм', 'документация', 'памятка новичку на первую неделю'],
   },
+  // What a plan left on a task closed by its deadline is for (decision 88).
+  planAbout: 'вычитать тексты баннеров и выложить их',
   context: {
     site: '<p>Новая главная к запуску осенней кампании.</p><ul><li>блок с ценами</li><li>отзывы клиентов</li><li>форма заявки</li></ul><p>Готово, когда страница на проде и форма пишет в CRM.</p>',
     report: '<p>Квартальный отчёт для совета директоров: выручка, найм, ключевые проекты.</p>',
@@ -110,6 +112,7 @@ const en: typeof ru = {
     promo: ['website', 'autumn promo landing'],
     docs: ['hiring', 'documentation', 'first-week guide for newcomers'],
   },
+  planAbout: 'proofread the banner texts and put them up',
   context: {
     site: '<p>A new homepage for the launch of the autumn campaign.</p><ul><li>pricing block</li><li>customer reviews</li><li>request form</li></ul><p>Done when the page is in production and the form writes to the CRM.</p>',
     report: '<p>The quarterly report for the board: revenue, hiring, key projects.</p>',

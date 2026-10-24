@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Day, Id } from '#shared/employee.ts';
-import { DayMinutes, Minutes, MyTime } from '#shared/observer.ts';
+import { DayMinutes, Minutes, MyTime, PlanAbout } from '#shared/observer.ts';
 import * as Times from '../services/Time.ts';
 import { authedProcedure, router } from '../trpc.ts';
 
@@ -30,11 +30,12 @@ export default router({
 
   /**
    * Sets how much more time the signed-in employee plans to spend on the
-   * task (decision 17); null clears it.
+   * task (decision 17) and, if they say, what for (decision 88); null
+   * minutes clears it.
    * @throws no_access
    */
   setLeft: authedProcedure
-    .input(z.object({ taskId: Id, minutes: Minutes.nullable() }))
+    .input(z.object({ taskId: Id, minutes: Minutes.nullable(), about: PlanAbout }))
     .output(z.void())
-    .mutation(({ input, ctx }) => Times.setLeft(ctx.employeeId, input.taskId, input.minutes)),
+    .mutation(({ input, ctx }) => Times.setLeft(ctx.employeeId, input.taskId, input.minutes, input.about)),
 });

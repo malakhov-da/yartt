@@ -4,7 +4,7 @@ import { AppError } from '../errors.ts';
 import { sql, type Sql } from '../pg.ts';
 import { assertCanSee } from './Task.ts';
 
-const MyTimeRow = z.object({ spentMinutes: z.number(), leftMinutes: z.number().nullable() });
+const MyTimeRow = z.object({ spentMinutes: z.number(), leftMinutes: z.number().nullable(), leftAbout: z.string().nullable() });
 const DayRow = z.object({ day: z.string(), minutes: z.number(), updatedAt: z.date() });
 
 export async function myTime(employeeId: number, taskId: number): Promise<MyTime> {
@@ -13,7 +13,9 @@ export async function myTime(employeeId: number, taskId: number): Promise<MyTime
     SELECT (SELECT COALESCE(sum(value), 0)::int FROM spent_minutes
              WHERE task_id = ${taskId} AND "by" = ${employeeId}) AS spent_minutes,
            (SELECT value FROM estimate_minutes
-             WHERE task_id = ${taskId} AND "by" = ${employeeId} AND expired_at IS NULL) AS left_minutes
+             WHERE task_id = ${taskId} AND "by" = ${employeeId} AND expired_at IS NULL) AS left_minutes,
+           (SELECT about FROM estimate_minutes
+             WHERE task_id = ${taskId} AND "by" = ${employeeId} AND expired_at IS NULL) AS left_about
   `);
   const days = DayRow.array().parse(await sql`
     SELECT day::text, value AS minutes, updated_at FROM spent_minutes
@@ -39,8 +41,8 @@ export async function setDay(employeeId: number, taskId: number, day: string, mi
   `;
 }
 
-/** Sets own time left; NULL clears it. History is kept: the old value expires. */
-export async function setLeft(employeeId: number, taskId: number, minutes: number | null): Promise<void> {
+/** Sets own time left and what it is for; NULL clears it. History is kept: the old value expires. */
+export async function setLeft(employeeId: number, taskId: number, minutes: number | null, about: string | null = null): Promise<void> {
   await sql.begin(async (tx) => {
     const db = tx as unknown as Sql;
     await assertCanSee(taskId, employeeId, db);
@@ -49,7 +51,7 @@ export async function setLeft(employeeId: number, taskId: number, minutes: numbe
        WHERE task_id = ${taskId} AND "by" = ${employeeId} AND expired_at IS NULL
     `;
     if (minutes !== null) {
-      await db`INSERT INTO estimate_minutes (task_id, "by", value) VALUES (${taskId}, ${employeeId}, ${minutes})`;
+      await db`INSERT INTO estimate_minutes (task_id, "by", value, about) VALUES (${taskId}, ${employeeId}, ${minutes}, ${about})`;
     }
   });
 }

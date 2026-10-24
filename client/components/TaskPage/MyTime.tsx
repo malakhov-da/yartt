@@ -4,6 +4,7 @@ import {
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useDraft } from '#client/hooks/drafts.ts';
 import { parseMinutes, today, useFormat } from '#client/hooks/format.ts';
 import { useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
@@ -25,17 +26,23 @@ export default function (p: { taskId: number }) {
   const refresh = useTaskRefresh();
   const mine = useQuery(trpc.Time.mine.queryOptions({ taskId: p.taskId }));
   const limits = useQuery(trpc.TagLimit.forTask.queryOptions({ taskId: p.taskId }));
-  const setLeft = useMutation(trpc.Time.setLeft.mutationOptions({ onSuccess: () => { refresh(); setDialog(null); } }));
-
   const [dialog, setDialog] = useState<'log' | 'plan' | null>(null);
   const [text, setText] = useState('');
+  // What the plan is for is words typed: kept as a draft until saved or cancelled.
+  const [about, setAbout, clearAbout] = useDraft(`plan-about:${p.taskId}`, '');
+  const setLeft = useMutation(trpc.Time.setLeft.mutationOptions({ onSuccess: () => { refresh(); clearAbout(); setDialog(null); } }));
   const minutes = parseMinutes(text);
   const ofDay = (day: string) => mine.data?.days.find((d) => d.day === day)?.minutes ?? 0;
   const todayEntry = mine.data?.days.find((d) => d.day === today());
 
   const openPlan = () => {
     setText(mine.data?.leftMinutes ? format.minutes(mine.data.leftMinutes) : '');
+    if (about === '' && mine.data?.leftAbout) setAbout(mine.data.leftAbout);
     setDialog('plan');
+  };
+  const cancelPlan = () => {
+    clearAbout();
+    setDialog(null);
   };
 
   return (
@@ -51,6 +58,9 @@ export default function (p: { taskId: number }) {
             {mine.data.leftMinutes === null ? t('task.myTime.noPlan') : t('task.myTime.plan', { time: format.minutes(mine.data.leftMinutes) })}
           </Typography>
         </Stack>
+      )}
+      {mine.data?.leftAbout && (
+        <Typography variant="body2" sx={{ color: 'text.secondary', whiteSpace: 'pre-wrap' }}>«{mine.data.leftAbout}»</Typography>
       )}
       <Stack direction="row" spacing={1}>
         <Button variant="outlined" onClick={() => setDialog('log')}>{t('task.myTime.log')}</Button>
@@ -84,6 +94,15 @@ export default function (p: { taskId: number }) {
             error={text !== '' && minutes === null}
             helperText={minutes !== null ? format.minutes(minutes) : t('task.myTime.timeHint')}
           />
+          <TextField
+            label={t('task.myTime.planAbout')}
+            value={about}
+            onChange={(e) => setAbout(e.target.value)}
+            multiline
+            minRows={2}
+            slotProps={{ htmlInput: { maxLength: 1000 } }}
+            helperText={t('task.myTime.planAboutHint')}
+          />
           {/* Where my hours count: the forecast my new plan makes, before it is saved. */}
           {limits.data?.filter((limit) => limit.includesMe && limit.endsOn >= today()).map((limit) => (
             <Stack key={limit.id} spacing={0.25}>
@@ -98,11 +117,11 @@ export default function (p: { taskId: number }) {
           {mine.data?.leftMinutes !== null && (
             <Button color="inherit" onClick={() => setLeft.mutate({ taskId: p.taskId, minutes: null })}>{t('task.myTime.clearPlan')}</Button>
           )}
-          <Button onClick={() => setDialog(null)}>{t('common.cancel')}</Button>
+          <Button onClick={cancelPlan}>{t('common.cancel')}</Button>
           <Button
             variant="contained"
             disabled={minutes === null || setLeft.isPending}
-            onClick={() => minutes !== null && setLeft.mutate({ taskId: p.taskId, minutes })}
+            onClick={() => minutes !== null && setLeft.mutate({ taskId: p.taskId, minutes, about })}
           >
             {t('common.save')}
           </Button>

@@ -1544,3 +1544,17 @@ confirmed.
 `closed_told_at`, `confirmed_at` and `send_deadline_notices()` removed
 (migration `0.4-0.5`); `MyDay.todo` (`closed` with plans, `plan_left`,
 `done`); `Task.confirmClosed` and `Dependency.noted` removed.
+
+### 88. A plan says what its hours are for
+
+"3h more" on a task said how much, not what — and once a task closed
+with a plan still on it (decision 87), its owner could not tell whether
+the hours were forgotten or meant something still to do. Now a plan may
+carry a few words of what is left: typed with the hours in "My plan",
+shown in the task, in its history and in Waiting for me next to the
+plan left on a closed task. It is optional: the hours alone still make a
+plan, and the words go with the plan — a new plan says anew.
+
+*Implemented:* `estimate_minutes.about` (migration `0.4-0.5`);
+`Time.setLeft({ about })`, `Time.mine.leftAbout`; the plan dialog, the
+feed and the `closed` / `plan_left` items of `MyDay.todo`.
