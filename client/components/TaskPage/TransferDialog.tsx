@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type { Employee } from '#shared/employee.ts';
 import { useEmployees, useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
+import { employeeFilter, employeeOption } from '../App/employeeOption.tsx';
 
 /** The owner or the owner's manager hands the task over to an active employee. */
 export default function (p: { taskId: number; ownerId: number; onClose: () => void }) {
@@ -26,6 +27,8 @@ export default function (p: { taskId: number; ownerId: number; onClose: () => vo
           value={picked}
           onChange={(_e, value) => setPicked(value)}
           getOptionLabel={(e) => e.fullName}
+          renderOption={(props, e) => employeeOption(props, e)}
+          filterOptions={employeeFilter}
           renderInput={(params) => <TextField {...params} autoFocus label={t('task.transfer.to')} />}
         />
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>{t('task.transfer.hint')}</Typography>

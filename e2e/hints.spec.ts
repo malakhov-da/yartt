@@ -47,3 +47,12 @@ test('a participant makes their part a task of their own, which the task waits f
   await expect(form.getByText('Её будет ждать задача')).toBeVisible();
   await expect(form.getByRole('link', { name: new RegExp(`^#${site}`) })).toBeVisible();
 });
+
+test('a person is offered with what they wrote about themselves, and found by it', async ({ page }) => {
+  await signIn(page);
+  await page.goto(`/tasks/${await taskId('финансы', 'квартальный отчёт для совета директоров')}`);
+  await page.getByPlaceholder('Добавить участника').fill('фронтенд');
+  const option = page.getByRole('option', { name: /Павел Орлов/ });
+  await expect(option).toBeVisible();
+  await expect(option).toContainText('Фронтенд. Telegram: @pavel');
+});

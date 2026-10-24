@@ -11,6 +11,7 @@ import { useFormat } from '#client/hooks/format.ts';
 import { useEmployees, usePronoun, useTaskRefresh, POLL_MS } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import EmployeeAvatar from '../App/EmployeeAvatar.tsx';
+import { employeeFilter, employeeOption } from '../App/employeeOption.tsx';
 
 const PAGE_SIZE = 10;
 
@@ -120,6 +121,8 @@ export default function (p: { task: TaskPage }) {
           inputValue={addInput}
           onInputChange={(_e, value, reason) => setAddInput(reason === 'reset' ? '' : value)}
           getOptionLabel={(e) => e.fullName}
+          renderOption={(props, e) => employeeOption(props, e)}
+          filterOptions={employeeFilter}
           onChange={(_e, value) => { if (value) add.mutate({ taskId, employeeId: value.id }); setAddInput(''); }}
           renderInput={(params) => <TextField {...params} variant="outlined" placeholder={t('task.people.add')} />}
         />

@@ -435,6 +435,10 @@ line.
   task shows its context, cut short, and each person's time logged and
   left on it — never a total (decision 59).
 
+- **A person picked shows who they are.** Wherever a person is picked —
+  a participant, a mention, a new owner, a manager — each is offered with
+  the avatar, the name and, under it, what they wrote about themselves;
+  typing finds them by either ("frontend").
 - **No confirmations for reversible actions.** Show what happened with
   "Undo" for a few seconds. Confirm only what cannot be undone and hurts
   others (dismissing an employee).

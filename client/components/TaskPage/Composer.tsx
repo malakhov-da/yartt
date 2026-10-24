@@ -12,6 +12,7 @@ import { useEmployees, useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import { uploadFile } from '#client/hooks/upload.ts';
 import RichEditor, { type RichEditorHandle } from '../App/RichEditor.tsx';
+import { employeeFilter, employeeOption } from '../App/employeeOption.tsx';
 
 const HOLD_SECONDS = 5;
 
@@ -208,6 +209,8 @@ export default function (p: {
           <Autocomplete
             options={candidates.filter((e) => !mentions.some((m) => m.id === e.id))}
             getOptionLabel={(e) => e.fullName}
+            renderOption={(props, e) => employeeOption(props, e)}
+            filterOptions={employeeFilter}
             onChange={(_e, value) => { if (value) setMentions([...mentions, value]); setShowMention(false); }}
             onBlur={() => setShowMention(false)}
             renderInput={(params) => <TextField {...params} autoFocus placeholder={t('task.composer.mention')} helperText={t(mentionable.data?.everyone ? 'task.composer.mentionHintPublic' : 'task.composer.mentionHint')} />}

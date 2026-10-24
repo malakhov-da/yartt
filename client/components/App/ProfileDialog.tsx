@@ -17,6 +17,7 @@ import EmailField from './EmailField.tsx';
 import EmployeeAvatar from './EmployeeAvatar.tsx';
 import Bots from '../MyDayPage/Bots.tsx';
 import MyTags from './MyTags.tsx';
+import { employeeFilter, employeeOption } from './employeeOption.tsx';
 
 const TIME_ZONES = Intl.supportedValuesOf('timeZone');
 
@@ -199,6 +200,8 @@ export default function (p: { onClose: () => void }) {
             options={candidates}
             value={manager}
             getOptionLabel={(e) => e.fullName}
+            renderOption={(props, e) => employeeOption(props, e)}
+            filterOptions={employeeFilter}
             isOptionEqualToValue={(a, b) => a.id === b.id}
             onChange={(_e, value) => setManager.mutate({ managerId: value?.id ?? null })}
             renderInput={(params) => (

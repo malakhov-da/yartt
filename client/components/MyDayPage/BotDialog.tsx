@@ -17,6 +17,7 @@ import { useEmployees } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import { fieldErrors } from '#client/i18n/errors.ts';
 import TeamChart from './TeamChart.tsx';
+import { employeeFilter, employeeOption } from '../App/employeeOption.tsx';
 
 /** A key or a secret shown once, with a copy button. */
 function Secret(p: { label: string; value: string; onClose?: () => void }) {
@@ -234,6 +235,8 @@ export default function (p: { bot: Bot | null; stats?: BotStats; onClose: () => 
                         value={handTo}
                         onChange={(_, v) => setHandTo(v)}
                         getOptionLabel={(e) => e.fullName}
+                        renderOption={(props, e) => employeeOption(props, e)}
+                        filterOptions={employeeFilter}
                         renderInput={(params) => <TextField {...params} label={t('bots.transferTo')} />}
                       />
                       <Button
