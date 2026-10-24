@@ -242,10 +242,10 @@ export const helpEn: Help = {
     {
       title: 'Remind yourself',
       steps: [
-        'A reminder takes a thought off your mind now and brings it back when it is due. "Remind me" on a task\'s page: when and '
-          + 'about what; the reminder is seen only by you.',
-        'When it is due you are notified, and the reminder shows in "Waiting for me" and stays there until you remove it or put it off '
-          + '(in an hour, tomorrow, on Monday, a day before the deadline or at a time you pick).',
+        'A reminder is not a note but a way to tell yourself "I will deal with this from then on". Until then the task is off your mind.',
+        '"Remind me" on a task\'s page: from when and, if needed, about what. The reminder is seen only by you.',
+        'From that moment the task is in Waiting for me as something to do, and stays there until you press "Done" or put the '
+          + 'reminder off (in an hour, tomorrow, on Monday, a day before the deadline or at a time you pick). You are notified too.',
       ],
     },
     {

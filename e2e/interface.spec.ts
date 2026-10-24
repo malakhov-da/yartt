@@ -77,7 +77,7 @@ test.describe('My day', () => {
   test('TODO: the items of one task are under one line of it', async ({ page }) => {
     await signIn(page);
     const todo = page.locator('div.MuiPaper-root').filter({ has: page.getByRole('heading', { name: /Ждёт меня/ }) }).first();
-    await expect(todo.getByText(/^Напоминание · /)).toBeVisible();
+    await expect(todo.getByText(/^Напоминание с /)).toBeVisible();
     const ids = await todo.getByRole('link', { name: /^#\d+$/ }).allTextContents();
     expect(new Set(ids).size).toBe(ids.length);
   });

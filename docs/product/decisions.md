@@ -1233,9 +1233,11 @@ A reminder is a thought put off: whoever sets one wants to stop holding
 it in mind now and have it back later. It came as a notification and
 was deleted — an email read on the phone, or missed, and the thought was
 gone again. Now a reminder that came due waits in Waiting for me, with
-its text, until its author removes it ("Remove") or puts it off ("Put
+its text, until its author marks it done ("Done") or puts it off ("Put
 off": in an hour, tomorrow, on Monday, a day before the deadline, or a
-moment picked) — then it comes again at that moment. The notification
+moment picked) — then it comes again at that moment. A reminder is not a
+note and is never "overdue": it is a start — "from then on this is mine
+to do" — so it reads "Reminder since …", without a warning colour. The notification
 still goes out once, when it is due. On the task page the due ones are
 marked and put off right there.
 

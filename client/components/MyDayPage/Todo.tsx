@@ -172,7 +172,7 @@ function Item(p: { item: TodoItem; readOnly?: boolean }) {
       <Button size="small" variant="outlined" component={Link} to={`/tasks/${item.task.id}`}>{t('myDay.todo.read')}</Button>
     );
   } else if (item.kind === 'remind') {
-    icon = <NotificationsActive fontSize="small" color="warning" />;
+    icon = <NotificationsActive fontSize="small" />;
     text = (
       <>
         <Typography variant="body2">{t('myDay.todo.remind', { time: format.dateTime(item.at) })}</Typography>
@@ -182,7 +182,7 @@ function Item(p: { item: TodoItem; readOnly?: boolean }) {
     actions = (
       <>
         <PutOff taskId={item.task.id} at={item.at} deadline={item.task.deadline} />
-        <Button size="small" variant="outlined" disabled={removeRemind.isPending}
+        <Button size="small" variant="contained" disabled={removeRemind.isPending}
           onClick={() => removeRemind.mutate({ taskId: item.task.id, at: item.at })}>
           {t('task.remind.done')}
         </Button>

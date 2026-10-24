@@ -65,7 +65,7 @@ export const en: Translation = {
       mention_she: '{{name}} mentioned you',
       review: 'New comments: {{count}}, from {{authors}}',
       request: '{{name}} asks for access',
-      remind: 'Reminder · {{time}}',
+      remind: 'Reminder since {{time}}',
       reviewHint: 'Open the task and read them. If nothing waits for your decision, say so there — with "No intervention needed": it is not here, so that comments are never skipped unread.',
       read: 'Read',
       closing: 'Closes by itself {{time}} — the deadline is {{at}}',
@@ -468,7 +468,7 @@ export const en: Translation = {
     remind: {
       title: 'My reminders',
       add: 'Remind me',
-      none: 'Put a thought off until later: a notification comes at the moment you pick, and the reminder waits in "Waiting for me" until you remove it or put it off.',
+      none: 'Decided to deal with it later? A reminder brings the task back to you: from the moment you pick it is in "Waiting for me" until you mark it "Done" or put it off.',
       remove: 'Delete the reminder',
       at: 'When',
       text: 'What about',
@@ -479,8 +479,8 @@ export const en: Translation = {
       dayBefore: 'A day before the deadline',
       putOff: 'Put off',
       other: 'Another time…',
-      due: 'due — it waits until you remove it or put it off',
-      done: 'Remove',
+      due: 'in Waiting for me — until "Done" or put off',
+      done: 'Done',
     },
     myTime: {
       title: 'My time',

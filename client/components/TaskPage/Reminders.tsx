@@ -77,8 +77,9 @@ export function PutOff(p: { taskId: number; at: Date; deadline: Date | null }) {
 }
 
 /**
- * My reminders on the task. One that came due waits — here and in "Waiting
- * for me" — until I remove it or put it off: it holds the thought for me.
+ * My reminders on the task. A reminder is not a note: it brings the task
+ * back to me from a moment — from then on it is in "Waiting for me" until
+ * I mark it done or put it off (decision 73).
  */
 export default function (p: { taskId: number; deadline: Date | null }) {
   const { t } = useTranslation();
@@ -111,7 +112,7 @@ export default function (p: { taskId: number; deadline: Date | null }) {
       )}
       {reminds.data?.map((r) => (
         <Stack key={r.at.getTime()} direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-          {r.due && <NotificationsActive fontSize="small" color="warning" />}
+          {r.due && <NotificationsActive fontSize="small" color="primary" />}
           <Stack sx={{ flexGrow: 1, minWidth: 0 }}>
             <Typography variant="body2">
               {format.dateTime(r.at)} · {r.due ? t('task.remind.due') : format.relative(r.at)}

@@ -52,8 +52,9 @@ budgets are pages of their own (decision 79):
   - my own tasks with comments by others since I last confirmed that no
     intervention is needed (decision 16);
   - access requests to my tasks;
-  - my reminders that came due: each waits with its text until I remove
-    it or put it off — in an hour, tomorrow, on Monday, before the
+  - my reminders that came due — "Reminder since …", something to do from
+    then on, not overdue: each waits with its text until I mark it done
+    or put it off — in an hour, tomorrow, on Monday, before the
     deadline or at a moment I pick (decision 73);
   - my tasks that close by their deadline within a day — "Closes by
     itself in 5 hours", with "Finish" (done already — closed now) and

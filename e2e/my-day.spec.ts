@@ -35,7 +35,7 @@ test.describe('My day', () => {
   test('TODO: a due reminder waits until it is put off', async ({ page }) => {
     const todo = page.locator('div.MuiPaper-root').filter({ has: page.getByRole('heading', { name: /Ждёт меня/ }) }).first();
     const item = todo.locator('.MuiStack-root').filter({ hasText: 'Спросить Павла' }).filter({ has: page.getByRole('button', { name: 'Перенести' }) }).last();
-    await expect(item.getByText(/^Напоминание · /)).toBeVisible();
+    await expect(item.getByText(/^Напоминание с /)).toBeVisible();
     await item.getByRole('button', { name: 'Перенести' }).click();
     await page.getByRole('menuitem', { name: 'Завтра в 9:00' }).click();
     await expect(todo.getByText('Спросить Павла')).toHaveCount(0);
