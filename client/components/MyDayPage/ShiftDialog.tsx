@@ -1,4 +1,5 @@
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material';
+import type { Shift } from '#shared/myDay.ts';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -34,7 +35,14 @@ function moment(midnight: Date, value: string, end: boolean): Date | null {
   return at;
 }
 
-export default function (p: { mode: ShiftDialogMode; from: Date; to: Date; about?: string | null; onClose: () => void }) {
+/**
+ * `others` — the shifts already there that this one must not overlap (the
+ * day's, and an open one): a conflict is named and saving waits until the
+ * times are moved (decision 81).
+ */
+export default function (p: {
+  mode: ShiftDialogMode; from: Date; to: Date; about?: string | null; others?: Shift[]; onClose: () => void;
+}) {
   const { t } = useTranslation();
   const trpc = useTRPC();
   const format = useFormat();
@@ -56,7 +64,12 @@ export default function (p: { mode: ShiftDialogMode; from: Date; to: Date; about
   const endedAt = moment(midnight, to, true);
   const minutes = startedAt && endedAt ? Math.floor((endedAt.getTime() - startedAt.getTime()) / 60_000) : 0;
   const future = endedAt !== null && endedAt > shiftEnd();
-  const valid = startedAt !== null && minutes > 0 && !future;
+  // The first shift in the way: an open one lasts until now and on.
+  const conflict = startedAt && endedAt && minutes > 0 ? (p.others ?? []).find((s) => {
+    const end = s.spentMinutes === null ? Infinity : s.startedAt.getTime() + s.spentMinutes * 60_000;
+    return s.startedAt.getTime() < endedAt.getTime() && startedAt.getTime() < end;
+  }) : undefined;
+  const valid = startedAt !== null && minutes > 0 && !future && !conflict;
   const pending = close.isPending || add.isPending || update.isPending;
 
   const save = () => {
@@ -103,6 +116,16 @@ export default function (p: { mode: ShiftDialogMode; from: Date; to: Date; about
           value={about}
           onChange={(e) => setAbout(e.target.value)}
         />
+        {conflict && (
+          <Alert severity="warning">
+            {conflict.spentMinutes === null
+              ? t('errors.shift_overlap_open', { from: format.time(conflict.startedAt) })
+              : t('errors.shift_overlap_with', {
+                from: format.time(conflict.startedAt),
+                to: format.time(new Date(conflict.startedAt.getTime() + conflict.spentMinutes * 60_000)),
+              })}
+          </Alert>
+        )}
         <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.shift.untilScored')}</Typography>
       </DialogContent>
       <DialogActions>

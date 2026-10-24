@@ -1384,3 +1384,14 @@ read in every language and do not go stale when a screen changes.
 
 *Implemented:* `quickStart`, `diagrams`, `glossary` in
 `shared/i18n/help/*.ts`; `client/components/HelpPage/Diagrams.tsx`.
+
+### 81. An overlapping shift is never saved
+
+Decision 72 named the shift in the way only after "Save" was pressed.
+Overlapping shifts are never to be saved, so the dialog now checks the
+times against the day's shifts (and an open one) as they are typed: a
+conflict is named in the dialog — "overlaps your shift 10:00–12:30" — and
+"Save" stays off until the times are moved. The database still refuses
+an overlap, for what the dialog cannot see.
+
+*Implemented:* `others` of `ShiftDialog`, passed by `Day`.

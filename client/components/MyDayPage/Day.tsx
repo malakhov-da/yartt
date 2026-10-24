@@ -367,7 +367,19 @@ export default function (p: {
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>{t('myDay.history.quiet')}</Typography>
       )}
 
-      {dialog && <ShiftDialog {...dialog} onClose={() => setDialog(null)} />}
+      {dialog && (
+        <ShiftDialog
+          {...dialog}
+          // Not the shift being closed or corrected; an open one from another day is in the way too.
+          others={[
+            ...day.shifts.filter((s) => dialog.mode === 'add' || s.startedAt.getTime() !== dialog.from.getTime()),
+            ...(p.openShiftFrom && !day.shifts.some((s) => s.startedAt.getTime() === p.openShiftFrom!.getTime())
+              && dialog.from.getTime() !== p.openShiftFrom.getTime()
+              ? [{ startedAt: p.openShiftFrom, spentMinutes: null, about: null }] : []),
+          ]}
+          onClose={() => setDialog(null)}
+        />
+      )}
       {logging && (
         <LogTimeDialog
           taskId={logging.id}

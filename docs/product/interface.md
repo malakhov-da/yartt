@@ -141,7 +141,8 @@ range; a click on another heading sorts by it — or the tags
   Any shift is added by hand with the clock in the day's header. A shift
   belongs to its day: the dialog names the day and asks only for the
   start and the end, 00:00 as the end being the midnight after it
-  (decision 72); a shift in the way is named with its times. A past
+  (decision 72); a shift in the way is named with its times as they
+  are typed, and "Save" waits until they are moved (decision 81). A past
   day suggests the shift its activity shows — a day without shifts, or 30
   minutes or more of visits outside its shifts as the shift that was not
   written down — confirmed with one click.

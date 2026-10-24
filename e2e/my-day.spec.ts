@@ -117,6 +117,14 @@ test.describe('My day', () => {
     await expect(history.getByText('Забытая смена')).toBeVisible();
     await expect(edits).toHaveCount(before + 1);
 
+    // A shift over the whole day is in the way of that one: named, and not saved.
+    await history.getByRole('button', { name: 'Добавить смену' }).nth(1).click();
+    await dialog.getByLabel('Начало').fill('00:00');
+    await dialog.getByLabel('Конец').fill('00:00');
+    await expect(dialog.getByRole('alert')).toContainText(/Смена пересекается с вашей сменой \d\d:\d\d–\d\d:\d\d/);
+    await expect(dialog.getByRole('button', { name: 'Сохранить' })).toBeDisabled();
+    await dialog.getByRole('button', { name: 'Отмена' }).click();
+
     const row = history.locator('.MuiStack-root').filter({ hasText: 'Забытая смена' }).filter({ has: page.getByRole('button', { name: 'Поправить смену' }) }).last();
     await row.getByRole('button', { name: 'Поправить смену' }).click();
     await dialog.getByLabel('Что сделано').fill('Забытая смена, поправлено');
