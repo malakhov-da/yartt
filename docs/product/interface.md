@@ -52,8 +52,11 @@ someone with reports:
   - my reminders that came due: each waits with its text until I remove
     it or put it off — in an hour, tomorrow, on Monday, before the
     deadline or at a moment I pick (decision 73).
-  Each item has its action right there: done, reply, no intervention needed,
-  approve or reject, remove or put off. When TODO is empty, the screen says so — that is the
+  The items of one task are under one line of it, the tasks in the order
+  of their first item. Each item has its action right there: done, reply,
+  approve or reject, remove or put off. New comments have "Read", which
+  opens the task: "No intervention needed" is pressed there, never from
+  the list, so that comments are not waved off unread (decision 74). When TODO is empty, the screen says so — that is the
   goal. Days of my reports waiting for a score are not here: scoring is
   never required, it lives on the employee's page.
 - **Waiting for others** — a list of its own under TODO, shown only when

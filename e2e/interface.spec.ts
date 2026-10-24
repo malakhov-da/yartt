@@ -52,12 +52,24 @@ test.describe('the top line', () => {
 });
 
 test.describe('My day', () => {
-  test('"No intervention needed" in TODO takes the task out of it', async ({ page }) => {
+  test('new comments in TODO are read in the task, and "No intervention needed" there takes it out', async ({ page }) => {
     await signIn(page, 'marina@example.com');
     const item = page.locator('.MuiStack-root').filter({ hasText: /Новые комментарии: \d+, от Иван Кузнецов/ })
-      .filter({ has: page.getByRole('button', { name: 'Вмешательство не требуется' }) }).last();
-    await item.getByRole('button', { name: 'Вмешательство не требуется' }).click();
+      .filter({ has: page.getByRole('link', { name: 'Прочитать' }) }).last();
+    // Not from the list: the comments would be skipped unread.
+    await expect(item.getByRole('button', { name: 'Вмешательство не требуется' })).toHaveCount(0);
+    await item.getByRole('link', { name: 'Прочитать' }).click();
+    await page.getByRole('button', { name: 'Вмешательство не требуется' }).click();
+    await page.goto('/');
     await expect(page.getByText(/от Иван Кузнецов/)).toHaveCount(0);
+  });
+
+  test('TODO: the items of one task are under one line of it', async ({ page }) => {
+    await signIn(page);
+    const todo = page.locator('div.MuiPaper-root').filter({ has: page.getByRole('heading', { name: /Ждёт меня/ }) }).first();
+    await expect(todo.getByText(/^Напоминание · /)).toBeVisible();
+    const ids = await todo.getByRole('link', { name: /^#\d+$/ }).allTextContents();
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
   test('My day keeps two days, History all of them; an entry deleted; the open shift deleted; a shift started now', async ({ page }) => {

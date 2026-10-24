@@ -60,6 +60,8 @@ export const en: Translation = {
       review: 'New comments: {{count}}, from {{authors}}',
       request: '{{name}} asks for access',
       remind: 'Reminder · {{time}}',
+      reviewHint: 'Open the task and read them. If nothing waits for your decision, say so there — with "No intervention needed": it is not here, so that comments are never skipped unread.',
+      read: 'Read',
     },
     waiting: {
       title: 'Waiting for others',

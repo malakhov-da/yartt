@@ -4,6 +4,7 @@ import { keyframes } from '@mui/material/styles';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 import type { TodoItem } from '#shared/myDay.ts';
 import { useFormat } from '#client/hooks/format.ts';
 import { POLL_MS, useEmployees, usePronoun, useTaskRefresh } from '#client/hooks/task.ts';
@@ -21,8 +22,9 @@ const flash = keyframes`
 `;
 
 /**
- * What waits for my reaction, each item with its action right there. Empty is
- * the goal. The bell in the top line brings it into view and flashes its title.
+ * What waits for my reaction, each item with its action right there, the
+ * items of one task under one line of it. Empty is the goal. The bell in the
+ * top line brings it into view and flashes its title.
  */
 export default function () {
   const { t } = useTranslation();
@@ -61,9 +63,25 @@ export default function () {
       {todo.data?.length === 0 && (
         <Typography sx={{ color: 'text.secondary', textAlign: 'center', py: 2 }}>{t('myDay.empty')}</Typography>
       )}
-      {todo.data?.map((item) => <Item key={key(item)} item={item} />)}
+      {groups(todo.data ?? []).map((group) => (
+        <Stack key={group.task.id} spacing={1}>
+          <TaskLine task={group.task} />
+          {group.items.map((item) => <Item key={key(item)} item={item} />)}
+        </Stack>
+      ))}
     </Paper>
   );
+}
+
+/** Items of one task together, under one line of it: the tasks in the order their first item comes. */
+function groups(items: TodoItem[]): { task: TodoItem['task']; items: TodoItem[] }[] {
+  const byTask = new Map<number, { task: TodoItem['task']; items: TodoItem[] }>();
+  for (const item of items) {
+    const group = byTask.get(item.task.id);
+    if (group) group.items.push(item);
+    else byTask.set(item.task.id, { task: item.task, items: [item] });
+  }
+  return [...byTask.values()];
 }
 
 const key = (item: TodoItem) =>
@@ -83,7 +101,6 @@ function Item(p: { item: TodoItem }) {
   const name = (id: number) => employees.get(id)?.fullName ?? `#${id}`;
 
   const closeMention = useMutation(trpc.Comment.closeMention.mutationOptions({ onSuccess: refresh }));
-  const markReviewed = useMutation(trpc.Task.markReviewed.mutationOptions({ onSuccess: refresh }));
   const approve = useMutation(trpc.Observer.approve.mutationOptions({ onSuccess: refresh }));
   const reject = useMutation(trpc.Observer.reject.mutationOptions({ onSuccess: refresh }));
   const removeRemind = useMutation(trpc.Remind.remove.mutationOptions({ onSuccess: refresh }));
@@ -125,23 +142,16 @@ function Item(p: { item: TodoItem }) {
   } else if (item.kind === 'review') {
     icon = <ChatBubbleOutline fontSize="small" />;
     text = (
-      <Typography variant="body2">
-        {t('myDay.todo.review', { count: item.count, authors: item.authorIds.map(name).join(', ') })} · {format.relative(item.at)}
-      </Typography>
+      <>
+        <Typography variant="body2">
+          {t('myDay.todo.review', { count: item.count, authors: item.authorIds.map(name).join(', ') })} · {format.relative(item.at)}
+        </Typography>
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.todo.reviewHint')}</Typography>
+      </>
     );
+    // "No intervention needed" lives in the task only: pressed here, it would skip comments nobody read.
     actions = (
-      <Tooltip title={item.pendingRequests > 0 ? t('task.review.requestsFirst') : ''}>
-        <span>
-          <Button
-            size="small"
-            variant="outlined"
-            disabled={item.pendingRequests > 0 || markReviewed.isPending}
-            onClick={() => markReviewed.mutate({ id: item.task.id })}
-          >
-            {t('task.review.button')}
-          </Button>
-        </span>
-      </Tooltip>
+      <Button size="small" variant="outlined" component={Link} to={`/tasks/${item.task.id}`}>{t('myDay.todo.read')}</Button>
     );
   } else if (item.kind === 'remind') {
     icon = <NotificationsActive fontSize="small" color="warning" />;
@@ -178,7 +188,6 @@ function Item(p: { item: TodoItem }) {
 
   return (
     <Stack spacing={1}>
-      <TaskLine task={item.task} />
       <Stack direction="row" sx={{ alignItems: 'flex-start', pl: 1.25, gap: 1, flexWrap: 'wrap' }}>
         <Box sx={{ color: 'text.secondary', pt: 0.25 }}>{icon}</Box>
         <Box sx={{ flex: '1 1 220px', minWidth: 0 }}>{text}</Box>

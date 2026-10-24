@@ -1242,3 +1242,19 @@ marked and put off right there.
 *Implemented:* `remind.sent_at`, `send_due_reminds()` (migration
 `0.4-0.5`); `Remind.move`; the `remind` item of `MyDay.todo`;
 `PutOff` in `client/components/TaskPage/Reminders.tsx`.
+
+### 74. Waiting for me groups by task; "No intervention needed" is pressed in the task
+
+Waiting for me listed every event on its own, each under a line of its
+task, so a task with a mention, new comments and a reminder showed three
+times and its events had to be put together by eye. Now the events of
+one task are under one line of it, in the order the first one came.
+
+New comments on my task had "No intervention needed" right in the list.
+It was too easy to press it to get the item out of the way, without
+reading what was written — and the comments were then gone from sight
+for good, the very thing the button is meant to confirm did not
+happen. Now the item says how many comments and from whom, and "Read"
+opens the task, where the button is, next to the comments.
+
+*Implemented:* `client/components/MyDayPage/Todo.tsx`.

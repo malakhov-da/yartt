@@ -67,8 +67,11 @@ export const helpEn: Help = {
     {
       title: 'Start the day',
       steps: [
-        'Waiting for me: mentions, new comments on your tasks, access requests. Reply, or press "Done".',
-        'If nothing in your task needs you, press "No intervention needed": it leaves the list until a new comment.',
+        'Waiting for me: mentions, new comments on your tasks, access requests and reminders that came due; everything of one task '
+          + 'is under its line. Reply, or press "Done".',
+        'New comments on your task are read in the task itself ("Read"). If nothing there waits for your decision, press '
+          + '"No intervention needed" in it — the task leaves the list until a new comment. Waiting for me has no such button '
+          + 'on purpose: comments are never skipped unread.',
         'Waiting for others, under it — what waits for others: your access requests and your mentions not closed yet. '
           + 'The longest waiting on top; a request can be withdrawn right there.',
         'Start your shift with ▶ in the top line or in the Timesheet.',
