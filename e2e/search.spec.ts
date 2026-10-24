@@ -64,8 +64,11 @@ test.describe('search', () => {
     const phrase = unique('новая приёмка');
     await page.keyboard.type(phrase);
     await panel(page).getByRole('button', { name: 'Новая задача' }).click();
-    await expect(picked(page).getByRole('button', { name: 'склад', exact: true })).toBeVisible();
-    await expect(picked(page).getByRole('button', { name: phrase, exact: true })).toBeVisible();
+    // In the new task's form, which covers My day.
+    const form = page.getByRole('main');
+    await expect(form.getByRole('heading', { name: 'Новая задача' })).toBeVisible();
+    await expect(form.getByRole('button', { name: 'склад', exact: true })).toBeVisible();
+    await expect(form.getByRole('button', { name: phrase, exact: true })).toBeVisible();
   });
 
   test('a title that is taken: "New task" is off, and the task with it is named, with a link', async ({ page }) => {
