@@ -3,7 +3,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { Stats } from '#shared/team.ts';
 import { useFormat } from '#client/hooks/format.ts';
-import { POLL_MS } from '#client/hooks/task.ts';
+import { STATS_POLL_MS } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import RangePicker, { useRange } from '../App/RangePicker.tsx';
 import Chart from './Chart.tsx';
@@ -19,7 +19,7 @@ export default function (p: { employeeId: number }) {
   const [range, setRange, valid] = useRange();
   const stats = useQuery(trpc.Team.stats.queryOptions(
     { employeeId: p.employeeId, ...range },
-    { refetchInterval: POLL_MS, placeholderData: keepPreviousData, enabled: valid },
+    { refetchInterval: STATS_POLL_MS, placeholderData: keepPreviousData, enabled: valid },
   ));
 
   return (

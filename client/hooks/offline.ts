@@ -35,7 +35,7 @@ const queueable = (path: string) => !/^(Auth|Visit)\./.test(path) && path !== 'A
  * own server carries an error code (server/trpc.ts); anything else — no
  * network, a proxy page, a timeout — is tried again later, never dropped.
  */
-function unreachable(error: unknown): boolean {
+export function unreachable(error: unknown): boolean {
   const data = error instanceof TRPCClientError ? (error.data as { appCode?: unknown } | undefined) : undefined;
   return !data?.appCode;
 }

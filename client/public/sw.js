@@ -32,12 +32,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Assets have hashed names: the cache first, filled as they are fetched.
+  // Assets have hashed names: the cache first, filled as they are fetched;
+  // without the network, a failed response rather than an uncaught error.
   event.respondWith(caches.match(request).then((cached) => cached ?? fetch(request).then((response) => {
     if (response.ok) {
       const copy = response.clone();
       void caches.open(CACHE).then((cache) => cache.put(request, copy));
     }
     return response;
-  })));
+  })).catch(() => Response.error()));
 });

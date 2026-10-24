@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import type { TagGroup, TagSort, TagStatsRow } from '#shared/tags.ts';
 import type { Tag } from '#shared/task.ts';
 import { fromDay, today, useFormat } from '#client/hooks/format.ts';
-import { POLL_MS, useEmployees } from '#client/hooks/task.ts';
+import { STATS_POLL_MS, useEmployees } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import { useViewAs } from '#client/hooks/viewAs.ts';
 import { csv, download, type Cell } from '#client/hooks/xlsx.ts';
@@ -48,7 +48,7 @@ export default function (p: { fold?: ReactNode }) {
   const [opened, setOpened] = useState<Set<string>>(new Set());
   const statsInput = { since, tagIds: tags.map((tag) => tag.id), page, sort, as };
   const stats = useQuery(trpc.Tags.stats.queryOptions(statsInput, {
-    refetchInterval: POLL_MS, placeholderData: keepPreviousData,
+    refetchInterval: STATS_POLL_MS, placeholderData: keepPreviousData,
   }));
   const rows = stats.data?.rows ?? [];
   const picked = tags.length > 0;

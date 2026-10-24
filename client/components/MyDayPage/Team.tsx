@@ -12,7 +12,7 @@ import type { Member } from '#shared/team.ts';
 import { fromDay, today, useFormat } from '#client/hooks/format.ts';
 import { useMe } from '#client/hooks/me.ts';
 import { useViewAs } from '#client/hooks/viewAs.ts';
-import { POLL_MS, useEmployees, usePronoun } from '#client/hooks/task.ts';
+import { STATS_POLL_MS, useEmployees, usePronoun } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import { csv, download, xlsx, type Cell } from '#client/hooks/xlsx.ts';
 import EmployeeAvatar from '../App/EmployeeAvatar.tsx';
@@ -48,7 +48,7 @@ export default function (p: { fold?: ReactNode }) {
   const me = useMe();
   const [range, setRange, valid] = useRange();
   const summary = useQuery(trpc.Team.summary.queryOptions({ ...range, as }, {
-    refetchInterval: POLL_MS, placeholderData: keepPreviousData, enabled: valid,
+    refetchInterval: STATS_POLL_MS, placeholderData: keepPreviousData, enabled: valid,
   }));
   const [restoring, setRestoring] = useState<Employee | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());

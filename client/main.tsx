@@ -7,7 +7,7 @@ import { BrowserRouter } from 'react-router';
 import superjson from 'superjson';
 import type { AppRouter } from '#shared/types.ts';
 import App from './components/App.tsx';
-import { offlineLink, restoreCache, startOffline } from './hooks/offline.ts';
+import { offlineLink, restoreCache, startOffline, unreachable } from './hooks/offline.ts';
 import { showError } from './hooks/store.ts';
 import { TRPCProvider } from './hooks/trpc.ts';
 import './i18n/index.ts';
@@ -19,13 +19,16 @@ const trpcClient = createTRPCClient<AppRouter>({ links: [offlineLink(), http()] 
 // The outbox sends by path, so it needs the untyped client.
 const outboxClient = createTRPCUntypedClient<AppRouter>({ links: [http()] });
 
-// Every failed query and mutation shows a translated snackbar.
+// Every failed query and mutation shows a translated snackbar — except a
+// refresh in the background the server did not answer (a proxy cutting it
+// off, a moment without network): what is shown stays, and the next poll
+// tries again. A server that is not reached is asked twice more first.
 const queryClient = new QueryClient({
-  queryCache: new QueryCache({ onError: showError }),
+  queryCache: new QueryCache({ onError: (error, query) => { if (!(unreachable(error) && query.state.data !== undefined)) showError(error); } }),
   // A mutation that shows its error itself says so: meta: { quiet: true }.
   mutationCache: new MutationCache({ onError: (error, _v, _c, mutation) => { if (!mutation.meta?.quiet) showError(error); } }),
   defaultOptions: {
-    queries: { retry: false, refetchOnWindowFocus: true },
+    queries: { retry: (count, error) => count < 2 && unreachable(error), refetchOnWindowFocus: true },
     // Mutations always reach the links: the offline link decides what waits.
     mutations: { retry: false, networkMode: 'always' },
   },

@@ -24,6 +24,12 @@ export function useTaskRefresh(): () => void {
 export const POLL_MS = 30_000;
 
 /**
+ * Figures over a range of days — the team, tags, bots: they move slowly,
+ * and counting them for many people is heavy, so they are polled rarely.
+ */
+export const STATS_POLL_MS = 300_000;
+
+/**
  * The i18next context for verb forms about an employee ("упомянул" /
  * "упомянула"): their pronoun, or none — then the neutral form with both
  * endings ("упомянул(а)") is used.

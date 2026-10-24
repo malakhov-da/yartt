@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import type { Bot, BotStats } from '#shared/bot.ts';
 import { useFormat } from '#client/hooks/format.ts';
 import { useMe } from '#client/hooks/me.ts';
-import { POLL_MS, useEmployees } from '#client/hooks/task.ts';
+import { POLL_MS, STATS_POLL_MS, useEmployees } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import { useViewAs } from '#client/hooks/viewAs.ts';
 import HelpTip from '../App/HelpTip.tsx';
@@ -51,7 +51,7 @@ export default function (p: { bare?: boolean; fold?: ReactNode }) {
   const [since, setSince] = useState(() => lastDays(30));
   const bots = useQuery(trpc.Bot.list.queryOptions({ as }, { refetchInterval: POLL_MS }));
   const stats = useQuery(trpc.Bot.stats.queryOptions({ since, as }, {
-    refetchInterval: POLL_MS, placeholderData: keepPreviousData,
+    refetchInterval: STATS_POLL_MS, placeholderData: keepPreviousData,
   }));
   const [opened, setOpened] = useState<Bot | 'new' | null>(null);
   const byId = new Map((stats.data ?? []).map((s) => [s.id, s]));
