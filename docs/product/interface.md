@@ -252,11 +252,12 @@ task.
 
 ### Access
 
-- Only the owner adds participants. A mention addresses only those
-  already in a private task — the mention picker offers just them, with
-  a hint that the owner adds participants; in a public task anyone can
-  be mentioned (decision 64). Anyone else asks the owner or requests
-  access.
+- Any participant adds participants, like a copy in an email; only the
+  owner removes them (decision 82). The add field says that participants
+  are not notified of comments — mention them for an answer. A mention
+  addresses only those already in a private task — the mention picker
+  offers just them, with a hint to add someone first; in a public task
+  anyone can be mentioned (decision 64). Anyone else requests access.
 - Becoming a participant and stopping being one is always notified: "access
   opened" (added, request approved) and "access closed"
   (hidden, request rejected, the task made private without them).

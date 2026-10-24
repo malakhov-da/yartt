@@ -1026,7 +1026,7 @@ profile and invitations each got a use case.
 *Implemented:* `shared/i18n/ru.ts`, `en.ts`, `help/`; the product docs;
 `docs/admin/api.md` names the permission "Participants" (`observers`).
 
-### 64. Only the owner brings people in; a mention addresses participants
+### 64. Only the owner brings people in; a mention addresses participants — changed by 82
 
 A mention in a private task used to make the person a participant: any
 participant could widen the circle of a task by asking someone for help.
@@ -1397,3 +1397,21 @@ conflict is named in the dialog — "overlaps your shift 10:00–12:30" — and
 an overlap, for what the dialog cannot see.
 
 *Implemented:* `others` of `ShiftDialog`, passed by `Day`.
+
+### 82. Any participant brings people in; the owner removes them
+
+Decision 64 kept adding participants to the owner. In practice a head
+of a department brought into a task needs to bring in their own people,
+and had to ask the owner for each. Now any participant of a private
+task adds someone, the way a copy is added to an email; the new
+participant is told who added them. The owner keeps the rest of access:
+removes whoever came in by mistake, answers requests, makes the task
+public or private.
+
+New people also took being a participant for being kept informed: they
+added colleagues and assumed those read the task. Participants are not
+notified of comments — only the owner and those mentioned are. The add
+field now says so: a participant sees the task; for an answer or an
+action, mention them. The guide's first-day steps say it too.
+
+*Implemented:* `add_observer()` (migration `0.4-0.5`); `People`.

@@ -222,11 +222,12 @@ Key principles:
     dismissed, their tasks go to their manager. With no manager the task
     is left without an owner and any observer can take it.
   - Observers see the task and change only their own things: comments,
-    their time entries, their time left, their reminders, their mentions.
-    Access belongs to the owner: only the owner adds and removes
-    observers, answers requests and makes the task public or private.
-    A mention in a private task addresses only its observers; anyone
-    else is brought in by the owner or asks for access.
+    their time entries, their time left, their reminders, their mentions —
+    and bring others in, the way a copy is added to an email. The owner
+    keeps the rest of access: removes observers, answers requests and
+    makes the task public or private. A mention in a private task
+    addresses only its observers; anyone else is brought in by a
+    participant or asks for access.
   - Access is revoked explicitly: an observer can leave, the owner can
     remove an observer. There is also an access request flow: an employee
     files a request (added_at = NULL), the owner is notified and approves
@@ -486,7 +487,7 @@ the API is implemented.
     - Take an ownerless task (owner_id IS NULL, any observer).
 
   Access:
-    - Add an observer or bring one back (add_observer: the owner).
+    - Add an observer or bring one back (add_observer: any participant).
     - Request access (request_access: the employee themselves).
     - Withdraw one''s own request (withdraw_access).
     - Approve a request (approve_access: the owner).
@@ -564,7 +565,8 @@ ACCESS RULES
       of a private task; everyone for a public task.
 
   Observers:
-    - Add, remove, bring back an observer — owner only.
+    - Add or bring back an observer — any participant of a private task
+      (like a copy in an email); remove — owner only.
     - Make the task public / private — owner only.
     - Any employee can request access to a private task.
     - Approve / reject a request — owner only.
@@ -1116,3 +1118,123 @@ Cycles are forbidden (trigger). Self-dependency is forbidden (CHECK).
 Deletion is physical. No audit.
 When finished_at of value is set, moved or cleared, owners of all
 dependent tasks are notified.';
+
+
+-- Any participant brings someone in, like a copy in an email; the owner removes.
+
+CREATE OR REPLACE FUNCTION add_observer(
+    p_task_id INT,
+    p_employee_id INT,
+    p_actor_id INT
+)
+RETURNS VOID AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM task WHERE id = p_task_id) THEN
+        RAISE EXCEPTION 'task % not found', p_task_id
+            USING HINT = 'not_found';
+    END IF;
+    IF is_public(p_task_id) THEN
+        RAISE EXCEPTION 'task % is public', p_task_id
+            USING HINT = 'task_public',
+                  DETAIL = json_build_object('taskId', p_task_id)::text;
+    END IF;
+    -- Like a copy in an email: anyone in the task brings someone in; the owner removes.
+    IF NOT is_observer(p_task_id, p_actor_id) THEN
+        RAISE EXCEPTION 'only participants of task % add participants', p_task_id
+            USING HINT = 'forbidden';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM employee WHERE id = p_employee_id AND dismissed_at IS NULL) THEN
+        RAISE EXCEPTION 'employee % is unknown or dismissed', p_employee_id
+            USING HINT = 'not_found';
+    END IF;
+    IF is_observer(p_task_id, p_employee_id) THEN
+        RETURN;
+    END IF;
+
+    PERFORM grant_observer(p_task_id, p_employee_id, p_actor_id);
+    PERFORM notify(p_employee_id, p_task_id, jsonb_build_object(
+        'kind', 'access_opened', 'by', p_actor_id));
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION add_observer(INT, INT, INT) IS
+'A participant (active observer — the owner among them) adds an observer
+to a private task, or brings a former one back, the way a copy is added
+to an email: whoever needs someone in brings them in, and the owner
+removes whoever came in by mistake (remove_observer). Access is active at
+once, a pending request is approved, and the employee is notified
+(access_opened, by — who added them). A public task has no observers:
+make it private first.';
+
+COMMENT ON TABLE observer IS
+'Access to a task and access requests.
+
+STATES:
+  - added_at IS NULL AND deleted_at IS NULL — a request awaiting approval.
+  - added_at IS NOT NULL AND deleted_at IS NULL — active access.
+  - deleted_at IS NOT NULL — access closed or request rejected.
+At most one open row per (task_id, value).
+
+A task without active rows is public (is_public()).
+
+WHO CREATES A ROW:
+  - The employee requests access to a private task: added_by = NULL,
+    added_at = NULL. The owner is notified.
+  - A participant adds someone (add_observer): added_by = them,
+    added_at = NOW(). The new observer is notified (access_opened).
+  - The system: added_by = NULL, added_at = NOW(). This is how the owner
+    (on task creation and transfer, unless the task is public) and the
+    managers of all active observers, recursively, are added (triggers).
+
+WHO APPROVES:
+  - The task owner: approve_access / reject_access; the requester is
+    notified (access_opened / access_closed). The requester may withdraw
+    the request (withdraw_access).
+
+ACCESS IS REVOKED:
+  - An observer can leave (leave_task, deleted_by = value).
+  - The owner can remove an observer (remove_observer); they are
+    notified (access_closed).
+  - make_public closes every row; make_private brings back the owner and
+    everyone with an open mention, and notifies the others who commented
+    (access_closed).
+  - The owner cannot leave.
+  - A manager cannot leave or be removed while an active report of theirs
+    (recursively) observes the task.
+Rows are never deleted: they are the observation periods shown in the
+task.
+
+When an observer leaves, their current estimate_minutes row is closed
+(expired_at = NOW()) and their reminders (remind) are deleted (trigger).';
+
+COMMENT ON TABLE mention IS
+'An employee attached to a comment (a mention).
+Attached explicitly, the text is not parsed.
+closed_at IS NULL — the mention is open.
+Closed only explicitly, by the mentioned employee ("Done"): a reply alone
+does not mean the request is handled — but there is no "Done" without a
+reply: the mentioned employee must have commented in the task after the
+mention, so whoever asked sees the answer (trigger). An open mention is the only way a
+task the employee merely observes gets into their TODO in My day.
+Self-mention and mentioning a dismissed employee are forbidden. In a
+private task only an active observer can be mentioned: someone is brought
+in first (add_observer), a mention only addresses those already in. In a
+public task anyone can be mentioned, and it adds no observer (trigger).
+The mentioned employee is always notified.';
+
+COMMENT ON FUNCTION trg_mention_check() IS
+'Forbids self-mentions, mentioning a dismissed employee and, in a private
+task, mentioning anyone who is not an active observer: someone is
+brought in first (add_observer, approve_access), a mention only
+addresses those already in. In a public task anyone may be mentioned and
+no observer is added.';
+
+COMMENT ON TYPE bot_permission IS
+'What a bot may change, on top of reading what its relationships show it:
+  task          — create tasks and run its own (tags, priority, context,
+                  deadline, dependencies, public or private, reviewed);
+  task.transfer — hand its own tasks to someone;
+  comment       — comment and close its mentions;
+  observers     — bring people into tasks it takes part in, run the
+                  observers of its own tasks, request access.
+Checked by the application. Never: timesheet, time, scores, people, keys.';

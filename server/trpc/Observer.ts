@@ -30,9 +30,10 @@ export default router({
     .query(({ input, ctx }) => Observers.mentionable(ctx.employeeId, input.taskId)),
 
   /**
-   * The owner adds an observer to a private task or brings a former one
-   * back; they are notified.
-   * @throws forbidden — not the owner.
+   * A participant (the owner among them) adds an observer to a private task
+   * or brings a former one back, like a copy in an email; they are notified.
+   * Removing stays the owner's.
+   * @throws forbidden — not a participant.
    * @throws task_public — make the task private first.
    * @throws not_found — unknown or dismissed employee.
    */

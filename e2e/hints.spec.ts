@@ -56,3 +56,12 @@ test('a person is offered with what they wrote about themselves, and found by it
   await expect(option).toBeVisible();
   await expect(option).toContainText('Фронтенд. Telegram: @pavel');
 });
+
+test('a participant brings someone in, told that participants are not notified of comments', async ({ page }) => {
+  await signIn(page, 'pavel@example.com');
+  await page.goto(`/tasks/${await taskId('сайт', 'новая главная к осенней кампании')}`);
+  await expect(page.getByText(/уведомления о комментариях ему не приходят/)).toBeVisible();
+  await page.getByPlaceholder('Добавить участника').fill('Анна');
+  await page.getByRole('option', { name: /Анна Петрова/ }).click();
+  await expect(page.getByText('Анна Петрова').first()).toBeVisible();
+});

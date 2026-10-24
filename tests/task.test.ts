@@ -36,15 +36,21 @@ describe('access', () => {
       .rejects.toMatchObject({ message: 'no_access' });
   });
 
-  test('only the owner adds and hides observers; both are notified', async () => {
+  test('any participant adds observers, like a copy in an email; only the owner hides them; both are notified', async () => {
     const owner = await createEmployee();
     const helper = await createEmployee();
     const other = await createEmployee();
+    const stranger = await createEmployee();
     const id = await createTask(owner.id);
 
     await (await client(owner.id)).Observer.add({ taskId: id, employeeId: helper.id });
-    await expect((await client(helper.id)).Observer.add({ taskId: id, employeeId: other.id }))
+    await expect((await client(stranger.id)).Observer.add({ taskId: id, employeeId: other.id }))
       .rejects.toMatchObject({ message: 'forbidden' });
+    await (await client(helper.id)).Observer.add({ taskId: id, employeeId: other.id });
+    expect(await notifications(other.id)).toEqual([expect.objectContaining({ kind: 'access_opened', by: helper.id })]);
+    await expect((await client(helper.id)).Observer.remove({ taskId: id, employeeId: other.id }))
+      .rejects.toMatchObject({ message: 'forbidden' });
+    await (await client(owner.id)).Observer.remove({ taskId: id, employeeId: other.id });
     await (await client(owner.id)).Observer.remove({ taskId: id, employeeId: helper.id });
     await (await client(owner.id)).Observer.add({ taskId: id, employeeId: helper.id });
 

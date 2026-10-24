@@ -18,7 +18,8 @@ const PAGE_SIZE = 10;
 /**
  * Observers of a private task, or everyone who opened a public one: one list
  * by last visit, with icons for time spent and planned, and the observation
- * periods on hover. Access is the owner's (decision 15).
+ * periods on hover. Any participant brings someone in, like a copy in an
+ * email; the rest of access is the owner's (decisions 15, 82).
  */
 export default function (p: { task: TaskPage }) {
   const { t } = useTranslation();
@@ -32,6 +33,7 @@ export default function (p: { task: TaskPage }) {
   const [addInput, setAddInput] = useState('');
   const taskId = p.task.id;
   const isOwner = p.task.access === 'owner';
+  const inside = isOwner || p.task.access === 'observer';
   const people = useQuery(trpc.Observer.list.queryOptions({ taskId, page }, { refetchInterval: POLL_MS }));
 
   const done = { onSuccess: refresh };
@@ -112,7 +114,7 @@ export default function (p: { task: TaskPage }) {
         </Stack>
       ))}
 
-      {isOwner && !p.task.isPublic && (
+      {inside && !p.task.isPublic && (
         <Autocomplete
           size="small"
           options={candidates}
@@ -124,7 +126,9 @@ export default function (p: { task: TaskPage }) {
           renderOption={(props, e) => employeeOption(props, e)}
           filterOptions={employeeFilter}
           onChange={(_e, value) => { if (value) add.mutate({ taskId, employeeId: value.id }); setAddInput(''); }}
-          renderInput={(params) => <TextField {...params} variant="outlined" placeholder={t('task.people.add')} />}
+          renderInput={(params) => (
+            <TextField {...params} variant="outlined" placeholder={t('task.people.add')} helperText={t('task.people.addHint')} />
+          )}
         />
       )}
 

@@ -13,7 +13,8 @@ export const helpEn: Help = {
     'Open My day — the main screen. On top is Waiting for me: everything that needs your reaction. Work through it — an empty list is the goal.',
     'Find your tasks in Available tasks: My open — what you answer for; Other open — where you take part.',
     'Make a task with "New task". Its title is tags: pick fitting ones from the suggestions and add your own.',
-    'Bring people into a task with "Add a participant" on its page. To ask someone to do something, mention them in a comment.',
+    'Bring people into a task with "Add a participant" on its page. Participants are not notified of every comment — '
+      + 'for someone to read and answer, mention them in a comment.',
     'If you keep a timesheet: start the shift with ▶ in the top line, close it in the evening and log your time to tasks.',
   ],
   diagramsTitle: 'How it fits together',
@@ -22,10 +23,10 @@ export const helpEn: Help = {
       title: 'Who is who in a task',
       owner: 'Owner',
       ownerWho: 'Whose initiative it is — one per task',
-      ownerDoes: ['decides when the task is done', 'sets and moves the deadline', 'brings people in and out', 'answers for the result'],
+      ownerDoes: ['decides when the task is done', 'sets and moves the deadline', 'removes participants not needed', 'answers for the result'],
       participant: 'Participants',
-      participantWho: 'Those the owner brought in',
-      participantDoes: ['comment and answer mentions', 'plan their time and log hours', 'take a big part into a task of their own — "My part"'],
+      participantWho: 'Those brought into the task',
+      participantDoes: ['comment and answer mentions', 'bring others in', 'plan their time and log hours', 'take a big part into a task of their own — "My part"'],
       manager: 'Managers',
       managerWho: 'Added by themselves, up the chain',
       managerDoes: ['see the tasks of their people', 'may hand over a report\'s task', 'stay while their person is in the task'],
@@ -89,8 +90,8 @@ export const helpEn: Help = {
     },
     {
       title: 'Access only for those invited',
-      text: 'A task is seen by its participants and their managers. Tags, priority and deadline are seen by everyone — a task can be '
-        + 'found and access asked for. A task for everyone the owner makes public.',
+      text: 'A task is seen by its participants and their managers; participants bring others in, the owner removes those not needed. '
+        + 'Tags, priority and deadline are seen by everyone — a task can be found and access asked for. A task for everyone the owner makes public.',
     },
     {
       title: 'Tags instead of projects',
@@ -199,10 +200,13 @@ export const helpEn: Help = {
     {
       title: 'Give access or ask for help',
       steps: [
-        'Only the owner adds participants: "Add a participant" on the task\'s page. That is access, not an order — nothing is expected of them.',
+        'Any participant adds participants, like a copy in an email: "Add a participant" on the task\'s page. The owner removes whoever is not needed.',
+        'A participant has access, not an order. Participants are not notified of every comment: they see the task, but nobody has '
+          + 'to keep reading it. Need an answer or an action — mention the person in a comment: they are notified and the request '
+          + 'lands in their Waiting for me.',
         'To ask a participant to do something, mention them (@) in a comment and say what is needed: it lands in their Waiting for me. '
           + 'Only those already in the task can be mentioned; in a public task, anyone.',
-        'If you need someone who is not in the task and you are not the owner, ask the owner to add them. They can request access themselves.',
+        'Need someone who is not in the task — add them as a participant, then mention them. They can request access themselves.',
         'The mention is closed when they reply and press "Done". If there is a lot of work, they make a task of their own with "My part" '
           + 'under "Waits for" — yours waits for it, and when it closes you see it in Waiting for me.',
       ],
@@ -356,9 +360,9 @@ export const helpEn: Help = {
     },
     {
       q: 'Why can I not mention someone who is not in the task?',
-      a: "Who has access is the owner's decision: they answer for the task and for who sees it. So only those already taking part "
-        + 'can be mentioned — a mention addresses a participant, it does not open access. Every access opened or closed is notified, '
-        + 'so a task never spreads quietly.',
+      a: 'A mention addresses a participant, it does not open access: someone is first added to the task — any participant can, '
+        + 'like a copy in an email — and then mentioned. Every access opened or closed is notified, and the owner removes whoever '
+        + 'is not needed, so a task never spreads quietly.',
     },
     {
       q: "Why do managers see their reports' tasks?",

@@ -55,7 +55,7 @@ test.describe.serial('a task from creation to hand-over', () => {
   test('only a participant is mentioned: the owner adds them first; a reply quotes its parent', async () => {
     await page.getByRole('button', { name: 'Упомянуть сотрудника' }).click();
     await page.keyboard.type('Павел');
-    await expect(page.getByText('Упомянуть можно участников задачи; добавляет участников владелец')).toBeVisible();
+    await expect(page.getByText('Упомянуть можно участников задачи; сначала добавьте человека в участники')).toBeVisible();
     await expect(page.getByRole('option', { name: 'Павел Орлов' })).toHaveCount(0);
     await page.keyboard.press('Escape');
     await page.getByPlaceholder('Добавить участника').click();
