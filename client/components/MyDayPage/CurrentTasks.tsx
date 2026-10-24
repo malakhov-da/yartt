@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router';
 import type { CurrentTab } from '#shared/myDay.ts';
 import type { Tag } from '#shared/task.ts';
+import { useFormat } from '#client/hooks/format.ts';
 import { useStore } from '#client/hooks/store.ts';
 import { POLL_MS } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
@@ -33,6 +34,7 @@ export default function (p: { team: boolean }) {
   const { t } = useTranslation();
   // A report's, on their page: their tabs, no search and no new task (decision 83).
   const { as, readOnly } = useViewAs();
+  const format = useFormat();
   const trpc = useTRPC();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -60,6 +62,11 @@ export default function (p: { team: boolean }) {
   ));
   const shown = filtering ? found : current;
   const counts = shown.data?.counts;
+  // The time planned on a line: what makes a task someone does mine (or the team's) though owned by another.
+  const plan = (taskId: number) => {
+    const minutes = shown.data?.plans.find((x) => x.taskId === taskId)?.minutes;
+    return minutes ? t(tab === 'team' ? 'myDay.current.teamPlan' : 'myDay.current.myPlan', { time: format.minutes(minutes) }) : undefined;
+  };
   const total = counts?.[tab] ?? 0;
 
   // A new filter starts from the first page.
@@ -180,6 +187,7 @@ export default function (p: { team: boolean }) {
           <TaskLine
             key={task.id}
             task={task}
+            note={plan(task.id)}
             onTag={readOnly ? undefined : (tag) => { if (!tags.some((picked) => picked.id === tag.id)) filter({ tags: [...tags, tag] }); }}
           />
         ))}

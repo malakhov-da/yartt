@@ -109,8 +109,9 @@ export const WaitingItem = z.discriminatedUnion('kind', [WaitingRequest, Waiting
 export type WaitingItem = z.infer<typeof WaitingItem>;
 
 /**
- * 'mine' — open tasks I own; 'team' — open tasks my people own, down the
- * chain; 'others' — every other open task I see; 'closed' — the closed ones I see.
+ * 'mine' — open tasks I own or plan time on; 'team' — open tasks my people
+ * own or plan time on, down the chain; 'others' — every other open task I
+ * see; 'closed' — the closed ones I see (decision 85).
  */
 export const CurrentTab = z.enum(['mine', 'team', 'others', 'closed']);
 export type CurrentTab = z.infer<typeof CurrentTab>;
@@ -126,6 +127,8 @@ export const Current = z.object({
   items: TaskHeader.array(),
   /** Tasks in each tab, for the tab labels. */
   counts: z.object({ mine: z.number().int(), team: z.number().int(), others: z.number().int(), closed: z.number().int() }),
+  /** Time left planned on the tasks shown: mine in 'mine', my people's together in 'team'. */
+  plans: z.object({ taskId: Id, minutes: z.number().int() }).array(),
 });
 export type Current = z.infer<typeof Current>;
 

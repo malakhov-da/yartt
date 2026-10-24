@@ -3,7 +3,7 @@ import type { Current, CurrentTab, DayHistory, History, TodoItem, WaitingItem } 
 import { plainText } from '../html.ts';
 import { sql } from '../pg.ts';
 import { mentionReplies, replyKey } from './Comment.ts';
-import { headers } from './Task.ts';
+import { headers, plans, whose } from './Task.ts';
 
 export const PAGE_SIZE = 20;
 /** Days with activity per page of History. */
@@ -185,7 +185,8 @@ export async function waiting(me: number, viewerId: number = me): Promise<Waitin
 
 /**
  * Tasks I see — public ones included (decision 14): the open ones (no
- * deadline or one ahead) I own, those my people own (down the chain), or
+ * deadline or one ahead) I own or plan time on, those my people own or plan
+ * time on (down the chain — decision 85), or
  * all the other open ones, by deadline, nearest first, the same moment and
  * no deadline by priority; or the closed ones, the most recently closed
  * first (decision 57).
@@ -193,9 +194,7 @@ export async function waiting(me: number, viewerId: number = me): Promise<Waitin
 export async function current(me: number, tab: CurrentTab, page: number): Promise<Current> {
   const seen = sql`
     SELECT k.id, k.owner_id, k.priority, f.value AS deadline, f.value IS NOT NULL AND f.value <= NOW() AS closed,
-           CASE WHEN k.owner_id = ${me} THEN 'mine'
-                WHEN k.owner_id IN (SELECT subordinates(${me})) THEN 'team'
-                ELSE 'others' END AS whose
+           ${whose(me)} AS whose
       FROM task k
       LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
      WHERE can_see(k.id, ${me})
@@ -213,7 +212,7 @@ export async function current(me: number, tab: CurrentTab, page: number): Promis
            count(*) FILTER (WHERE closed)::int AS closed
       FROM (${seen}) t
   `);
-  return { items: await headers(me, ids), counts: counts! };
+  return { items: await headers(me, ids), counts: counts!, plans: await plans(me, tab, ids) };
 }
 
 const DayRow = z.object({ day: z.string() });

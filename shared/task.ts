@@ -109,8 +109,8 @@ export type TaskPreview = z.infer<typeof TaskPreview>;
 export const SearchInput = z.object({
   tagIds: Id.array().min(1).max(20),
   /**
-   * 'mine' — open tasks I own; 'team' — open ones owned by my people,
-   * down the chain; 'others' — the other open ones; 'closed' — the closed
+   * 'mine' — open tasks I own or plan time on; 'team' — open ones my people
+   * own or plan time on, down the chain; 'others' — the other open ones; 'closed' — the closed
    * ones (as in Current tasks); 'all' — any, to pick one.
    */
   tab: z.enum(['mine', 'team', 'others', 'closed', 'all']),
@@ -130,6 +130,8 @@ export const SearchResult = z.object({
   items: TaskHeader.extend({ canSee: z.boolean() }).array(),
   /** Found tasks in each tab. */
   counts: z.object({ mine: z.number().int(), team: z.number().int(), others: z.number().int(), closed: z.number().int() }),
+  /** Time left planned on the tasks found, as in Available tasks. */
+  plans: z.object({ taskId: Id, minutes: z.number().int() }).array(),
 });
 export type SearchResult = z.infer<typeof SearchResult>;
 

@@ -74,8 +74,10 @@ tags, the hour budgets and the bots (decision 83):
   beginning of my comment and their answers so far, "Answered — waiting
   for Done" or "No answer yet"; the longest waiting on top (decision 67).
 - **Available tasks** — every open task I see (no deadline, or a deadline
-  ahead), in tabs: **My open** (I answer for them), for a manager **Team
-  open** (those my people own, down the chain — decision 77) and **Other
+  ahead), in tabs: **My open** (I answer for them, or I have time planned
+  on them — "my plan 4h" on the line, decision 85), for a manager **Team
+  open** (those my people own or plan time on, down the chain — decisions
+  77, 85) and **Other
   open** — and the closed ones I see in the last, **Closed** (decision 57); each
   explains itself on hover. Open tasks are by deadline, nearest first,
   the same moment by priority; tasks without a deadline at the end, by

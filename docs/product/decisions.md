@@ -1463,3 +1463,17 @@ again. Nobody else's file is touched by a person's quota.
 `purge_old_attachments()` (migration `0.4-0.5`); `FILE_*` in
 `server/env.ts`; `Attachment.mine`, `Attachment.purge`;
 `client/components/MyDayPage/Files.tsx`.
+
+### 85. My open is my work: what I own and what I plan time on
+
+"My open" held only the tasks I own, so a task where I take part and
+have planned four hours — my work for the week — was among "Other open",
+next to everything I merely see. Now "My open" holds what I own and what
+I have time planned on (my current time left), and "Team open" what my
+people own or plan time on. The difference from ownership is kept in
+sight: the line says "my plan 4h" ("team plan 6h"), and whose the task
+is shows by its owner's avatar, so planning time never reads as owning.
+A plan cleared, the task goes back among the others.
+
+*Implemented:* `whose()` and `plans()` in `server/services/Task.ts`, used
+by `MyDay.current` and `Task.search`; the plan note in `CurrentTasks`.

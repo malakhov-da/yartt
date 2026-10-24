@@ -162,6 +162,28 @@ describe('current tasks', () => {
     expect((await strangerApi.MyDay.current({ tab: 'others', page: 1 })).items.map((t) => t.id)).toContain(own);
   });
 
+  test('a task I plan time on is mine, one my people plan on is the team\'s, with the plan on the line', async () => {
+    const boss = await createEmployee();
+    const dev = await createEmployee({ managerId: boss.id });
+    const owner = await createEmployee();
+    const task = await createTask(owner.id);
+    await (await client(owner.id)).Observer.add({ taskId: task, employeeId: dev.id });
+    const devApi = await client(dev.id);
+    expect((await devApi.MyDay.current({ tab: 'others', page: 1 })).items.map((t) => t.id)).toContain(task);
+
+    await devApi.Time.setLeft({ taskId: task, minutes: 240 });
+    const mine = await devApi.MyDay.current({ tab: 'mine', page: 1 });
+    expect(mine.items.map((t) => t.id)).toEqual([task]);
+    expect(mine.plans).toEqual([{ taskId: task, minutes: 240 }]);
+    const team = await (await client(boss.id)).MyDay.current({ tab: 'team', page: 1 });
+    expect(team.items.map((t) => t.id)).toEqual([task]);
+    expect(team.plans).toEqual([{ taskId: task, minutes: 240 }]);
+
+    // The plan cleared: back among the others.
+    await devApi.Time.setLeft({ taskId: task, minutes: null });
+    expect((await devApi.MyDay.current({ tab: 'mine', page: 1 })).items).toEqual([]);
+  });
+
   test('my team: tasks my people own down the chain, apart from the others, in the search too', async () => {
     const boss = await createEmployee();
     const lead = await createEmployee({ managerId: boss.id });

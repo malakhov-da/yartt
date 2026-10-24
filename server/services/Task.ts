@@ -91,24 +91,49 @@ async function assertOwner(taskId: number, employeeId: number, db: Sql = sql): P
  * everyone. The tabs of Current tasks — my open ones, the other open ones,
  * the closed ones — in their orders; 'all' — open first, by deadline.
  */
+/**
+ * Whose open task `k` is in Available tasks (decision 85): 'mine' — I own it
+ * or have time planned on it; 'team' — someone under me does; 'others'.
+ */
+export const whose = (viewerId: number) => sql`
+  CASE WHEN k.owner_id = ${viewerId}
+         OR EXISTS (SELECT 1 FROM estimate_minutes es WHERE es.task_id = k.id AND es.expired_at IS NULL AND es."by" = ${viewerId})
+       THEN 'mine'
+       WHEN k.owner_id IN (SELECT subordinates(${viewerId}))
+         OR EXISTS (SELECT 1 FROM estimate_minutes es WHERE es.task_id = k.id AND es.expired_at IS NULL
+                       AND es."by" IN (SELECT subordinates(${viewerId})))
+       THEN 'team'
+       ELSE 'others' END`;
+
+const Plan = z.object({ taskId: z.number(), minutes: z.number() });
+
+/** Time left planned on the tasks: mine in 'mine', my people's together in 'team' (hours of a task add up, decision 68). */
+export async function plans(viewerId: number, tab: string, ids: number[]): Promise<z.infer<typeof Plan>[]> {
+  if (ids.length === 0 || (tab !== 'mine' && tab !== 'team')) return [];
+  const by = tab === 'mine' ? sql`es."by" = ${viewerId}` : sql`es."by" IN (SELECT subordinates(${viewerId}))`;
+  return Plan.array().parse(await sql`
+    SELECT es.task_id, sum(es.value)::int AS minutes FROM estimate_minutes es
+     WHERE es.task_id = ANY(${ids}) AND es.expired_at IS NULL AND ${by}
+     GROUP BY es.task_id
+  `);
+}
+
 export async function search(viewerId: number, input: SearchInput): Promise<SearchResult> {
   const where = sql`k.tag_ids @> ${input.tagIds}::int[]`;
   const closed = sql`(f.value IS NOT NULL AND f.value <= NOW())`;
-  const team = sql`k.owner_id IN (SELECT subordinates(${viewerId}))`;
   const [counts] = z.object({ mine: z.number(), team: z.number(), others: z.number(), closed: z.number() }).array().parse(await sql`
-    SELECT count(*) FILTER (WHERE NOT ${closed} AND k.owner_id = ${viewerId})::int AS mine,
-           count(*) FILTER (WHERE NOT ${closed} AND ${team})::int AS team,
-           count(*) FILTER (WHERE NOT ${closed} AND k.owner_id IS DISTINCT FROM ${viewerId} AND NOT COALESCE(${team}, FALSE))::int AS others,
-           count(*) FILTER (WHERE ${closed})::int AS closed
-      FROM task k
-      LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
-     WHERE ${where}
+    SELECT count(*) FILTER (WHERE NOT closed AND whose = 'mine')::int AS mine,
+           count(*) FILTER (WHERE NOT closed AND whose = 'team')::int AS team,
+           count(*) FILTER (WHERE NOT closed AND whose = 'others')::int AS others,
+           count(*) FILTER (WHERE closed)::int AS closed
+      FROM (SELECT ${closed} AS closed, ${whose(viewerId)} AS whose
+              FROM task k
+              LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
+             WHERE ${where}) t
   `);
   const tab = input.tab === 'all' ? sql`TRUE`
     : input.tab === 'closed' ? closed
-    : input.tab === 'mine' ? sql`NOT ${closed} AND k.owner_id = ${viewerId}`
-    : input.tab === 'team' ? sql`NOT ${closed} AND ${team}`
-    : sql`NOT ${closed} AND k.owner_id IS DISTINCT FROM ${viewerId} AND NOT COALESCE(${team}, FALSE)`;
+    : sql`NOT ${closed} AND ${whose(viewerId)} = ${input.tab}`;
   const order = input.tab === 'closed' ? sql`f.value DESC, k.priority DESC, k.id DESC`
     : sql`${closed}, f.value NULLS LAST, k.priority DESC, k.id DESC`;
   const ids = Id.array().parse(await sql`
@@ -123,7 +148,7 @@ export async function search(viewerId: number, input: SearchInput): Promise<Sear
     Id.array().parse(await sql`SELECT id FROM task WHERE id = ANY(${ids}) AND can_see(id, ${viewerId})`).map((r) => r.id),
   );
   const items = (await headers(viewerId, ids)).map((h) => ({ ...h, canSee: seen.has(h.id) }));
-  return { items, counts: counts! };
+  return { items, counts: counts!, plans: await plans(viewerId, input.tab, ids) };
 }
 
 /**
