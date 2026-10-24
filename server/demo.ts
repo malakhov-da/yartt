@@ -252,10 +252,16 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
   await P.Task.setDeadline({ id: auth, deadline: daysAhead(7) });
   await P.Dependency.set({ taskId: auth, value: site, latestAt: daysAhead(2) });
 
-  // 8. Sergey's task goes to Marina when he is dismissed.
+  // 8. Sergey's task goes to Marina when he is dismissed. He worked on it before leaving (20 days
+  // ago, below), so all of it is dated three weeks back: a comment is never changed, it is written so.
   const laptops = await S.Task.create({ tags: tags.laptops });
   await S.Task.setDeadline({ id: laptops, deadline: daysAhead(5) });
-  await S.Comment.create(comment(laptops, t.comments.laptops));
+  await sql`UPDATE finished_at SET entered_at = NOW() - INTERVAL '21 days' WHERE task_id = ${laptops}`;
+  await sql`UPDATE observer SET added_at = NOW() - INTERVAL '21 days' WHERE task_id = ${laptops}`;
+  await sql`
+    INSERT INTO comment (task_id, created_by, value, created_at)
+    VALUES (${laptops}, ${sergey}, ${t.comments.laptops}, NOW() - INTERVAL '21 days')
+  `;
 
   // 9. Ivan's support tickets: enough for pages in "others".
   const tickets: number[] = [];
