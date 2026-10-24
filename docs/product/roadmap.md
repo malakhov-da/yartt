@@ -47,3 +47,16 @@ In this order after stage 6 (S — a day, M — a few days, L — a week or more
   length), blocked tasks (discourages linking tasks).
 - Transliteration tables for more alphabets — not until a company needs
   one.
+- "Noted" on a mention without a reply — whoever mentions must know it
+  reached the person; any mention is answered in the comments
+  (decision 9).
+- An assignee, or an author apart from the owner — the owner is whose
+  initiative it is; the doer is a participant with their part
+  (decision 76).
+- Hour budgets that refuse time over the limit — a line to keep to,
+  with everyone's plans in the forecast (decision 69).
+- Links between tasks other than "waits for" — tasks are related by
+  their tags (decision 56).
+- Scoring criteria built into the product, and metrics of estimate
+  accuracy or priorities kept — a score is the manager's judgement;
+  such metrics push people to game the tracker (decision 39).
