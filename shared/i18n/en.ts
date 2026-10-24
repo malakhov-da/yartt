@@ -895,6 +895,10 @@ export const en: Translation = {
       subject: 'Invitation to yartt',
       body: '{{by}} invites you to yartt. Sign in with this email: {{url}}',
     },
+    welcome: {
+      subject: 'You are in yartt',
+      body: 'An account in yartt, the company’s task tracker, is set up for you. Sign in with this email: {{url}}',
+    },
     comment: {
       subject: 'Comment: {{task}}',
       body: '{{by}} commented on the task "{{task}}".',

@@ -178,7 +178,9 @@ Key principles:
     reminded about a task. Once due it waits in their "Waiting for me"
     until they remove it or move it.
   - Only an employee can create another employee (an invite). The first
-    employee is created by the application on its first start. No roles:
+    employee is created by the application on its first start, and is
+    greeted with a link to sign in (welcome), as is anyone the
+    installation''s administrator adds outside the API. No roles:
     rights come from relationships. Only the direct manager can dismiss an
     employee or bring them back.
   - An employee is a person or a bot. A bot is a program — CI,
@@ -742,7 +744,9 @@ only a person has rows in (timesheet, time entries, scores, sessions,
 reminders, visits) refer to human, so a bot cannot have them.
 Only another employee can create one (an invite of a person, checked by
 the application; a bot with create_bot()). The application creates the
-first employee on its first start (from .env).
+first employee on its first start (from .env); the installation''s
+administrator may add people outside the API. Whoever comes without an
+invite is greeted (notify(), kind welcome).
 Dismissal sets dismissed_at: records are kept, signing in is impossible.
 The email stays, so bringing the employee back needs nothing typed again.
 An employee cannot be deleted (trigger).
@@ -2252,6 +2256,8 @@ RULES:
     previous owner too.
   - score -> the scored employee.
   - invite -> the invitee.
+  - welcome -> someone added without an invite: the first employee, or
+    whoever the installation''s administrator adds outside the API.
   - a new report (someone set their manager) -> the new manager.
   - a bot''s key a year old -> the bot''s manager, once a year of its age.
 If the recipient is away, a copy goes to their manager (recursively).
@@ -2285,7 +2291,7 @@ COMMENT ON COLUMN notification.payload IS
   access_opened | access_closed | finished_at_change | dependency_added |
   dependency_done | part_added |
   owner_change | owner_handed |
-  score | invite | new_report | weekly_digest | bot_key_old.
+  score | invite | welcome | new_report | weekly_digest | bot_key_old.
 Payload keys are camelCase (employeeId, dependencyId, ...).
 A copy for an absent employee''s manager has for = the recipient id.';
 

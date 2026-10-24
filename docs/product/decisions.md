@@ -1558,3 +1558,15 @@ plan, and the words go with the plan — a new plan says anew.
 *Implemented:* `estimate_minutes.about` (migration `0.4-0.5`);
 `Time.setLeft({ about })`, `Time.mine.leftAbout`; the plan dialog, the
 feed and the `closed` / `plan_left` items of `MyDay.todo`.
+
+### 89. Whoever comes without an invite is welcomed by yartt itself
+
+An invite says who asks a person in. The first employee, created on the
+first start, had nobody to say it — they learned of their account only
+if the administrator told them — and neither had people the installation's
+administrator adds outside the interface. Now yartt itself sends them a
+"You are in yartt" email with where to sign in, through the notification
+queue like everything else; nobody stands as its sender.
+
+*Implemented:* the `welcome` notification (`shared/notification.ts`,
+`mail.welcome`); `server/bootstrap.ts` sends it to the first employee.

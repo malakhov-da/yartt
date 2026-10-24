@@ -3,6 +3,7 @@ import env from './env.ts';
 import type { Sql } from './pg.ts';
 
 const Exists = z.object({ exists: z.boolean() });
+const Id = z.object({ id: z.number() });
 
 // Creates the first employee from .env if there are no employees yet.
 export async function bootstrap(sql: Sql): Promise<void> {
@@ -16,14 +17,16 @@ export async function bootstrap(sql: Sql): Promise<void> {
     if (!env.FIRST_EMPLOYEE_EMAIL || !env.FIRST_EMPLOYEE_NAME) {
       throw new Error('No employees yet: set FIRST_EMPLOYEE_EMAIL and FIRST_EMPLOYEE_NAME to create the first one');
     }
-    await tx`
+    const [first] = Id.array().parse(await tx`
       WITH e AS (
         INSERT INTO employee (email, full_name, locale, time_zone)
         VALUES (${env.FIRST_EMPLOYEE_EMAIL}, ${env.FIRST_EMPLOYEE_NAME}, ${env.FIRST_EMPLOYEE_LOCALE}, ${env.FIRST_EMPLOYEE_TIME_ZONE})
         RETURNING id
       )
-      INSERT INTO human (employee_id) SELECT id FROM e
-    `;
+      INSERT INTO human (employee_id) SELECT id FROM e RETURNING employee_id AS id
+    `);
+    // Nobody invited them: yartt itself tells them where to sign in.
+    await tx`SELECT notify(${first!.id}, NULL, ${tx.json({ kind: 'welcome' })})`;
     console.log(`Created first employee ${env.FIRST_EMPLOYEE_EMAIL}`);
   });
 }

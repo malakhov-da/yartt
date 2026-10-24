@@ -54,9 +54,12 @@ docker run -d --name yartt -p 3000:3000 --env-file prod.env yartt/public:<versio
 
 On start the container installs or upgrades the schema (under a lock, so
 several containers may start at once), creates the first employee if there
-is none, and serves the application. The first employee opens
-`PUBLIC_URL`, asks for a sign-in link with their email and invites the
-others from the top line.
+is none, and serves the application. The first employee gets an email
+saying where to sign in (with SMTP set; otherwise it is in the log),
+opens `PUBLIC_URL`, asks for a sign-in link with their email and invites
+the others from the top line. Anyone added to the database outside the
+interface is greeted the same way when given a `welcome` notification
+(`SELECT notify(<id>, NULL, '{"kind":"welcome"}')`).
 
 To run the worker apart from the API, start the same image twice with
 `ROLE=api` and `ROLE=worker`; several workers are safe.

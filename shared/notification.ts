@@ -9,6 +9,8 @@ const Copy = { for: Id.optional() };
 
 export const NotificationPayload = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('invite'), by: Id, ...Copy }),
+  // Added without an invite — the first employee, or by the installation's administrator.
+  z.object({ kind: z.literal('welcome'), ...Copy }),
   z.object({ kind: z.literal('comment'), by: Id, commentId: Id, ...Copy }),
   z.object({ kind: z.literal('mention'), by: Id, commentId: Id, ...Copy }),
   z.object({ kind: z.literal('task_mention'), by: Id, commentId: Id, ...Copy }),

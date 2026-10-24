@@ -55,6 +55,14 @@ describe('mail', () => {
     expect(copy.text).toContain('A copy: Marina is away.');
   });
 
+  test('someone added without an invite is welcomed by yartt itself, with where to sign in', async () => {
+    const me = await createEmployee();
+    const to = { employeeId: me.id, kind: 'human' as const, email: me.email, fullName: 'Me', locale: 'ru' as const, timeZone: 'UTC' };
+    const welcome = await renderMail({ to, taskId: null, payload: { kind: 'welcome' } });
+    expect(welcome.subject).toBe('Вас добавили в яртт');
+    expect(welcome.text).toContain('http://yartt.test/login');
+  });
+
   test('a score correction carries the previous value, the reason and the time', async () => {
     const boss = await createEmployee();
     const me = await createEmployee();
