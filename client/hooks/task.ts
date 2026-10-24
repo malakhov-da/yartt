@@ -14,7 +14,7 @@ export function useTaskRefresh(): () => void {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   return () => {
-    for (const key of [trpc.Task.pathKey(), trpc.Comment.pathKey(), trpc.Observer.pathKey(), trpc.Time.pathKey(), trpc.MyDay.pathKey(), trpc.Remind.pathKey(), trpc.Team.pathKey(), trpc.Work.pathKey(), trpc.TagLimit.pathKey()]) {
+    for (const key of [trpc.Task.pathKey(), trpc.Comment.pathKey(), trpc.Observer.pathKey(), trpc.Time.pathKey(), trpc.MyDay.pathKey(), trpc.Remind.pathKey(), trpc.Team.pathKey(), trpc.Work.pathKey(), trpc.TagLimit.pathKey(), trpc.Attachment.pathKey()]) {
       void queryClient.invalidateQueries({ queryKey: key });
     }
   };

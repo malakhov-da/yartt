@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { createTask, editable, signIn, unfold, unique } from './helpers.ts';
+import { createTask, editable, signIn, taskId, unfold, unique } from './helpers.ts';
 
 // My day of the first employee over the demo data (scripts/seed.ts).
 test.describe('My day', () => {
@@ -197,11 +197,23 @@ test('what was done, a dot on the ribbon, opens its task', async ({ page }) => {
   await expect(page).toHaveURL(/\/tasks\/\d+$/);
 });
 
-test('My files, folded at the end of My day: the space used and the files uploaded, deleted to free it', async ({ page }) => {
+test('My files, folded at the end of My day: the space used and the files kept, let go to free it', async ({ page }) => {
   await signIn(page, 'pavel@example.com');
   await unfold(page, 'Мои файлы');
   const block = page.getByRole('region', { name: 'Мои файлы' });
   await expect(block.getByText(/^Занято .+ из 1024 МБ$/)).toBeVisible();
-  const line = block.locator('.MuiStack-root').filter({ has: page.getByRole('button', { name: 'Удалить' }) }).first();
+  const line = block.locator('.MuiStack-root').filter({ has: page.getByRole('button', { name: 'Убрать из моих' }) }).first();
   await expect(line.getByRole('link', { name: /^#\d+$/ }).first()).toBeVisible(); // the task it is in
+});
+
+test('a file in a comment is kept in my files: it stays mine whoever lets it go', async ({ page }) => {
+  await signIn(page);
+  await page.goto(`/tasks/${await taskId('сайт', 'новая главная к осенней кампании')}`);
+  await page.getByRole('button', { name: /^Все события/ }).last().click();
+  const keep = page.getByRole('button', { name: /^Сохранить в мои файлы/ }).first();
+  await keep.click();
+  await expect(page.getByRole('button', { name: /^Сохранить в мои файлы/ }).first()).toBeDisabled();
+  await page.goto('/');
+  await unfold(page, 'Мои файлы');
+  await expect(page.getByRole('region', { name: 'Мои файлы' }).getByText(/держат ещё: 1/)).toBeVisible();
 });

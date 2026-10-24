@@ -1,5 +1,5 @@
-import { AttachFile } from '@mui/icons-material';
-import { alpha, Box, Button, Chip, Stack, Tooltip, Typography } from '@mui/material';
+import { AttachFile, BookmarkAdded, BookmarkAddOutlined } from '@mui/icons-material';
+import { alpha, Box, Button, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { Comment, CommentBase } from '#shared/comment.ts';
@@ -31,6 +31,7 @@ export default function CommentItem(p: {
   const employees = useEmployees();
   const refresh = useTaskRefresh();
   const close = useMutation(trpc.Comment.closeMention.mutationOptions({ onSuccess: refresh }));
+  const keep = useMutation(trpc.Attachment.keep.mutationOptions({ onSuccess: refresh }));
   const c = p.comment;
   const author = employees.get(c.authorId);
   const name = (id: number) => employees.get(id)?.fullName ?? `#${id}`;
@@ -99,16 +100,26 @@ export default function CommentItem(p: {
                 <Chip size="small" variant="outlined" icon={<AttachFile />} label={f.name} sx={{ textDecoration: 'line-through', color: 'text.secondary' }} />
               </Tooltip>
             ) : (
-              <Chip
-                key={f.id}
-                size="small"
-                variant="outlined"
-                icon={<AttachFile />}
-                label={f.name}
-                component="a"
-                href={attachmentUrl(f.id, f.name)}
-                clickable
-              />
+              <Stack key={f.id} direction="row" sx={{ alignItems: 'center' }}>
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  icon={<AttachFile />}
+                  label={f.name}
+                  component="a"
+                  href={attachmentUrl(f.id, f.name)}
+                  clickable
+                />
+                {/* Kept, the file stays mine whoever else lets it go (decision 84). */}
+                <Tooltip title={t(f.kept ? 'task.feed.fileKept' : 'task.feed.keepFile')} describeChild>
+                  <span>
+                    <IconButton size="small" disabled={f.kept || keep.isPending} aria-label={t('task.feed.keepFile')}
+                      onClick={() => keep.mutate({ id: f.id })}>
+                      {f.kept ? <BookmarkAdded fontSize="small" /> : <BookmarkAddOutlined fontSize="small" />}
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Stack>
             )))}
           </Box>
         )}

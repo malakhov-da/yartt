@@ -1,5 +1,5 @@
 import { AttachFile } from '@mui/icons-material';
-import { Box, Button, LinearProgress, Link as MuiLink, Paper, Stack, Typography } from '@mui/material';
+import { Box, Button, LinearProgress, Link as MuiLink, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -20,10 +20,12 @@ export function useBytes(): (bytes: number) => string {
 
 /**
  * My files (decision 84), folded at the end of My day: how much of my quota
- * they take, and every file I uploaded — its names in comments, its tasks,
- * when — the newest first. "Delete" frees the space: the content goes, the
- * links stay and say so, and the same file uploaded again brings it back.
- * On a report's page — theirs, read-only.
+ * they take, the files I keep — uploaded or kept from a task — and below
+ * them the ones I uploaded and let go; names in comments, tasks, when. "Let
+ * go" frees my space; kept by someone else, the file stays for them, let go
+ * by the last one, its content is deleted — the links stay and say so, and
+ * the same file uploaded again brings it back. On a report's page — theirs,
+ * read-only.
  */
 export default function (p: { fold?: ReactNode }) {
   const { t } = useTranslation();
@@ -32,7 +34,7 @@ export default function (p: { fold?: ReactNode }) {
   const bytes = useBytes();
   const { as, readOnly } = useViewAs();
   const mine = useQuery(trpc.Attachment.mine.queryOptions(as === undefined ? undefined : { as }));
-  const purge = useMutation(trpc.Attachment.purge.mutationOptions({ onSuccess: () => void mine.refetch() }));
+  const release = useMutation(trpc.Attachment.release.mutationOptions({ onSuccess: () => void mine.refetch() }));
   const data = mine.data;
   const share = data ? Math.min(100, (data.usedBytes / data.quotaBytes) * 100) : 0;
 
@@ -56,7 +58,7 @@ export default function (p: { fold?: ReactNode }) {
         {data?.files.map((f) => {
           const name = f.names.join(', ') || t('files.unnamed');
           return (
-            <Stack key={f.id} direction="row" sx={{ alignItems: 'center', gap: 1, flexWrap: 'wrap', opacity: f.purgedAt ? 0.6 : 1 }}>
+            <Stack key={f.id} direction="row" sx={{ alignItems: 'center', gap: 1, flexWrap: 'wrap', opacity: f.held ? 1 : 0.6 }}>
               <AttachFile fontSize="small" sx={{ color: 'text.secondary' }} />
               <Box sx={{ flex: '1 1 200px', minWidth: 0 }}>
                 {f.purgedAt ? (
@@ -69,13 +71,17 @@ export default function (p: { fold?: ReactNode }) {
                   {f.taskIds.map((id) => (
                     <span key={id}>{' · '}<MuiLink component={Link} to={`/tasks/${id}`}>#{id}</MuiLink></span>
                   ))}
-                  {f.purgedAt && ` · ${t('files.purged', { date: format.date(f.purgedAt) })}`}
+                  {f.purgedAt ? ` · ${t('files.purged', { date: format.date(f.purgedAt) })}`
+                    : !f.held ? ` · ${t('files.letGo', { count: f.holders })}`
+                    : f.holders > 1 ? ` · ${t('files.alsoKept', { count: f.holders - 1 })}` : ''}
                 </Typography>
               </Box>
-              {!f.purgedAt && !readOnly && (
-                <Button size="small" color="inherit" disabled={purge.isPending} onClick={() => purge.mutate({ id: f.id })}>
-                  {t('files.delete')}
-                </Button>
+              {f.held && !readOnly && (
+                <Tooltip title={t(f.holders > 1 ? 'files.letGoHintShared' : 'files.letGoHint')} describeChild>
+                  <Button size="small" color="inherit" disabled={release.isPending} onClick={() => release.mutate({ id: f.id })}>
+                    {t('files.release')}
+                  </Button>
+                </Tooltip>
               )}
             </Stack>
           );

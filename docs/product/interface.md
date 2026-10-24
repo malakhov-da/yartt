@@ -104,9 +104,11 @@ range; a click on another heading sorts by it — or the tags
   logged and plan of time left; the tooltip of a day puts next to each person's time the tasks and ✉
   comments behind it, and next to their plan the tasks it covers — and a table of people; CSV export (decision 58).
 - **My files** — for everyone, folded, at the end: how much of my quota my
-  files take and every file I uploaded — names, tasks, when — "Delete"
-  frees a file's space; its links stay, struck through, and the same file
-  uploaded again brings it back (decision 84).
+  files take, the files I keep and those I uploaded and let go — names,
+  tasks, when, how many keep them. "Let go" frees my space; the last one
+  to let a file go deletes its content; its links stay, struck through,
+  and the same file uploaded again brings it back. A file in a comment
+  has "Keep in my files" — it stays mine whoever lets it go (decision 84).
 - **Hour budgets** — for everyone, folded, under Tags: limits of hours on a
   combination of tags for a fixed period that I set for myself and
   everyone under me, and those my managers set (they count my hours) and

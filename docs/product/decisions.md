@@ -1450,18 +1450,24 @@ a person's files at most `FILE_QUOTA_MB` together — an upload over it is
 refused with how much is taken; files over `FILE_BIG_MB` keep their
 content `FILE_BIG_DAYS` days after their last use. The rest is kept.
 
-Freeing space is the person's own decision: **My files**, folded at the
-end of My day, shows how much of the quota is taken and every file they
-uploaded — its names in comments, its tasks, when — and "Delete" frees a
-file's space. Only the content goes: the row stays, and so does every
-comment's link, struck through, saying when the file was deleted and who
-uploaded it. Whoever has the file still brings it back by uploading it
-again — the same bytes find the row and fill it, and every link works
-again. Nobody else's file is touched by a person's quota.
+A file is kept while someone holds it in their quota. Whoever uploads it
+holds it; anyone who sees a file in a task can keep it too ("Keep in my
+files" by the file in the comment) — a file handed to the one who needs
+it stays theirs when its author lets it go. **My files**, folded at the
+end of My day, shows how much of the quota is taken, the files I keep
+and below them those I uploaded and let go — names in comments, tasks,
+when, how many keep them. "Let go" frees my space; kept by others, the
+file stays for them; let go by the last one, its content is deleted. The
+row and every comment's link stay — struck through, saying when — and
+anyone who has the file brings it back by uploading it again: the same
+bytes find the row and fill it, and every link works again. Identical
+files are one row whoever uploads them, so a file shared in a team is
+stored once.
 
-*Implemented:* `attachment.purged_at`, `purge_attachment()`,
+*Implemented:* `attachment.held_by`, `purged_at`, `keep_attachment()`,
+`release_attachment()`,
 `purge_old_attachments()` (migration `0.4-0.5`); `FILE_*` in
-`server/env.ts`; `Attachment.mine`, `Attachment.purge`;
+`server/env.ts`; `Attachment.mine`, `keep`, `release`;
 `client/components/MyDayPage/Files.tsx`.
 
 ### 85. My open is my work: what I own and what I plan time on

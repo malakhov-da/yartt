@@ -11,8 +11,10 @@ export const FileRef = z.object({
   mime: z.string(),
   /** Its content was deleted (decision 84): the same file uploaded again brings it back. */
   purgedAt: z.date().nullable(),
-  /** Who uploaded it — who can bring it back. */
+  /** Who uploaded it. */
   uploadedBy: Id.array(),
+  /** I keep it in my files: it stays for me whoever else lets it go. */
+  kept: z.boolean(),
 });
 export type FileRef = z.infer<typeof FileRef>;
 
@@ -155,6 +157,10 @@ export type CreateCommentInput = z.infer<typeof CreateCommentInput>;
 /** A file I uploaded, in My files (decision 84). */
 export const MyFile = z.object({
   id: Id,
+  /** I keep it: it counts in my quota. False — I uploaded it and let it go. */
+  held: z.boolean(),
+  /** How many keep it: let go by the last one, its content is deleted. */
+  holders: z.number().int(),
   size: z.number().int(),
   mime: z.string(),
   addedAt: z.date(),

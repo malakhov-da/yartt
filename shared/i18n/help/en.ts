@@ -181,8 +181,10 @@ export const helpEn: Help = {
         '"Reply" starts a thread under a comment; the feed keeps a mark at the moment of the reply.',
         'An unfinished comment, form or edit is kept as a draft when you go to another page.',
         'Files are limited: the size of one and the total of yours are set by the administrator, and big files are kept for a while. '
-          + 'My files, at the bottom of My day, shows how much is taken and deletes those not needed. A link to a deleted file stays: '
-          + 'upload the same file again and it works again.',
+          + 'My files, at the bottom of My day, shows how much is taken and lets go of those not needed.',
+        'A file is kept while at least one person keeps it in their files. Need someone else\'s file from a task — press "Keep in my '
+          + 'files" by it: it stays with you even if its author lets it go. When nobody keeps a file, its content is deleted and the '
+          + 'link stays: upload the same file again and it works again.',
       ],
     },
     {

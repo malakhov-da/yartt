@@ -171,8 +171,9 @@ Key principles:
   - Comments are never edited. The interface protects against accidental
     sending: a sent comment can be pulled back into editing for a few
     seconds and only then goes to the server.
-  - Attachments live in a separate table, deduplicated by hash. A comment
-    refers to them by an array of ids.
+  - Attachments live in a separate table, deduplicated by hash; a file is
+    kept while someone holds it in their quota. A comment refers to them
+    by an array of ids.
   - Reminders (remind) are explicit: an employee decides when to be
     reminded about a task. Once due it waits in their "Waiting for me"
     until they remove it or move it.
@@ -424,7 +425,9 @@ the API is implemented.
   Comments:
     - Upload an attachment (deduplicated by hash; refused over the size
       and quota limits; the same bytes restore a purged one) -> attachment.id.
-    - Delete the content of a file one uploaded (purge_attachment).
+    - Keep a file one sees in a task (keep_attachment); let a file one
+      holds go (release_attachment) — the last one to let it go deletes
+      its content.
     - Leave a comment (with attachment_ids and image_ids) — anyone who
       sees the task.
     - Reply to a comment (reply_to_id).
@@ -607,8 +610,8 @@ WHAT THE APPLICATION DOES ITSELF (not in the database)
     comment stays in the interface for a few seconds with a "Back to
     editing" button and only then goes to the server.
   - Attachment deduplication: on upload, look for an attachment with the
-    same hash and size and compare the bytes; on a match return the
-    existing id. The file name is stored in the comment
+    same hash and size and compare the bytes (or take one whose content
+    was deleted); on a match return the existing id. The file name is stored in the comment
     (attachment_names), not in the attachment.
   - Notification delivery: the worker reads notification WHERE sent_at
     IS NULL (a finished_at_change only once deadline_settles() has
@@ -1850,13 +1853,16 @@ CREATE TABLE attachment (
     uploaded_by INT[] NOT NULL DEFAULT '{}',
     added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     used_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    held_by INT[] NOT NULL DEFAULT '{}',
     purged_at TIMESTAMPTZ,
 
-    CONSTRAINT chk_attachment_purged CHECK ((value IS NULL) = (purged_at IS NOT NULL))
+    CONSTRAINT chk_attachment_purged CHECK ((value IS NULL) = (purged_at IS NOT NULL)),
+    CONSTRAINT chk_attachment_held CHECK (value IS NOT NULL OR cardinality(held_by) = 0)
 );
 CREATE INDEX idx_attachment_hash ON attachment(hash);
 CREATE INDEX idx_attachment_used_at ON attachment(used_at);
 CREATE INDEX idx_attachment_uploaded_by ON attachment USING GIN (uploaded_by);
+CREATE INDEX idx_attachment_held_by ON attachment USING GIN (held_by);
 
 COMMENT ON TABLE attachment IS
 'Attachments: files of comments and images inside comments and task
@@ -1865,28 +1871,32 @@ Uploaded before the comment is sent; the comment refers to them by the
 arrays comment.attachment_ids (files) and comment.image_ids (images in
 the text), a context by task.context_image_ids — by id, not by hash
 (hashes may collide).
-Reading an attachment: whoever uploaded it, or whoever sees a task whose
-comment or context refers to it (the application checks).
+Reading an attachment: whoever uploaded or holds it, or whoever sees a
+task whose comment or context refers to it (the application checks).
 There is no file name here: the same file may arrive under different
 names; the name is stored in comment.attachment_names.
 Deduplication: on upload the application looks for a row with the same
-hash and size and compares the bytes; on a match it returns the existing
-id and updates used_at.
+hash and size and compares the bytes (or finds one whose content was
+deleted); on a match it returns the existing id, puts the content back if
+it was gone, and the uploader holds it (held_by).
 Cron deletes, once a day, attachments nothing refers to
 (attachment_in_use) that have not been used for more than a day
 (uploaded, but the comment was never sent). An attachment in use cannot
 be deleted (trigger) — comments live forever.
 
 Storage is limited (decision 84), by the configuration, not the
-database: a file at most so large; a person''s files with content (theirs
-— uploaded_by) at most so much together, refused at upload; files above
-a size keep their content so many days after their last use
-(purge_old_attachments()). A person may also delete the content of a
-file they uploaded (purge_attachment()). The row stays — who uploaded
-it, its size, the names in comments — and value goes (purged_at): a link
-to it says the file is gone and who can bring it back. Uploading the
-same bytes again (the same hash and size) restores it in place, so every
-link to it works again.';
+database: a file at most so large; the files a person holds (held_by) at
+most so much together, refused at upload or keep; files above a size
+keep their content so many days after their last use
+(purge_old_attachments()).
+A file is kept while someone holds it: its uploaders, and whoever saw it
+in a task and kept it (keep_attachment()) — a file handed to the one who
+needs it stays theirs when its author lets it go. Letting a file go
+(release_attachment()) takes it out of one''s quota; when nobody holds it
+any more, its content is deleted. The row stays — who uploaded it, its
+size, the names in comments — and value goes (purged_at): a link to it
+says the file is gone. Anyone uploading the same bytes again (the same
+hash and size) restores it in place, so every link to it works again.';
 
 COMMENT ON COLUMN attachment.id IS
 'Id. Referenced by comment.attachment_ids.';
@@ -1901,24 +1911,37 @@ COMMENT ON COLUMN attachment.mime IS
 'MIME type.';
 
 COMMENT ON COLUMN attachment.value IS
-'File content. NULL — deleted to free the space (purged_at); the same
-bytes uploaded again bring it back.';
+'File content. NULL — deleted when nobody held it any more, or a big file
+went unused too long (purged_at); the same bytes uploaded again bring it
+back.';
+
+COMMENT ON COLUMN attachment.held_by IS
+'Who keeps the file — it counts in each one''s quota: the uploaders, and
+whoever kept a file they saw in a task. Empty with content — uploaded
+before 0.5 and not let go of, or kept by nobody: nobody pays for it. When
+the last holder lets it go, the content is deleted.';
+
+COMMENT ON CONSTRAINT chk_attachment_held ON attachment IS
+'Nobody holds a file without content.';
+
+COMMENT ON INDEX idx_attachment_held_by IS
+'A person''s quota: the files they hold.';
 
 COMMENT ON COLUMN attachment.purged_at IS
-'When the content was deleted — by an uploader or because a big file went
-unused too long. NULL — the content is here.';
+'When the content was deleted — the last holder let it go, or a big file
+went unused too long. NULL — the content is here.';
 
 COMMENT ON CONSTRAINT chk_attachment_purged ON attachment IS
 'No content exactly when it was purged.';
 
 COMMENT ON INDEX idx_attachment_uploaded_by IS
-'A person''s files: their list and their quota.';
+'A person''s files: their list.';
 
 COMMENT ON COLUMN attachment.uploaded_by IS
 'Everyone who uploaded these bytes (deduplication returns the same row).
-They may read it before it is attached anywhere; while it has content it
-counts in each one''s quota, and each of them may delete its content. It
-stays after the content is gone: the history of who uploaded what.';
+They may read it before it is attached anywhere. It stays when they let
+the file go and after its content is gone: the history of who uploaded
+what. Who keeps it in their quota is held_by.';
 
 COMMENT ON COLUMN attachment.added_at IS
 'When first uploaded.';
@@ -4632,28 +4655,50 @@ COMMENT ON FUNCTION send_deadline_notices() IS
 Safe with several workers: each row is claimed by its UPDATE.';
 
 
-CREATE OR REPLACE FUNCTION purge_attachment(p_attachment_id INT, p_employee_id INT)
+CREATE OR REPLACE FUNCTION keep_attachment(p_attachment_id INT, p_employee_id INT)
 RETURNS VOID AS $$
 BEGIN
-    UPDATE attachment SET value = NULL, purged_at = NOW()
-     WHERE id = p_attachment_id AND uploaded_by @> ARRAY[p_employee_id] AND value IS NOT NULL;
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'attachment % is not a file of employee % with content', p_attachment_id, p_employee_id
-            USING HINT = 'not_found';
+    UPDATE attachment SET held_by = held_by || p_employee_id
+     WHERE id = p_attachment_id AND value IS NOT NULL AND NOT held_by @> ARRAY[p_employee_id];
+    IF NOT FOUND AND NOT EXISTS (SELECT 1 FROM attachment WHERE id = p_attachment_id AND held_by @> ARRAY[p_employee_id]) THEN
+        RAISE EXCEPTION 'attachment % has no content to keep', p_attachment_id
+            USING HINT = 'file_purged';
     END IF;
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION purge_attachment(INT, INT) IS
-'Someone who uploaded a file deletes its content to free their quota.
-The row stays, and so do the comments that refer to it: their link says
-the file is gone; the same bytes uploaded again bring it back.';
+COMMENT ON FUNCTION keep_attachment(INT, INT) IS
+'Someone keeps a file — one they see in a task (the application checks
+that and the quota): it counts in their quota and stays while they hold
+it, whoever else lets it go. Kept already — nothing changes.';
+
+
+CREATE OR REPLACE FUNCTION release_attachment(p_attachment_id INT, p_employee_id INT)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE attachment SET held_by = array_remove(held_by, p_employee_id)
+     WHERE id = p_attachment_id AND held_by @> ARRAY[p_employee_id];
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'employee % does not hold attachment %', p_employee_id, p_attachment_id
+            USING HINT = 'not_found';
+    END IF;
+    -- Nobody holds it any more: the content goes, the row and the links stay.
+    UPDATE attachment SET value = NULL, purged_at = NOW()
+     WHERE id = p_attachment_id AND cardinality(held_by) = 0;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION release_attachment(INT, INT) IS
+'Someone lets a file they hold go, to free their quota. While anyone
+else holds it, it stays as it is; let go by the last one, its content is
+deleted. The row stays, and so do the comments that refer to it: their
+link says the file is gone; the same bytes uploaded again bring it back.';
 
 
 CREATE OR REPLACE FUNCTION purge_old_attachments(p_min_size BIGINT, p_days INT)
 RETURNS INT AS $$
     WITH purged AS (
-        UPDATE attachment SET value = NULL, purged_at = NOW()
+        UPDATE attachment SET value = NULL, purged_at = NOW(), held_by = '{}'
          WHERE value IS NOT NULL AND size > p_min_size AND used_at < NOW() - p_days * INTERVAL '1 day'
         RETURNING id
     )
@@ -4662,7 +4707,8 @@ $$ LANGUAGE sql;
 
 COMMENT ON FUNCTION purge_old_attachments(BIGINT, INT) IS
 'Cron, every hour: the content of files over p_min_size bytes unused for
-p_days days (from the configuration) is deleted; the rows stay.';
+p_days days (from the configuration) is deleted, whoever holds them; the
+rows stay.';
 
 
 CREATE OR REPLACE FUNCTION can_see_tag_limit(p_limit_id INT, p_employee_id INT)

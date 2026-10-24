@@ -18,13 +18,26 @@ export default router({
     .query(async ({ input, ctx }) => Attachments.mine(await viewAs(ctx.employeeId, input?.as))),
 
   /**
-   * Deletes the content of a file the signed-in employee uploaded, to free
-   * their quota. The comments keep the link, which says the file is gone;
-   * the same file uploaded again brings it back.
-   * @throws not_found — not their file, or already deleted.
+   * Keeps a file the signed-in employee sees in a task in their files: it
+   * counts in their quota and stays theirs whoever else lets it go.
+   * @throws unknown_attachment — they do not see it.
+   * @throws file_purged — its content is gone.
+   * @throws file_quota — it does not fit.
    */
-  purge: authedProcedure
+  keep: authedProcedure
     .input(z.object({ id: Id }))
     .output(z.void())
-    .mutation(({ input, ctx }) => Attachments.purge(ctx.employeeId, input.id)),
+    .mutation(({ input, ctx }) => Attachments.keep(ctx.employeeId, input.id)),
+
+  /**
+   * Lets a file the signed-in employee keeps go, to free their quota. Kept
+   * by someone else, it stays; let go by the last one, its content is
+   * deleted — the comments keep the link, which says so, and the same file
+   * uploaded again brings it back.
+   * @throws not_found — they do not keep it.
+   */
+  release: authedProcedure
+    .input(z.object({ id: Id }))
+    .output(z.void())
+    .mutation(({ input, ctx }) => Attachments.release(ctx.employeeId, input.id)),
 });

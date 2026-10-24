@@ -236,11 +236,14 @@ describe('rich text and attachments', () => {
     await expect(api.Comment.create(comment(id, '<p>  </p>'))).rejects.toMatchObject({ message: 'invalid_data' });
   });
 
-  test('files: a size limit, a quota, content deleted to free it, brought back by the same bytes', async () => {
+  test('files: a size limit, a quota; kept while someone holds it; the last to let go deletes it; the same bytes bring it back', async () => {
     const me = await createEmployee();
     const other = await createEmployee();
+    const stranger = await createEmployee();
     const id = await createTask(me.id);
     const api = await client(me.id);
+    const otherApi = await client(other.id);
+    await api.Observer.add({ taskId: id, employeeId: other.id });
     const saved = { max: env.FILE_MAX_MB, quota: env.FILE_QUOTA_MB };
     env.FILE_MAX_MB = 2 / 1024; // 2 KB
     env.FILE_QUOTA_MB = 3 / 1024; // 3 KB
@@ -252,22 +255,35 @@ describe('rich text and attachments', () => {
       await expect(Attachments.upload(me.id, kb(2), 'text/plain')).rejects.toMatchObject({ code: 'file_quota' });
       // The same bytes again take no more space.
       expect(await Attachments.upload(me.id, firstBytes, 'text/plain')).toBe(first);
-      // Someone else's quota is their own.
-      await Attachments.upload(other.id, kb(2), 'text/plain');
 
       await api.Comment.create({ ...comment(id, '<p>the report</p>'), files: [{ id: first, name: 'report.txt' }] });
-      expect((await api.Attachment.mine()).files).toMatchObject([{ id: first, names: ['report.txt'], taskIds: [id], purgedAt: null }]);
-      await expect((await client(other.id)).Attachment.purge({ id: first })).rejects.toMatchObject({ message: 'not_found' });
+      expect((await api.Attachment.mine()).files).toMatchObject([{ id: first, held: true, holders: 1, names: ['report.txt'], taskIds: [id] }]);
 
-      // Deleted: the quota is free, the comment keeps the link and says so.
-      await api.Attachment.purge({ id: first });
+      // Someone who sees it keeps it: in their quota, theirs whoever lets it go; a stranger cannot.
+      await expect((await client(stranger.id)).Attachment.keep({ id: first })).rejects.toMatchObject({ message: 'unknown_attachment' });
+      let [c] = (await otherApi.Comment.list({ taskId: id, filter: 'all', page: 1 })).items;
+      expect(c).toMatchObject({ files: [{ id: first, kept: false }] });
+      await otherApi.Attachment.keep({ id: first });
+      [c] = (await otherApi.Comment.list({ taskId: id, filter: 'all', page: 1 })).items;
+      expect(c).toMatchObject({ files: [{ id: first, kept: true }] });
+      expect((await otherApi.Attachment.mine()).usedBytes).toBe(firstBytes.length);
+
+      // I let it go: my quota is free, the file stays for them.
+      await api.Attachment.release({ id: first });
       expect((await api.Attachment.mine()).usedBytes).toBe(0);
-      await expect(Attachments.read(me.id, first)).rejects.toMatchObject({ code: 'file_purged' });
-      const [c] = (await api.Comment.list({ taskId: id, filter: 'all', page: 1 })).items;
-      expect(c).toMatchObject({ files: [{ id: first, uploadedBy: [me.id], purgedAt: expect.any(Date) }] });
+      expect((await api.Attachment.mine()).files).toMatchObject([{ id: first, held: false, holders: 1, purgedAt: null }]);
+      expect((await Attachments.read(me.id, first)).value.equals(firstBytes)).toBe(true);
+      await expect(api.Attachment.release({ id: first })).rejects.toMatchObject({ message: 'not_found' });
 
-      // The same bytes again bring the deleted one back in place: every link works again.
-      expect(await Attachments.upload(me.id, firstBytes, 'text/plain')).toBe(first);
+      // The last one lets it go: the content goes, the comment keeps the link and says so.
+      await otherApi.Attachment.release({ id: first });
+      await expect(Attachments.read(me.id, first)).rejects.toMatchObject({ code: 'file_purged' });
+      [c] = (await api.Comment.list({ taskId: id, filter: 'all', page: 1 })).items;
+      expect(c).toMatchObject({ files: [{ id: first, uploadedBy: [me.id], purgedAt: expect.any(Date) }] });
+      await expect(otherApi.Attachment.keep({ id: first })).rejects.toMatchObject({ message: 'file_purged' });
+
+      // Anyone with the bytes brings it back in place: every link works again.
+      expect(await Attachments.upload(other.id, firstBytes, 'text/plain')).toBe(first);
       expect((await Attachments.read(me.id, first)).value.equals(firstBytes)).toBe(true);
     } finally {
       env.FILE_MAX_MB = saved.max;
