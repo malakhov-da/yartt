@@ -167,6 +167,28 @@ export async function byTags(names: string[]): Promise<TitleTaken> {
   return row ?? null;
 }
 
+const SIMILAR = 5;
+
+/**
+ * Tasks sharing tags with a title being typed, other than the one with
+ * exactly this title: the most tags in common first, then the open ones,
+ * then the newest — so a new task is written next to what already exists.
+ * Headers are everyone's to see (decision 19).
+ */
+export async function similar(viewerId: number, names: string[]): Promise<TaskHeader[]> {
+  const ids = Id.array().parse(await sql`
+    WITH t AS (SELECT id FROM tag WHERE name = ANY(${[...new Set(names)]}))
+    SELECT k.id FROM task k
+      LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
+     WHERE k.tag_ids && (SELECT array_agg(id) FROM t)
+       AND k.tag_ids <> (SELECT array_agg(id ORDER BY id) FROM t)
+     ORDER BY (SELECT count(*) FROM unnest(k.tag_ids) x WHERE x IN (SELECT id FROM t)) DESC,
+              (f.value IS NULL OR f.value > NOW()) DESC, k.id DESC
+     LIMIT ${SIMILAR}
+  `).map((r) => r.id);
+  return headers(viewerId, ids);
+}
+
 /** Ids of the tags with these names; missing ones are created. */
 async function tagIds(names: string[], db: Sql): Promise<number[]> {
   const unique = [...new Set(names.map((n) => n.trim()))];

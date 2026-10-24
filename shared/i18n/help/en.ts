@@ -156,7 +156,8 @@ export const helpEn: Help = {
           + 'when the task is done; they start their own part in it ("My part").',
         'A follow-up task is created from the page of the original, under "Waits for" or "Waited on by": it gets its tags, '
           + 'and you add what is specific.',
-        'If a task with that title exists, a link to it appears under the field — go there and carry on.',
+        'If a task with that title exists, a link to it appears under the field — go there and carry on. '
+          + 'Below are similar tasks with the picked tags: look before starting a new one.',
       ],
     },
     {

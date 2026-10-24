@@ -1,6 +1,6 @@
 import { Close } from '@mui/icons-material';
 import { Autocomplete, Box, Button, IconButton, MenuItem, Paper, Stack, TextField, Tooltip, Typography } from '@mui/material';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
@@ -78,6 +78,9 @@ export default function () {
   // Text typed but not turned into a chip becomes a tag of its own — unless a tag is spelled so.
   const title = useTitle(tags, input);
   const names = title.names;
+  // What already exists under the picked tags, so the new task is written next to it.
+  const picked = tags.flatMap((part) => ('tag' in part ? [part.tag.name] : []));
+  const similar = useQuery(trpc.Task.similar.queryOptions({ tags: picked }, { enabled: picked.length > 0, placeholderData: keepPreviousData }));
 
   const create = useMutation(trpc.Task.create.mutationOptions({
     onSuccess: (id) => {
@@ -117,6 +120,13 @@ export default function () {
           : title.pickFirst ? t('title.pickFirst', { name: title.pickFirst }) : t('newTask.tagsHint')}
         autoFocus
       />
+
+      {picked.length > 0 && (similar.data?.length ?? 0) > 0 && (
+        <Stack spacing={0.5}>
+          <Typography sx={label}>{t('newTask.similar')}</Typography>
+          {similar.data!.map((task) => <TaskLine key={task.id} task={task} dense />)}
+        </Stack>
+      )}
 
       <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 2 }}>
         <TextField

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Id } from '#shared/employee.ts';
-import { CreateInput, SearchInput, SearchResult, TaskPage, TaskPreview, TitleInput, TitleTaken, TransferInput, UpdateInput } from '#shared/task.ts';
+import { CreateInput, SearchInput, SearchResult, TaskHeader, TaskPage, TaskPreview, TitleInput, TitleTaken, TransferInput, UpdateInput } from '#shared/task.ts';
 import * as Tasks from '../services/Task.ts';
 import { authedProcedure, router } from '../trpc.ts';
 
@@ -34,6 +34,16 @@ export default router({
     .input(TitleInput)
     .output(TitleTaken)
     .query(({ input }) => Tasks.byTags(input.tags)),
+
+  /**
+   * Up to five tasks sharing tags with a title being typed — the most in
+   * common first, open before closed — not the one with exactly this
+   * title. Headers only, as anyone sees them (decision 19). Anyone signed in.
+   */
+  similar: authedProcedure
+    .input(TitleInput)
+    .output(TaskHeader.array())
+    .query(({ input, ctx }) => Tasks.similar(ctx.employeeId, input.tags)),
 
   /**
    * The task page. The header (tags, priority, deadline, owner, public or

@@ -300,7 +300,9 @@ often go with them are offered ("Often together"); with nothing picked
 and nothing typed, a click lists the rubrics of my own tasks, the most
 used first — in the search the same. Text left unpicked
 becomes a tag of its own, the whole phrase one tag — unless a tag is spelled exactly so, which has to be
-picked first. A title another task has is named under the field and
+picked first. Under the field, up to five similar tasks — sharing the
+picked tags, the most in common first, open before closed — so a new
+task is written next to what exists. A title another task has is named under the field and
 "Create task" waits. Priority, deadline, context and participants —
 brought in at once, each told, as a participant brings people in later
 — are optional; a

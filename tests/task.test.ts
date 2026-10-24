@@ -37,6 +37,19 @@ describe('access', () => {
       .rejects.toMatchObject({ message: 'no_access' });
   });
 
+  test('similar tasks: the most tags in common first, never the one with exactly this title', async () => {
+    const me = await createEmployee();
+    const api = await client(me.id);
+    const [a, b] = [`a-${randomUUID().slice(0, 8)}`, `b-${randomUUID().slice(0, 8)}`];
+    const both = await api.Task.create({ tags: [a, b, `x-${randomUUID().slice(0, 8)}`] });
+    const one = await api.Task.create({ tags: [a, `y-${randomUUID().slice(0, 8)}`] });
+    await api.Task.create({ tags: [`z-${randomUUID().slice(0, 8)}`] });
+    const exact = await api.Task.create({ tags: [a, b] });
+
+    expect((await api.Task.similar({ tags: [a, b] })).map((task) => task.id)).toEqual([both, one]);
+    expect((await api.Task.similar({ tags: [b] })).map((task) => task.id)).toEqual([exact, both]);
+  });
+
   test('participants come in with the new task, each told who brought them', async () => {
     const owner = await createEmployee();
     const dev = await createEmployee();

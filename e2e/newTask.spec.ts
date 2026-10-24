@@ -48,6 +48,15 @@ test.describe('new task', () => {
     await expect(page.getByText('Высокий').filter({ visible: true }).first()).toBeVisible();
   });
 
+  test('picked tags show the similar tasks under the title', async ({ page }) => {
+    await page.getByRole('button', { name: 'Новая задача' }).click();
+    await expect(page.getByRole('combobox', { name: 'Теги' })).toBeFocused();
+    await page.keyboard.type('склад');
+    await page.getByRole('option', { name: 'склад', exact: true }).click();
+    await expect(page.getByText('Похожие задачи')).toBeVisible();
+    await expect(page.getByRole('link', { name: /склад · инвентаризация за октябрь/ }).filter({ visible: true }).first()).toBeVisible();
+  });
+
   test('participants are brought in from the form: the task opens with them, I stay the owner', async ({ page }) => {
     const tag = unique('для разработчика');
     await page.getByRole('button', { name: 'Новая задача' }).click();
