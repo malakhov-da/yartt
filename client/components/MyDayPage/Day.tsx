@@ -120,8 +120,13 @@ export default function (p: {
     const entries = day.entries.filter((e) => e.taskId === taskId);
     return { taskId, entries, minutes: entries.reduce((sum, e) => sum + e.minutes, 0) };
   });
+  // Opened and not logged: a hint of time to log, so a task looked up after it closed is not one.
   const opened = [...new Set(day.visits.flatMap((v) => v.taskId === null ? [] : [v.taskId]))]
-    .filter((id) => !day.entries.some((e) => e.taskId === id));
+    .filter((id) => !day.entries.some((e) => e.taskId === id))
+    .filter((id) => {
+      const deadline = p.tasks.get(id)?.deadline;
+      return !deadline || day.visits.some((v) => v.taskId === id && v.at < deadline);
+    });
 
   // A past day: what the first and last activity suggest, or the stretch of activity outside its shifts.
   const suggestion = p.isToday ? null

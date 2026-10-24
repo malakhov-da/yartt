@@ -144,7 +144,8 @@ range; a click on another heading sorts by it — or the tags
     tasks together, when it was last set on hover
     (decision 60) — and "Log time" (15m, 30m, 1h, 2h a click away), so
     time is logged where the day is reviewed; the tasks opened and not
-    logged are folded under one line, a reminder;
+    logged are folded under one line, a reminder — without those opened
+    only once closed, looked up rather than worked on;
   - the visits one by one, folded too under "Activity" (the screens and
     tasks opened; "visits" in the code).
   Any shift is added by hand with the clock in the day's header. A shift
