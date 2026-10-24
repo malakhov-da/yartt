@@ -27,7 +27,9 @@ import trpc from './trpc/index.ts';
 
 const createCaller = createCallerFactory(trpc);
 const as = (employeeId: number, bot: Context['bot'] = null) => {
-  const ctx: Context = { employeeId, bot, sessionToken: null, setSessionCookie: () => {}, clearSessionCookie: () => {} };
+  const ctx: Context = { employeeId, bot, sessionToken: null, setSessionCookie: () => {}, clearSessionCookie: () => {},
+    ssoPending: null, setSsoPendingCookie: () => {}, clearSsoPendingCookie: () => {},
+  };
   return createCaller(ctx);
 };
 

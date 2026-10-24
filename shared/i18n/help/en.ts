@@ -123,7 +123,8 @@ export const helpEn: Help = {
       title: 'Sign in',
       steps: [
         'There are no passwords: enter your work email and a sign-in link is sent. If the company signs in through its own accounts '
-          + '(SSO), press the button to sign in with them.',
+          + '(SSO), press the button to sign in with them. If the company account gives no confirmed email, the first time yartt asks '
+          + 'for your work email and sends a link to it — open it in the same browser.',
         'The sign-in email is changed in the profile: the new address is confirmed by a link sent to it.',
         'yartt can be installed as an app (Install in the browser menu): it works offline too.',
       ],

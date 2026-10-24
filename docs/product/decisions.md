@@ -807,6 +807,10 @@ directly, so yartt never sees a password: Keycloak or Authentik bridges
 LDAP and SAML to OIDC. An outage of the provider is handled by turning
 the setting off: sign-in links work again on the same data.
 
+*Changed by 86:* the email no longer follows the provider's — it is the
+person's to change; an address the provider does not vouch for is
+confirmed by a link on the first sign-in.
+
 *Implemented:* `server/sso.ts` (openid-client); `sign_in_external()`,
 `start_session()`, `idp_refused()`, `authenticate(p_lifetime)`,
 `human.external_id`, `idp_*`, `session.created_at` (migration
@@ -1483,3 +1487,32 @@ A plan cleared, the task goes back among the others.
 
 *Implemented:* `whose()` and `plans()` in `server/services/Task.ts`, used
 by `MyDay.current` and `Task.search`; the plan note in `CurrentTasks`.
+
+### 86. Through the identity provider, an address it does not vouch for is confirmed
+
+People are often in yartt before the company turns its identity provider
+on: invited, signing in by links for months. Signing in through the
+provider for the first time, they were found only by an email it vouches
+for; otherwise someone new was created — or refused, the address being
+taken. Entra never vouches (no `email_verified`), other providers leave
+some addresses unverified, so the same person could not come in, or came
+in twice, their history on the one nobody signs in as.
+
+Now someone the provider lets in is known by its id once bound. The
+first time, an address it vouches for (inside the company's domains)
+finds whoever works here with it, or creates them, as before. Without
+one, the person types their work email (the provider's address is
+offered) and opens the link sent to it in the same browser: the working
+employee with that email is them, or they are created. The link works
+only in the browser that signed in, so a forwarded one binds nobody's
+account to the provider account of whoever asked; an address bound to
+another provider account is never taken over without that confirmation.
+The email no longer follows the provider: it is the person's, changed in
+the profile with a link as without the provider. Invites and sign-in
+links stay off.
+
+*Implemented:* `external_sign_in`, `begin_external_sign_in()`,
+`send_external_email()`, `confirm_external_email()`, `sign_in_external()`
+returning NULL for whoever must confirm (migration `0.4-0.5`);
+`Auth.ssoPending`, `Auth.ssoSendEmail`, `Auth.ssoConfirm`;
+`client/components/SsoEmailPage.tsx`, `SsoConfirmPage.tsx`.

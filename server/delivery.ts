@@ -6,7 +6,8 @@ import { renderMail } from './services/Mail.ts';
 import { sendWebhook, type WebhookTarget } from './webhook.ts';
 
 export type Recipient = {
-  employeeId: number;
+  /** NULL — nobody here yet: someone confirming their email on their first sign-in through the provider. */
+  employeeId: number | null;
   kind: 'human' | 'bot';
   /** NULL — no address: the webhook only. */
   email: string | null;
@@ -25,11 +26,12 @@ export type Recipient = {
 export type Payload = NotificationPayload
   | { kind: 'login'; url: string }
   | { kind: 'email_confirm'; url: string; email: string }
+  | { kind: 'sso_email'; url: string; email: string }
   | { kind: 'email_changing'; email: string }
   | { kind: 'email_outside_domains'; url: string };
 
 /** Only by email: a link that proves the mailbox must not arrive anywhere else; a request about the address itself. */
-const MAIL_ONLY = new Set<Payload['kind']>(['email_confirm', 'email_changing', 'email_outside_domains']);
+const MAIL_ONLY = new Set<Payload['kind']>(['email_confirm', 'sso_email', 'email_changing', 'email_outside_domains']);
 
 export type Message = {
   to: Recipient;
@@ -43,10 +45,12 @@ export type Message = {
 // gets JSON on its own webhook only.
 export async function deliver(message: Message, options: { mail?: boolean } = {}): Promise<void> {
   const { kind, ...data } = message.payload;
-  const { webhook, ...to } = message.to;
+  const { webhook, ...recipient } = message.to;
+  // A webhook speaks of an employee; someone not here yet gets mail only.
+  const to = recipient.employeeId === null ? null : { ...recipient, employeeId: recipient.employeeId };
 
-  if (to.kind === 'bot') {
-    if (webhook) await sendWebhook({ kind, to, taskId: message.taskId, data }, webhook);
+  if (recipient.kind === 'bot') {
+    if (webhook && to) await sendWebhook({ kind, to, taskId: message.taskId, data }, webhook);
     return;
   }
 
@@ -54,10 +58,10 @@ export async function deliver(message: Message, options: { mail?: boolean } = {}
     const mail = await renderMail(message);
     await sendMail(message.to.email, mail.subject, mail.text);
   }
-  if (env.WEBHOOK_URL && !MAIL_ONLY.has(kind)) {
+  if (env.WEBHOOK_URL && to && !MAIL_ONLY.has(kind)) {
     await sendWebhook({ kind, to, taskId: message.taskId, data });
   }
-  if (!mailEnabled && (!env.WEBHOOK_URL || MAIL_ONLY.has(kind))) {
+  if (!mailEnabled && (!env.WEBHOOK_URL || !to || MAIL_ONLY.has(kind))) {
     console.log(`[delivery] ${JSON.stringify({ kind, to: message.to.email, taskId: message.taskId, data })}`);
   }
 }

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Employee, Locale } from '#shared/employee.ts';
 import { deliver } from '../delivery.ts';
+import { assertEmailAllowed } from '../domains.ts';
 import { AppError } from '../errors.ts';
 import env from '../env.ts';
 import { sql } from '../pg.ts';
@@ -55,27 +56,80 @@ export async function authenticate(sessionToken: string): Promise<number | null>
 /** Who the identity provider let in (server/sso.ts). */
 export type External = {
   sub: string;
+  /**
+   * Their address at the provider. Signing in, only one it vouches for,
+   * inside the company's domains; waiting for confirmation, any — offered.
+   */
   email: string | null;
-  /** The provider vouches for the email: only then is someone invited before found by it. */
-  emailVerified: boolean;
   fullName: string;
-  locale: string;
+  locale: Locale;
   timeZone: string;
   refreshToken: string | null;
 };
 
 /**
- * A session for the person the provider let in: found by their provider
- * id, once by a vouched email, or created (sign_in_external()).
+ * A session for someone the provider let in: known by their provider id,
+ * or found once by the address it vouches for, or created with it
+ * (sign_in_external()); null — they confirm their email first (decision 86).
  * @throws dismissed
- * @throws email_taken — their new email at the provider belongs to someone else here.
  */
-export async function signInExternal(p: External): Promise<string> {
+export async function signInExternal(p: External): Promise<string | null> {
   const [row] = Session.array().parse(await sql`
-    SELECT sign_in_external(${p.sub}, ${p.email}, ${p.emailVerified}, ${p.fullName}, ${p.locale}, ${p.timeZone}, ${p.refreshToken}) AS session
+    SELECT sign_in_external(${p.sub}, ${p.email}, ${p.fullName}, ${p.locale}, ${p.timeZone}, ${p.refreshToken}) AS session
   `);
-  if (!row?.session) throw new AppError('sso_failed');
-  return row.session;
+  return row?.session ?? null;
+}
+
+const Browser = z.object({ token: z.string() });
+
+/** Keeps what the provider said until the email is confirmed; the token goes into the browser's cookie. */
+export async function beginExternal(p: External): Promise<string> {
+  const [row] = Browser.array().parse(await sql`
+    SELECT begin_external_sign_in(${p.sub}, ${p.email}, ${p.fullName}, ${p.locale}, ${p.timeZone}, ${p.refreshToken}) AS token
+  `);
+  return row!.token;
+}
+
+const Pending = z.object({ email: z.string().nullable(), fullName: z.string(), sentTo: z.string().nullable() });
+export type Pending = z.infer<typeof Pending>;
+
+/** The sign-in of this browser waiting for an email, or null (none, or over an hour old). */
+export async function pendingExternal(browser: string): Promise<Pending | null> {
+  const [row] = Pending.array().parse(await sql`
+    SELECT suggested_email AS email, full_name, email AS sent_to FROM external_sign_in
+     WHERE hash = digest(${browser}, 'sha256') AND created_at > NOW() - INTERVAL '1 hour'
+  `);
+  return row ?? null;
+}
+
+const Asker = z.object({ fullName: z.string(), locale: Locale.catch('ru'), timeZone: z.string() });
+
+/**
+ * Sends the link that confirms the typed email, by email only: following
+ * it in this browser signs them in as whoever works here with it, or as
+ * someone new.
+ * @throws sso_failed, email_not_allowed, too_many_requests
+ */
+export async function sendExternalEmail(browser: string, email: string): Promise<void> {
+  assertEmailAllowed(email);
+  const [row] = Token.array().parse(await sql`SELECT send_external_email(${browser}, ${email}) AS token`);
+  const [asker] = Asker.array().parse(await sql`
+    SELECT full_name, locale, time_zone FROM external_sign_in WHERE hash = digest(${browser}, 'sha256')
+  `);
+  await deliver({
+    to: { employeeId: null, kind: 'human', email, fullName: asker!.fullName, locale: asker!.locale, timeZone: asker!.timeZone },
+    taskId: null,
+    payload: { kind: 'sso_email', url: `${env.PUBLIC_URL}/sso/${row!.token}`, email },
+  });
+}
+
+/**
+ * The link opened in the browser that signed in: a session.
+ * @throws invalid_token, sso_other_browser, dismissed
+ */
+export async function confirmExternal(browser: string | null, token: string): Promise<string> {
+  const [row] = Session.array().parse(await sql`SELECT confirm_external_email(${browser}, ${token}) AS session`);
+  return row!.session!;
 }
 
 /** The demo: everyone who can sign in, in the order they joined. */

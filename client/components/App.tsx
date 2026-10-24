@@ -14,6 +14,8 @@ import EmailConfirmPage from './EmailConfirmPage.tsx';
 import LoginCallbackPage from './LoginCallbackPage.tsx';
 import OutsideDomainsPage from './OutsideDomainsPage.tsx';
 import LoginPage from './LoginPage.tsx';
+import SsoConfirmPage from './SsoConfirmPage.tsx';
+import SsoEmailPage from './SsoEmailPage.tsx';
 import MyDayPage from './MyDayPage.tsx';
 import NewTaskPage from './NewTaskPage.tsx';
 import TaskPage from './TaskPage.tsx';
@@ -67,6 +69,16 @@ export default function () {
     );
   }
 
+  // So does the link that confirms the email of a first sign-in through the provider.
+  if (matchPath('/sso/:token', pathname)) {
+    return (
+      <>
+        <Notifications />
+        <Routes><Route path="/sso/:token" element={<SsoConfirmPage />} /></Routes>
+      </>
+    );
+  }
+
   return (
     <>
       <Notifications />
@@ -78,6 +90,7 @@ export default function () {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/login/:token" element={<LoginCallbackPage />} />
+          <Route path="/sso" element={<SsoEmailPage />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       )}

@@ -35,6 +35,11 @@ const JOBS: { name: string; every: number; run: (sql: Sql) => Promise<unknown> }
     `,
   },
   {
+    name: 'external_sign_in_cleanup',
+    every: HOUR,
+    run: (sql) => sql`DELETE FROM external_sign_in WHERE created_at < NOW() - INTERVAL '1 hour'`,
+  },
+  {
     name: 'weekly_digests',
     every: HOUR,
     run: (sql) => sql`SELECT send_weekly_digests()`,

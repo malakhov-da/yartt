@@ -15,7 +15,10 @@ same three back:
 yartt asks for the scopes `openid email profile`, plus `offline_access`
 when the provider offers it — the refresh token for the daily check. It
 reads `sub`, `email` (or, without it, `preferred_username` if it is an
-address), `email_verified`, `name`, `locale` and `zoneinfo`.
+address), `email_verified`, `name`, `locale` and `zoneinfo`. An address
+the provider vouches for (`email_verified: true`) finds or creates the
+person on their first sign-in; without one — Entra never sends
+`email_verified` — they confirm their work email by a link once.
 
 ## Microsoft Entra ID
 
@@ -72,8 +75,6 @@ user should revoke their tokens; check it once on a test account (below).
    `<PUBLIC_URL>/api/sso/callback`.
 2. **Advanced → Proof Key for Code Exchange Code Challenge Method:** S256.
 3. **Credentials** — the client secret.
-4. People need an email with **Email verified** on, so someone invited to
-   yartt before is recognized by it.
 
 ```sh
 OIDC_ISSUER=https://sso.example.com/realms/<realm>
@@ -122,8 +123,9 @@ URI above, the authorization code flow, PKCE allowed, refresh tokens
 
 On a test account, before telling everyone:
 
-1. **Sign in** with it: yartt opens My day, and in the profile its name
-   and email are the provider's.
+1. **Sign in** with it: yartt asks for the work email and sends a link;
+   opened in the same browser, it opens My day, and in the profile the
+   name is the provider's and the email the one confirmed.
 2. **Turn it off** at the provider (block, disable, suspend). Within a
    day — the check runs every hour for people last asked a day ago — My
    team marks it "refused by the provider", its sessions end and its bots

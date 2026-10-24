@@ -344,8 +344,11 @@ the API is implemented.
 
   Authentication:
     - With the company''s identity provider configured (OIDC), only through
-      it: the provider''s answer -> sign_in_external(); no sign-in links, no
-      invites (people come in by signing in).
+      it: the provider''s answer -> sign_in_external(); someone it lets in
+      for the first time confirms their email by a link opened in the same
+      browser (begin_external_sign_in(), send_external_email(),
+      confirm_external_email()); no sign-in links, no invites (people come
+      in by signing in).
     - Otherwise: request sign-in by email -> issue_token(), send the link through the
       webhook directly (not through notification — the token must not lie
       in the database in plain text).
@@ -631,6 +634,7 @@ CRON JOBS (outside SQL)
   - every hour:   DELETE FROM token
                    WHERE sent_at < NOW() - CASE WHEN email IS NULL THEN INTERVAL ''1 hour''
                                                 ELSE INTERVAL ''2 days'' END;
+  - every hour:   DELETE FROM external_sign_in WHERE created_at < NOW() - INTERVAL ''1 hour'';
   - every hour:   SELECT send_weekly_digests();
   - every day:    DELETE FROM session WHERE last_seen_at < NOW() - INTERVAL ''30 days'';
   - every day:    DELETE FROM notification WHERE added_at < NOW() - INTERVAL ''1 year'';
@@ -888,8 +892,9 @@ at most once a day.';
 
 COMMENT ON COLUMN human.external_id IS
 'Who the person is at the company''s identity provider (the OIDC sub):
-sign-in through it finds them by this, whatever their email becomes
-there. Set on their first sign-in through it (sign_in_external()).';
+sign-in through it finds them by this, whatever their email is there.
+Set on their first sign-in through it, once they confirmed their email
+(confirm_external_email()).';
 
 COMMENT ON COLUMN human.idp_refresh_token IS
 'The provider''s refresh token from their last sign-in, to ask it every
@@ -1147,6 +1152,80 @@ COMMENT ON COLUMN session.last_seen_at IS
 'Moment of the last activity.
 Updated by authenticate() when older than 5 minutes.
 Cron deletes sessions where last_seen_at < NOW() - INTERVAL ''30 days''.';
+
+
+CREATE TABLE external_sign_in (
+    hash BYTEA PRIMARY KEY,
+    sub TEXT NOT NULL,
+    suggested_email CITEXT,
+    full_name VARCHAR(255) NOT NULL,
+    locale VARCHAR(10) NOT NULL,
+    time_zone TEXT NOT NULL,
+    refresh_token TEXT,
+    email CITEXT,
+    email_hash BYTEA UNIQUE,
+    sends INT NOT NULL DEFAULT 0,
+    sent_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX idx_external_sign_in_created_at ON external_sign_in(created_at);
+CREATE INDEX idx_external_sign_in_email ON external_sign_in(email, sent_at);
+
+COMMENT ON TABLE external_sign_in IS
+'A first sign-in through the company''s identity provider that vouched
+for no address, waiting for the person to confirm their email (decision
+86): the email says which employee they are here, as without the
+provider, so someone added before by their address is found by it. The
+provider''s address, if any, is only offered.
+  1. sign_in_external() did not know them: begin_external_sign_in()
+     keeps what it said and gives the browser a token (a cookie).
+  2. They type their email: send_external_email() issues the token of a
+     link to it.
+  3. They open the link in the same browser: confirm_external_email()
+     finds the working employee with that email or creates one, binds the
+     provider id to them and starts a session.
+Only SHA-256 of both tokens is stored. Valid for an hour from step 1;
+cron removes older rows. The browser token keeps a link forwarded to
+someone else from binding their account to the provider account of
+whoever asked.';
+
+COMMENT ON COLUMN external_sign_in.hash IS
+'SHA-256 of the browser''s token (the cookie).';
+
+COMMENT ON COLUMN external_sign_in.sub IS
+'Who the person is at the provider (the OIDC sub).';
+
+COMMENT ON COLUMN external_sign_in.suggested_email IS
+'The address the provider sent, if any: offered, never trusted.';
+
+COMMENT ON COLUMN external_sign_in.full_name IS
+'The name the provider sent: given to the employee if one is created.';
+
+COMMENT ON COLUMN external_sign_in.locale IS
+'The language the provider sent (or the installation''s): of the email
+with the link, and of the employee if one is created.';
+
+COMMENT ON COLUMN external_sign_in.time_zone IS
+'The time zone the provider sent (or the installation''s), for a new employee.';
+
+COMMENT ON COLUMN external_sign_in.refresh_token IS
+'The provider''s refresh token, moved to human.idp_refresh_token on
+confirmation.';
+
+COMMENT ON COLUMN external_sign_in.email IS
+'The address the last link went to. NULL — none sent yet.';
+
+COMMENT ON COLUMN external_sign_in.email_hash IS
+'SHA-256 of the token in the last link; a new link voids the previous one.';
+
+COMMENT ON COLUMN external_sign_in.sends IS
+'How many links this sign-in sent: at most 5.';
+
+COMMENT ON COLUMN external_sign_in.sent_at IS
+'When the last link went out.';
+
+COMMENT ON COLUMN external_sign_in.created_at IS
+'When the provider let them in: valid for an hour from then.';
 
 
 
@@ -3473,7 +3552,7 @@ $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION start_session(INT) IS
 'A new session for a person: returns the token for the cookie, keeps its
 hash. Called once the person is known — by a sign-in link (login()) or
-by the identity provider (sign_in_external()).';
+by the identity provider (sign_in_external(), confirm_external_email()).';
 
 
 CREATE OR REPLACE FUNCTION login(p_token TEXT)
@@ -3570,7 +3649,6 @@ Signs nobody in. email_taken if someone working took the address since.';
 CREATE OR REPLACE FUNCTION sign_in_external(
     p_sub TEXT,
     p_email CITEXT,
-    p_email_verified BOOLEAN,
     p_full_name TEXT,
     p_locale TEXT,
     p_time_zone TEXT,
@@ -3587,30 +3665,40 @@ BEGIN
     SELECT e.id, e.dismissed_at INTO v_id, v_dismissed_at
       FROM human h JOIN employee e ON e.id = h.employee_id
      WHERE h.external_id = p_sub;
-    -- Someone invited before, signing in through the provider for the first
-    -- time: found by an email the provider vouches for, then by the provider''s id.
-    IF v_id IS NULL AND p_email IS NOT NULL AND p_email_verified THEN
-        SELECT e.id, e.dismissed_at INTO v_id, v_dismissed_at
+    IF v_id IS NULL THEN
+        -- No address the provider vouches for: the person confirms one (decision 86).
+        IF p_email IS NULL THEN
+            RETURN NULL;
+        END IF;
+        -- Someone created before by their address — invited, or added by
+        -- the administrator — signing in through the provider for the first time.
+        SELECT e.id INTO v_id
           FROM employee e JOIN human h ON h.employee_id = e.id
-         WHERE e.email = p_email AND h.external_id IS NULL
-         ORDER BY e.dismissed_at IS NULL DESC, e.dismissed_at DESC
-         LIMIT 1;
-        IF v_id IS NOT NULL THEN
+         WHERE e.email = p_email AND e.dismissed_at IS NULL AND h.external_id IS NULL;
+        IF v_id IS NULL THEN
+            -- The address is someone's who signs in with another provider account: theirs to confirm.
+            IF EXISTS (SELECT 1 FROM employee WHERE email = p_email AND dismissed_at IS NULL) THEN
+                RETURN NULL;
+            END IF;
+            SELECT e.id, e.dismissed_at INTO v_id, v_dismissed_at
+              FROM employee e JOIN human h ON h.employee_id = e.id
+             WHERE e.email = p_email
+             ORDER BY e.dismissed_at DESC
+             LIMIT 1;
+        END IF;
+        IF v_id IS NULL THEN
+            INSERT INTO employee (email, full_name, locale, time_zone)
+            VALUES (p_email, p_full_name, p_locale, p_time_zone)
+            RETURNING id INTO v_id;
+            INSERT INTO human (employee_id) VALUES (v_id);
+        END IF;
+        IF v_dismissed_at IS NULL THEN
             UPDATE human SET external_id = p_sub WHERE employee_id = v_id;
         END IF;
     END IF;
     IF v_dismissed_at IS NOT NULL THEN
         RAISE EXCEPTION 'employee % is dismissed', v_id
             USING HINT = 'dismissed';
-    END IF;
-
-    IF v_id IS NULL THEN
-        INSERT INTO employee (email, full_name, locale, time_zone)
-        VALUES (p_email, p_full_name, p_locale, p_time_zone)
-        RETURNING id INTO v_id;
-        INSERT INTO human (employee_id, external_id) VALUES (v_id, p_sub);
-    ELSE
-        UPDATE employee SET email = p_email WHERE id = v_id AND email IS DISTINCT FROM p_email;
     END IF;
 
     UPDATE human
@@ -3622,13 +3710,140 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION sign_in_external(TEXT, CITEXT, BOOLEAN, TEXT, TEXT, TEXT, TEXT) IS
+COMMENT ON FUNCTION sign_in_external(TEXT, CITEXT, TEXT, TEXT, TEXT, TEXT) IS
 'A person the company''s identity provider let in (OIDC): returns a
-session token. Known by their provider id (human.external_id); someone
-invited before is found once by an email the provider vouches for; anyone
-else is created — the provider decides who may enter. Their email follows
-the provider''s. A dismissed person is refused (dismissed): only their
-manager brings them back. The application checks the email''s domain.';
+session token, or NULL — they confirm their email first
+(begin_external_sign_in(), decision 86).
+  1. Known by their provider id (human.external_id): signed in.
+  2. Otherwise, with an address the provider vouches for (p_email; the
+     application passes only a verified one inside the company''s
+     domains): the employee with it who has no provider id yet — invited,
+     or created before by their address — is them from now on; with
+     nobody at that address someone new is created.
+  3. No such address, or it is someone''s bound to another provider
+     account: NULL.
+A dismissed person is refused (dismissed): only their manager brings them
+back. The email does not follow the provider''s afterwards: it is the
+person''s, changed in the profile.';
+
+
+CREATE OR REPLACE FUNCTION begin_external_sign_in(
+    p_sub TEXT,
+    p_suggested_email CITEXT,
+    p_full_name TEXT,
+    p_locale TEXT,
+    p_time_zone TEXT,
+    p_refresh_token TEXT
+)
+RETURNS TEXT AS $$
+DECLARE
+    v_token TEXT := encode(gen_random_bytes(32), 'hex');
+BEGIN
+    INSERT INTO external_sign_in (hash, sub, suggested_email, full_name, locale, time_zone, refresh_token)
+    VALUES (digest(v_token, 'sha256'), p_sub, p_suggested_email, p_full_name, p_locale, p_time_zone, p_refresh_token);
+    RETURN v_token;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION begin_external_sign_in(TEXT, CITEXT, TEXT, TEXT, TEXT, TEXT) IS
+'Someone the provider let in is unknown here by their provider id:
+keeps what the provider said (external_sign_in) and returns the token for
+the browser''s cookie. They confirm their email next.';
+
+
+CREATE OR REPLACE FUNCTION send_external_email(p_browser TEXT, p_email CITEXT)
+RETURNS TEXT AS $$
+DECLARE
+    v_sends INT;
+    v_token TEXT;
+BEGIN
+    SELECT sends INTO v_sends FROM external_sign_in
+     WHERE hash = digest(p_browser, 'sha256') AND created_at > NOW() - INTERVAL '1 hour'
+       FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'sign-in through the provider is unknown or expired'
+            USING HINT = 'sso_failed';
+    END IF;
+    -- As many as sign-in links: a mailbox cannot be flooded, from one
+    -- sign-in or from many.
+    IF v_sends >= 5 OR (SELECT count(*) FROM external_sign_in
+                         WHERE email = p_email AND sent_at > NOW() - INTERVAL '15 minutes') >= 5 THEN
+        RAISE EXCEPTION 'too many links to %', p_email
+            USING HINT = 'too_many_requests';
+    END IF;
+
+    v_token := encode(gen_random_bytes(32), 'hex');
+    UPDATE external_sign_in
+       SET email = p_email, email_hash = digest(v_token, 'sha256'), sends = sends + 1, sent_at = NOW()
+     WHERE hash = digest(p_browser, 'sha256');
+    RETURN v_token;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION send_external_email(TEXT, CITEXT) IS
+'The person typed their email: returns the token of a link to it (sent
+by email only, never through notification). A new link voids the one
+before. sso_failed — the sign-in is unknown or over an hour old;
+too_many_requests — 5 links from it already, or 5 to that address in 15
+minutes. The application checks the address''s domain.';
+
+
+CREATE OR REPLACE FUNCTION confirm_external_email(p_browser TEXT, p_token TEXT)
+RETURNS TEXT AS $$
+DECLARE
+    r external_sign_in;
+    v_id INT;
+BEGIN
+    SELECT * INTO r FROM external_sign_in
+     WHERE email_hash = digest(p_token, 'sha256') AND created_at > NOW() - INTERVAL '1 hour'
+       FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'email token is unknown, replaced or expired'
+            USING HINT = 'invalid_token';
+    END IF;
+    IF p_browser IS NULL OR r.hash <> digest(p_browser, 'sha256') THEN
+        RAISE EXCEPTION 'the link is opened outside the browser that signed in'
+            USING HINT = 'sso_other_browser';
+    END IF;
+    -- Two tabs following the link at once must not create two people.
+    PERFORM pg_advisory_xact_lock(hashtext('yartt.sso'), hashtext(r.sub));
+
+    SELECT e.id INTO v_id
+      FROM employee e JOIN human h ON h.employee_id = e.id
+     WHERE e.email = r.email AND e.dismissed_at IS NULL;
+    IF v_id IS NULL THEN
+        IF EXISTS (SELECT 1 FROM employee WHERE email = r.email AND kind = 'human') THEN
+            RAISE EXCEPTION 'employee with email % is dismissed', r.email
+                USING HINT = 'dismissed';
+        END IF;
+        INSERT INTO employee (email, full_name, locale, time_zone)
+        VALUES (r.email, r.full_name, r.locale, r.time_zone)
+        RETURNING id INTO v_id;
+        INSERT INTO human (employee_id) VALUES (v_id);
+    END IF;
+
+    -- One person per provider account: whoever held it lets go.
+    UPDATE human SET external_id = NULL WHERE external_id = r.sub AND employee_id <> v_id;
+    UPDATE human
+       SET external_id = r.sub,
+           idp_refresh_token = COALESCE(r.refresh_token, idp_refresh_token),
+           idp_checked_at = NOW(),
+           idp_blocked_at = NULL
+     WHERE employee_id = v_id;
+    DELETE FROM external_sign_in WHERE sub = r.sub;
+    RETURN start_session(v_id);
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION confirm_external_email(TEXT, TEXT) IS
+'The link from send_external_email(), opened in the browser that signed
+in (p_browser — its cookie): returns a session token. The working
+employee with that email — invited, imported, or someone whose provider
+account is new — is the person, and is known by the provider id from now
+on; with nobody working at that address someone new is created, and a
+dismissed one is refused (dismissed). invalid_token — unknown, replaced
+or over an hour old; sso_other_browser — opened elsewhere, so a forwarded
+link binds nobody''s account to the provider account of whoever asked.';
 
 
 CREATE OR REPLACE FUNCTION idp_refused(p_employee_id INT)

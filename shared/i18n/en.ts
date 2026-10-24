@@ -67,6 +67,15 @@ export const en: Translation = {
     again: 'Send again',
     checking: 'Signing in…',
     backToLogin: 'Back to sign in',
+    ssoEmail: {
+      title: 'Your work email',
+      hint: '{{name}}, this is your first time in yartt. Enter your work email and we will send a link to it. Open it in this browser within an hour: if you are already in yartt with this address, you sign in as yourself.',
+      submit: 'Send me a link',
+      sent: 'The link went to {{email}}. Open it in this browser within an hour.',
+      again: 'Another address, or again',
+      expired: 'The sign-in through your company account has expired — start again.',
+      restart: 'Sign in again',
+    },
     demo: {
       title: 'yartt demo',
       hint: 'The company is made up and there is no sign-in. Pick whose eyes to see it through; you can switch in the profile menu. Change anything: the demo starts afresh every night, and whatever is written here any visitor can read.',
@@ -803,6 +812,7 @@ export const en: Translation = {
     too_many_requests: 'Too many emails in a row — try again in 15 minutes.',
     sso_only: 'Here you sign in, and people come in, only with the company account.',
     sso_failed: 'Signing in with the company account did not work. Try again; if it happens again, tell your administrator.',
+    sso_other_browser: 'Open the link in the browser where you signed in with your company account: this way nobody the email is forwarded to signs in with your account.',
     dismissed: 'You are dismissed in yartt. Your manager can bring you back.',
     email_not_allowed: 'This address will not do: the company takes only addresses at {{domains}}.',
     email_outside_domains: 'Your email is outside the company’s domains — change it in your profile to go on.',
@@ -859,6 +869,10 @@ export const en: Translation = {
     email_confirm: {
       subject: 'Confirm your new email in yartt',
       body: 'To sign in to yartt with {{email}}, open this link — it works once, for a day:\n{{url}}\n\nIf you changed nothing, just delete this email.',
+    },
+    sso_email: {
+      subject: 'Signing in to yartt: confirm your email',
+      body: 'To sign in to yartt with {{email}}, open this link in the browser where you signed in with your company account. It works once, for an hour:\n{{url}}\n\nIf you were not signing in to yartt, just delete this email.',
     },
     email_outside_domains: {
       subject: 'Change your email in yartt',

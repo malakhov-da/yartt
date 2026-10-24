@@ -15,7 +15,8 @@ import * as Auth from './services/Auth.ts';
 // authorization code and PKCE (decision 53). Around tRPC, like files: it is
 // a pair of browser redirects.
 //   GET /api/sso/start[?next=/tasks/12] -> the provider
-//   GET /api/sso/callback               -> a session cookie, back to `next`
+//   GET /api/sso/callback               -> a session cookie, back to `next`;
+//                                          someone new -> /sso, to confirm their email
 // A failure comes back to /login?error=<code>.
 
 const FLOW_COOKIE = 'yartt_sso';
@@ -138,28 +139,32 @@ export default Router()
         idTokenExpected: true,
       });
       const claims = tokens.claims()!;
+      const context = await ctx(req, res);
+      res.clearCookie(FLOW_COOKIE, cookieOptions);
       // Some providers (Entra) send no email claim: the sign-in name, if it is an address, unvouched.
       const email = typeof claims.email === 'string' ? claims.email
         : typeof claims.preferred_username === 'string' && claims.preferred_username.includes('@') ? claims.preferred_username : null;
-      const verified = typeof claims.email === 'string' && claims.email_verified !== false;
-      if (email !== null && !emailAllowed(email)) {
-        fail(res, 'email_not_allowed');
-        return;
-      }
+      const vouched = typeof claims.email === 'string' && claims.email_verified === true && emailAllowed(claims.email);
       const name = [claims.name, [claims.given_name, claims.family_name].filter(Boolean).join(' '), claims.preferred_username, email]
         .find((v): v is string => typeof v === 'string' && v.trim() !== '')!;
-      const session = await Auth.signInExternal({
+      const person = {
         sub: claims.sub,
-        email,
-        emailVerified: verified,
         fullName: name.trim().slice(0, 255),
         locale: localeOf(claims.locale),
         timeZone: timeZoneOf(claims.zoneinfo),
         refreshToken: tokens.refresh_token ?? null,
-      });
-      res.clearCookie(FLOW_COOKIE, cookieOptions);
-      (await ctx(req, res)).setSessionCookie(session);
-      res.redirect(flow.next);
+      };
+      const session = await Auth.signInExternal({ ...person, email: vouched ? email : null });
+      if (session) {
+        context.setSessionCookie(session);
+        res.redirect(flow.next);
+        return;
+      }
+      // No address the provider vouches for: they confirm one, as without the
+      // provider (decision 86), so whoever was created by it is found. The
+      // provider's is offered.
+      context.setSsoPendingCookie(await Auth.beginExternal({ ...person, email: email && emailAllowed(email) ? email : null }));
+      res.redirect('/sso');
     } catch (error) {
       const appError = error instanceof AppError ? error : fromPostgres(error);
       if (appError && isErrorCode(appError.code)) {

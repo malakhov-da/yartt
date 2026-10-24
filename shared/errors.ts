@@ -16,6 +16,7 @@ export const ERROR_CODES = [
   'too_many_requests',
   'sso_only',
   'sso_failed',
+  'sso_other_browser',
   'dismissed',
 
   // employees

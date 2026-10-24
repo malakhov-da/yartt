@@ -48,6 +48,48 @@ export default router({
     .output(z.void())
     .mutation(({ input }) => Employees.confirmEmailChange(input.token)),
 
+  /**
+   * The first sign-in through the identity provider waiting in this
+   * browser for the email to be confirmed (decision 86): the address the
+   * provider offers, the name, and where the last link went. Null — none,
+   * or over an hour old. Anyone may call it.
+   */
+  ssoPending: procedure
+    .output(z.object({ email: z.string().nullable(), fullName: z.string(), sentTo: z.string().nullable() }).nullable())
+    .query(({ ctx }) => (ctx.ssoPending ? Auth.pendingExternal(ctx.ssoPending) : null)),
+
+  /**
+   * Sends a link to the typed email, by email only; opened in this browser
+   * it signs them in as whoever works here with that address, or as
+   * someone new. A new link voids the one before.
+   * @throws sso_failed — no sign-in through the provider waits here, or it is over an hour old.
+   * @throws email_not_allowed — outside the company's domains.
+   * @throws too_many_requests — 5 links already.
+   */
+  ssoSendEmail: procedure
+    .input(z.object({ email: Email }))
+    .output(z.void())
+    .mutation(({ input, ctx }) => {
+      if (!ctx.ssoPending) throw new AppError('sso_failed');
+      return Auth.sendExternalEmail(ctx.ssoPending, input.email);
+    }),
+
+  /**
+   * Follows the link from that email and sets the session cookie: the
+   * provider account is theirs from now on.
+   * @throws invalid_token — unknown, replaced or over an hour old.
+   * @throws sso_other_browser — opened outside the browser that signed in.
+   * @throws dismissed
+   */
+  ssoConfirm: procedure
+    .input(z.object({ token: z.string().min(1).max(200) }))
+    .output(z.void())
+    .mutation(async ({ input, ctx }) => {
+      const session = await Auth.confirmExternal(ctx.ssoPending, input.token);
+      ctx.clearSsoPendingCookie();
+      ctx.setSessionCookie(session);
+    }),
+
   /** Ends the current session and clears the cookie. */
   logout: authedProcedure.meta({ outsideDomains: true }).output(z.void()).mutation(async ({ ctx }) => {
     if (ctx.sessionToken) await Auth.logout(ctx.sessionToken);

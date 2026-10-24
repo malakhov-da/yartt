@@ -70,8 +70,6 @@ const Token = z.object({ token: z.string() });
  * address too, in case it was not them. The email stays until then.
  */
 export async function requestEmailChange(id: number, email: string): Promise<void> {
-  // With the identity provider the email is the provider's.
-  if (env.OIDC_ISSUER) throw new AppError('sso_only');
   assertEmailAllowed(email);
   const [row] = Token.array().parse(await sql`SELECT request_email_change(${id}, ${email}) AS token`);
   const me = (await get(id))!;

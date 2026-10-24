@@ -120,11 +120,16 @@ application (a confidential client) with the redirect URI
 and secret. Then:
 
 - **Who comes in is the provider's decision.** Assign the application to
-  the people or groups who should use yartt. Anyone it lets in for the
-  first time is created; someone invited before is found by the email the
-  provider vouches for. Invites and sign-in links are off; so is changing
-  one's email — it follows the provider. `FIRST_EMPLOYEE_*` is not needed:
-  the first person to sign in is the first employee.
+  the people or groups who should use yartt. Someone it lets in for the
+  first time is found by the email it vouches for (`email_verified`,
+  inside `EMAIL_DOMAINS`) — whoever is here with that address, added
+  before the provider was set — or created with it. A provider that
+  vouches for no address (Entra does not) makes them type their work
+  email and open the link sent to it in the same browser, so mail must
+  work (`SMTP_URL`). From then on the provider's id knows them, whatever
+  their address there; their email is theirs to change in the profile.
+  Invites and sign-in links are off. `FIRST_EMPLOYEE_*` is not needed: the first
+  person to sign in is the first employee.
 - **A session lasts a day from sign-in**, so someone the provider stops
   letting in is out by the next day.
 - **Every day yartt asks the provider** whether each person may still

@@ -19,6 +19,9 @@ export async function client(employeeId: number | null = null, sessionToken: str
     sessionToken,
     setSessionCookie: (token) => { cookie.value = token; },
     clearSessionCookie: () => { cookie.value = null; },
+    ssoPending: null,
+    setSsoPendingCookie: () => {},
+    clearSsoPendingCookie: () => {},
   };
   // The caller is a Proxy where any property is a procedure path; expose cookie ourselves.
   return new Proxy(createCaller(ctx), {

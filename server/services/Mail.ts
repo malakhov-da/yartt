@@ -32,7 +32,8 @@ async function names(ids: number[]): Promise<Map<number, string>> {
 export async function renderMail(message: Message): Promise<{ subject: string; text: string }> {
   const t = TRANSLATIONS[message.to.locale].mail;
   const p = message.payload;
-  const recipientId = message.to.employeeId;
+  // Nobody here yet: tags in their plain order.
+  const recipientId = message.to.employeeId ?? 0;
 
   const personIds = [
     'by' in p ? p.by : null,
@@ -55,7 +56,8 @@ export async function renderMail(message: Message): Promise<{ subject: string; t
     issued: 'issuedAt' in p
       ? new Date(p.issuedAt).toLocaleDateString(message.to.locale, { day: 'numeric', month: 'long', year: 'numeric', timeZone: message.to.timeZone })
       : '',
-    url: p.kind === 'login' || p.kind === 'email_confirm' || p.kind === 'email_outside_domains' ? p.url : `${env.PUBLIC_URL}/login`,
+    url: p.kind === 'login' || p.kind === 'email_confirm' || p.kind === 'sso_email' || p.kind === 'email_outside_domains'
+      ? p.url : `${env.PUBLIC_URL}/login`,
     email: 'email' in p ? p.email : '',
     deadline: 'deadline' in p
       ? new Date(p.deadline).toLocaleString(message.to.locale, { dateStyle: 'long', timeStyle: 'short', timeZone: message.to.timeZone })
