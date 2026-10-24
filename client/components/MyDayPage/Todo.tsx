@@ -1,4 +1,4 @@
-import { AlternateEmail, ChatBubbleOutline, EventBusy, LockOpen, NotificationsActive, TaskAlt } from '@mui/icons-material';
+import { AlternateEmail, ChatBubbleOutline, EventBusy, HourglassEmpty, LockOpen, NotificationsActive, TaskAlt } from '@mui/icons-material';
 import { Box, Button, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import { keyframes } from '@mui/material/styles';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -101,7 +101,7 @@ const key = (item: TodoItem) =>
   : item.kind === 'request' ? `r${item.task.id}-${item.employeeId}`
   : item.kind === 'remind' ? `t${item.task.id}-${item.at.getTime()}`
   : item.kind === 'done' ? `d${item.task.id}-${item.dependency.id}`
-  : item.kind === 'closing' || item.kind === 'closed' ? `${item.kind}${item.task.id}`
+  : item.kind === 'closing' || item.kind === 'closed' || item.kind === 'plan_left' ? `${item.kind}${item.task.id}`
   : `v${item.task.id}`;
 
 function Item(p: { item: TodoItem; readOnly?: boolean }) {
@@ -118,8 +118,8 @@ function Item(p: { item: TodoItem; readOnly?: boolean }) {
   const approve = useMutation(trpc.Observer.approve.mutationOptions({ onSuccess: refresh }));
   const reject = useMutation(trpc.Observer.reject.mutationOptions({ onSuccess: refresh }));
   const removeRemind = useMutation(trpc.Remind.remove.mutationOptions({ onSuccess: refresh }));
-  const confirmClosed = useMutation(trpc.Task.confirmClosed.mutationOptions({ onSuccess: refresh }));
-  const noted = useMutation(trpc.Dependency.noted.mutationOptions({ onSuccess: refresh }));
+  const reviewed = useMutation(trpc.Task.markReviewed.mutationOptions({ onSuccess: refresh }));
+  const clearPlan = useMutation(trpc.Time.setLeft.mutationOptions({ onSuccess: refresh }));
   const finish = useMutation(trpc.Task.setDeadline.mutationOptions({ onSuccess: refresh }));
   const openTask = (label: string) => (
     <Button size="small" component={Link} to={`/tasks/${item.task.id}`}>{label}</Button>
@@ -210,19 +210,45 @@ function Item(p: { item: TodoItem; readOnly?: boolean }) {
     );
   } else if (item.kind === 'closed') {
     icon = <EventBusy fontSize="small" />;
+    const plans = item.plans.map((x) => t('myDay.todo.planOf', { name: name(x.employeeId), time: format.minutes(x.minutes) })).join(', ');
     text = (
       <>
         <Typography variant="body2">{t('myDay.todo.closed', { at: format.dateTime(item.at) })}</Typography>
+        {plans && <Typography variant="body2" sx={{ color: 'text.secondary' }}>{t('myDay.todo.plansLeft', { plans })}</Typography>}
         {!p.readOnly && <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.todo.closedHint')}</Typography>}
       </>
     );
+    // Confirming is "No intervention needed": with comments nobody read, it is pressed in the task.
     actions = (
       <>
         {openTask(t('myDay.todo.reopen'))}
-        <Button size="small" variant="contained" disabled={confirmClosed.isPending} onClick={() => confirmClosed.mutate({ id: item.task.id })}>
-          {t('myDay.todo.confirm')}
-        </Button>
+        {item.unread > 0 ? (
+          <Button size="small" variant="contained" component={Link} to={`/tasks/${item.task.id}`}>{t('myDay.todo.read')}</Button>
+        ) : (
+          <Tooltip title={item.plans.length ? t('myDay.todo.confirmAfterPlans') : ''}>
+            <span>
+              <Button size="small" variant="contained" disabled={item.plans.length > 0 || reviewed.isPending}
+                onClick={() => reviewed.mutate({ id: item.task.id })}>
+                {t('myDay.todo.confirm')}
+              </Button>
+            </span>
+          </Tooltip>
+        )}
       </>
+    );
+  } else if (item.kind === 'plan_left') {
+    icon = <HourglassEmpty fontSize="small" />;
+    text = (
+      <>
+        <Typography variant="body2">{t('myDay.todo.planLeft', { time: format.minutes(item.minutes), at: format.dateTime(item.at) })}</Typography>
+        {!p.readOnly && <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.todo.planLeftHint')}</Typography>}
+      </>
+    );
+    actions = (
+      <Button size="small" variant="contained" disabled={clearPlan.isPending}
+        onClick={() => clearPlan.mutate({ taskId: item.task.id, minutes: null })}>
+        {t('myDay.todo.clearPlan')}
+      </Button>
     );
   } else if (item.kind === 'done') {
     icon = <TaskAlt fontSize="small" color="success" />;
@@ -232,9 +258,11 @@ function Item(p: { item: TodoItem; readOnly?: boolean }) {
         <TaskLine task={item.dependency} dense />
       </>
     );
-    actions = (
-      <Button size="small" variant="outlined" disabled={noted.isPending}
-        onClick={() => noted.mutate({ taskId: item.task.id, value: item.dependency.id })}>
+    // Taking note is "No intervention needed" of my task: with comments nobody read, in the task.
+    actions = item.unread > 0 ? (
+      <Button size="small" variant="outlined" component={Link} to={`/tasks/${item.task.id}`}>{t('myDay.todo.read')}</Button>
+    ) : (
+      <Button size="small" variant="outlined" disabled={reviewed.isPending} onClick={() => reviewed.mutate({ id: item.task.id })}>
         {t('myDay.todo.noted')}
       </Button>
     );

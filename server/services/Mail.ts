@@ -59,9 +59,6 @@ export async function renderMail(message: Message): Promise<{ subject: string; t
     url: p.kind === 'login' || p.kind === 'email_confirm' || p.kind === 'sso_email' || p.kind === 'email_outside_domains'
       ? p.url : `${env.PUBLIC_URL}/login`,
     email: 'email' in p ? p.email : '',
-    deadline: 'deadline' in p
-      ? new Date(p.deadline).toLocaleString(message.to.locale, { dateStyle: 'long', timeStyle: 'short', timeZone: message.to.timeZone })
-      : '',
   };
 
   if (p.kind === 'score') return renderScore(message, p, params.by ?? '', person('for' in p ? p.for : undefined));

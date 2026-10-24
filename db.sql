@@ -383,7 +383,9 @@ the API is implemented.
     - Create a task (owner = creator, tags, priority).
     - Change tag_ids / priority / context (owner only).
     - "No intervention needed" (mark_reviewed: owner only, not while an
-      access request waits).
+      access request waits, nor on a closed task while someone still has
+      time planned on it). On a closed task it is the confirmation that
+      it is closed as it should be.
     - Make public / private (make_public / make_private: owner only).
     - Transfer ownership (the owner or the owner''s manager).
     - Take an ownerless task (owner_id IS NULL, any observer).
@@ -406,9 +408,12 @@ the API is implemented.
   Deadlines:
     - Set / move finished_at (set_finished_at, owner only).
     - Clear finished_at (clear_finished_at, owner only).
-    - Confirm a closing by the deadline (finished_at.confirmed_at, owner only).
-    - Take note that a task waited for is done (dependency.done_at
-      cleared, owner of task_id only).
+    - Close by hand: a deadline at or before now, confirmed at once
+      (set_finished_at, then mark_reviewed — refused the same way).
+    - Confirm a task closed by its deadline (mark_reviewed); the tasks
+      waiting for it are done for from then on (dependency.done_at).
+    - Take note that a task waited for is done (mark_reviewed of the
+      waiting task).
 
   Time left:
     - Set / change / clear estimate_minutes for oneself (anyone who sees
@@ -630,7 +635,6 @@ CRON JOBS (outside SQL)
 ============================================================================
 
   - every minute: SELECT send_due_reminds();
-  - every minute: SELECT send_deadline_notices();
   - every hour:   DELETE FROM token
                    WHERE sent_at < NOW() - CASE WHEN email IS NULL THEN INTERVAL ''1 hour''
                                                 ELSE INTERVAL ''2 days'' END;
@@ -1577,10 +1581,12 @@ the deadline of value is later than latest_at or not set, the constraint
 is broken (dependency_risk()) and both tasks are at risk (at_risk()).';
 
 COMMENT ON COLUMN dependency.done_at IS
-'When value closed — by hand (change_deadline()) or by its deadline
-(send_deadline_notices()): the owner of task_id sees it in "Waiting for
-me" until they take note (cleared). Cleared too when value reopens.
-NULL — value is not done, or the owner of task_id took note.';
+'When the owner of value confirmed it closed (mark_reviewed() of a
+closed task, or closing it by hand): only then is it done for task_id,
+whose owner is notified (dependency_done) and sees it in "Waiting for
+me" while done_at is after their own task''s reviewed_at — "No
+intervention needed" there takes note. Cleared when value reopens
+(change_deadline()). NULL — not done.';
 
 
 -- ============================================================================
@@ -1590,10 +1596,7 @@ CREATE TABLE finished_at (
     task_id INT NOT NULL REFERENCES task(id),
     value TIMESTAMPTZ NOT NULL,
     entered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    expired_at TIMESTAMPTZ,
-    warned_at TIMESTAMPTZ,
-    closed_told_at TIMESTAMPTZ,
-    confirmed_at TIMESTAMPTZ
+    expired_at TIMESTAMPTZ
 );
 CREATE UNIQUE INDEX uq_finished_at_active
     ON finished_at(task_id) WHERE expired_at IS NULL;
@@ -1615,12 +1618,13 @@ told when the new deadline breaks the latest one their task can live
 with (dependency.latest_at).
 
 A passed deadline closes the task by itself (decision 2), so the owner
-is warned: from a day before it, the task is in their "Waiting for me"
-("closes automatically"), and they are notified once (warned_at) if the
-deadline was set earlier than that. When it closes, the owner is told
-(closed_told_at) and the task waits in "Waiting for me" until they
-confirm the closing (confirmed_at) or move the deadline
-(send_deadline_notices()).';
+sees it coming: from a day before it, the task is in their "Waiting for
+me" ("closes automatically"). Once closed it waits there while the owner
+has not looked at it since (task.reviewed_at before the deadline): they
+confirm it ("No intervention needed", refused while someone still has
+time planned on it — that plan is cleared first) or move the deadline.
+Closing by hand is confirmed at once. Nothing is sent: "Waiting for me"
+is computed from these rows (decision 87).';
 
 COMMENT ON COLUMN finished_at.task_id IS
 'Which task.';
@@ -1633,21 +1637,6 @@ COMMENT ON COLUMN finished_at.entered_at IS
 
 COMMENT ON COLUMN finished_at.expired_at IS
 'When it stopped being current. NULL = current.';
-
-COMMENT ON COLUMN finished_at.warned_at IS
-'When the owner was notified that the task closes by this deadline within
-a day (deadline_soon). NULL — not yet, or the deadline was set less than a
-day before it: then the owner knows.';
-
-COMMENT ON COLUMN finished_at.closed_told_at IS
-'When the owner was told that the task closed by this deadline, set in
-advance (deadline_closed). From then on it waits in their "Waiting for
-me" until confirmed_at. NULL — not closed by itself (closed by hand, or
-not yet), or closed before the owner could be told.';
-
-COMMENT ON COLUMN finished_at.confirmed_at IS
-'When the owner confirmed that the task closed by this deadline is
-closed as it should be. NULL — not confirmed.';
 
 COMMENT ON INDEX uq_finished_at_active IS
 'Exactly one current deadline: UNIQUE (task_id) WHERE expired_at IS NULL.';
@@ -2247,9 +2236,8 @@ RULES:
     without them) -> the employee.
   - finished_at set / moved / cleared -> owners of dependent tasks, once
     it settles (deadline_settles(): the worker holds it that long).
-  - the deadline a day away -> the owner (deadline_soon); the task closed
-    by it -> the owner (deadline_closed) and the owners of the tasks
-    waiting for it (dependency_done).
+  - a closed task confirmed by its owner (mark_reviewed) -> the owners of
+    the tasks waiting for it (dependency_done).
   - a new dependency -> the owner of the task waited for (with the latest
     deadline the waiting task can live with, if set).
   - someone''s part of a task made a task of theirs -> the owner of the
@@ -2289,7 +2277,7 @@ COMMENT ON COLUMN notification.payload IS
 'JSONB context. Contains kind:
   comment | mention | task_mention | remind | access_request |
   access_opened | access_closed | finished_at_change | dependency_added |
-  deadline_soon | deadline_closed | dependency_done | part_added |
+  dependency_done | part_added |
   owner_change | owner_handed |
   score | invite | new_report | weekly_digest | bot_key_old.
 Payload keys are camelCase (employeeId, dependencyId, ...).
@@ -4541,6 +4529,10 @@ returned, so the interface can offer to bring them back
 
 CREATE OR REPLACE FUNCTION mark_reviewed(p_task_id INT, p_actor_id INT)
 RETURNS VOID AS $$
+DECLARE
+    v_closed BOOLEAN;
+    v_plans INT;
+    r RECORD;
 BEGIN
     PERFORM check_owner(p_task_id, p_actor_id);
     IF EXISTS (
@@ -4553,14 +4545,45 @@ BEGIN
             USING HINT = 'pending_requests',
                   DETAIL = json_build_object('taskId', p_task_id)::text;
     END IF;
+
+    v_closed := EXISTS (SELECT 1 FROM finished_at
+                         WHERE task_id = p_task_id AND expired_at IS NULL AND value <= NOW());
+    IF v_closed THEN
+        -- Work still planned is not done: whoever planned it clears it first.
+        SELECT count(*) INTO v_plans FROM estimate_minutes WHERE task_id = p_task_id AND expired_at IS NULL;
+        IF v_plans > 0 THEN
+            RAISE EXCEPTION 'task % is closed with % plans left', p_task_id, v_plans
+                USING HINT = 'plans_left',
+                      DETAIL = json_build_object('taskId', p_task_id, 'count', v_plans)::text;
+        END IF;
+    END IF;
     UPDATE task SET reviewed_at = NOW() WHERE id = p_task_id;
+
+    -- Confirmed closed: done for what waits for it, whose owners hear it.
+    IF v_closed THEN
+        FOR r IN
+            UPDATE dependency d SET done_at = NOW()
+              FROM task t
+             WHERE d.value = p_task_id AND t.id = d.task_id AND d.done_at IS NULL
+            RETURNING d.task_id, t.owner_id
+        LOOP
+            IF r.owner_id IS NOT NULL AND r.owner_id <> p_actor_id THEN
+                PERFORM notify(r.owner_id, r.task_id, jsonb_build_object(
+                    'kind', 'dependency_done', 'dependencyId', p_task_id));
+            END IF;
+        END LOOP;
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION mark_reviewed(INT, INT) IS
 '"No intervention needed": the owner confirms that nothing in the task
 waits for their decision. Refused while an access request waits: that is
-exactly something that needs the owner.';
+exactly something that needs the owner. On a closed task it confirms the
+closing (decision 87): refused while someone still has time planned on
+it (plans_left — whoever planned it clears it), and the tasks waiting for
+it are done for from then on (dependency.done_at), their owners notified
+(dependency_done). Closing by hand is confirmed the same way at once.';
 
 
 -- ----------------------------------------------------------------------------
@@ -4734,10 +4757,11 @@ BEGIN
        AND payload->>'dependencyId' = p_task_id::text;
     IF v_changed THEN
         PERFORM notify_dependents(p_task_id);
-        -- Closed by hand: what waits for it hears it is done; reopened, it is not.
-        UPDATE dependency
-           SET done_at = CASE WHEN p_value IS NOT NULL AND p_value <= NOW() THEN COALESCE(done_at, NOW()) END
-         WHERE value = p_task_id;
+        -- Open again: what waits for it waits again. Closed, it is done once
+        -- its owner confirms it (mark_reviewed()).
+        IF p_value IS NULL OR p_value > NOW() THEN
+            UPDATE dependency SET done_at = NULL WHERE value = p_task_id AND done_at IS NOT NULL;
+        END IF;
     END IF;
 END;
 $$ LANGUAGE plpgsql;
@@ -4750,8 +4774,9 @@ the history keeps the last decision, dated by it, and a value changed
 back is no change at all. Owners of dependent tasks get one notification
 for the settled deadline (notify_dependents(); unsent ones about the
 replaced change are dropped). A deadline put at or before now closes the
-task by hand: the tasks waiting for it are marked done for (done_at);
-moved ahead or cleared, they are not.';
+task; the application confirms it at once (mark_reviewed()), which marks
+the tasks waiting for it done for. Moved ahead or cleared, they are not
+done for any more (done_at cleared).';
 
 
 CREATE OR REPLACE FUNCTION set_finished_at(p_task_id INT, p_value TIMESTAMPTZ)
@@ -4801,70 +4826,6 @@ $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION send_due_reminds() IS
 'Cron, every minute: due reminders -> notification, once (sent_at); the
 reminder stays until its author removes or moves it.';
-
-
-CREATE OR REPLACE FUNCTION send_deadline_notices()
-RETURNS VOID AS $$
-DECLARE
-    r RECORD;
-    d RECORD;
-BEGIN
-    -- A day before: the owner learns that the task closes by itself, unless
-    -- they set the deadline within that day themselves.
-    FOR r IN
-        UPDATE finished_at f SET warned_at = NOW()
-          FROM task k
-         WHERE k.id = f.task_id AND k.owner_id IS NOT NULL
-           AND f.expired_at IS NULL AND f.warned_at IS NULL
-           AND f.value > NOW() AND f.value <= NOW() + INTERVAL '1 day'
-           AND f.entered_at <= f.value - INTERVAL '1 day'
-        RETURNING f.task_id, k.owner_id, f.value
-    LOOP
-        PERFORM notify(r.owner_id, r.task_id, jsonb_build_object(
-            'kind', 'deadline_soon',
-            'deadline', to_char(r.value AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')));
-    END LOOP;
-
-    -- Closed by a deadline set in advance (decision 32), within the last day:
-    -- the owner is told and asked to confirm; what waits for the task hears
-    -- it is done.
-    FOR r IN
-        UPDATE finished_at f SET closed_told_at = NOW()
-          FROM task k
-         WHERE k.id = f.task_id
-           AND f.expired_at IS NULL AND f.closed_told_at IS NULL
-           AND f.value <= NOW() AND f.value > NOW() - INTERVAL '1 day'
-           AND f.value - f.entered_at > INTERVAL '1 minute'
-        RETURNING f.task_id, k.owner_id
-    LOOP
-        IF r.owner_id IS NOT NULL THEN
-            PERFORM notify(r.owner_id, r.task_id, jsonb_build_object('kind', 'deadline_closed'));
-        END IF;
-        FOR d IN
-            UPDATE dependency dp SET done_at = COALESCE(dp.done_at, NOW())
-              FROM task t
-             WHERE dp.value = r.task_id AND t.id = dp.task_id
-            RETURNING dp.task_id, t.owner_id
-        LOOP
-            IF d.owner_id IS NOT NULL AND d.owner_id IS DISTINCT FROM r.owner_id THEN
-                PERFORM notify(d.owner_id, d.task_id, jsonb_build_object(
-                    'kind', 'dependency_done', 'dependencyId', r.task_id));
-            END IF;
-        END LOOP;
-    END LOOP;
-END;
-$$ LANGUAGE plpgsql;
-
-COMMENT ON FUNCTION send_deadline_notices() IS
-'Cron, every minute. A passed deadline closes the task by itself, so:
-  - a day before it the owner is notified (deadline_soon, once —
-    warned_at), unless they set it within that day;
-  - when a deadline set in advance comes (within the last day), the owner
-    is notified (deadline_closed, once — closed_told_at) and the task
-    waits in their "Waiting for me" until they confirm it (confirmed_at)
-    or move the deadline; the tasks waiting for it are marked done for
-    (dependency.done_at) and their owners notified (dependency_done).
-Safe with several workers: each row is claimed by its UPDATE.';
 
 
 CREATE OR REPLACE FUNCTION keep_attachment(p_attachment_id INT, p_employee_id INT)

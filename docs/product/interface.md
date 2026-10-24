@@ -58,9 +58,13 @@ tags, the hour budgets and the bots (decision 83):
   - my tasks that close by their deadline within a day — "Closes by
     itself in 5 hours", with "Finish" (done already — closed now) and
     "Move the deadline" — and, once closed by a
-    deadline set in advance, "Closed by its deadline" with "Confirm" or
-    "Open again" (decision 75);
-  - tasks mine wait for that are done, with "Noted".
+    deadline, "Closed by its deadline" with "Confirm" or "Open again"
+    while I have not looked at it since, whose plans are still on it, and
+    "Confirm" only once they are cleared (decision 87);
+  - closed tasks with my time still planned on them, with "Clear my plan";
+  - tasks mine wait for that are done — their owners confirmed them —
+    since I looked at mine, with "Noted" ("No intervention needed" of
+    mine; "Read" while comments wait there).
   The items of one task are under one line of it, the tasks in the order
   of their first item. Each item has its action right there: done, reply,
   approve or reject, remove or put off, confirm, noted. New comments have "Read", which

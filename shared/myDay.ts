@@ -60,26 +60,55 @@ export const TodoClosing = z.object({
 });
 export type TodoClosing = z.infer<typeof TodoClosing>;
 
-/** My task closed by a deadline set in advance: confirm it, or move the deadline and it is open again. */
+/** Time planned on a task, someone's own (estimate_minutes). */
+export const PlanLeft = z.object({ employeeId: Id, minutes: z.number().int() });
+export type PlanLeft = z.infer<typeof PlanLeft>;
+
+/**
+ * My task closed by its deadline and not looked at since (decision 87):
+ * confirm it ("No intervention needed"), or move the deadline and it is
+ * open again. Confirmed only once nobody has time planned on it.
+ */
 export const TodoClosed = z.object({
   kind: z.literal('closed'),
   task: TaskHeader,
   /** When it closed — the deadline. */
   at: z.date(),
+  /** Whose plans are still on it: each clears their own first. */
+  plans: PlanLeft.array(),
+  /** Comments by others I have not looked at: confirmed in the task then, not here. */
+  unread: z.number().int(),
 });
 export type TodoClosed = z.infer<typeof TodoClosed>;
 
-/** A task my task waits for is done. */
+/**
+ * A task my task waits for is done — its owner confirmed it closed — since
+ * I last looked at mine: "No intervention needed" takes note.
+ */
 export const TodoDone = z.object({
   kind: z.literal('done'),
   /** My waiting task. */
   task: TaskHeader,
   dependency: TaskHeader,
   at: z.date(),
+  /** Comments by others in my task I have not looked at: noted in the task then, not here. */
+  unread: z.number().int(),
 });
 export type TodoDone = z.infer<typeof TodoDone>;
 
-export const TodoItem = z.discriminatedUnion('kind', [TodoMention, TodoReview, TodoRequest, TodoRemind, TodoClosing, TodoClosed, TodoDone]);
+/** A closed task with my time still planned on it: cleared, its owner can confirm it closed. */
+export const TodoPlanLeft = z.object({
+  kind: z.literal('plan_left'),
+  task: TaskHeader,
+  /** When it closed — the deadline. */
+  at: z.date(),
+  minutes: z.number().int(),
+});
+export type TodoPlanLeft = z.infer<typeof TodoPlanLeft>;
+
+export const TodoItem = z.discriminatedUnion('kind', [
+  TodoMention, TodoReview, TodoRequest, TodoRemind, TodoClosing, TodoClosed, TodoDone, TodoPlanLeft,
+]);
 export type TodoItem = z.infer<typeof TodoItem>;
 
 /** My access request to someone's task, not answered yet. */

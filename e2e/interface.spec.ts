@@ -64,12 +64,16 @@ test.describe('My day', () => {
     await expect(page.getByText(/от Иван Кузнецов/)).toHaveCount(0);
   });
 
-  test('TODO: a task closed by its deadline waits for a confirmation', async ({ page }) => {
+  test('TODO: a task closed by its deadline waits for a confirmation, once the plans on it are cleared', async ({ page }) => {
     await signIn(page, 'pavel@example.com');
     const todo = page.locator('div.MuiPaper-root').filter({ has: page.getByRole('heading', { name: /Ждёт меня/ }) }).first();
     const item = todo.locator('.MuiStack-root').filter({ hasText: /^Закрылась по дедлайну/ })
       .filter({ has: page.getByRole('button', { name: 'Подтвердить' }) }).last();
     await expect(item.getByRole('link', { name: 'Вернуть в работу' })).toBeVisible();
+    await expect(item.getByText(/^Ещё запланировано: Павел/)).toBeVisible();
+    await expect(item.getByRole('button', { name: 'Подтвердить' })).toBeDisabled();
+    await todo.getByRole('button', { name: 'Обнулить план' }).click();
+    await expect(todo.getByRole('button', { name: 'Обнулить план' })).toHaveCount(0);
     await item.getByRole('button', { name: 'Подтвердить' }).click();
     await expect(todo.getByText(/^Закрылась по дедлайну/)).toHaveCount(0);
   });

@@ -77,8 +77,11 @@ export default router({
 
   /**
    * The owner sets, moves or clears (null) the deadline. A deadline in the
-   * past closes the task; "Finish" is setting it to now.
+   * past closes the task; "Finish" is setting it to now. Closing it so is
+   * confirming it at once, as markReviewed.
    * @throws forbidden — not the owner.
+   * @throws plans_left — closing: someone still has time planned on it.
+   * @throws pending_requests — closing: answer the access requests first.
    */
   setDeadline: authedProcedure
     .meta({ bot: 'task' })
@@ -111,28 +114,17 @@ export default router({
 
   /**
    * "No intervention needed": the owner confirms nothing in the task waits
-   * for their decision.
+   * for their decision. On a closed task it confirms the closing: the tasks
+   * waiting for it are done for from then on, their owners notified.
    * @throws forbidden — not the owner.
    * @throws pending_requests — answer the access requests first.
+   * @throws plans_left — the task is closed and someone still has time planned on it.
    */
   markReviewed: authedProcedure
     .meta({ bot: 'task' })
     .input(z.object({ id: Id }))
     .output(z.void())
     .mutation(({ input, ctx }) => Tasks.markReviewed(ctx.employeeId, input.id)),
-
-  /**
-   * The owner confirms that the task, closed by its deadline, is closed as
-   * it should be: it leaves their Waiting for me. Not done, the deadline is
-   * moved instead (setDeadline) and the task is open again.
-   * @throws forbidden — not the owner.
-   * @throws not_found — the task is not closed, or already confirmed.
-   */
-  confirmClosed: authedProcedure
-    .meta({ bot: 'task' })
-    .input(z.object({ id: Id }))
-    .output(z.void())
-    .mutation(({ input, ctx }) => Tasks.confirmClosed(ctx.employeeId, input.id)),
 
   /**
    * The owner makes the task public: every observer row closes, everyone

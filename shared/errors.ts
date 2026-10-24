@@ -36,6 +36,7 @@ export const ERROR_CODES = [
   'no_access',
   'task_public',
   'pending_requests',
+  'plans_left',
   'tag_in_use',
   'immutable_row',
 

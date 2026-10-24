@@ -48,7 +48,8 @@ test.describe('My day', () => {
     await expect(todo.getByRole('button', { name: 'Завершить' })).toBeVisible(); // done already — closed now
     const done = todo.locator('.MuiStack-root').filter({ hasText: 'Готова задача, которую ждёт эта' })
       .filter({ has: page.getByRole('button', { name: 'Принято' }) }).last();
-    await expect(done.getByText('лендинг осенней промо-акции')).toBeVisible();
+    // Marina closed it by hand — confirmed at once; Pavel's promo, closed by its deadline, waits for his confirmation.
+    await expect(done.getByText('договор с новым поставщиком')).toBeVisible();
     await done.getByRole('button', { name: 'Принято' }).click();
     await expect(todo.getByText('Готова задача, которую ждёт эта')).toHaveCount(0);
   });

@@ -328,7 +328,9 @@ describe('team', () => {
     let member = (await summary()).find((m) => m.employeeId === dev.id)!;
     expect(member).toMatchObject({ backlogMinutes: 210, backlogGrowthMinutes: 210 });
     expect(member.days.at(-1)).toMatchObject({ backlogMinutes: 210 });
-    await devApi.Task.setDeadline({ id: a, deadline: new Date() }); // finished: its plan leaves the backlog
+    // Closed by its deadline, the plan not cleared yet: it leaves the backlog all the same.
+    await devApi.Task.setDeadline({ id: a, deadline: new Date(Date.now() + 3_600_000) });
+    await sql`UPDATE finished_at SET value = NOW() WHERE task_id = ${a} AND expired_at IS NULL`;
     member = (await summary()).find((m) => m.employeeId === dev.id)!;
     expect(member.backlogMinutes).toBe(90);
 

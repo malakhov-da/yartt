@@ -21,11 +21,6 @@ const JOBS: { name: string; every: number; run: (sql: Sql) => Promise<unknown> }
     run: (sql) => sql`SELECT send_due_reminds()`,
   },
   {
-    name: 'send_deadline_notices',
-    every: MINUTE,
-    run: (sql) => sql`SELECT send_deadline_notices()`,
-  },
-  {
     name: 'token_cleanup',
     every: HOUR,
     run: (sql) => sql`

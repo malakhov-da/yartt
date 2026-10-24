@@ -1265,7 +1265,7 @@ opens the task, where the button is, next to the comments.
 
 *Implemented:* `client/components/MyDayPage/Todo.tsx`.
 
-### 75. A deadline warns a day ahead, and an automatic close is confirmed
+### 75. A deadline warns a day ahead, and an automatic close is confirmed — reworked by 87
 
 A passed deadline closes the task by itself (decision 2). The owner
 learned of it only from the closed task — or from their manager, who
@@ -1516,3 +1516,31 @@ links stay off.
 returning NULL for whoever must confirm (migration `0.4-0.5`);
 `Auth.ssoPending`, `Auth.ssoSendEmail`, `Auth.ssoConfirm`;
 `client/components/SsoEmailPage.tsx`, `SsoConfirmPage.tsx`.
+
+### 87. A closed task is confirmed by "No intervention needed", once nobody plans time on it
+
+Decision 75 kept three marks on a deadline — warned, told it closed,
+confirmed — and a cron every minute to set the first two and send their
+emails. The marks only made sure each email went once, and Waiting for
+me showed all of it anyway. And a task closed with hours still planned
+on it read as done while someone still meant to work on it.
+
+Now nothing is sent and nothing is marked: Waiting for me is computed.
+A task closed by its deadline waits for its owner while they have not
+looked at it since (`reviewed_at` before the deadline); confirming it is
+"No intervention needed", the same mark as for comments. It is refused
+while anyone still has time planned on the task: each of them sees
+"Closed, yet you have 3h planned on it" with "Clear my plan" — done or
+no longer needed — and the owner sees whose plans are left. Closing by
+hand is confirming at once, refused the same way. Only a confirmed task
+is done for what waits for it: then its owners get an email and see it
+in Waiting for me until they look at their own task — "Noted" is "No
+intervention needed" there too. The day-ahead warning stays an item of
+Waiting for me, without an email. Tasks closed before this count as
+confirmed.
+
+*Implemented:* `mark_reviewed()` (plans, `dependency.done_at`,
+`dependency_done`), `change_deadline()`; `finished_at.warned_at`,
+`closed_told_at`, `confirmed_at` and `send_deadline_notices()` removed
+(migration `0.4-0.5`); `MyDay.todo` (`closed` with plans, `plan_left`,
+`done`); `Task.confirmClosed` and `Dependency.noted` removed.

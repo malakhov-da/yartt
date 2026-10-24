@@ -26,15 +26,29 @@ const ReviewRow = z.object({
 });
 const RequestRow = z.object({ taskId: z.number(), employeeId: z.number() });
 const RemindRow = z.object({ taskId: z.number(), at: z.date(), text: z.string().nullable() });
-const DeadlineRow = z.object({ taskId: z.number(), at: z.date(), closed: z.boolean() });
-const DoneRow = z.object({ taskId: z.number(), value: z.number(), at: z.date() });
+const DeadlineRow = z.object({
+  taskId: z.number(),
+  at: z.date(),
+  closed: z.boolean(),
+  plans: z.object({ employeeId: z.number(), minutes: z.number() }).array(),
+  unread: z.number(),
+});
+const DoneRow = z.object({ taskId: z.number(), value: z.number(), at: z.date(), unread: z.number() });
+const PlanRow = z.object({ taskId: z.number(), at: z.date(), minutes: z.number() });
+
+/** Comments by others in my task since I last looked at it. */
+const unread = (me: number) => sql`
+  (SELECT count(*)::int FROM comment c
+    WHERE c.task_id = k.id AND c.created_by <> ${me} AND (k.reviewed_at IS NULL OR c.created_at > k.reviewed_at))`;
 
 /**
  * What waits for my reaction: access requests to my tasks first (they have
  * no time and block "No intervention needed"), then open mentions of me, my
  * tasks with new comments by others, my reminders that came due, my tasks
- * closing by their deadline within a day or closed by it and not confirmed,
- * and tasks mine wait for that are done, newest first.
+ * closing by their deadline within a day or closed by it and not looked at
+ * since, closed tasks with my time still planned on them, and tasks mine
+ * wait for that are done since I looked at mine, newest first (decision 87).
+ * All of it is computed from the data: nothing is marked as sent.
  * `viewerId` — a manager looking at it on the employee's page: then the
  * employee's reminders, theirs alone, are left out, and so are mentions in
  * tasks the manager does not see.
@@ -70,23 +84,34 @@ export async function todo(me: number, viewerId: number = me): Promise<TodoItem[
     SELECT task_id, at, value AS text FROM remind WHERE employee_id = ${me} AND sent_at IS NOT NULL
   `);
 
-  // A passed deadline closes the task by itself: a day of warning, then a confirmation.
+  // A passed deadline closes the task by itself: a day of warning, then a
+  // confirmation — wanted while the owner has not looked at it since it closed.
   const deadlines = DeadlineRow.array().parse(await sql`
-    SELECT f.task_id, f.value AS at, f.value <= NOW() AS closed
+    SELECT f.task_id, f.value AS at, f.value <= NOW() AS closed,
+           COALESCE((SELECT json_agg(json_build_object('employeeId', e."by", 'minutes', e.value) ORDER BY e.entered_at)
+                       FROM estimate_minutes e WHERE e.task_id = k.id AND e.expired_at IS NULL), '[]') AS plans,
+           ${unread(me)} AS unread
       FROM task k JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
      WHERE k.owner_id = ${me}
        AND ((f.value > NOW() AND f.value <= NOW() + INTERVAL '1 day' AND f.value - f.entered_at > INTERVAL '1 minute')
-            OR (f.closed_told_at IS NOT NULL AND f.confirmed_at IS NULL AND f.value <= NOW()))
+            OR (f.value <= NOW() AND (k.reviewed_at IS NULL OR k.reviewed_at < f.value)))
   `);
-  // Done by someone else: what I closed myself I know of.
+  // Closed, yet my time is still planned on it: its owner confirms it only once it is cleared.
+  const plansLeft = PlanRow.array().parse(await sql`
+    SELECT e.task_id, f.value AS at, e.value AS minutes
+      FROM estimate_minutes e JOIN finished_at f ON f.task_id = e.task_id AND f.expired_at IS NULL
+     WHERE e."by" = ${me} AND e.expired_at IS NULL AND f.value <= NOW()
+  `);
+  // Done by someone else — confirmed by its owner — since I looked at mine: what I closed myself I know of.
   const done = DoneRow.array().parse(await sql`
-    SELECT d.task_id, d.value, d.done_at AS at
+    SELECT d.task_id, d.value, d.done_at AS at, ${unread(me)} AS unread
       FROM dependency d JOIN task k ON k.id = d.task_id JOIN task v ON v.id = d.value
      WHERE k.owner_id = ${me} AND d.done_at IS NOT NULL AND v.owner_id IS DISTINCT FROM ${me}
+       AND (k.reviewed_at IS NULL OR d.done_at > k.reviewed_at)
   `);
 
   const ids = [...new Set([
-    ...[...requests, ...mentions, ...reviews, ...reminds, ...deadlines, ...done].map((r) => r.taskId),
+    ...[...requests, ...mentions, ...reviews, ...reminds, ...deadlines, ...plansLeft, ...done].map((r) => r.taskId),
     ...done.map((d) => d.value),
   ])];
   const tasks = new Map((await headers(me, ids)).map((h) => [h.id, h]));
@@ -117,12 +142,20 @@ export async function todo(me: number, viewerId: number = me): Promise<TodoItem[
     }),
     ...deadlines.flatMap((r) => {
       const task = tasks.get(r.taskId);
-      return task ? [{ kind: r.closed ? 'closed' as const : 'closing' as const, task, at: r.at }] : [];
+      if (!task) return [];
+      const item: TodoItem = r.closed
+        ? { kind: 'closed', task, at: r.at, plans: r.plans, unread: r.unread }
+        : { kind: 'closing', task, at: r.at };
+      return [item];
+    }),
+    ...plansLeft.flatMap((r) => {
+      const task = tasks.get(r.taskId);
+      return task ? [{ kind: 'plan_left' as const, task, at: r.at, minutes: r.minutes }] : [];
     }),
     ...done.flatMap((r) => {
       const task = tasks.get(r.taskId);
       const dependency = tasks.get(r.value);
-      return task && dependency ? [{ kind: 'done' as const, task, dependency, at: r.at }] : [];
+      return task && dependency ? [{ kind: 'done' as const, task, dependency, at: r.at, unread: r.unread }] : [];
     }),
   ];
   timed.sort((a, b) => b.at.getTime() - a.at.getTime());

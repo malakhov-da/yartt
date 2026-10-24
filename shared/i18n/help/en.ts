@@ -138,8 +138,9 @@ export const helpEn: Help = {
           + '"No intervention needed" in it — the task leaves the list until a new comment. Waiting for me has no such button '
           + 'on purpose: comments are never skipped unread.',
         'A day before its deadline your task shows in Waiting for me: "Closes by itself in …". All done — "Finish"; not making it — move the deadline. '
-          + 'When the deadline comes, the task closes and asks for a confirmation: "Confirm" or "Open again".',
-        'When a task yours waits for closes, it shows in Waiting for me too — mark it "Noted".',
+          + 'When the deadline comes, the task closes and asks for a confirmation: "Confirm" or "Open again". It is confirmed once '
+          + 'nobody has time planned on it: whoever does gets "Clear my plan" in Waiting for me. "Finish" is that confirmation at once.',
+        'When the owner of a task yours waits for confirms it closed, it shows in Waiting for me and comes by email — mark it "Noted".',
         'Waiting for others, under it — what waits for others: your access requests and your mentions not closed yet. '
           + 'The longest waiting on top; a request can be withdrawn right there.',
         'Start your shift with ▶ in the top line or in the Timesheet.',

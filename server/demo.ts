@@ -281,21 +281,23 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
   // (set a week ahead, reached three days ago — only SQL can move time).
   const vendor = await M.Task.create({ tags: tags.vendor });
   await M.Task.setDeadline({ id: vendor, deadline: daysAhead(2) });
+  // My report waits for it too: closed by hand, it is done for me at once.
+  await I.Dependency.set({ taskId: report, value: vendor, latestAt: null });
   await M.Task.setDeadline({ id: vendor, deadline: new Date() });
   const promo = await P.Task.create({ tags: tags.promo });
   await P.Task.setDeadline({ id: promo, deadline: daysAhead(7) });
+  // Hours still planned on it when it closed: Pavel clears them before he confirms the closing.
+  await P.Time.setLeft({ taskId: promo, minutes: 120 });
   await sql`UPDATE finished_at SET value = NOW() - INTERVAL '3 days', entered_at = NOW() - INTERVAL '10 days' WHERE task_id = ${promo}`;
 
   // 13. What deadlines bring to Waiting for me: my report closes by itself tomorrow morning
-  // (set days ago); it waits for Pavel's promo, closed by its deadline — I see it is done, and
-  // Pavel is asked to confirm the closing.
+  // (set days ago); it waits for Pavel's promo, closed by its deadline and not confirmed yet —
+  // Pavel is asked to, and it is not done for me until he does (decision 87).
   await I.Dependency.set({ taskId: report, value: promo, latestAt: null });
   await sql`
     UPDATE finished_at SET value = NOW() + INTERVAL '20 hours', entered_at = NOW() - INTERVAL '5 days'
      WHERE task_id = ${report} AND expired_at IS NULL
   `;
-  await sql`UPDATE finished_at SET closed_told_at = value WHERE task_id = ${promo} AND expired_at IS NULL`;
-  await sql`UPDATE dependency SET done_at = NOW() - INTERVAL '3 days' WHERE task_id = ${report} AND value = ${promo}`;
 
   // 14. Olga's private task (I see it as her manager).
   const docs = await L.Task.create({ tags: tags.docs });
