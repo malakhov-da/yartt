@@ -39,7 +39,8 @@ export const SuggestInput = z.object({
 export type SuggestInput = z.infer<typeof SuggestInput>;
 
 /** Tags already in a title: what goes with them. */
-export const RelatedInput = z.object({ tagIds: Id.array().min(1).max(20) });
+/** No tags — the rubrics of the asker's own tasks. */
+export const RelatedInput = z.object({ tagIds: Id.array().max(20) });
 export type RelatedInput = z.infer<typeof RelatedInput>;
 
 /** A part of a variant: an existing tag or a new name. */

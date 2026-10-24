@@ -58,13 +58,17 @@ export default function (p: {
   ));
 
   const names = new Set(p.value.map(partName));
-  // With tags picked and nothing typed: what usually goes with them (decision 56).
+  // With tags picked and nothing typed: what usually goes with them (decision 56);
+  // with nothing at all, the rubrics of my own tasks, in the list a click opens.
   const pickedIds = p.value.flatMap((part) => ('tag' in part ? [part.tag.id] : []));
   const related = useQuery(trpc.Tags.related.queryOptions(
     { tagIds: pickedIds },
     { enabled: pickedIds.length > 0 && text === '', placeholderData: keepPreviousData },
   ));
   const together = text === '' && pickedIds.length > 0 ? (related.data ?? []).filter((tag) => !names.has(tag.name)) : [];
+  const empty = text === '' && p.value.length === 0;
+  const own = useQuery(trpc.Tags.related.queryOptions({ tagIds: [] }, { enabled: empty }));
+  const mine = empty ? (own.data ?? []) : [];
   const data = text === '' ? undefined : suggested.data;
   const typed = TagName.safeParse(text);
   const options: Option[] = [
@@ -72,6 +76,7 @@ export default function (p: {
       .filter((parts) => (p.allowNew || parts.every((part) => 'tag' in part)) && parts.some((part) => !names.has(partName(part))))
       .map((parts) => ({ kind: 'variant' as const, parts })),
     ...(data?.tags ?? []).filter((tag) => !names.has(tag.name)).map((tag) => ({ kind: 'part' as const, part: { tag } })),
+    ...mine.map((tag) => ({ kind: 'part' as const, part: { tag } })),
   ];
   // A new tag is offered apart, under the field: only when no tag is spelled so.
   // While that is being checked it stays in place, off — appearing and going

@@ -205,6 +205,8 @@ export async function suggest(viewerId: number, text: string): Promise<Suggestio
 }
 
 const RELATED = 6;
+/** The rubrics offered in an empty title field. */
+const MINE = 10;
 
 /**
  * A rubric is a tag on more than one task; a phrase of one task is not a
@@ -216,9 +218,26 @@ const rubric = () => sql`(SELECT count(*) FROM (SELECT 1 FROM task c WHERE c.tag
  * The tags that most often go with these ones (decision 56): on the tasks
  * carrying all of them, the other tags by how many such tasks carry them —
  * rubrics only, not a phrase of one task. Offered under a title being typed,
- * so the same things keep the same names.
+ * so the same things keep the same names. Without tags — the rubrics of the
+ * tasks the viewer takes part in, offered in an empty title field: the whole
+ * list a click away, with nothing typed.
  */
 export async function related(viewerId: number, tagIds: number[]): Promise<Tag[]> {
+  if (tagIds.length === 0) {
+    return Tag.array().parse(await sql`
+      SELECT t.id, t.name, u.color
+        FROM observer o
+        JOIN task k ON k.id = o.task_id
+        CROSS JOIN LATERAL unnest(k.tag_ids) AS kt(id)
+        JOIN tag t ON t.id = kt.id
+        LEFT JOIN user_tag u ON u.tag_id = t.id AND u.employee_id = ${viewerId}
+       WHERE o.value = ${viewerId} AND o.added_at IS NOT NULL AND o.deleted_at IS NULL
+         AND ${rubric()}
+       GROUP BY t.id, t.name, u.color
+       ORDER BY count(*) DESC, t.name
+       LIMIT ${MINE}
+    `);
+  }
   return Tag.array().parse(await sql`
     SELECT t.id, t.name, u.color
       FROM task k

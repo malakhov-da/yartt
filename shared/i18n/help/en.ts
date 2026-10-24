@@ -162,7 +162,8 @@ export const helpEn: Help = {
     {
       title: 'Find a task',
       steps: [
-        'The search of Available tasks forgives typos, transliteration and the wrong keyboard layout; a task is found by number too: #12.',
+        'The search of Available tasks forgives typos, transliteration and the wrong keyboard layout; a task is found by number too: #12. '
+          + 'A click in the empty field lists the rubrics of your tasks — in the title of a new task too.',
         'Picked tags narrow every tab — My open, Team open (for a manager: the tasks of their people down the chain), Other open, Closed.',
         'A task number (#12), wherever the task is shown, is a link to it; a tag in a line of Available tasks adds itself to the search on a click.',
         'Hover a task in any list to see its description and how much each person has spent and still plans.',

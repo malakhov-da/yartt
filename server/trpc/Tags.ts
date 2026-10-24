@@ -20,7 +20,8 @@ export default router({
 
   /**
    * The tags that most often go with these, on the tasks carrying all of
-   * them — rubrics, not a phrase of one task. Anyone signed in.
+   * them — rubrics, not a phrase of one task; without tags, the rubrics of
+   * the signed-in employee's own tasks. Anyone signed in.
    */
   related: authedProcedure
     .input(RelatedInput)

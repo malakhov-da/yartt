@@ -43,6 +43,13 @@ test.describe('search', () => {
     await expect(picked(page).getByRole('button', { name: 'закупки', exact: true })).toBeVisible();
   });
 
+  test('an empty search offers the rubrics of my tasks a click away', async ({ page }) => {
+    await search(page).click();
+    await expect(page.getByRole('option', { name: 'склад', exact: true })).toBeVisible();
+    await page.getByRole('option', { name: 'склад', exact: true }).click();
+    await expect(picked(page).getByRole('button', { name: 'склад', exact: true })).toBeVisible();
+  });
+
   test('only tags are searched: a missing tag is not offered, Enter takes the best match', async ({ page }) => {
     const missing = unique('нет');
     await search(page).fill(missing);

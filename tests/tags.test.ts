@@ -169,6 +169,9 @@ describe('phrases and rubrics', () => {
 
     const rubricId = page.tags.find((tag) => tag.name === rubric)!.id;
     expect((await api.Tags.related({ tagIds: [rubricId] })).map((tag) => tag.name)).toEqual([often]);
+    // Nothing picked: the rubrics of my own tasks, not their phrases, not someone else's.
+    expect((await api.Tags.related({ tagIds: [] })).map((tag) => tag.name).sort()).toEqual([rubric, often].sort());
+    expect(await (await client((await createEmployee()).id)).Tags.related({ tagIds: [] })).toEqual([]);
   });
 });
 

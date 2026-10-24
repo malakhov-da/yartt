@@ -296,7 +296,9 @@ takes the tag spelled so, or, when none is, makes the text a new tag — as
 does the "New tag «…»" button under the field, which keeps the cursor in
 the field; a new tag is shown dashed and created when the task is saved
 (decision 71). With tags picked and nothing typed, the ones that most
-often go with them are offered ("Often together"). Text left unpicked
+often go with them are offered ("Often together"); with nothing picked
+and nothing typed, a click lists the rubrics of my own tasks, the most
+used first — in the search the same. Text left unpicked
 becomes a tag of its own, the whole phrase one tag — unless a tag is spelled exactly so, which has to be
 picked first. A title another task has is named under the field and
 "Create task" waits. Priority, deadline, context and participants —
