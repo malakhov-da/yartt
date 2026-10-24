@@ -11,7 +11,7 @@ export const helpEn: Help = {
   quickStartTitle: 'Your first day: five steps',
   quickStart: [
     'Open My day — the main screen. On top is Waiting for me: everything that needs your reaction. Work through it — an empty list is the goal.',
-    'Find your tasks in Current tasks: My open — what you answer for; Other open — where you take part.',
+    'Find your tasks in Available tasks: My open — what you answer for; Other open — where you take part.',
     'Make a task with "New task". Its title is tags: pick fitting ones from the suggestions and add your own.',
     'Bring people into a task with "Add a participant" on its page. To ask someone to do something, mention them in a comment.',
     'If you keep a timesheet: start the shift with ▶ in the top line, close it in the evening and log your time to tasks.',
@@ -62,7 +62,7 @@ export const helpEn: Help = {
       blocks: [
         { title: 'Waiting for me', text: 'mentions, new comments, requests, reminders, deadlines — by task' },
         { title: 'Waiting for others', text: 'your requests and mentions that wait for others' },
-        { title: 'Current tasks', text: 'mine · my team · others · closed; the tag search' },
+        { title: 'Available tasks', text: 'mine · team open · others · closed; the tag search' },
       ],
       side: { title: 'Timesheet', text: 'shifts, time entries and activity, today and the day before' },
     },
@@ -145,7 +145,7 @@ export const helpEn: Help = {
     {
       title: 'Create a task',
       steps: [
-        'In the search of Current tasks, pick tags from the suggestions and type what is to be done.',
+        'In the search of Available tasks, pick tags from the suggestions and type what is to be done.',
         'Press "New task" in the block\'s title row: a new task opens and the text typed becomes a new tag — dashed until the task is saved. '
           + 'Add a priority, a deadline and a description.',
         'A follow-up task is created from the page of the original, under "Waits for" or "Waited on by": it gets its tags, '
@@ -156,9 +156,9 @@ export const helpEn: Help = {
     {
       title: 'Find a task',
       steps: [
-        'The search of Current tasks forgives typos, transliteration and the wrong keyboard layout; a task is found by number too: #12.',
-        'Picked tags narrow every tab — My open, My team (for a manager: the tasks of their people down the chain), Other open, Closed.',
-        'A task number (#12), wherever the task is shown, is a link to it; a tag in a line of Current tasks adds itself to the search on a click.',
+        'The search of Available tasks forgives typos, transliteration and the wrong keyboard layout; a task is found by number too: #12.',
+        'Picked tags narrow every tab — My open, Team open (for a manager: the tasks of their people down the chain), Other open, Closed.',
+        'A task number (#12), wherever the task is shown, is a link to it; a tag in a line of Available tasks adds itself to the search on a click.',
         'Hover a task in any list to see its description and how much each person has spent and still plans.',
       ],
     },

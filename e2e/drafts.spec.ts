@@ -5,7 +5,7 @@ import { editable, signIn, taskId, unique } from './helpers.ts';
 test('a comment, a new task and a context being edited survive going elsewhere', async ({ page }) => {
   await signIn(page, 'marina@example.com');
   const id = await taskId('склад', 'инвентаризация за октябрь');
-  const panel = page.getByRole('region', { name: 'Текущие задачи' });
+  const panel = page.getByRole('region', { name: 'Доступные задачи' });
 
   await page.goto(`/tasks/${id}`);
   await editable(page).click();

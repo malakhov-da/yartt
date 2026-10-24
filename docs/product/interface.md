@@ -73,14 +73,14 @@ budgets are pages of their own (decision 79):
   with "Withdraw", and my open mentions of people — whom, when, the
   beginning of my comment and their answers so far, "Answered — waiting
   for Done" or "No answer yet"; the longest waiting on top (decision 67).
-- **Current tasks** — every open task I see (no deadline, or a deadline
-  ahead), in tabs: **My open** (I answer for them), for a manager **My
-  team** (those my people own, down the chain — decision 77) and **Other
+- **Available tasks** — every open task I see (no deadline, or a deadline
+  ahead), in tabs: **My open** (I answer for them), for a manager **Team
+  open** (those my people own, down the chain — decision 77) and **Other
   open** — and the closed ones I see in the last, **Closed** (decision 57); each
   explains itself on hover. Open tasks are by deadline, nearest first,
   the same moment by priority; tasks without a deadline at the end, by
   priority. Closed ones are the most recently closed first. Every tab has
-  pages. For a director "My team" is hundreds of tasks — pages keep it
+  pages. For a director "Team open" is hundreds of tasks — pages keep it
   usable, the search on top narrows it (3). Public tasks of others are in
   "Other open" for everyone: there should be few of them (decision 14).
   "New task" in its title row opens a new task with what the search holds (2a). A task whose
@@ -150,7 +150,7 @@ range; a click on another heading sorts by it — or the tags
 
 There is no separate "closed by its deadline" item: a passed deadline
 closes the task like a manual close does, and the task simply leaves
-Current tasks. Reopening it is the owner's job (see decision 2).
+Available tasks. Reopening it is the owner's job (see decision 2).
 
 Opening My day is logged.
 
@@ -297,7 +297,7 @@ the new task.
 
 ## 3. Find — "where is that task?"
 
-One input at the top of Current tasks in My day; `/` anywhere (a task
+One input at the top of Available tasks in My day; `/` anywhere (a task
 page too) brings My day back and focuses it. It finds by tags only.
 Typing suggests tags — despite typos, transliteration or the wrong
 layout, and several words as ready sets of tags (decision 33); Enter

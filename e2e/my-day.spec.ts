@@ -65,14 +65,14 @@ test.describe('My day', () => {
     await page.getByRole('tab', { name: /Остальные открытые · \d+/ }).click();
     await expect(page.getByRole('link', { name: /переезд на 5-й этаж/ })).toBeVisible();
     await expect(page.getByRole('link', { name: /тикет \d+/ })).toHaveCount(0);
-    await page.getByRole('tab', { name: /Моя команда · \d+/ }).click();
+    await page.getByRole('tab', { name: /Открытые команды · \d+/ }).click();
     await expect(page.getByRole('link', { name: /тикет \d+/ }).first()).toBeVisible();
     await page.getByRole('button', { name: 'Go to page 2' }).first().click();
     await expect(page.getByRole('link', { name: /#\d+/ }).first()).toBeVisible();
     // The tab keeps its state when coming back from a task.
     await page.getByRole('link', { name: /#\d+/ }).first().click();
     await page.getByRole('link', { name: 'Мой день', exact: true }).click(); // the logo is the way home
-    await expect(page.getByRole('tab', { name: /Моя команда/ })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: /Открытые команды/ })).toHaveAttribute('aria-selected', 'true');
   });
 
   test('a shift is started now from the top line and finished with what was done', async ({ page }) => {
@@ -163,7 +163,7 @@ test.describe('My day', () => {
 
 test('a task hovered in any list shows its context and everyone\'s time', async ({ page }) => {
   await signIn(page);
-  const line = page.getByRole('region', { name: 'Текущие задачи' }).getByRole('link', { name: /новая главная к осенней кампании/ }).first();
+  const line = page.getByRole('region', { name: 'Доступные задачи' }).getByRole('link', { name: /новая главная к осенней кампании/ }).first();
   await line.hover();
   await expect(page.getByRole('tooltip').getByText(/Новая главная к запуску осенней кампании/)).toBeVisible();
   await expect(page.getByRole('tooltip').getByText(/Павел Орлов|Я/).first()).toBeVisible();
