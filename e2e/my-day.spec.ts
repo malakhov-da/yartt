@@ -62,6 +62,8 @@ test.describe('My day', () => {
 
   test('current tasks: mine, my team\'s and others, with pages', async ({ page }) => {
     await expect(page.getByRole('tab', { name: /Мои открытые · 3/ })).toBeVisible();
+    // A line says everyone's time on the task: logged → left in plans.
+    await expect(page.getByRole('region', { name: 'Доступные задачи' }).getByText(/\d.* → \d/).first()).toBeVisible();
     // Ivan's tickets: he is under Marina, who is under me — my team.
     await page.getByRole('tab', { name: /Остальные открытые · \d+/ }).click();
     await expect(page.getByRole('link', { name: /переезд на 5-й этаж/ })).toBeVisible();

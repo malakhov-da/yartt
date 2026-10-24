@@ -118,6 +118,26 @@ export async function plans(viewerId: number, tab: string, ids: number[]): Promi
   `);
 }
 
+const Hours = z.object({ taskId: z.number(), spentMinutes: z.number(), leftMinutes: z.number() });
+
+/**
+ * Everyone's time on the tasks the viewer sees — logged, and left in current
+ * plans — added up: it measures the work (decision 68). Tasks without any are left out.
+ */
+export async function hours(viewerId: number, ids: number[]): Promise<z.infer<typeof Hours>[]> {
+  if (ids.length === 0) return [];
+  return Hours.array().parse(await sql`
+    SELECT h.* FROM (
+      SELECT k.id AS task_id,
+             COALESCE((SELECT sum(s.value) FROM spent_minutes s WHERE s.task_id = k.id), 0)::int AS spent_minutes,
+             COALESCE((SELECT sum(e.value) FROM estimate_minutes e WHERE e.task_id = k.id AND e.expired_at IS NULL), 0)::int AS left_minutes
+        FROM task k
+       WHERE k.id = ANY(${ids}) AND can_see(k.id, ${viewerId})
+    ) h
+     WHERE h.spent_minutes > 0 OR h.left_minutes > 0
+  `);
+}
+
 export async function search(viewerId: number, input: SearchInput): Promise<SearchResult> {
   const where = sql`k.tag_ids @> ${input.tagIds}::int[]`;
   const closed = sql`(f.value IS NOT NULL AND f.value <= NOW())`;
@@ -148,7 +168,7 @@ export async function search(viewerId: number, input: SearchInput): Promise<Sear
     Id.array().parse(await sql`SELECT id FROM task WHERE id = ANY(${ids}) AND can_see(id, ${viewerId})`).map((r) => r.id),
   );
   const items = (await headers(viewerId, ids)).map((h) => ({ ...h, canSee: seen.has(h.id) }));
-  return { items, counts: counts!, plans: await plans(viewerId, input.tab, ids) };
+  return { items, counts: counts!, plans: await plans(viewerId, input.tab, ids), hours: await hours(viewerId, ids) };
 }
 
 /**

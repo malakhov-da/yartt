@@ -194,6 +194,14 @@ describe('current tasks', () => {
     expect(team.items.map((t) => t.id)).toEqual([task]);
     expect(team.plans).toEqual([{ taskId: task, minutes: 240 }]);
 
+    // Everyone's time on the line, logged → left, for whoever sees the task; nothing for whoever does not.
+    const ownerApi = await client(owner.id);
+    await ownerApi.Time.set({ taskId: task, day: (await ownerApi.MyDay.history({ page: 1 })).today, minutes: 30 });
+    expect((await devApi.MyDay.current({ tab: 'mine', page: 1 })).hours).toEqual([{ taskId: task, spentMinutes: 30, leftMinutes: 240 }]);
+    const tagIds = (await ownerApi.Task.get({ id: task })).tags.map((tag) => tag.id);
+    expect((await ownerApi.Task.search({ tagIds, tab: 'mine', page: 1 })).hours).toEqual([{ taskId: task, spentMinutes: 30, leftMinutes: 240 }]);
+    expect((await (await client((await createEmployee()).id)).Task.search({ tagIds, tab: 'others', page: 1 })).hours).toEqual([]);
+
     // The plan cleared: back among the others.
     await devApi.Time.setLeft({ taskId: task, minutes: null });
     expect((await devApi.MyDay.current({ tab: 'mine', page: 1 })).items).toEqual([]);

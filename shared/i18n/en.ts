@@ -134,6 +134,8 @@ export const en: Translation = {
       mineHint: 'Open tasks you answer for, and those you have time planned on — your work. Whose a task is shows by its owner\'s avatar',
       myPlan: 'my plan {{time}}',
       teamPlan: 'team plan {{time}}',
+      hours: '{{spent}} → {{left}}',
+      hoursHint: 'Everyone\'s time on the task: logged → still in plans.',
       othersHint: 'Open tasks of others you see: you take part in them, were asked to help, or they are public',
       others: 'Other open · {{count}}',
       team: 'Team open · {{count}}',

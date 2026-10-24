@@ -3,7 +3,7 @@ import type { Current, CurrentTab, DayHistory, History, TodoItem, WaitingItem } 
 import { plainText } from '../html.ts';
 import { sql } from '../pg.ts';
 import { mentionReplies, replyKey } from './Comment.ts';
-import { headers, plans, whose } from './Task.ts';
+import { headers, hours, plans, whose } from './Task.ts';
 
 export const PAGE_SIZE = 20;
 /** Days with activity per page of History. */
@@ -245,7 +245,7 @@ export async function current(me: number, tab: CurrentTab, page: number): Promis
            count(*) FILTER (WHERE closed)::int AS closed
       FROM (${seen}) t
   `);
-  return { items: await headers(me, ids), counts: counts!, plans: await plans(me, tab, ids) };
+  return { items: await headers(me, ids), counts: counts!, plans: await plans(me, tab, ids), hours: await hours(me, ids) };
 }
 
 const DayRow = z.object({ day: z.string() });

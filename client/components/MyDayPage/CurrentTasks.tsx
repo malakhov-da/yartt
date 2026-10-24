@@ -62,10 +62,16 @@ export default function (p: { team: boolean }) {
   ));
   const shown = filtering ? found : current;
   const counts = shown.data?.counts;
-  // The time planned on a line: what makes a task someone does mine (or the team's) though owned by another.
-  const plan = (taskId: number) => {
+  // The time planned on a line: what makes a task someone does mine (or the team's) though owned by another;
+  // then everyone's time on it, logged → left (hours of a task add up, decision 68).
+  const note = (taskId: number) => {
     const minutes = shown.data?.plans.find((x) => x.taskId === taskId)?.minutes;
-    return minutes ? t(tab === 'team' ? 'myDay.current.teamPlan' : 'myDay.current.myPlan', { time: format.minutes(minutes) }) : undefined;
+    const hours = (shown.data?.hours ?? []).find((x) => x.taskId === taskId); // none in a cache saved by an older release
+    const parts = [
+      minutes ? t(tab === 'team' ? 'myDay.current.teamPlan' : 'myDay.current.myPlan', { time: format.minutes(minutes) }) : null,
+      hours ? t('myDay.current.hours', { spent: format.minutes(hours.spentMinutes), left: format.minutes(hours.leftMinutes) }) : null,
+    ].filter((part) => part !== null);
+    return parts.length ? parts.join(' · ') : undefined;
   };
   const total = counts?.[tab] ?? 0;
 
@@ -187,7 +193,8 @@ export default function (p: { team: boolean }) {
           <TaskLine
             key={task.id}
             task={task}
-            note={plan(task.id)}
+            note={note(task.id)}
+            noteHint={(shown.data?.hours ?? []).some((x) => x.taskId === task.id) ? t('myDay.current.hoursHint') : undefined}
             onTag={readOnly ? undefined : (tag) => { if (!tags.some((picked) => picked.id === tag.id)) filter({ tags: [...tags, tag] }); }}
           />
         ))}

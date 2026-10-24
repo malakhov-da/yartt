@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { As, Day, Id } from './employee.ts';
 import { MentionReply } from './comment.ts';
-import { TaskHeader } from './task.ts';
+import { TaskHeader, TaskHours } from './task.ts';
 
 // My day (docs/product/interface.md, 1): TODO, current tasks, history of my days.
 
@@ -160,6 +160,8 @@ export const Current = z.object({
   counts: z.object({ mine: z.number().int(), team: z.number().int(), others: z.number().int(), closed: z.number().int() }),
   /** Time left planned on the tasks shown: mine in 'mine', my people's together in 'team'. */
   plans: z.object({ taskId: Id, minutes: z.number().int() }).array(),
+  /** Everyone's time on each task seen — logged and left in plans; none — not there. */
+  hours: TaskHours.array(),
 });
 export type Current = z.infer<typeof Current>;
 

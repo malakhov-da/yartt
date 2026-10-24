@@ -126,12 +126,18 @@ export type TitleInput = z.infer<typeof TitleInput>;
 export const TitleTaken = z.object({ id: Id }).nullable();
 export type TitleTaken = z.infer<typeof TitleTaken>;
 
+/** Everyone's time on a task together (decision 68): logged, and left in current plans. */
+export const TaskHours = z.object({ taskId: Id, spentMinutes: z.number().int(), leftMinutes: z.number().int() });
+export type TaskHours = z.infer<typeof TaskHours>;
+
 export const SearchResult = z.object({
   items: TaskHeader.extend({ canSee: z.boolean() }).array(),
   /** Found tasks in each tab. */
   counts: z.object({ mine: z.number().int(), team: z.number().int(), others: z.number().int(), closed: z.number().int() }),
   /** Time left planned on the tasks found, as in Available tasks. */
   plans: z.object({ taskId: Id, minutes: z.number().int() }).array(),
+  /** Everyone's time on each task found that the viewer sees, as in Available tasks. */
+  hours: TaskHours.array(),
 });
 export type SearchResult = z.infer<typeof SearchResult>;
 

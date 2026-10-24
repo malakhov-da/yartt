@@ -89,6 +89,9 @@ tags, the hour budgets and the bots (decision 83):
   pages. For a director "Team open" is hundreds of tasks — pages keep it
   usable, the search on top narrows it (3). Public tasks of others are in
   "Other open" for everyone: there should be few of them (decision 14).
+  A line of a task I see says everyone's time on it, "5h → 3h": logged,
+  and still left in plans (decision 68) — how big it is and how far along,
+  without opening it. Not a percentage: hours logged are not work done.
   "New task" in its title row opens a new task with what the search holds (2a). A task whose
   plan does not fit before its deadline, or that waits for a task due too
   late or delays one waiting for it, says "At risk", the reasons on hover
