@@ -58,11 +58,11 @@ function Item(p: { item: WaitingItem }) {
         </Box>
         <Box sx={{ flex: '1 1 220px', minWidth: 0 }}>
           {item.kind === 'request' ? (
-            <Typography variant="body2">{t('myDay.waiting.request', { name: name(item.task.ownerId) })}</Typography>
+            <Typography variant="body2">{t(readOnly ? 'myDay.waiting.requestOf' : 'myDay.waiting.request', { name: name(item.task.ownerId) })}</Typography>
           ) : (
             <>
               <Typography variant="body2">
-                {t('myDay.waiting.mention', { name: name(item.employeeId) })} · {format.relative(item.at)}
+                {t(readOnly ? 'myDay.waiting.mentionOf' : 'myDay.waiting.mention', { name: name(item.employeeId) })} · {format.relative(item.at)}
               </Typography>
               {item.excerpt && <Typography variant="body2" sx={{ color: 'text.secondary' }}>«{item.excerpt}»</Typography>}
               {item.replies.length > 0 && (

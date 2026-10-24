@@ -104,6 +104,8 @@ export const en: Translation = {
       hint: 'What waits for others: your access requests the owner has not answered yet, and your mentions the person has not closed with "Done". The longest waiting on top.',
       request: 'You asked for access — {{name}} decides',
       mention: 'You mentioned: {{name}}',
+      requestOf: 'Access asked for — {{name}} decides',
+      mentionOf: 'Mentioned: {{name}}',
       answered: 'Answered — waiting for "Done".',
       notAnswered: 'No answer yet.',
     },
