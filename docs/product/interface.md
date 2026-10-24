@@ -56,7 +56,8 @@ budgets are pages of their own (decision 79):
     it or put it off — in an hour, tomorrow, on Monday, before the
     deadline or at a moment I pick (decision 73);
   - my tasks that close by their deadline within a day — "Closes by
-    itself in 5 hours", with "Move the deadline" — and, once closed by a
+    itself in 5 hours", with "Finish" (done already — closed now) and
+    "Move the deadline" — and, once closed by a
     deadline set in advance, "Closed by its deadline" with "Confirm" or
     "Open again" (decision 75);
   - tasks mine wait for that are done, with "Noted".

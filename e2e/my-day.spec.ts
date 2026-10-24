@@ -45,6 +45,7 @@ test.describe('My day', () => {
     const todo = page.locator('div.MuiPaper-root').filter({ has: page.getByRole('heading', { name: /Ждёт меня/ }) }).first();
     await expect(todo.getByText(/^Закроется сама через \d+ (час|часа|часов)/)).toBeVisible();
     await expect(todo.getByRole('link', { name: 'Перенести дедлайн' })).toBeVisible();
+    await expect(todo.getByRole('button', { name: 'Завершить' })).toBeVisible(); // done already — closed now
     const done = todo.locator('.MuiStack-root').filter({ hasText: 'Готова задача, которую ждёт эта' })
       .filter({ has: page.getByRole('button', { name: 'Принято' }) }).last();
     await expect(done.getByText('лендинг осенней промо-акции')).toBeVisible();

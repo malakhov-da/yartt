@@ -69,7 +69,7 @@ export const en: Translation = {
       reviewHint: 'Open the task and read them. If nothing waits for your decision, say so there — with "No intervention needed": it is not here, so that comments are never skipped unread.',
       read: 'Read',
       closing: 'Closes by itself {{time}} — the deadline is {{at}}',
-      closingHint: 'A deadline that comes closes the task. Not making it — move the deadline in advance; all done — nothing is needed.',
+      closingHint: 'A deadline that comes closes the task. All done — finish it now; not making it — move the deadline in advance.',
       moveDeadline: 'Move the deadline',
       closed: 'Closed by its deadline {{at}}',
       closedHint: 'Confirm that it is done. If not, move the deadline and the task is open again.',

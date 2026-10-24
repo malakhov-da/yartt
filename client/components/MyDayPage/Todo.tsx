@@ -117,6 +117,7 @@ function Item(p: { item: TodoItem; readOnly?: boolean }) {
   const removeRemind = useMutation(trpc.Remind.remove.mutationOptions({ onSuccess: refresh }));
   const confirmClosed = useMutation(trpc.Task.confirmClosed.mutationOptions({ onSuccess: refresh }));
   const noted = useMutation(trpc.Dependency.noted.mutationOptions({ onSuccess: refresh }));
+  const finish = useMutation(trpc.Task.setDeadline.mutationOptions({ onSuccess: refresh }));
   const openTask = (label: string) => (
     <Button size="small" component={Link} to={`/tasks/${item.task.id}`}>{label}</Button>
   );
@@ -195,7 +196,15 @@ function Item(p: { item: TodoItem; readOnly?: boolean }) {
         {!p.readOnly && <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.todo.closingHint')}</Typography>}
       </>
     );
-    actions = openTask(t('myDay.todo.moveDeadline'));
+    // Done already: closed now, not left to the deadline.
+    actions = (
+      <>
+        {openTask(t('myDay.todo.moveDeadline'))}
+        <Button size="small" variant="contained" disabled={finish.isPending} onClick={() => finish.mutate({ id: item.task.id, deadline: new Date() })}>
+          {t('task.finish')}
+        </Button>
+      </>
+    );
   } else if (item.kind === 'closed') {
     icon = <EventBusy fontSize="small" />;
     text = (
