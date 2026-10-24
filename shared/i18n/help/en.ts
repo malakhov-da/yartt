@@ -5,51 +5,110 @@ import type { Help } from './ru.ts';
 export const helpEn: Help = {
   title: 'How to work in yartt',
   intro:
-    'yartt is a task tracker built around responsibility and security. It does not just do without projects, subtasks '
-    + 'and assignees — it replaces them with more flexible mechanisms: tags instead of projects, dependencies instead of '
-    + 'subtasks, one owner instead of an assignee, participants invited by name instead of access for "everyone on the project". '
-    + 'The timesheet, time entries and scores of the day make work transparent, yet all of it is optional: you can use '
-    + 'only tasks and tags. Everything for the day is on My day; the team and the tags have pages of their own, from the top line.',
+    'yartt is a task tracker where every task has one person answering for it, and only those invited see it. '
+    + 'There are no projects, subtasks or assignees: tags, dependencies and an owner take their place. '
+    + 'Below: what you need on your first day, then diagrams, the words used and answers to the usual "why".',
+  quickStartTitle: 'Your first day: five steps',
+  quickStart: [
+    'Open My day — the main screen. On top is Waiting for me: everything that needs your reaction. Work through it — an empty list is the goal.',
+    'Find your tasks in Current tasks: My open — what you answer for; Other open — where you take part.',
+    'Make a task with "New task". Its title is tags: pick fitting ones from the suggestions and add your own.',
+    'Bring people into a task with "Add a participant" on its page. To ask someone to do something, mention them in a comment.',
+    'If you keep a timesheet: start the shift with ▶ in the top line, close it in the evening and log your time to tasks.',
+  ],
+  diagramsTitle: 'How it fits together',
+  diagrams: {
+    roles: {
+      title: 'Who is who in a task',
+      owner: 'Owner',
+      ownerWho: 'Whose initiative it is — one per task',
+      ownerDoes: ['decides when the task is done', 'sets and moves the deadline', 'brings people in and out', 'answers for the result'],
+      participant: 'Participants',
+      participantWho: 'Those the owner brought in',
+      participantDoes: ['comment and answer mentions', 'plan their time and log hours', 'take a big part into a task of their own — "My part"'],
+      manager: 'Managers',
+      managerWho: 'Added by themselves, up the chain',
+      managerDoes: ['see the tasks of their people', 'may hand over a report\'s task', 'stay while their person is in the task'],
+      handover: 'Handing ownership over gives the initiative away whole: the new owner may close the task. '
+        + 'Need someone only to do the work? Bring them in as a participant.',
+    },
+    lifecycle: {
+      title: 'A task\'s life: the deadline closes it',
+      steps: [
+        { title: 'Created', text: 'Whoever created it owns it. Only participants see it.' },
+        { title: 'In work', text: 'Comments, mentions, participants\' plans and time.' },
+        { title: 'A day before the deadline', text: 'In the owner\'s Waiting for me: "Closes by itself in …". Not making it — move the deadline.' },
+        { title: 'The deadline comes', text: 'The task is closed. The owner confirms it or opens it again by moving the deadline.' },
+      ],
+      finish: '"Finish" closes it earlier: the deadline becomes "now".',
+    },
+    part: {
+      title: 'My part: a task of your own within someone else\'s initiative',
+      main: 'The owner\'s task',
+      mainOwner: 'owner — Emily',
+      waits: 'waits for',
+      sub: 'My part',
+      subOwner: 'owner — Jack',
+      steps: [
+        'Jack takes part in Emily\'s task. His part is big — he presses "My part" under "Waits for".',
+        'The new task is his: he describes it within his bounds and decides when it is done. Emily\'s task now waits for it.',
+        'Jack closed his task — Emily\'s Waiting for me says "A task this one waits for is done".',
+      ],
+    },
+    myDay: {
+      title: 'Where things are',
+      topLine: 'The top line',
+      topItems: ['▶ shift', '🔔 waiting for me', 'my team', 'tags', '? guide', 'profile'],
+      blocks: [
+        { title: 'Waiting for me', text: 'mentions, new comments, requests, reminders, deadlines — by task' },
+        { title: 'Waiting for others', text: 'your requests and mentions that wait for others' },
+        { title: 'Current tasks', text: 'mine · my team · others · closed; the tag search' },
+      ],
+      side: { title: 'Timesheet', text: 'shifts, time entries and activity, today and the day before' },
+    },
+  },
+  glossaryTitle: 'The words',
+  glossary: [
+    { term: 'Owner', text: 'the one whose initiative it is: decides when the task is done. Neither its author nor its doer.' },
+    { term: 'Participant', text: 'someone who sees the task and works in it: comments, plans, logs hours.' },
+    { term: 'Tag', text: 'a word or phrase of a task\'s title. The set of tags is the title; it is unique.' },
+    { term: 'Deadline', text: 'the moment the task closes by itself. Only the owner moves it.' },
+    { term: 'Latest deadline', text: 'when the task waited for must be done at the latest, or the waiting one will not make it.' },
+    { term: 'Mention', text: 'a request to a participant in a comment. Closed by their reply and "Done".' },
+    { term: 'Shift', text: 'when you worked — within one day.' },
+    { term: 'Time entry', text: 'how much time a task took in a day: one entry per task and day.' },
+    { term: 'Plan', text: 'how much more you mean to spend on a task.' },
+    { term: 'At risk', text: 'a plan does not fit the working time before the deadline, or a latest deadline is broken.' },
+  ],
   ideasTitle: 'The essentials',
   ideas: [
     {
       title: 'The owner is whose initiative it is',
-      text: 'A task has one owner. Not its author and not its doer: the one whose initiative it is — they answer for the result and alone '
-        + 'decide when the task is done, move its deadline and bring people in. Whoever creates a task owns it. '
-        + 'Everyone else is a participant: within someone else\'s initiative they do what is needed, comment, plan their time and log '
-        + 'hours, but do not close it. Handing ownership over gives the initiative away whole: the new owner does with the task what '
-        + 'they decide, closing it included. To keep the result in your hands, do not hand the task over — bring the person in as a '
-        + 'participant. If their part is big, they make it a task of their own with "My part", and yours waits for it.',
+      text: 'A task has one owner: they answer for the result and alone decide when it is done. '
+        + 'Everyone else is a participant: they work in the task but do not close it. To keep the result in your hands, do not hand the task over.',
     },
     {
       title: 'Access only for those invited',
-      text: 'A task is seen only by its participants: the owner, those the owner added or whose request for access the owner approved — '
-        + 'and their managers up the chain, who join by themselves. An important idea does not spread to '
-        + '"everyone on the project". Tags, priority and deadline are visible to all — a task can be found and access asked for. '
-        + 'A task that concerns everyone the owner makes public.',
+      text: 'A task is seen by its participants and their managers. Tags, priority and deadline are seen by everyone — a task can be '
+        + 'found and access asked for. A task for everyone the owner makes public.',
     },
     {
       title: 'Tags instead of projects',
-      text: 'A task\'s title is a set of tags. A tag may stand for a project, a kind of work, a direction, an action or any context '
-        + 'that says the point in brief: "website · homepage · lay out the banner". A task may sit in several "projects" at once, '
-        + 'and a new tag for what is specific to it can be made at any moment.',
+      text: 'A task\'s title is a set of tags: "website · homepage · banner layout". A task can be in several "projects" at once, '
+        + 'and a new tag is made when it is needed.',
     },
     {
       title: 'Dependencies instead of subtasks',
-      text: 'A follow-up task takes the tags of the one it came from and adds its own — no need to know in advance whether there will be '
-        + '"subtasks". "Waits for" is more flexible than a subtask: one task may be needed by several. A dependency may carry '
-        + 'a latest deadline — any later and the waiting task will not make it — and then what people promised each other is seen and kept in check.',
+      text: 'A task can wait for another, and one task can be needed by several. A latest deadline can be set — then it shows '
+        + 'when a promise is at risk.',
     },
     {
-      title: 'A deadline closes the task by itself',
-      text: 'When the deadline comes, the task is closed. That is on purpose: whoever started the task answers for a sensible deadline '
-        + 'and watches it. Not going to make it — move the deadline in advance.',
+      title: 'The deadline closes the task',
+      text: 'When the deadline comes, the task is closed. A day ahead you are warned in Waiting for me. Not making it — move the deadline early.',
     },
     {
-      title: 'Time in the open',
-      text: 'A shift is when a person worked, an entry is how much went to a task, a plan is how much is left. Together they give '
-        + 'several views of the same time instead of one figure to be taken on trust. A manager can score an employee\'s day and give '
-        + 'feedback. The timesheet, entries and scores are optional.',
+      title: 'Time is optional',
+      text: 'Shifts, time entries and plans give an honest picture of time, and a manager can score the day. None of it is required.',
     },
     {
       title: 'Works offline',
@@ -287,7 +346,8 @@ export const helpEn: Help = {
       q: 'Why no assignee?',
       a: 'With someone who sets the task and someone who does it, responsibility blurs and a task hangs on whoever cannot close it. '
         + 'In yartt a task is run by its owner, and only they decide when it is done. Others solve their part: help is asked with '
-        + 'a mention, and a big part of the work goes into a follow-up task.',
+        + 'a mention, and a big part of the work goes into a task of the doer\'s own with "My part", which yours waits for. '
+        + 'Do not make the doer the owner: the owner is whose initiative it is and may close the task without doing it.',
     },
     {
       q: 'Why does a task close by itself when its deadline comes?',
@@ -328,7 +388,7 @@ export const helpEn: Help = {
         + 'scores and counts.',
     },
     {
-      q: 'Why does my manager see my visits?',
+      q: 'Why does my manager see my activity?',
       a: 'For transparency and trust. It works for an honest employee: the manager sees how the work really goes and can trust them more. '
         + 'And looking busy only on paper gets hard: the ribbon of the day shows when a person was here and whether that agrees with '
         + 'their shifts and entries. The rules are the same for everyone in the chain.',

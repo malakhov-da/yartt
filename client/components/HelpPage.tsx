@@ -3,14 +3,16 @@ import { Accordion, AccordionDetails, AccordionSummary, Box, Paper, Stack, Typog
 import { useTranslation } from 'react-i18next';
 import { helpEn } from '#shared/i18n/help/en.ts';
 import { helpRu, type Help } from '#shared/i18n/help/ru.ts';
+import Diagrams from './HelpPage/Diagrams.tsx';
 
 const GUIDES: Record<string, Help> = { ru: helpRu, en: helpEn };
 
 /**
- * The guide (`/help`, decision 62), over My day like a task: what yartt is
- * and why it pays, how to do the usual things, and why the unusual rules
- * are so — in the person's language, written for it, not translated word by
- * word.
+ * The guide (`/help`, decision 62), over My day like a task, in the order a
+ * newcomer needs it (decision 80): five steps for the first day, diagrams
+ * of the screen, the roles, a task's life and "My part", the essentials, how
+ * to do the usual things, the words used, and why the unusual rules are so
+ * — in the person's language, written for it, not translated word by word.
  */
 export default function () {
   const { i18n } = useTranslation();
@@ -21,6 +23,18 @@ export default function () {
       <Paper sx={{ p: { xs: 2, sm: 3 } }}>
         <Typography variant="h2" sx={{ fontWeight: 600, mb: 1 }}>{help.title}</Typography>
         <Typography>{help.intro}</Typography>
+      </Paper>
+
+      <Paper component="section" aria-label={help.quickStartTitle} sx={{ p: { xs: 2, sm: 3 } }}>
+        <Typography variant="h3" sx={{ fontWeight: 600, mb: 1.5 }}>{help.quickStartTitle}</Typography>
+        <Box component="ol" sx={{ m: 0, pl: 3 }}>
+          {help.quickStart.map((step) => <Typography key={step} component="li" sx={{ mb: 1 }}>{step}</Typography>)}
+        </Box>
+      </Paper>
+
+      <Paper component="section" aria-label={help.diagramsTitle} sx={{ p: { xs: 2, sm: 3 } }}>
+        <Typography variant="h3" sx={{ fontWeight: 600, mb: 2 }}>{help.diagramsTitle}</Typography>
+        <Diagrams diagrams={help.diagrams} />
       </Paper>
 
       <Paper sx={{ p: { xs: 2, sm: 3 } }}>
@@ -49,6 +63,18 @@ export default function () {
             </AccordionDetails>
           </Accordion>
         ))}
+      </Paper>
+
+      <Paper component="section" aria-label={help.glossaryTitle} sx={{ p: { xs: 2, sm: 3 } }}>
+        <Typography variant="h3" sx={{ fontWeight: 600, mb: 1.5 }}>{help.glossaryTitle}</Typography>
+        <Box component="dl" sx={{ m: 0, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'max-content 1fr' }, columnGap: 2, rowGap: 0.75 }}>
+          {help.glossary.map((item) => (
+            <Box key={item.term} sx={{ display: 'contents' }}>
+              <Typography component="dt" variant="body2" sx={{ fontWeight: 600 }}>{item.term}</Typography>
+              <Typography component="dd" variant="body2" sx={{ m: 0, mb: { xs: 1, sm: 0 } }}>{item.text}</Typography>
+            </Box>
+          ))}
+        </Box>
       </Paper>
 
       <Paper sx={{ p: { xs: 2, sm: 3 } }}>

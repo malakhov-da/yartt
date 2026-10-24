@@ -1368,3 +1368,19 @@ brings My day back as it was.
 *Implemented:* `client/components/TeamPage.tsx`, `TagsPage.tsx` (their
 parts in `TeamPage/`, `TagsPage/`), `useTeamRole`; the routes in
 `App.tsx`, the buttons in `Header.tsx`.
+
+### 80. The guide starts with the first day and draws what it explains
+
+A newcomer had to read the guide several times: dense paragraphs, the
+unusual rules explained in the middle of how-tos, nothing to look at.
+The goal is a briefing of minutes. Now the guide opens with five steps
+for the first day, then diagrams — where things are on the screen, who
+is who in a task (owner, participants, managers, and what handing over
+means), a task's life up to the deadline closing it, and "My part" —
+then the essentials in two sentences each, the how-tos, a glossary of
+the words the interface uses, and the "why" answers. The diagrams are
+drawn by the interface from the guide's own text, not screenshots: they
+read in every language and do not go stale when a screen changes.
+
+*Implemented:* `quickStart`, `diagrams`, `glossary` in
+`shared/i18n/help/*.ts`; `client/components/HelpPage/Diagrams.tsx`.
