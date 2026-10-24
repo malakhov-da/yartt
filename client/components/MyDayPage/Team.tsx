@@ -11,6 +11,7 @@ import type { Employee } from '#shared/employee.ts';
 import type { Member } from '#shared/team.ts';
 import { fromDay, today, useFormat } from '#client/hooks/format.ts';
 import { useMe } from '#client/hooks/me.ts';
+import { useViewAs } from '#client/hooks/viewAs.ts';
 import { POLL_MS, useEmployees, usePronoun } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import { csv, download, xlsx, type Cell } from '#client/hooks/xlsx.ts';
@@ -36,8 +37,9 @@ type Pick = { checked: boolean; indeterminate?: boolean; onChange: (on: boolean)
  * their own; a team's tick picks the whole team. People and teams are
  * compared by shares, not hours (decision 68); a team's score is its manager's.
  */
-export default function () {
+export default function (p: { fold?: ReactNode }) {
   const { t } = useTranslation();
+  const { as, readOnly } = useViewAs();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const format = useFormat();
@@ -45,7 +47,7 @@ export default function () {
   const employees = useEmployees();
   const me = useMe();
   const [range, setRange, valid] = useRange();
-  const summary = useQuery(trpc.Team.summary.queryOptions(range, {
+  const summary = useQuery(trpc.Team.summary.queryOptions({ ...range, as }, {
     refetchInterval: POLL_MS, placeholderData: keepPreviousData, enabled: valid,
   }));
   const [restoring, setRestoring] = useState<Employee | null>(null);
@@ -89,7 +91,7 @@ export default function () {
   });
 
   // My dismissed reports, whatever the range: only I can bring them back (a dismissed one always has a manager).
-  const dismissed = [...employees.values()].filter((e) => e.kind === 'human' && e.dismissedAt !== null && e.managerId === me.id);
+  const dismissed = [...employees.values()].filter((e) => e.kind === 'human' && e.dismissedAt !== null && e.managerId === (as ?? me.id));
 
   const toggle = (ids: number[], on: boolean) => setSelected((prev) => {
     const next = new Set(prev);
@@ -237,8 +239,11 @@ export default function () {
   };
 
   return (
-    <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-      <Typography variant="h3" sx={{ fontWeight: 600 }}>{t('myDay.team.title')}</Typography>
+    <Paper component="section" aria-label={t('myDay.team.title')} sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+      <Stack direction="row" sx={{ alignItems: 'center' }}>
+        <Typography variant="h3" sx={{ fontWeight: 600, flexGrow: 1 }}>{t('myDay.team.title')}</Typography>
+        {p.fold}
+      </Stack>
       <Stack direction="row" sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
         <Box sx={{ flexGrow: 1 }}><RangePicker range={range} onChange={setRange} /></Box>
         <Button size="small" startIcon={<Download />} onClick={(e) => setExportMenu(e.currentTarget)} disabled={members.length === 0}>
@@ -310,7 +315,7 @@ export default function () {
                       {t('myDay.team.dismissedOn', { day: format.date(e.dismissedAt), ...pronoun(e.id) })}
                     </Typography>
                   )}
-                  <Button size="small" sx={{ py: 0 }} onClick={() => setRestoring(e)}>{t('team.restore')}</Button>
+                  {!readOnly && <Button size="small" sx={{ py: 0 }} onClick={() => setRestoring(e)}>{t('team.restore')}</Button>}
                 </Stack>
               ))}
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.team.dismissedHint')}</Typography>

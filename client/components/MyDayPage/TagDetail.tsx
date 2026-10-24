@@ -8,8 +8,9 @@ import type { TagGroup, TagPerson } from '#shared/tags.ts';
 import { useFormat } from '#client/hooks/format.ts';
 import { useEmployees } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
+import { useViewAs } from '#client/hooks/viewAs.ts';
 import HelpTip from '../App/HelpTip.tsx';
-import TeamChart, { type Detail } from '../TeamPage/TeamChart.tsx';
+import TeamChart, { type Detail } from './TeamChart.tsx';
 
 /** Distinct lines for people, the same person the same color in both charts. */
 const PERSON_COLORS = ['#1e88e5', '#e53935', '#43a047', '#fb8c00', '#8e24aa', '#00897b', '#6d4c41', '#546e7a', '#d81b60', '#3949ab'];
@@ -33,7 +34,8 @@ export default function (p: { group: TagGroup; since: string }) {
   const theme = useTheme();
   const palette = (theme.vars ?? theme).palette;
   const employees = useEmployees();
-  const detail = useQuery(trpc.Tags.detail.queryOptions({ since: p.since, group: p.group }));
+  const { as } = useViewAs();
+  const detail = useQuery(trpc.Tags.detail.queryOptions({ since: p.since, group: p.group, as }));
   const [all, setAll] = useState(false);
   const data = detail.data;
   if (!data) return <Typography variant="caption" sx={{ color: 'text.secondary', p: 1 }}>{t('common.loading')}</Typography>;

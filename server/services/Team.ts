@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { History } from '#shared/myDay.ts';
-import type { Attention, DayStats, Member, MemberDay, PeriodStats, ScoreInput, Stats } from '#shared/team.ts';
+import type { DayStats, Member, MemberDay, PeriodStats, ScoreInput, Stats } from '#shared/team.ts';
 import { AppError } from '../errors.ts';
 import { sql, type Sql } from '../pg.ts';
 import * as MyDay from './MyDay.ts';
@@ -52,6 +52,16 @@ export async function assertCanView(viewerId: number, employeeId: number): Promi
     SELECT ${employeeId} IN (SELECT subordinates(${viewerId})) AS value
   `);
   if (!row?.value) throw new AppError('forbidden');
+}
+
+/**
+ * Whose My day to show (decision 83): one's own, or a report's for a
+ * manager above them — read-only, the client keeps the buttons away.
+ */
+export async function viewAs(viewerId: number, as: number | undefined): Promise<number> {
+  if (as === undefined || as === viewerId) return viewerId;
+  await assertCanView(viewerId, as);
+  return as;
 }
 
 /** The last N days (today included) in each employee's own time zone, or fixed days. */
@@ -305,17 +315,6 @@ export async function employeeStats(viewerId: number, employeeId: number, from: 
 export async function history(viewerId: number, employeeId: number, page: number, size: number): Promise<History> {
   await assertCanView(viewerId, employeeId);
   return MyDay.history(employeeId, page, size);
-}
-
-/**
- * What waits for a report's attention, for a manager above them: their
- * Waiting for me as they see it — but their reminders, theirs alone — and
- * the open tasks they own (decision 78).
- */
-export async function attention(viewerId: number, employeeId: number): Promise<Attention> {
-  if (viewerId === employeeId) throw new AppError('forbidden');
-  await assertCanView(viewerId, employeeId);
-  return { todo: await MyDay.todo(employeeId, viewerId), tasks: await MyDay.openOwned(employeeId, viewerId) };
 }
 
 const ScoreRow = z.object({ value: z.number().nullable(), reason: z.string().nullable() });

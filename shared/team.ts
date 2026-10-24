@@ -1,7 +1,6 @@
 import { z } from 'zod';
-import { Day, Id } from './employee.ts';
-import { HistoryInput, TodoItem } from './myDay.ts';
-import { TaskHeader } from './task.ts';
+import { As, Day, Id } from './employee.ts';
+import { HistoryInput } from './myDay.ts';
 
 // Team: a manager's reports, an employee's page (their days and scores) and
 // the metrics of a period (docs/product/interface.md, 4 and 4a).
@@ -104,7 +103,7 @@ const rangeOk = (r: { from: string; to: string }) =>
   r.from <= r.to && (Date.parse(r.to) - Date.parse(r.from)) / 86_400_000 < MAX_RANGE_DAYS;
 
 /** The team summary: the whole subtree for a range of days. */
-export const SummaryInput = z.object(RangeShape).refine(rangeOk, { path: ['to'] });
+export const SummaryInput = z.object({ ...RangeShape, as: As }).refine(rangeOk, { path: ['to'] });
 export type SummaryInput = z.infer<typeof SummaryInput>;
 
 export const EmployeeInput = z.object({ employeeId: Id });
@@ -136,12 +135,3 @@ export type ScoreInput = z.infer<typeof ScoreInput>;
 /** A score withdrawn: the day's timesheet can be corrected; the reason stays. */
 export const UnscoreInput = z.object({ employeeId: Id, day: Day });
 export type UnscoreInput = z.infer<typeof UnscoreInput>;
-
-/** What waits for a report's attention, on their page for a manager above (decision 78). */
-export const Attention = z.object({
-  /** Their Waiting for me, without their reminders. */
-  todo: TodoItem.array(),
-  /** The open tasks they own, by deadline. */
-  tasks: TaskHeader.array(),
-});
-export type Attention = z.infer<typeof Attention>;

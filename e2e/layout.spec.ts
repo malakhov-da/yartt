@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 import { expect, test, type Page } from '@playwright/test';
-import { employeeId, signIn, taskId } from './helpers.ts';
+import { employeeId, signIn, taskId, unfold } from './helpers.ts';
 
 /** Nothing sticks out to the side: no horizontal scroll at phone width. */
 async function fits(page: Page) {
@@ -20,7 +20,8 @@ test.describe('at phone width', () => {
     await page.goto(`/employees/${await employeeId('marina@example.com')}`);
     await expect(page.getByRole('heading', { name: 'Показатели' })).toBeVisible();
     await fits(page);
-    await page.goto('/team');
+    await page.goto('/');
+    await unfold(page, 'Моя команда');
     await expect(page.getByRole('heading', { name: 'Моя команда' })).toBeVisible();
     await fits(page);
     // The team table fits its block, its details open too: no scroll inside either.

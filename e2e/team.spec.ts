@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { employeeId, signIn, sql } from './helpers.ts';
+import { employeeId, signIn, sql, unfold } from './helpers.ts';
 
 test.describe('Team and the employee page', () => {
   test.beforeEach(async ({ page }) => {
@@ -8,7 +8,7 @@ test.describe('Team and the employee page', () => {
   });
 
   test('My team: my whole team on top, then me and my reports; a report\'s team unfolds into them and theirs; a row opens its details', async ({ page }) => {
-    await page.getByRole('link', { name: 'Моя команда' }).click(); // from the top line
+    await unfold(page, 'Моя команда'); // folded in My day until opened
     const team = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Моя команда' }) });
     await expect(team).toBeVisible();
     for (const column of ['Сотрудник', 'В задачах', 'Оценка', 'Задачи', 'Задержка']) {
@@ -68,11 +68,11 @@ test.describe('Team and the employee page', () => {
 
   test('the direct manager brings a report back from the folded list of their dismissed, and dismisses from the details', async ({ page }) => {
     await signIn(page, 'marina@example.com');
-    await page.goto('/team');
+    await unfold(page, 'Моя команда');
     const team = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Моя команда' }) });
     const sergey = team.getByRole('row').filter({ hasText: 'Сергей Волков' }).first();
     await team.getByRole('button', { name: 'Мои уволенные · 1' }).click();
-    await team.getByRole('button', { name: 'Вернуть' }).click();
+    await team.getByRole('button', { name: 'Вернуть', exact: true }).click();
     const dialog = page.getByRole('dialog');
     await dialog.getByLabel('Email').fill('sergey.back@example.com');
     await dialog.getByRole('button', { name: 'Вернуть' }).click();
@@ -96,7 +96,7 @@ test.describe('Team and the employee page', () => {
     await expect(page.getByRole('heading', { name: 'Показатели' })).toBeVisible();
     await expect(page.locator('svg').filter({ has: page.locator('rect') }).first()).toBeVisible();
     await page.getByRole('button', { name: '7 дн.' }).click();
-    await expect(page.getByText('Табель', { exact: true })).toBeVisible();
+    await expect(page.getByText('Табель', { exact: true }).first()).toBeVisible();
 
     await page.getByRole('button', { name: 'Оценить' }).first().click();
     // Everything below is about this day: the demo has scores of its own on other days.
@@ -128,7 +128,7 @@ test.describe('Team and the employee page', () => {
   });
 
   test('payroll export: everyone or the picked, as Excel or CSV, one row per person and day', async ({ page }) => {
-    await page.goto('/team');
+    await unfold(page, 'Моя команда');
     const team = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Моя команда' }) });
     await expect(team.getByRole('row', { name: /Вся моя команда/ })).toBeVisible();
     await team.getByRole('button', { name: 'Выгрузить' }).click();
@@ -152,12 +152,16 @@ test.describe('Team and the employee page', () => {
     await expect(page.getByText('Руководитель: Марина Соколова')).toBeVisible();
     await expect(page.getByText(/Смена идёт с/)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Оценить' })).toHaveCount(0);
-    // What waits for his attention and the tasks he owns, without his buttons.
-    const waiting = page.getByRole('region', { name: 'Ждёт его внимания' });
+    // His My day as he sees it, without his buttons: what waits for him, his tasks, his folded blocks.
+    const main = page.getByRole('main');
+    const waiting = main.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: /^Ждёт его/ }) });
     await expect(waiting).toBeVisible();
     await expect(waiting.getByRole('button', { name: /Подтвердить|Принять|Готово/ })).toHaveCount(0);
-    const tasks = page.getByRole('region', { name: 'Его открытые задачи' });
+    const tasks = main.getByRole('region', { name: 'Доступные задачи' });
     await expect(tasks.getByRole('link', { name: /перевести форму заявки на новый api/ })).toBeVisible();
+    await expect(tasks.getByRole('button', { name: 'Новая задача' })).toHaveCount(0);
+    await unfold(page, 'Бюджеты часов');
+    await expect(main.getByRole('button', { name: 'Новый бюджет' })).toHaveCount(0);
   });
 
   test('a day card scrolls what is unfolded in it, and "Details" covers none of it', async ({ page }) => {
@@ -167,6 +171,7 @@ test.describe('Team and the employee page', () => {
               SELECT ${olga}, NULL, date_trunc('day', NOW()) + make_interval(mins => i) FROM generate_series(1, 12) i`;
     try {
       await page.goto(`/employees/${olga}`);
+      await unfold(page, 'Все дни');
       const today = page.locator('.MuiPaper-outlined').filter({ hasText: 'Сегодня' }).first();
       await today.getByRole('button', { name: /^Активность · \d+$/ }).click();
       const body = today.locator('> div').first();

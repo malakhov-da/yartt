@@ -1,8 +1,7 @@
 # Interface
 
-The interface is My day — what needs me today — and what opens over it:
-a task, a person's page, the profile, and from the top line My team and
-Tags (decision 79). Each answers one question. There is no settings
+The interface is one screen — My day — and what opens over it: a task, a
+person's page, the profile. Each answers one question. There is no settings
 screen and no tabs (decision 31).
 
 ## The top line
@@ -17,10 +16,9 @@ new mention is noticed on any page, My day itself included),
 **I'll be away** (a calendar: the day I'm back — tomorrow, Monday, in a
 week or any date; while away it reads "Back Oct 24", and my
 notifications are copied to my manager; "I'm back at work" clears it),
-**My team** (people, for someone with people or bots under them — 4) and
-**Tags** (a tag — 1a), **Invite** (a person with a plus: a small dialog
+**Invite** (a person with a plus: a small dialog
 with a name and an email) and my avatar (a photo, or the initials in a circle). The avatar
-opens a menu: Profile, My team, Tags, How to work, Log out. "?" opens the guide (`/help`, decision 62): what yartt gives, how-tos, why the unusual rules are so — written for each language; at phone width it is only in the menu. The search lives in My day (3). Without a connection
+opens a menu: Profile, How to work, Log out. "?" opens the guide (`/help`, decision 62): what yartt gives, how-tos, why the unusual rules are so — written for each language; at phone width it is only in the menu. The search lives in My day (3). Without a connection
 the top line says "Offline" or how many changes wait to be sent; the
 app installs on a phone and opens offline with what was loaded last
 (decision 43). The product name and its release are in a quiet footer at the bottom
@@ -35,10 +33,11 @@ until I come back to it (decision 36).
 
 ## 1. My day — "what needs me?"
 
-The home screen. Marina opens it with her morning coffee; Pavel keeps it
-open all day. Only what needs me today — what waits for me, what I wait
-for, my tasks — and my days beside them; the team, the tags and the
-budgets are pages of their own (decision 79):
+The home screen, and the only one. Marina opens it with her morning
+coffee; Pavel keeps it open all day. On top what needs me today — what
+waits for me, what I wait for, my tasks — and my days beside them; below,
+folded to a line each until opened (and remembered open), my team, the
+tags, the hour budgets and the bots (decision 83):
 
 - **TODO** — what waits for my reaction, newest first:
   - mentions of me that are still open. A mention closes only explicitly
@@ -88,12 +87,8 @@ budgets are pages of their own (decision 79):
   plan does not fit before its deadline, or that waits for a task due too
   late or delays one waiting for it, says "At risk", the reasons on hover
   (decisions 40, 66).
-
-## 1a. Tags — "what happens under my tags?"
-
-A page of its own (`/tags`, the tag in the top line), for everyone:
-
-- **Tags** — what people (not bots) did
+- **My team** — only for someone with reports, folded; see 4.
+- **Tags** — for everyone, folded: what people (not bots) did
   under each tag from any day to today (the last 7, 30, 90 or 365 days
   in a click), on the tasks I see — open now, at risk and not moving;
   closed, by hand and by deadline; comments and in how many tasks;
@@ -106,7 +101,7 @@ range; a click on another heading sorts by it — or the tags
   two charts by day, everyone together and a line per person — time
   logged and plan of time left; the tooltip of a day puts next to each person's time the tasks and ✉
   comments behind it, and next to their plan the tasks it covers — and a table of people; CSV export (decision 58).
-- **Hour budgets** — for everyone, under Tags: limits of hours on a
+- **Hour budgets** — for everyone, folded, under Tags: limits of hours on a
   combination of tags for a fixed period that I set for myself and
   everyone under me, and those my managers set (they count my hours) and
   my people set. A line: the tags, the period, "70h of 80h · 88% ·
@@ -319,8 +314,8 @@ not chips, and a tag is not a link.
 
 ## 4. My team — "how is my team doing?" (managers only)
 
-A page of its own (`/team`, the people in the top line), for someone who
-has reports, for a range (the last 7, 30, 90 days or any dates). The table is
+A folded block of My day under Available tasks, for someone who has
+reports, for a range (the last 7, 30, 90 days or any dates). The table is
 narrow — four columns that compare across rows, no horizontal scroll
 (decision 44):
 
@@ -375,8 +370,8 @@ own (4b).
 
 ## 4b. Bots — "what are my programs doing?"
 
-On the My team page under the team — or on its own there for someone
-whose only reports are bots — and the same list in the profile (decision 49): my
+A folded block of My day under the budgets — for someone with people or
+bots under them — and the same list in the profile (decision 49): my
 bots and those of everyone under me, dismissed ones included, with what
 each may change; whose a bot is shows when it is not mine. From any day
 to today (the last 7, 30, 90 or 365 days in a click), with "?" by the
@@ -407,11 +402,12 @@ can correct the day (the reason stays for the next score); the page
 shows the current value, the employee's mail keeps every version
 (decisions 22, 37). On top —
 workload and the weighted score for 7, 30, 90 days or any dates, with a
-chart (decision 23). For a manager above, next to them: **Waiting for
-his/her attention** — the person's Waiting for me as they see it, grouped
-by task, without their buttons, hints or reminders — and **His/her open
-tasks**, the ones they own, by deadline (decision 78). A bot's page is
-only who it is and who runs it.
+chart (decision 23). For a manager above, under them: the person's My
+day as they see it — Waiting for him/her (without their reminders),
+Waits for others, Available tasks, their team, tags, budgets and bots,
+and their two days — every block read-only, without their buttons; all
+their days, in pages, folded below (decision 83). A bot's page is only
+who it is and who runs it.
 
 ## 5. Profile — "who am I here?"
 

@@ -1,11 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
-import { signIn } from './helpers.ts';
+import { signIn, unfold } from './helpers.ts';
 
-// Tags, from the top line: anyone has it, counted on the tasks they see (decisions 58, 79).
+// Tags in My day, folded until opened: anyone has it, counted on the tasks they see (decisions 58, 83).
 test('the tag summary: the most active rubrics, a tag unfolds into its people, picked tags add all and any, a CSV', async ({ page }) => {
   await signIn(page, 'pavel@example.com');
-  await page.goto('/tags');
+  await unfold(page, 'Теги');
   const block = page.getByRole('region', { name: 'Статистика по тегам' });
   await expect(block.getByRole('row').nth(1)).toBeVisible();
   // What the block shows is under a "?", not in a line of text.

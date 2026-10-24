@@ -304,7 +304,7 @@ check: tasks are named by tags, and each has one owner who sees it done.
 The tag takes off like a rocket: done tasks are how a product gets built
 and shipped.
 
-### 31. One screen, no tabs — narrowed by 79
+### 31. One screen, no tabs
 
 Of the candidate sections none earned a tab: Team is a block of My day for
 someone with reports, the tags live in the profile (they are personal
@@ -1336,7 +1336,7 @@ the new tab like the others.
 *Implemented:* the `team` tab of `MyDay.current` and `Task.search`
 (`subordinates()`); `CurrentTasks`.
 
-### 78. A report's page shows what waits for their attention
+### 78. A report's page shows what waits for their attention — superseded by 83
 
 To know what holds a report up, a manager had to ask, or open their
 tasks one by one. Now a report's page shows a manager above them two
@@ -1352,7 +1352,7 @@ waiting. Mentions in tasks the manager does not see are left out too.
 `MyDay.openOwned`; `client/components/EmployeePage/Attention.tsx`,
 `TodoList` (read-only) in `client/components/MyDayPage/Todo.tsx`.
 
-### 79. My team and Tags are pages of their own
+### 79. My team and Tags are pages of their own — reversed by 83
 
 My day had grown: under Current tasks came the team table, the tags,
 the hour budgets and the bots — useful, but not what needs a person
@@ -1415,3 +1415,28 @@ field now says so: a participant sees the task; for an answer or an
 action, mention them. The guide's first-day steps say it too.
 
 *Implemented:* `add_observer()` (migration `0.4-0.5`); `People`.
+
+### 83. My day folds what is not for today; a report's page is their My day
+
+Decision 79 took the team, the tags, the budgets and the bots out to
+pages of their own, to keep My day to what needs a person today. But a
+manager wanted to look at a report's day with the report's eyes — and
+the report's day then lived on three screens. So they are back in My
+day, folded: below the tasks each is a line — its title and what it is
+about — and opens on a click, staying open in that browser. The screen
+stays light, and nothing moved away.
+
+A report's page now shows a manager above them that My day as the report
+sees it: Waiting for him/her, what they wait for from others, their
+Available tasks (with "Team open" if they lead people), their team,
+tags, budgets and bots, folded the same way, and their two days in the
+timesheet — every block read-only: no buttons, no search, no new task.
+Their reminders are left out — a reminder is theirs alone. All their days
+in pages, where older days are scored, are folded under it. Every query
+behind a block takes `as`, checked on the server: the viewer must be a
+manager above that person. Decision 78's two blocks are replaced by it.
+
+*Implemented:* `Fold`, `ViewAs`/`useViewAs`, `DayColumns`
+(`client/components/MyDayPage.tsx`); `as` in `MyDay.todo`, `waiting`,
+`current`, `Team.summary`, `Tags.stats`, `detail`, `TagLimit.list`,
+`history`, `Bot.list`, `stats` (`viewAs()` in `server/services/Team.ts`).

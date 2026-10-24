@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { History } from '#shared/myDay.ts';
-import { Id } from '#shared/employee.ts';
-import { Attention, EmployeeHistoryInput, Member, PeriodStats, ScoreInput, StatsInput, SummaryInput, UnscoreInput } from '#shared/team.ts';
+import { EmployeeHistoryInput, Member, PeriodStats, ScoreInput, StatsInput, SummaryInput, UnscoreInput } from '#shared/team.ts';
 import * as Team from '../services/Team.ts';
 import { authedProcedure, router } from '../trpc.ts';
 
@@ -10,12 +9,14 @@ export default router({
    * The team summary for a range of days (up to a year): the whole subtree
    * of the signed-in employee's reports, direct ones first — workload and
    * weighted score, days waiting for a score, tasks closed by hand and
-   * automatically, open tasks. Empty for someone without reports.
+   * automatically, open tasks. Empty for someone without reports. `as` — a
+   * report's team, for a manager above (decision 83).
+   * @throws forbidden — `as` is not under the signed-in employee.
    */
   summary: authedProcedure
     .input(SummaryInput)
     .output(Member.array())
-    .query(({ input, ctx }) => Team.summary(ctx.employeeId, input.from, input.to)),
+    .query(async ({ input, ctx }) => Team.summary(await Team.viewAs(ctx.employeeId, input.as), input.from, input.to)),
 
   /**
    * An employee's workload and weighted score for a range of their days
@@ -27,17 +28,6 @@ export default router({
     .input(StatsInput)
     .output(PeriodStats)
     .query(({ input, ctx }) => Team.employeeStats(ctx.employeeId, input.employeeId, input.from, input.to)),
-
-  /**
-   * What waits for a report's attention (decision 78): their Waiting for me
-   * without their reminders, and the open tasks they own. For every manager
-   * above them; not for the employee — that is their My day.
-   * @throws forbidden
-   */
-  attention: authedProcedure
-    .input(z.object({ employeeId: Id }))
-    .output(Attention)
-    .query(({ input, ctx }) => Team.attention(ctx.employeeId, input.employeeId)),
 
   /**
    * An employee's days, as in their My day (decision 12), `size` per page.

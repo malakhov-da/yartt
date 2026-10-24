@@ -9,6 +9,7 @@ import type { Tag } from '#shared/task.ts';
 import { useStore } from '#client/hooks/store.ts';
 import { POLL_MS } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
+import { useViewAs } from '#client/hooks/viewAs.ts';
 import TagInput, { useTitle } from '../App/TagInput.tsx';
 import TaskLine from '../TaskPage/TaskLine.tsx';
 import TakenLink from '../App/TakenLink.tsx';
@@ -30,6 +31,8 @@ const TABS = ['mine', 'team', 'others', 'closed'] as const;
  */
 export default function (p: { team: boolean }) {
   const { t } = useTranslation();
+  // A report's, on their page: their tabs, no search and no new task (decision 83).
+  const { as, readOnly } = useViewAs();
   const trpc = useTRPC();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -48,7 +51,7 @@ export default function (p: { team: boolean }) {
   const page = pages[tab];
 
   const current = useQuery(trpc.MyDay.current.queryOptions(
-    { tab, page },
+    { tab, page, as },
     { enabled: !filtering, refetchInterval: POLL_MS, placeholderData: keepPreviousData },
   ));
   const found = useQuery(trpc.Task.search.queryOptions(
@@ -95,6 +98,7 @@ export default function (p: { team: boolean }) {
 
   // "/" outside inputs: back to My day and into the search.
   useEffect(() => {
+    if (readOnly) return;
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (e.key !== '/' || target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
@@ -108,7 +112,7 @@ export default function (p: { team: boolean }) {
   // Another place asked to search by tags (a tag in My tags).
   const requested = useStore((s) => s.searchTags);
   useEffect(() => {
-    if (!requested) return;
+    if (!requested || readOnly) return;
     filter({ tags: requested, input: '' });
     useStore.setState({ searchTags: null });
     focusSearch();
@@ -119,7 +123,7 @@ export default function (p: { team: boolean }) {
       <Stack direction="row" sx={{ alignItems: 'center', gap: 1 }}>
         <Typography variant="h3" sx={{ fontWeight: 600, flexGrow: 1 }}>{t('myDay.current.title')}</Typography>
         {/* A button with a word, not a bare "+" in the field: creating is half of what this block is for. */}
-        <Tooltip title={createHint}>
+        {!readOnly && <Tooltip title={createHint}>
           <span>
             <Button
               size="small"
@@ -130,9 +134,9 @@ export default function (p: { team: boolean }) {
               {t('newTask.title')}
             </Button>
           </span>
-        </Tooltip>
+        </Tooltip>}
       </Stack>
-      <TagInput
+      {!readOnly && <TagInput
         value={tags.map((tag) => ({ tag }))}
         onChange={(next) => filter({ tags: next.flatMap((part) => ('tag' in part ? [part.tag] : [])) })}
         input={input}
@@ -141,7 +145,7 @@ export default function (p: { team: boolean }) {
         inputRef={inputRef}
         startAdornment={<InputAdornment position="start"><Search fontSize="small" /></InputAdornment>}
         sx={{ mt: 0.5 }}
-      />
+      />}
       {title.taken && (
         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
           <TakenLink id={title.taken.id} />
@@ -176,7 +180,7 @@ export default function (p: { team: boolean }) {
           <TaskLine
             key={task.id}
             task={task}
-            onTag={(tag) => { if (!tags.some((picked) => picked.id === tag.id)) filter({ tags: [...tags, tag] }); }}
+            onTag={readOnly ? undefined : (tag) => { if (!tags.some((picked) => picked.id === tag.id)) filter({ tags: [...tags, tag] }); }}
           />
         ))}
       </Stack>

@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import type { Current, CurrentTab, DayHistory, History, TodoItem, WaitingItem } from '#shared/myDay.ts';
-import type { TaskHeader as TaskHeaderType } from '#shared/task.ts';
 import { plainText } from '../html.ts';
 import { sql } from '../pg.ts';
 import { mentionReplies, replyKey } from './Comment.ts';
@@ -90,7 +89,7 @@ export async function todo(me: number, viewerId: number = me): Promise<TodoItem[
     ...[...requests, ...mentions, ...reviews, ...reminds, ...deadlines, ...done].map((r) => r.taskId),
     ...done.map((d) => d.value),
   ])];
-  const tasks = new Map((await headers(viewerId, ids)).map((h) => [h.id, h]));
+  const tasks = new Map((await headers(me, ids)).map((h) => [h.id, h]));
 
   const timed: (TodoItem & { at: Date })[] = [
     ...mentions.flatMap((m) => {
@@ -137,17 +136,6 @@ export async function todo(me: number, viewerId: number = me): Promise<TodoItem[
   ];
 }
 
-/** The open tasks an employee owns, as in their "My open": by deadline, nearest first. */
-export async function openOwned(employeeId: number, viewerId: number): Promise<TaskHeaderType[]> {
-  const ids = z.object({ id: z.number() }).array().parse(await sql`
-    SELECT k.id FROM task k
-      LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
-     WHERE k.owner_id = ${employeeId} AND (f.value IS NULL OR f.value > NOW())
-     ORDER BY f.value NULLS LAST, k.priority DESC, k.id DESC
-  `).map((r) => r.id);
-  return headers(viewerId, ids);
-}
-
 const MyMentionRow = z.object({
   taskId: z.number(),
   commentId: z.number(),
@@ -162,7 +150,7 @@ const MyMentionRow = z.object({
  * first, with whether they have answered. A mention in a task I no longer
  * see is not shown.
  */
-export async function waiting(me: number): Promise<WaitingItem[]> {
+export async function waiting(me: number, viewerId: number = me): Promise<WaitingItem[]> {
   const requests = z.object({ taskId: z.number() }).array().parse(await sql`
     SELECT task_id FROM observer
      WHERE value = ${me} AND added_at IS NULL AND deleted_at IS NULL
@@ -172,7 +160,7 @@ export async function waiting(me: number): Promise<WaitingItem[]> {
     SELECT m.task_id, m.comment_id, m.value AS employee_id, c.created_at, c.value
       FROM mention m
       JOIN comment c ON c.task_id = m.task_id AND c.id = m.comment_id
-     WHERE c.created_by = ${me} AND m.closed_at IS NULL AND can_see(m.task_id, ${me})
+     WHERE c.created_by = ${me} AND m.closed_at IS NULL AND can_see(m.task_id, ${me}) AND can_see(m.task_id, ${viewerId})
      ORDER BY c.created_at, m.value
   `);
   const answers = await mentionReplies(mentions.map((m) => ({ taskId: m.taskId, commentId: m.commentId, employeeId: m.employeeId })));

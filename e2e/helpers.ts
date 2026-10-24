@@ -52,3 +52,8 @@ export async function createTask(page: Page, tags: string[]): Promise<void> {
   await expect(page).toHaveURL(/\/tasks\/\d+$/);
 }
 
+
+/** Opens a folded block of My day (decision 83) by its title. */
+export async function unfold(page: Page, title: string): Promise<void> {
+  await page.getByRole('button', { name: new RegExp(`^${title}`), expanded: false }).click();
+}

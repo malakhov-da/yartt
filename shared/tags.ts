@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Id } from './employee.ts';
+import { As, Id } from './employee.ts';
 import { Tag, TagColor } from './task.ts';
 
 // The Tags tab: the tags I meet, with my own color and weight (db.sql, user_tag).
@@ -84,6 +84,7 @@ export const TagStatsInput = z.object({
   page: z.number().int().min(1),
   /** 'active' — the tasks in work in the range, the default. */
   sort: TagSort.default('active'),
+  as: As,
 });
 export type TagStatsInput = z.infer<typeof TagStatsInput>;
 
@@ -130,7 +131,7 @@ export const TagStats = z.object({
 });
 export type TagStats = z.infer<typeof TagStats>;
 
-export const TagDetailInput = z.object({ since: Since, group: TagGroup });
+export const TagDetailInput = z.object({ since: Since, group: TagGroup, as: As });
 export type TagDetailInput = z.infer<typeof TagDetailInput>;
 
 /** One person under a line: their own time, its share of all they logged, and their plan. */

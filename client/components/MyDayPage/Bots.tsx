@@ -10,6 +10,7 @@ import { useFormat } from '#client/hooks/format.ts';
 import { useMe } from '#client/hooks/me.ts';
 import { POLL_MS, useEmployees } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
+import { useViewAs } from '#client/hooks/viewAs.ts';
 import HelpTip from '../App/HelpTip.tsx';
 import SincePicker, { lastDays } from '../App/SincePicker.tsx';
 import BotDialog from './BotDialog.tsx';
@@ -40,15 +41,16 @@ function Sparkline(p: { values: number[] }) {
  * under me. What a figure means is under a "?". `bare` — without the
  * card, in the profile.
  */
-export default function (p: { bare?: boolean }) {
+export default function (p: { bare?: boolean; fold?: ReactNode }) {
   const { t } = useTranslation();
+  const { as, readOnly } = useViewAs();
   const trpc = useTRPC();
   const me = useMe();
   const format = useFormat();
   const employees = useEmployees();
   const [since, setSince] = useState(() => lastDays(30));
-  const bots = useQuery(trpc.Bot.list.queryOptions(undefined, { refetchInterval: POLL_MS }));
-  const stats = useQuery(trpc.Bot.stats.queryOptions({ since }, {
+  const bots = useQuery(trpc.Bot.list.queryOptions({ as }, { refetchInterval: POLL_MS }));
+  const stats = useQuery(trpc.Bot.stats.queryOptions({ since, as }, {
     refetchInterval: POLL_MS, placeholderData: keepPreviousData,
   }));
   const [opened, setOpened] = useState<Bot | 'new' | null>(null);
@@ -106,7 +108,8 @@ export default function (p: { bare?: boolean }) {
           </Stack>
         )}
         {p.bare && <Typography variant="body2" sx={{ color: 'text.secondary', flexGrow: 1 }}>{t('bots.hint')}</Typography>}
-        <Button size="small" startIcon={<Add />} onClick={() => setOpened('new')}>{t('bots.create')}</Button>
+        {!readOnly && <Button size="small" startIcon={<Add />} onClick={() => setOpened('new')}>{t('bots.create')}</Button>}
+        {p.fold}
       </Stack>
       {!p.bare && list.length === 0 && bots.isSuccess && (
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>{t('bots.hint')}</Typography>
@@ -135,7 +138,12 @@ export default function (p: { bare?: boolean }) {
                 {list.map((bot) => {
                   const oldKey = !bot.dismissedAt && Date.now() - bot.keyIssuedAt.getTime() >= YEAR_MS;
                   return (
-                    <TableRow key={bot.id} hover onClick={() => setOpened(bot)} sx={{ cursor: 'pointer', opacity: bot.dismissedAt ? 0.6 : 1 }}>
+                    <TableRow
+                      key={bot.id}
+                      hover={!readOnly}
+                      onClick={readOnly ? undefined : () => setOpened(bot)}
+                      sx={{ cursor: readOnly ? 'default' : 'pointer', opacity: bot.dismissedAt ? 0.6 : 1 }}
+                    >
                       <TableCell>
                         <Stack direction="row" sx={{ alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
                           <SmartToy fontSize="small" sx={{ color: 'text.secondary' }} />
@@ -176,5 +184,5 @@ export default function (p: { bare?: boolean }) {
     </Stack>
   );
 
-  return p.bare ? <Box>{content}</Box> : <Paper sx={{ p: 2 }}>{content}</Paper>;
+  return p.bare ? <Box>{content}</Box> : <Paper component="section" aria-label={t('bots.title')} sx={{ p: 2 }}>{content}</Paper>;
 }

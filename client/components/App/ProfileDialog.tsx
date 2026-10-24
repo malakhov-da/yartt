@@ -15,7 +15,7 @@ import { useTRPC } from '#client/hooks/trpc.ts';
 import { fieldErrors } from '#client/i18n/errors.ts';
 import EmailField from './EmailField.tsx';
 import EmployeeAvatar from './EmployeeAvatar.tsx';
-import Bots from '../TeamPage/Bots.tsx';
+import Bots from '../MyDayPage/Bots.tsx';
 import MyTags from './MyTags.tsx';
 import { employeeFilter, employeeOption } from './employeeOption.tsx';
 

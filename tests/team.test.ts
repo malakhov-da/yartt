@@ -141,7 +141,7 @@ describe('team', () => {
     await expect((await client(dev.id)).Team.stats(await lastDays(lead.id, 30))).rejects.toMatchObject({ message: 'forbidden' });
   });
 
-  test('what waits for a report\'s attention: their TODO without their reminders, and their open tasks; for managers above only', async () => {
+  test('a report\'s My day for managers above: their TODO without their reminders, their tasks; nobody else', async () => {
     const boss = await createEmployee();
     const lead = await createEmployee({ managerId: boss.id });
     const dev = await createEmployee({ managerId: lead.id });
@@ -156,11 +156,12 @@ describe('team', () => {
     await sql`SELECT send_due_reminds()`;
     expect((await devApi.MyDay.todo()).map((i) => i.kind).sort()).toEqual(['remind', 'request']);
 
-    const seen = await (await client(boss.id)).Team.attention({ employeeId: dev.id });
-    expect(seen.todo).toMatchObject([{ kind: 'request', task: { id: open }, employeeId: peer.id }]);
-    expect(seen.tasks.map((t) => t.id)).toEqual([open]);
-    await expect((await client(peer.id)).Team.attention({ employeeId: dev.id })).rejects.toMatchObject({ message: 'forbidden' });
-    await expect(devApi.Team.attention({ employeeId: dev.id })).rejects.toMatchObject({ message: 'forbidden' });
+    const bossApi = await client(boss.id);
+    expect(await bossApi.MyDay.todo({ as: dev.id })).toMatchObject([{ kind: 'request', task: { id: open }, employeeId: peer.id }]);
+    expect((await bossApi.MyDay.current({ tab: 'mine', page: 1, as: dev.id })).items.map((t) => t.id)).toEqual([open]);
+    expect(await bossApi.MyDay.waiting({ as: dev.id })).toEqual([]);
+    await expect((await client(peer.id)).MyDay.todo({ as: dev.id })).rejects.toMatchObject({ message: 'forbidden' });
+    await expect((await client(peer.id)).TagLimit.list({ as: dev.id })).rejects.toMatchObject({ message: 'forbidden' });
   });
 
   test('only the direct manager scores and corrects; the score is weighted by hours; every version is mailed', async () => {

@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { Bot, BotInput, BotKey, BotStats, BotStatsInput, BotTransferInput, BotUpdateInput } from '#shared/bot.ts';
-import { Id } from '#shared/employee.ts';
+import { AsInput, Id } from '#shared/employee.ts';
 import * as Bots from '../services/Bot.ts';
+import { viewAs } from '../services/Team.ts';
 import { authedProcedure, router } from '../trpc.ts';
 
 export default router({
@@ -9,7 +10,15 @@ export default router({
    * Bots the signed-in person answers for: their own and those of everyone
    * under them, dismissed ones included. The webhook secret only of their own.
    */
-  list: authedProcedure.output(Bot.array()).query(({ ctx }) => Bots.list(ctx.employeeId)),
+  list: authedProcedure
+    .input(AsInput.optional())
+    .output(Bot.array())
+    // Seen as a report's, the secrets stay theirs.
+    .query(async ({ input, ctx }) => {
+      const as = await viewAs(ctx.employeeId, input?.as);
+      const bots = await Bots.list(as);
+      return as === ctx.employeeId ? bots : bots.map((bot) => ({ ...bot, webhookSecret: null }));
+    }),
 
   /**
    * What those bots did from a day to today (up to two years): their tasks,
@@ -19,7 +28,7 @@ export default router({
   stats: authedProcedure
     .input(BotStatsInput)
     .output(BotStats.array())
-    .query(({ input, ctx }) => Bots.stats(ctx.employeeId, input.since)),
+    .query(async ({ input, ctx }) => Bots.stats(await viewAs(ctx.employeeId, input.as), input.since)),
 
   /**
    * Creates a bot under the signed-in person; its key is returned only now.

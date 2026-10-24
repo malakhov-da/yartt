@@ -6,6 +6,7 @@ import type { WaitingItem } from '#shared/myDay.ts';
 import { useFormat } from '#client/hooks/format.ts';
 import { POLL_MS, useEmployees, useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
+import { useViewAs } from '#client/hooks/viewAs.ts';
 import HelpTip from '../App/HelpTip.tsx';
 import MentionReply from '../TaskPage/MentionReply.tsx';
 import TaskLine from '../TaskPage/TaskLine.tsx';
@@ -19,13 +20,15 @@ import TaskLine from '../TaskPage/TaskLine.tsx';
 export default function () {
   const { t } = useTranslation();
   const trpc = useTRPC();
-  const waiting = useQuery(trpc.MyDay.waiting.queryOptions(undefined, { refetchInterval: POLL_MS }));
+  const { as, readOnly } = useViewAs();
+  const title = t(readOnly ? 'myDay.waiting.titleOf' : 'myDay.waiting.title');
+  const waiting = useQuery(trpc.MyDay.waiting.queryOptions({ as }, { refetchInterval: POLL_MS }));
   const items = waiting.data ?? [];
   if (items.length === 0) return null;
   return (
-    <Paper component="section" aria-label={t('myDay.waiting.title')} sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+    <Paper component="section" aria-label={title} sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
       <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
-        <Typography variant="h3" sx={{ fontWeight: 600 }}>{t('myDay.waiting.title')} · {items.length}</Typography>
+        <Typography variant="h3" sx={{ fontWeight: 600 }}>{title} · {items.length}</Typography>
         <HelpTip title={t('myDay.waiting.hint')} />
       </Stack>
       {items.map((item) => (
@@ -37,6 +40,7 @@ export default function () {
 
 function Item(p: { item: WaitingItem }) {
   const { t } = useTranslation();
+  const { readOnly } = useViewAs();
   const trpc = useTRPC();
   const format = useFormat();
   const employees = useEmployees();
@@ -72,7 +76,7 @@ function Item(p: { item: WaitingItem }) {
             </>
           )}
         </Box>
-        {item.kind === 'request' && (
+        {item.kind === 'request' && !readOnly && (
           <Button size="small" color="inherit" sx={{ ml: 'auto' }} disabled={withdraw.isPending}
             onClick={() => withdraw.mutate({ taskId: item.task.id })}>
             {t('task.noAccess.withdraw')}

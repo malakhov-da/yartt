@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { FullName, Id, Pronoun } from './employee.ts';
+import { As, FullName, Id, Pronoun } from './employee.ts';
 
 // Bots: programs acting through the API with a key (db.sql, bot).
 
@@ -69,7 +69,7 @@ export const BotStats = z.object({
 export type BotStats = z.infer<typeof BotStats>;
 
 /** From a day to today, as in the Tags summary. */
-export const BotStatsInput = z.object({ since: z.iso.date() });
+export const BotStatsInput = z.object({ since: z.iso.date(), as: As });
 export type BotStatsInput = z.infer<typeof BotStatsInput>;
 
 /** A key: shown once, never again. */

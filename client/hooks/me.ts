@@ -11,15 +11,16 @@ export function useMe(): Me {
 }
 
 /**
- * What the signed-in employee manages: people (`isManager` — My team and its
- * tab of tasks) and bots (`hasBots` — My team, for someone whose only
- * reports are bots, created from the profile).
+ * What someone manages — the signed-in employee, or `employeeId`: people
+ * (`isManager` — My team and its tab of tasks) and bots (`hasBots` — the
+ * Bots block, for someone whose only reports are bots too).
  */
-export function useTeamRole(): { isManager: boolean; hasBots: boolean } {
+export function useTeamRole(employeeId?: number): { isManager: boolean; hasBots: boolean } {
   const trpc = useTRPC();
   const me = useMe();
   const employees = useQuery(trpc.Employee.list.queryOptions());
-  const reports = (employees.data ?? []).filter((e) => e.managerId === me.id);
+  const id = employeeId ?? me.id;
+  const reports = (employees.data ?? []).filter((e) => e.managerId === id);
   const isManager = reports.some((e) => e.kind === 'human');
   return { isManager, hasBots: isManager || reports.some((e) => e.kind === 'bot') };
 }

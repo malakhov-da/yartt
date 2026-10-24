@@ -19,7 +19,8 @@ const DAYS_PER_PAGE = 14;
  * My day, today and the last one before it, where I start and finish
  * shifts, with "History" leading to all of them; with it — someone's days
  * on their page (mine too), with pages, read-only for others, scored by
- * their direct manager. On an employee page (`onEmployeePage`) there is no
+ * their direct manager — or, not `onEmployeePage`, their two days as their
+ * My day shows them (decision 83). On an employee page (`onEmployeePage`) there is no
  * title — the page says whose days — and the days are cards of one size in
  * a grid, each opening whole in a dialog.
  */
@@ -34,7 +35,7 @@ export default function (p: { employeeId?: number; canScore?: boolean; onEmploye
     { ...options, enabled: p.employeeId === undefined },
   ));
   const theirs = useQuery(trpc.Team.history.queryOptions(
-    { employeeId: p.employeeId ?? 0, page, size: DAYS_PER_PAGE },
+    p.onEmployeePage ? { employeeId: p.employeeId ?? 0, page, size: DAYS_PER_PAGE } : { employeeId: p.employeeId ?? 0, page: 1, size: MY_DAY_DAYS },
     { ...options, enabled: p.employeeId !== undefined },
   ));
   const history = p.employeeId === undefined ? mine : theirs;
@@ -58,7 +59,10 @@ export default function (p: { employeeId?: number; canScore?: boolean; onEmploye
       {!p.onEmployeePage && (
         <Stack direction="row" sx={{ alignItems: 'center' }}>
           <Typography variant="h3" sx={{ fontWeight: 600, flexGrow: 1 }}>{t('myDay.history.title')}</Typography>
-          <Button size="small" component={Link} to={`/employees/${me.id}`}>{t('myDay.history.stats')}</Button>
+          {/* A report's two days sit on their page, over all of them. */}
+          {p.employeeId === undefined && (
+            <Button size="small" component={Link} to={`/employees/${me.id}`}>{t('myDay.history.stats')}</Button>
+          )}
         </Stack>
       )}
       {p.onEmployeePage ? (

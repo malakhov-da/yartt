@@ -4,6 +4,13 @@ export const en: Translation = {
   app: {
     name: 'yartt',
   },
+  fold: {
+    fold: 'Fold',
+    team: 'Time, scores, tasks at risk and delays — for each of your people',
+    tags: 'What happened under each tag: tasks, comments, hours and plans',
+    limits: 'Hour budgets on tag combinations: what is logged and still planned',
+    bots: 'Your bots and your people\'s: whether they work',
+  },
   common: {
     save: 'Save',
     cancel: 'Cancel',
@@ -25,8 +32,6 @@ export const en: Translation = {
   nav: {
     help: 'How to work',
     myDay: 'My day',
-    team: 'My team',
-    tags: 'Tags',
     invite: 'Invite an employee',
     profile: 'Profile',
     logout: 'Log out',
@@ -55,6 +60,9 @@ export const en: Translation = {
     empty: 'Nothing needs your attention right now.',
     todo: {
       title: 'Waiting for me',
+      titleOf: 'Waiting for them',
+      titleOf_he: 'Waiting for him',
+      titleOf_she: 'Waiting for her',
       mention: '{{name}} mentioned you',
       myReply: 'My reply',
       reply: 'Reply',
@@ -80,6 +88,7 @@ export const en: Translation = {
     },
     waiting: {
       title: 'Waiting for others',
+      titleOf: 'Waits for others',
       hint: 'What waits for others: your access requests the owner has not answered yet, and your mentions the person has not closed with "Done". The longest waiting on top.',
       request: 'You asked for access — {{name}} decides',
       mention: 'You mentioned: {{name}}',
@@ -584,16 +593,8 @@ export const en: Translation = {
     idpBlockedHint: 'Since {{day}} the company account no longer lets them into yartt: they may have left. Their sessions are ended and bots stopped; their manager can dismiss them.',
     manager: 'Manager: {{name}}',
     noManager: 'No manager',
-    attention: {
-      title: 'Waiting for their attention',
-      title_he: 'Waiting for his attention',
-      title_she: 'Waiting for her attention',
-      empty: 'Nothing is waiting.',
-      tasks: 'Their open tasks',
-      tasks_he: 'His open tasks',
-      tasks_she: 'Her open tasks',
-      noTasks: 'No open tasks.',
-    },
+    allDays: 'All days',
+    allDaysHint: 'The timesheet of every day, in pages: shifts, time, activity and scores',
     stats: {
       title: 'Metrics',
       days: '{{count}} d',

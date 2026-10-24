@@ -4,6 +4,7 @@ import {
 } from '#shared/tags.ts';
 import { Tag } from '#shared/task.ts';
 import * as Tags from '../services/Tags.ts';
+import { viewAs } from '../services/Team.ts';
 import { authedProcedure, router } from '../trpc.ts';
 
 export default router({
@@ -38,7 +39,7 @@ export default router({
   stats: authedProcedure
     .input(TagStatsInput)
     .output(TagStats)
-    .query(({ input, ctx }) => Tags.stats(ctx.employeeId, input)),
+    .query(async ({ input, ctx }) => Tags.stats(await viewAs(ctx.employeeId, input.as), input)),
 
   /**
    * A line of the summary unfolded: comments and open tasks with a plan
@@ -49,7 +50,7 @@ export default router({
   detail: authedProcedure
     .input(TagDetailInput)
     .output(TagDetail)
-    .query(({ input, ctx }) => Tags.detail(ctx.employeeId, input)),
+    .query(async ({ input, ctx }) => Tags.detail(await viewAs(ctx.employeeId, input.as), input)),
 
   /**
    * The tags of the tasks the signed-in employee sees, with task counts and

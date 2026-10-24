@@ -1,7 +1,8 @@
 import { z } from 'zod';
-import { Id } from '#shared/employee.ts';
+import { As, AsInput, Id } from '#shared/employee.ts';
 import { TagLimit, TagLimitInput, TagLimits, TagLimitVersion } from '#shared/tagLimit.ts';
 import * as TagLimitService from '../services/TagLimit.ts';
+import { viewAs } from '../services/Team.ts';
 import { authedProcedure, router } from '../trpc.ts';
 
 export default router({
@@ -11,7 +12,10 @@ export default router({
    * which count their hours too — the current ones with spent, planned,
    * forecast and the spending day by day, and the removed ones.
    */
-  list: authedProcedure.output(TagLimits).query(({ ctx }) => TagLimitService.list(ctx.employeeId)),
+  list: authedProcedure
+    .input(AsInput.optional())
+    .output(TagLimits)
+    .query(async ({ input, ctx }) => TagLimitService.list(await viewAs(ctx.employeeId, input?.as))),
 
   /**
    * The current limits a task falls under (it carries all their tags) that
@@ -27,9 +31,9 @@ export default router({
    * @throws not_found — unknown, or not seen by the signed-in employee.
    */
   history: authedProcedure
-    .input(z.object({ id: Id }))
+    .input(z.object({ id: Id, as: As }))
     .output(TagLimitVersion.array())
-    .query(({ input, ctx }) => TagLimitService.history(ctx.employeeId, input.id)),
+    .query(async ({ input, ctx }) => TagLimitService.history(await viewAs(ctx.employeeId, input.as), input.id)),
 
   /**
    * Sets a limit for the signed-in employee and everyone under them; with

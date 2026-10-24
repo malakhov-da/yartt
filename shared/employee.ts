@@ -89,3 +89,12 @@ export const SettingsInput = z
   })
   .partial();
 export type SettingsInput = z.infer<typeof SettingsInput>;
+
+/**
+ * Whose My day a block shows: left out — the signed-in employee's own; an
+ * id — a report's, on their page, read-only for a manager above them
+ * (decision 83). The server checks the viewer may see that person's days.
+ */
+export const As = Id.optional();
+export const AsInput = z.object({ as: As });
+export type AsInput = z.infer<typeof AsInput>;

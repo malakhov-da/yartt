@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Day, Id } from './employee.ts';
+import { As, Day, Id } from './employee.ts';
 import { MentionReply } from './comment.ts';
 import { TaskHeader } from './task.ts';
 
@@ -118,6 +118,7 @@ export type CurrentTab = z.infer<typeof CurrentTab>;
 export const CurrentInput = z.object({
   tab: CurrentTab,
   page: z.number().int().min(1),
+  as: As,
 });
 export type CurrentInput = z.infer<typeof CurrentInput>;
 

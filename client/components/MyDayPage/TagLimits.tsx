@@ -4,7 +4,7 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TagPart } from '#shared/tags.ts';
 import type { TagLimit, TagLimitVersion } from '#shared/tagLimit.ts';
@@ -14,11 +14,12 @@ import { useDraft } from '#client/hooks/drafts.ts';
 import { useMe } from '#client/hooks/me.ts';
 import { POLL_MS, useEmployees, useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
+import { useViewAs } from '#client/hooks/viewAs.ts';
 import HelpTip from '../App/HelpTip.tsx';
 import TagChip from '../App/TagChip.tsx';
 import TagInput from '../App/TagInput.tsx';
 import { minusDays } from '../App/RangePicker.tsx';
-import TeamChart from '../TeamPage/TeamChart.tsx';
+import TeamChart from './TeamChart.tsx';
 
 /** How a limit stands: over — spent past it; risk — the forecast is past it. */
 export const standing = (l: { minutes: number; spentMinutes: number; forecastMinutes: number }) =>
@@ -56,11 +57,12 @@ type Draft = { replaces: number | null; tags: Tag[]; input: string; startsOn: st
  * version. A change is a new version, the old one kept; nothing is
  * forbidden and nothing is sent: it is a line to keep to.
  */
-export default function () {
+export default function (p: { fold?: ReactNode }) {
   const { t } = useTranslation();
   const trpc = useTRPC();
   const me = useMe();
-  const limits = useQuery(trpc.TagLimit.list.queryOptions(undefined, { refetchInterval: POLL_MS, placeholderData: keepPreviousData }));
+  const { as, readOnly } = useViewAs();
+  const limits = useQuery(trpc.TagLimit.list.queryOptions({ as }, { refetchInterval: POLL_MS, placeholderData: keepPreviousData }));
   const [draft, setDraft, clearDraft] = useDraft<Draft | null>('tag-limit', null);
   const [showRemoved, setShowRemoved] = useState(false);
   const set = useMutation(trpc.TagLimit.set.mutationOptions({ onSuccess: () => { clearDraft(); void limits.refetch(); } }));
@@ -88,7 +90,8 @@ export default function () {
           <Typography variant="h3" sx={{ fontWeight: 600 }}>{t('tagLimits.title')}</Typography>
           <HelpTip title={t('tagLimits.hint')} />
         </Stack>
-        {!draft && <Button size="small" startIcon={<Add />} onClick={() => start()}>{t('tagLimits.create')}</Button>}
+        {!draft && !readOnly && <Button size="small" startIcon={<Add />} onClick={() => start()}>{t('tagLimits.create')}</Button>}
+        {p.fold}
       </Stack>
 
       {draft && (
@@ -133,7 +136,7 @@ export default function () {
       {limits.isSuccess && current.length === 0 && !draft && (
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>{t('tagLimits.empty')}</Typography>
       )}
-      {current.map((limit) => <Line key={limit.id} limit={limit} mine={limit.employeeId === me.id} onEdit={() => start(limit)} />)}
+      {current.map((limit) => <Line key={limit.id} limit={limit} mine={limit.employeeId === (as ?? me.id)} onEdit={readOnly ? undefined : () => start(limit)} />)}
 
       {removed.length > 0 && (
         <Box>
@@ -149,7 +152,8 @@ export default function () {
   );
 }
 
-function Line(p: { limit: TagLimit; mine: boolean; onEdit: () => void }) {
+/** `onEdit` left out — read-only, on a report's page. */
+function Line(p: { limit: TagLimit; mine: boolean; onEdit?: () => void }) {
   const { t } = useTranslation();
   const trpc = useTRPC();
   const format = useFormat();
@@ -159,7 +163,8 @@ function Line(p: { limit: TagLimit; mine: boolean; onEdit: () => void }) {
   const [open, setOpen] = useState(false);
   const refresh = useTaskRefresh();
   const remove = useMutation(trpc.TagLimit.remove.mutationOptions({ onSuccess: refresh }));
-  const history = useQuery(trpc.TagLimit.history.queryOptions({ id: p.limit.id }, { enabled: open && p.limit.changed }));
+  const { as } = useViewAs();
+  const history = useQuery(trpc.TagLimit.history.queryOptions({ id: p.limit.id, as }, { enabled: open && p.limit.changed }));
   const l = p.limit;
   const state = standing(l);
 
@@ -190,7 +195,7 @@ function Line(p: { limit: TagLimit; mine: boolean; onEdit: () => void }) {
             {!p.mine && ` · ${t('tagLimits.of', { name: employees.get(l.employeeId)?.fullName ?? `#${l.employeeId}` })}`}
           </Typography>
         </Box>
-        {p.mine && (
+        {p.mine && p.onEdit && (
           <Stack direction="row" onClick={(e) => e.stopPropagation()}>
             <Tooltip title={t('tagLimits.change')}><IconButton size="small" onClick={p.onEdit}><Edit fontSize="small" /></IconButton></Tooltip>
             <Tooltip title={t('tagLimits.remove')}>

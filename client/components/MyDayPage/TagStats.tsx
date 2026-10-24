@@ -11,6 +11,7 @@ import type { Tag } from '#shared/task.ts';
 import { fromDay, today, useFormat } from '#client/hooks/format.ts';
 import { POLL_MS, useEmployees } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
+import { useViewAs } from '#client/hooks/viewAs.ts';
 import { csv, download, type Cell } from '#client/hooks/xlsx.ts';
 import HelpTip from '../App/HelpTip.tsx';
 import SincePicker, { lastDays } from '../App/SincePicker.tsx';
@@ -32,8 +33,9 @@ const key = (group: TagGroup) => (group.kind === 'tag' ? `t${group.tagId}` : `${
  * (TagDetail) — the total and each one's time and plan day by day — and
  * everything shown goes out as CSV. What a figure means is under a "?".
  */
-export default function () {
+export default function (p: { fold?: ReactNode }) {
   const { t, i18n } = useTranslation();
+  const { as } = useViewAs();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const format = useFormat();
@@ -44,7 +46,7 @@ export default function () {
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<TagSort>('active');
   const [opened, setOpened] = useState<Set<string>>(new Set());
-  const statsInput = { since, tagIds: tags.map((tag) => tag.id), page, sort };
+  const statsInput = { since, tagIds: tags.map((tag) => tag.id), page, sort, as };
   const stats = useQuery(trpc.Tags.stats.queryOptions(statsInput, {
     refetchInterval: POLL_MS, placeholderData: keepPreviousData,
   }));
@@ -107,7 +109,7 @@ export default function () {
     ];
     const lines: Cell[][] = [head];
     for (const row of rows) {
-      const detail = await queryClient.fetchQuery(trpc.Tags.detail.queryOptions({ since, group: row.group }));
+      const detail = await queryClient.fetchQuery(trpc.Tags.detail.queryOptions({ since, group: row.group, as }));
       lines.push([
         label(row), t('tagStats.export.total'), hours(row.minutes), null, hours(row.leftMinutes), row.comments,
       ]);
@@ -131,6 +133,7 @@ export default function () {
         <Button size="small" startIcon={<Download />} disabled={rows.length === 0} onClick={() => void exportCsv()}>
           {t('tagStats.export.action')}
         </Button>
+        {p.fold}
       </Stack>
       <TagInput
         value={tags.map((tag) => ({ tag }))}

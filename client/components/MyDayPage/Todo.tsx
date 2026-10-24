@@ -10,6 +10,7 @@ import { useFormat } from '#client/hooks/format.ts';
 import { POLL_MS, useEmployees, usePronoun, useTaskRefresh } from '#client/hooks/task.ts';
 import { useStore } from '#client/hooks/store.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
+import { useViewAs } from '#client/hooks/viewAs.ts';
 import Composer from '../TaskPage/Composer.tsx';
 import MentionReply from '../TaskPage/MentionReply.tsx';
 import { PutOff } from '../TaskPage/Reminders.tsx';
@@ -29,7 +30,9 @@ const flash = keyframes`
 export default function () {
   const { t } = useTranslation();
   const trpc = useTRPC();
-  const todo = useQuery(trpc.MyDay.todo.queryOptions(undefined, { refetchInterval: POLL_MS }));
+  const { as, readOnly } = useViewAs();
+  const pronoun = usePronoun();
+  const todo = useQuery(trpc.MyDay.todo.queryOptions(as === undefined ? undefined : { as }, { refetchInterval: POLL_MS }));
   const focus = useStore((s) => s.todoFocus);
   const block = useRef<HTMLDivElement>(null);
   const title = useRef<HTMLHeadingElement>(null);
@@ -57,13 +60,13 @@ export default function () {
           ...(focus > 0 && { animation: `${flash} 0.6s ease-in-out 3`, '@media (prefers-reduced-motion: reduce)': { animation: 'none' } }),
         }}
       >
-        {t('myDay.todo.title')}
+        {readOnly ? t('myDay.todo.titleOf', pronoun(as)) : t('myDay.todo.title')}
         {todo.data && todo.data.length > 0 && ` · ${todo.data.length}`}
       </Typography>
       {todo.data?.length === 0 && (
         <Typography sx={{ color: 'text.secondary', textAlign: 'center', py: 2 }}>{t('myDay.empty')}</Typography>
       )}
-      <TodoList items={todo.data ?? []} />
+      <TodoList items={todo.data ?? []} readOnly={readOnly} />
     </Paper>
   );
 }

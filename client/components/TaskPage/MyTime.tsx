@@ -9,7 +9,7 @@ import { useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import TagChip from '../App/TagChip.tsx';
 import LogTimeDialog from '../MyDayPage/LogTimeDialog.tsx';
-import { LimitFigures } from '../TagsPage/TagLimits.tsx';
+import { LimitFigures } from '../MyDayPage/TagLimits.tsx';
 
 /**
  * My own time on the task, above the observer list (decision 17): all I

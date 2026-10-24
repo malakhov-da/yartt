@@ -1,6 +1,7 @@
 import { PersonRemove } from '@mui/icons-material';
 import { Box, Button, Stack, Typography, useTheme } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
+import { useViewAs } from '#client/hooks/viewAs.ts';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
@@ -44,6 +45,7 @@ export default function (p: { group: Group; onChanged: () => void }) {
   const format = useFormat();
   const duration = useDuration();
   const employees = useEmployees();
+  const { readOnly } = useViewAs();
   const dismiss = useMutation(trpc.Employee.dismiss.mutationOptions({ onSuccess: p.onChanged }));
   const { group } = p;
   const m = metrics(group);
@@ -155,7 +157,7 @@ export default function (p: { group: Group; onChanged: () => void }) {
         <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
           <Button size="small" component={Link} to={`/employees/${employee.id}`}>{t('myDay.team.details.page')}</Button>
           {/* My active direct report; a dismissed one comes back from the list under the table. */}
-          {person!.direct && employee.dismissedAt === null && (
+          {person!.direct && employee.dismissedAt === null && !readOnly && (
             <Button size="small" color="error" startIcon={<PersonRemove />} disabled={dismiss.isPending} onClick={() => confirmDismiss(employee)}>
               {t('team.dismiss')}
             </Button>
