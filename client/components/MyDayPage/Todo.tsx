@@ -63,14 +63,23 @@ export default function () {
       {todo.data?.length === 0 && (
         <Typography sx={{ color: 'text.secondary', textAlign: 'center', py: 2 }}>{t('myDay.empty')}</Typography>
       )}
-      {groups(todo.data ?? []).map((group) => (
-        <Stack key={group.task.id} spacing={1}>
-          <TaskLine task={group.task} />
-          {group.items.map((item) => <Item key={key(item)} item={item} />)}
-        </Stack>
-      ))}
+      <TodoList items={todo.data ?? []} />
     </Paper>
   );
+}
+
+/**
+ * The items under their tasks. `readOnly` — someone else's, on their page
+ * for a manager: what waits for them, without their buttons or the hints
+ * meant for them.
+ */
+export function TodoList(p: { items: TodoItem[]; readOnly?: boolean }) {
+  return groups(p.items).map((group) => (
+    <Stack key={group.task.id} spacing={1}>
+      <TaskLine task={group.task} />
+      {group.items.map((item) => <Item key={key(item)} item={item} readOnly={p.readOnly} />)}
+    </Stack>
+  ));
 }
 
 /** Items of one task together, under one line of it: the tasks in the order their first item comes. */
@@ -92,7 +101,7 @@ const key = (item: TodoItem) =>
   : item.kind === 'closing' || item.kind === 'closed' ? `${item.kind}${item.task.id}`
   : `v${item.task.id}`;
 
-function Item(p: { item: TodoItem }) {
+function Item(p: { item: TodoItem; readOnly?: boolean }) {
   const { t } = useTranslation();
   const trpc = useTRPC();
   const format = useFormat();
@@ -119,12 +128,13 @@ function Item(p: { item: TodoItem }) {
     text = (
       <>
         <Typography variant="body2">
-          {t('myDay.todo.mention', { name: name(item.authorId), ...pronoun(item.authorId) })} · {format.relative(item.at)}
+          {t(p.readOnly ? 'myDay.todo.mentionOf' : 'myDay.todo.mention', { name: name(item.authorId), ...pronoun(item.authorId) })}
+          {' · '}{format.relative(item.at)}
         </Typography>
         {item.excerpt && <Typography variant="body2" sx={{ color: 'text.secondary' }}>«{item.excerpt}»</Typography>}
         {item.replies.length > 0 && (
           <Stack spacing={0.5} sx={{ mt: 0.5 }}>
-            {item.replies.map((r) => <MentionReply key={r.id} who={t('myDay.todo.myReply')} reply={r} />)}
+            {item.replies.map((r) => <MentionReply key={r.id} who={t(p.readOnly ? 'myDay.todo.reply' : 'myDay.todo.myReply')} reply={r} />)}
           </Stack>
         )}
       </>
@@ -153,7 +163,7 @@ function Item(p: { item: TodoItem }) {
         <Typography variant="body2">
           {t('myDay.todo.review', { count: item.count, authors: item.authorIds.map(name).join(', ') })} · {format.relative(item.at)}
         </Typography>
-        <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.todo.reviewHint')}</Typography>
+        {!p.readOnly && <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.todo.reviewHint')}</Typography>}
       </>
     );
     // "No intervention needed" lives in the task only: pressed here, it would skip comments nobody read.
@@ -182,7 +192,7 @@ function Item(p: { item: TodoItem }) {
     text = (
       <>
         <Typography variant="body2">{t('myDay.todo.closing', { time: format.relative(item.at), at: format.dateTime(item.at) })}</Typography>
-        <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.todo.closingHint')}</Typography>
+        {!p.readOnly && <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.todo.closingHint')}</Typography>}
       </>
     );
     actions = openTask(t('myDay.todo.moveDeadline'));
@@ -191,7 +201,7 @@ function Item(p: { item: TodoItem }) {
     text = (
       <>
         <Typography variant="body2">{t('myDay.todo.closed', { at: format.dateTime(item.at) })}</Typography>
-        <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.todo.closedHint')}</Typography>
+        {!p.readOnly && <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.todo.closedHint')}</Typography>}
       </>
     );
     actions = (
@@ -237,7 +247,7 @@ function Item(p: { item: TodoItem }) {
       <Stack direction="row" sx={{ alignItems: 'flex-start', pl: 1.25, gap: 1, flexWrap: 'wrap' }}>
         <Box sx={{ color: 'text.secondary', pt: 0.25 }}>{icon}</Box>
         <Box sx={{ flex: '1 1 220px', minWidth: 0 }}>{text}</Box>
-        <Stack direction="row" spacing={1} sx={{ flexShrink: 0, ml: 'auto' }}>{actions}</Stack>
+        {!p.readOnly && <Stack direction="row" spacing={1} sx={{ flexShrink: 0, ml: 'auto' }}>{actions}</Stack>}
       </Stack>
       {replying && item.kind === 'mention' && (
         <Composer

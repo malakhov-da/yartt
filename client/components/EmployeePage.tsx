@@ -4,11 +4,13 @@ import { fromDay, today, useFormat } from '#client/hooks/format.ts';
 import { useMe } from '#client/hooks/me.ts';
 import { useEmployees } from '#client/hooks/task.ts';
 import EmployeeAvatar from './App/EmployeeAvatar.tsx';
+import Attention from './EmployeePage/Attention.tsx';
 import Stats from './EmployeePage/Stats.tsx';
 import History from './MyDayPage/History.tsx';
 
 // An employee's page (docs/product/interface.md, 4a): the same History as in
-// their My day and the metrics of a period. Seen by the employee and every
+// their My day and the metrics of a period; for a manager, what waits for
+// their attention and the tasks they own (decision 78). Seen by the employee and every
 // manager above; only the direct manager scores (the server checks both).
 // A bot has no days or metrics: its page is who it is and who runs it; its
 // settings are in Bots under My team.
@@ -48,6 +50,7 @@ export default function (p: { id: number }) {
           <Box sx={{ flex: '3 1 640px', minWidth: 0 }}>
             <Stats employeeId={p.id} />
           </Box>
+          {p.id !== me.id && <Attention employeeId={p.id} />}
           <Box sx={{ flex: '1 1 100%', minWidth: 0 }}>
             <History employeeId={p.id === me.id ? undefined : p.id} canScore={employee.managerId === me.id} onEmployeePage />
           </Box>

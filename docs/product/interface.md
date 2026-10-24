@@ -396,7 +396,11 @@ can correct the day (the reason stays for the next score); the page
 shows the current value, the employee's mail keeps every version
 (decisions 22, 37). On top —
 workload and the weighted score for 7, 30, 90 days or any dates, with a
-chart (decision 23). A bot's page is only who it is and who runs it.
+chart (decision 23). For a manager above, next to them: **Waiting for
+his/her attention** — the person's Waiting for me as they see it, grouped
+by task, without their buttons, hints or reminders — and **His/her open
+tasks**, the ones they own, by deadline (decision 78). A bot's page is
+only who it is and who runs it.
 
 ## 5. Profile — "who am I here?"
 

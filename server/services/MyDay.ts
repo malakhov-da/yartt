@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Current, CurrentTab, DayHistory, History, TodoItem, WaitingItem } from '#shared/myDay.ts';
+import type { TaskHeader as TaskHeaderType } from '#shared/task.ts';
 import { plainText } from '../html.ts';
 import { sql } from '../pg.ts';
 import { mentionReplies, replyKey } from './Comment.ts';
@@ -35,8 +36,11 @@ const DoneRow = z.object({ taskId: z.number(), value: z.number(), at: z.date() }
  * tasks with new comments by others, my reminders that came due, my tasks
  * closing by their deadline within a day or closed by it and not confirmed,
  * and tasks mine wait for that are done, newest first.
+ * `viewerId` — a manager looking at it on the employee's page: then the
+ * employee's reminders, theirs alone, are left out, and so are mentions in
+ * tasks the manager does not see.
  */
-export async function todo(me: number): Promise<TodoItem[]> {
+export async function todo(me: number, viewerId: number = me): Promise<TodoItem[]> {
   const requests = RequestRow.array().parse(await sql`
     SELECT o.task_id, o.value AS employee_id
       FROM observer o JOIN task k ON k.id = o.task_id
@@ -48,7 +52,7 @@ export async function todo(me: number): Promise<TodoItem[]> {
     SELECT m.task_id, m.comment_id, c.created_by, c.created_at, c.value
       FROM mention m
       JOIN comment c ON c.task_id = m.task_id AND c.id = m.comment_id
-     WHERE m.value = ${me} AND m.closed_at IS NULL AND can_see(m.task_id, ${me})
+     WHERE m.value = ${me} AND m.closed_at IS NULL AND can_see(m.task_id, ${me}) AND can_see(m.task_id, ${viewerId})
   `);
   const answers = await mentionReplies(mentions.map((m) => ({ taskId: m.taskId, commentId: m.commentId, employeeId: me })));
   const reviews = ReviewRow.array().parse(await sql`
@@ -63,7 +67,7 @@ export async function todo(me: number): Promise<TodoItem[]> {
   `);
 
   // Leaving a task deletes its reminders: a due one is on a task I see.
-  const reminds = RemindRow.array().parse(await sql`
+  const reminds = viewerId !== me ? [] : RemindRow.array().parse(await sql`
     SELECT task_id, at, value AS text FROM remind WHERE employee_id = ${me} AND sent_at IS NOT NULL
   `);
 
@@ -86,7 +90,7 @@ export async function todo(me: number): Promise<TodoItem[]> {
     ...[...requests, ...mentions, ...reviews, ...reminds, ...deadlines, ...done].map((r) => r.taskId),
     ...done.map((d) => d.value),
   ])];
-  const tasks = new Map((await headers(me, ids)).map((h) => [h.id, h]));
+  const tasks = new Map((await headers(viewerId, ids)).map((h) => [h.id, h]));
 
   const timed: (TodoItem & { at: Date })[] = [
     ...mentions.flatMap((m) => {
@@ -131,6 +135,17 @@ export async function todo(me: number): Promise<TodoItem[]> {
     }),
     ...timed,
   ];
+}
+
+/** The open tasks an employee owns, as in their "My open": by deadline, nearest first. */
+export async function openOwned(employeeId: number, viewerId: number): Promise<TaskHeaderType[]> {
+  const ids = z.object({ id: z.number() }).array().parse(await sql`
+    SELECT k.id FROM task k
+      LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
+     WHERE k.owner_id = ${employeeId} AND (f.value IS NULL OR f.value > NOW())
+     ORDER BY f.value NULLS LAST, k.priority DESC, k.id DESC
+  `).map((r) => r.id);
+  return headers(viewerId, ids);
 }
 
 const MyMentionRow = z.object({

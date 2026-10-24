@@ -149,6 +149,12 @@ test.describe('Team and the employee page', () => {
     await expect(page.getByText('Руководитель: Марина Соколова')).toBeVisible();
     await expect(page.getByText(/Смена идёт с/)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Оценить' })).toHaveCount(0);
+    // What waits for his attention and the tasks he owns, without his buttons.
+    const waiting = page.getByRole('region', { name: 'Ждёт его внимания' });
+    await expect(waiting).toBeVisible();
+    await expect(waiting.getByRole('button', { name: /Подтвердить|Принять|Готово/ })).toHaveCount(0);
+    const tasks = page.getByRole('region', { name: 'Его открытые задачи' });
+    await expect(tasks.getByRole('link', { name: /перевести форму заявки на новый api/ })).toBeVisible();
   });
 
   test('a day card scrolls what is unfolded in it, and "Details" covers none of it', async ({ page }) => {

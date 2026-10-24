@@ -1333,3 +1333,19 @@ the new tab like the others.
 
 *Implemented:* the `team` tab of `MyDay.current` and `Task.search`
 (`subordinates()`); `CurrentTasks`.
+
+### 78. A report's page shows what waits for their attention
+
+To know what holds a report up, a manager had to ask, or open their
+tasks one by one. Now a report's page shows a manager above them two
+more blocks: **Waiting for his/her attention** — the report's Waiting
+for me as they see it (requests, mentions, new comments, deadlines
+closing, closings to confirm, parts done), grouped by task — and **His/her
+open tasks**, the ones they own, by deadline, at risk marked. It is
+read-only: the buttons are the report's. Their reminders are left out:
+a reminder is "seen only by you", a thought put off, not something
+waiting. Mentions in tasks the manager does not see are left out too.
+
+*Implemented:* `Team.attention`, `MyDay.todo(me, viewerId)`,
+`MyDay.openOwned`; `client/components/EmployeePage/Attention.tsx`,
+`TodoList` (read-only) in `client/components/MyDayPage/Todo.tsx`.

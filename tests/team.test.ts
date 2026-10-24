@@ -141,6 +141,28 @@ describe('team', () => {
     await expect((await client(dev.id)).Team.stats(await lastDays(lead.id, 30))).rejects.toMatchObject({ message: 'forbidden' });
   });
 
+  test('what waits for a report\'s attention: their TODO without their reminders, and their open tasks; for managers above only', async () => {
+    const boss = await createEmployee();
+    const lead = await createEmployee({ managerId: boss.id });
+    const dev = await createEmployee({ managerId: lead.id });
+    const peer = await createEmployee();
+    const devApi = await client(dev.id);
+    const open = await devApi.Task.create({ tags: [`a-${randomUUID().slice(0, 8)}`] });
+    const closed = await devApi.Task.create({ tags: [`a-${randomUUID().slice(0, 8)}`] });
+    await devApi.Task.setDeadline({ id: closed, deadline: new Date() });
+    await (await client(peer.id)).Observer.request({ taskId: open });
+    await devApi.Remind.add({ taskId: open, at: new Date(Date.now() + 60_000), text: 'mine alone' });
+    await sql`UPDATE remind SET at = date_trunc('second', NOW()) - INTERVAL '1 second' WHERE employee_id = ${dev.id}`;
+    await sql`SELECT send_due_reminds()`;
+    expect((await devApi.MyDay.todo()).map((i) => i.kind).sort()).toEqual(['remind', 'request']);
+
+    const seen = await (await client(boss.id)).Team.attention({ employeeId: dev.id });
+    expect(seen.todo).toMatchObject([{ kind: 'request', task: { id: open }, employeeId: peer.id }]);
+    expect(seen.tasks.map((t) => t.id)).toEqual([open]);
+    await expect((await client(peer.id)).Team.attention({ employeeId: dev.id })).rejects.toMatchObject({ message: 'forbidden' });
+    await expect(devApi.Team.attention({ employeeId: dev.id })).rejects.toMatchObject({ message: 'forbidden' });
+  });
+
   test('only the direct manager scores and corrects; the score is weighted by hours; every version is mailed', async () => {
     const boss = await createEmployee();
     const lead = await createEmployee({ managerId: boss.id });

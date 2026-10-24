@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Day, Id } from './employee.ts';
-import { HistoryInput } from './myDay.ts';
+import { HistoryInput, TodoItem } from './myDay.ts';
+import { TaskHeader } from './task.ts';
 
 // Team: a manager's reports, an employee's page (their days and scores) and
 // the metrics of a period (docs/product/interface.md, 4 and 4a).
@@ -135,3 +136,12 @@ export type ScoreInput = z.infer<typeof ScoreInput>;
 /** A score withdrawn: the day's timesheet can be corrected; the reason stays. */
 export const UnscoreInput = z.object({ employeeId: Id, day: Day });
 export type UnscoreInput = z.infer<typeof UnscoreInput>;
+
+/** What waits for a report's attention, on their page for a manager above (decision 78). */
+export const Attention = z.object({
+  /** Their Waiting for me, without their reminders. */
+  todo: TodoItem.array(),
+  /** The open tasks they own, by deadline. */
+  tasks: TaskHeader.array(),
+});
+export type Attention = z.infer<typeof Attention>;

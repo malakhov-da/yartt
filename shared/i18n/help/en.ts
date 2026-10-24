@@ -226,7 +226,8 @@ export const helpEn: Help = {
       title: 'For a manager',
       steps: [
         'My team: the share of the timesheet in tasks, scores, tasks at risk and delays of each person; the longest unseen on top.',
-        "A line unfolds into charts; a person's page has their days and figures for any period.",
+        "A line unfolds into charts; a person's page has their days and figures for any period, what waits for their attention "
+          + '(their Waiting for me, without their reminders) and their open tasks.',
         'A score of the day is 0 to 100 with a reason: the quality of decisions, not the result of tasks. The person gets an email. '
           + 'A score can be changed (another email goes out) or withdrawn so the person can fix their timesheet.',
         '"Export" in My team: timesheet, entries and scores of the picked people for a period, for payroll, as Excel or CSV.',
