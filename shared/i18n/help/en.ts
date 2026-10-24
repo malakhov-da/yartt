@@ -166,7 +166,12 @@ export const helpEn: Help = {
     },
     {
       title: 'Remind yourself',
-      steps: ['"Remind me" on a task\'s page: when and about what. You are notified at that moment; the reminder is seen only by you.'],
+      steps: [
+        'A reminder takes a thought off your mind now and brings it back when it is due. "Remind me" on a task\'s page: when and '
+          + 'about what; the reminder is seen only by you.',
+        'When it is due you are notified, and the reminder shows in "Waiting for me" and stays there until you remove it or put it off '
+          + '(in an hour, tomorrow, on Monday, a day before the deadline or at a time you pick).',
+      ],
     },
     {
       title: 'Keep the timesheet and a plan',

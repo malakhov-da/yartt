@@ -59,6 +59,7 @@ export const en: Translation = {
       mention_she: '{{name}} mentioned you',
       review: 'New comments: {{count}}, from {{authors}}',
       request: '{{name}} asks for access',
+      remind: 'Reminder · {{time}}',
     },
     waiting: {
       title: 'Waiting for others',
@@ -442,7 +443,7 @@ export const en: Translation = {
     remind: {
       title: 'My reminders',
       add: 'Remind me',
-      none: 'Set a reminder — a notification comes at the moment you pick.',
+      none: 'Put a thought off until later: a notification comes at the moment you pick, and the reminder waits in "Waiting for me" until you remove it or put it off.',
       remove: 'Delete the reminder',
       at: 'When',
       text: 'What about',
@@ -451,6 +452,10 @@ export const en: Translation = {
       tomorrow: 'Tomorrow at 9:00',
       monday: 'Monday at 9:00',
       dayBefore: 'A day before the deadline',
+      putOff: 'Put off',
+      other: 'Another time…',
+      due: 'due — it waits until you remove it or put it off',
+      done: 'Remove',
     },
     myTime: {
       title: 'My time',

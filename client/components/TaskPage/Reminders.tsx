@@ -1,6 +1,7 @@
-import { Close, NotificationsNone } from '@mui/icons-material';
+import { Close, NotificationsActive, NotificationsNone } from '@mui/icons-material';
 import {
-  Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Paper, Stack, TextField, Tooltip, Typography,
+  Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Menu, MenuItem, Paper, Stack, TextField, Tooltip,
+  Typography,
 } from '@mui/material';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -17,7 +18,68 @@ function morning(daysAhead: number): Date {
   return d;
 }
 
-/** My reminders on the task: they come as notifications and are then gone. */
+/** The moments a reminder is offered for, a click away: in an hour, tomorrow, on Monday, before the deadline. */
+function useQuick(deadline: Date | null): { label: string; at: Date }[] {
+  const { t } = useTranslation();
+  const nextMonday = morning(((8 - new Date().getDay()) % 7) || 7);
+  const dayBefore = deadline && deadline.getTime() - 86_400_000 > Date.now() + 60_000
+    ? new Date(deadline.getTime() - 86_400_000) : null;
+  return [
+    { label: t('task.remind.inHour'), at: new Date(Date.now() + 3_600_000) },
+    { label: t('task.remind.tomorrow'), at: morning(1) },
+    { label: t('task.remind.monday'), at: nextMonday },
+    ...(dayBefore ? [{ label: t('task.remind.dayBefore'), at: dayBefore }] : []),
+  ];
+}
+
+/**
+ * "Put off": a due reminder moved to a later moment, from the quick ones or
+ * any picked — it comes again then and leaves "Waiting for me" till then.
+ */
+export function PutOff(p: { taskId: number; at: Date; deadline: Date | null }) {
+  const { t } = useTranslation();
+  const trpc = useTRPC();
+  const refresh = useTaskRefresh();
+  const quick = useQuick(p.deadline);
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [to, setTo] = useState('');
+  const move = useMutation(trpc.Remind.move.mutationOptions({ onSuccess: () => { refresh(); setPicking(false); } }));
+  const picked = fromLocalInput(to);
+  const put = (at: Date) => { setAnchor(null); move.mutate({ taskId: p.taskId, at: p.at, to: at }); };
+
+  return (
+    <>
+      <Button size="small" disabled={move.isPending} onClick={(e) => setAnchor(e.currentTarget)}>{t('task.remind.putOff')}</Button>
+      <Menu anchorEl={anchor} open={anchor !== null} onClose={() => setAnchor(null)}>
+        {quick.map((q) => <MenuItem key={q.label} onClick={() => put(q.at)}>{q.label}</MenuItem>)}
+        <MenuItem onClick={() => { setAnchor(null); setTo(toLocalInput(morning(1))); setPicking(true); }}>{t('task.remind.other')}</MenuItem>
+      </Menu>
+      <Dialog open={picking} onClose={() => setPicking(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>{t('task.remind.putOff')}</DialogTitle>
+        <DialogContent sx={{ pt: '8px !important' }}>
+          <TextField
+            fullWidth
+            type="datetime-local"
+            label={t('task.remind.at')}
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: toLocalInput(new Date()) } }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPicking(false)}>{t('common.cancel')}</Button>
+          <Button variant="contained" disabled={!picked || move.isPending} onClick={() => picked && put(picked)}>{t('common.save')}</Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
+}
+
+/**
+ * My reminders on the task. One that came due waits — here and in "Waiting
+ * for me" — until I remove it or put it off: it holds the thought for me.
+ */
 export default function (p: { taskId: number; deadline: Date | null }) {
   const { t } = useTranslation();
   const trpc = useTRPC();
@@ -28,17 +90,8 @@ export default function (p: { taskId: number; deadline: Date | null }) {
   const [at, setAt] = useState('');
   const [text, setText] = useState('');
   const add = useMutation(trpc.Remind.add.mutationOptions({ onSuccess: () => { void reminds.refetch(); refresh(); setOpen(false); } }));
-  const remove = useMutation(trpc.Remind.remove.mutationOptions({ onSuccess: () => void reminds.refetch() }));
-
-  const nextMonday = morning(((8 - new Date().getDay()) % 7) || 7);
-  const dayBefore = p.deadline && p.deadline.getTime() - 86_400_000 > Date.now() + 60_000
-    ? new Date(p.deadline.getTime() - 86_400_000) : null;
-  const quick = [
-    { label: t('task.remind.inHour'), at: new Date(Date.now() + 3_600_000) },
-    { label: t('task.remind.tomorrow'), at: morning(1) },
-    { label: t('task.remind.monday'), at: nextMonday },
-    ...(dayBefore ? [{ label: t('task.remind.dayBefore'), at: dayBefore }] : []),
-  ];
+  const remove = useMutation(trpc.Remind.remove.mutationOptions({ onSuccess: () => { void reminds.refetch(); refresh(); } }));
+  const quick = useQuick(p.deadline);
   const picked = fromLocalInput(at);
 
   const start = () => {
@@ -58,10 +111,14 @@ export default function (p: { taskId: number; deadline: Date | null }) {
       )}
       {reminds.data?.map((r) => (
         <Stack key={r.at.getTime()} direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          {r.due && <NotificationsActive fontSize="small" color="warning" />}
           <Stack sx={{ flexGrow: 1, minWidth: 0 }}>
-            <Typography variant="body2">{format.dateTime(r.at)} · {format.relative(r.at)}</Typography>
+            <Typography variant="body2">
+              {format.dateTime(r.at)} · {r.due ? t('task.remind.due') : format.relative(r.at)}
+            </Typography>
             {r.text && <Typography variant="caption" sx={{ color: 'text.secondary' }}>{r.text}</Typography>}
           </Stack>
+          {r.due && <PutOff taskId={p.taskId} at={r.at} deadline={p.deadline} />}
           <Tooltip title={t('task.remind.remove')}>
             <IconButton size="small" onClick={() => remove.mutate({ taskId: p.taskId, at: r.at })}><Close fontSize="small" /></IconButton>
           </Tooltip>

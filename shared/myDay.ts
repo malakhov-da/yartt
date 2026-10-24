@@ -41,7 +41,17 @@ export const TodoRequest = z.object({
 });
 export type TodoRequest = z.infer<typeof TodoRequest>;
 
-export const TodoItem = z.discriminatedUnion('kind', [TodoMention, TodoReview, TodoRequest]);
+/** My reminder that came due: it waits until I remove it or put it off. */
+export const TodoRemind = z.object({
+  kind: z.literal('remind'),
+  task: TaskHeader,
+  at: z.date(),
+  /** What I wanted to be reminded of; NULL — just the task. */
+  text: z.string().nullable(),
+});
+export type TodoRemind = z.infer<typeof TodoRemind>;
+
+export const TodoItem = z.discriminatedUnion('kind', [TodoMention, TodoReview, TodoRequest, TodoRemind]);
 export type TodoItem = z.infer<typeof TodoItem>;
 
 /** My access request to someone's task, not answered yet. */

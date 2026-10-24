@@ -428,6 +428,11 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
   // My reminders on the site: tomorrow morning and before the deadline.
   await I.Remind.add({ taskId: site, at: await at(me, -1, '09:30'), text: t.reminder });
   await I.Remind.add({ taskId: site, at: daysAhead(2), text: null });
+  // And one that came due this morning: it waits in Waiting for me until removed or put off.
+  await sql`
+    INSERT INTO remind (employee_id, task_id, at, value, sent_at)
+    VALUES (${me}, ${site}, date_trunc('minute', NOW()) - INTERVAL '2 hours', ${t.dueReminder}, NOW() - INTERVAL '2 hours')
+  `;
 
   // Hour budgets: mine on the site for half a year — what is logged and planned already goes past
   // it, a forecast to see; Marina's on the warehouse, raised once, so it has a history.

@@ -74,6 +74,7 @@ const ru = {
     corrected: 'Рефакторинг был нужен для формы — но предупредить стоило заранее.',
   },
   reminder: 'Проверить форму заявки на стенде',
+  dueReminder: 'Спросить Павла, успевает ли API к пятнице',
 };
 
 const en: typeof ru = {
@@ -146,6 +147,7 @@ const en: typeof ru = {
     corrected: 'The refactoring was needed for the form — but a heads-up would have helped.',
   },
   reminder: 'Check the request form on staging',
+  dueReminder: 'Ask Jack whether the API makes it by Friday',
 };
 
 export const DEMO_LANGUAGES = ['ru', 'en'] as const;

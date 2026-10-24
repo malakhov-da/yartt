@@ -1,4 +1,4 @@
-import { AlternateEmail, ChatBubbleOutline, LockOpen } from '@mui/icons-material';
+import { AlternateEmail, ChatBubbleOutline, LockOpen, NotificationsActive } from '@mui/icons-material';
 import { Box, Button, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import { keyframes } from '@mui/material/styles';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -11,6 +11,7 @@ import { useStore } from '#client/hooks/store.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import Composer from '../TaskPage/Composer.tsx';
 import MentionReply from '../TaskPage/MentionReply.tsx';
+import { PutOff } from '../TaskPage/Reminders.tsx';
 import TaskLine from '../TaskPage/TaskLine.tsx';
 
 /** The title lights up three times, so the eye finds the block after the scroll. */
@@ -68,6 +69,7 @@ export default function () {
 const key = (item: TodoItem) =>
   item.kind === 'mention' ? `m${item.task.id}-${item.commentId}`
   : item.kind === 'request' ? `r${item.task.id}-${item.employeeId}`
+  : item.kind === 'remind' ? `t${item.task.id}-${item.at.getTime()}`
   : `v${item.task.id}`;
 
 function Item(p: { item: TodoItem }) {
@@ -84,6 +86,7 @@ function Item(p: { item: TodoItem }) {
   const markReviewed = useMutation(trpc.Task.markReviewed.mutationOptions({ onSuccess: refresh }));
   const approve = useMutation(trpc.Observer.approve.mutationOptions({ onSuccess: refresh }));
   const reject = useMutation(trpc.Observer.reject.mutationOptions({ onSuccess: refresh }));
+  const removeRemind = useMutation(trpc.Remind.remove.mutationOptions({ onSuccess: refresh }));
 
   const { item } = p;
   let icon, text, actions;
@@ -139,6 +142,23 @@ function Item(p: { item: TodoItem }) {
           </Button>
         </span>
       </Tooltip>
+    );
+  } else if (item.kind === 'remind') {
+    icon = <NotificationsActive fontSize="small" color="warning" />;
+    text = (
+      <>
+        <Typography variant="body2">{t('myDay.todo.remind', { time: format.dateTime(item.at) })}</Typography>
+        {item.text && <Typography variant="body2" sx={{ color: 'text.secondary' }}>{item.text}</Typography>}
+      </>
+    );
+    actions = (
+      <>
+        <PutOff taskId={item.task.id} at={item.at} deadline={item.task.deadline} />
+        <Button size="small" variant="outlined" disabled={removeRemind.isPending}
+          onClick={() => removeRemind.mutate({ taskId: item.task.id, at: item.at })}>
+          {t('task.remind.done')}
+        </Button>
+      </>
     );
   } else {
     const input = { taskId: item.task.id, employeeId: item.employeeId };

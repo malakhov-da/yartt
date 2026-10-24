@@ -25,11 +25,13 @@ const ReviewRow = z.object({
   pending: z.number(),
 });
 const RequestRow = z.object({ taskId: z.number(), employeeId: z.number() });
+const RemindRow = z.object({ taskId: z.number(), at: z.date(), text: z.string().nullable() });
 
 /**
  * What waits for my reaction: access requests to my tasks first (they have
- * no time and block "No intervention needed"), then open mentions of me and
- * my tasks with new comments by others, newest first.
+ * no time and block "No intervention needed"), then open mentions of me, my
+ * tasks with new comments by others and my reminders that came due, newest
+ * first.
  */
 export async function todo(me: number): Promise<TodoItem[]> {
   const requests = RequestRow.array().parse(await sql`
@@ -57,7 +59,12 @@ export async function todo(me: number): Promise<TodoItem[]> {
      GROUP BY k.id
   `);
 
-  const ids = [...new Set([...requests, ...mentions, ...reviews].map((r) => r.taskId))];
+  // Leaving a task deletes its reminders: a due one is on a task I see.
+  const reminds = RemindRow.array().parse(await sql`
+    SELECT task_id, at, value AS text FROM remind WHERE employee_id = ${me} AND sent_at IS NOT NULL
+  `);
+
+  const ids = [...new Set([...requests, ...mentions, ...reviews, ...reminds].map((r) => r.taskId))];
   const tasks = new Map((await headers(me, ids)).map((h) => [h.id, h]));
 
   const timed: (TodoItem & { at: Date })[] = [
@@ -79,6 +86,10 @@ export async function todo(me: number): Promise<TodoItem[]> {
             pendingRequests: r.pending,
           }]
         : [];
+    }),
+    ...reminds.flatMap((r) => {
+      const task = tasks.get(r.taskId);
+      return task ? [{ kind: 'remind' as const, task, at: r.at, text: r.text }] : [];
     }),
   ];
   timed.sort((a, b) => b.at.getTime() - a.at.getTime());

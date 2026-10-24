@@ -48,9 +48,12 @@ someone with reports:
     stay quiet;
   - my own tasks with comments by others since I last confirmed that no
     intervention is needed (decision 16);
-  - access requests to my tasks.
+  - access requests to my tasks;
+  - my reminders that came due: each waits with its text until I remove
+    it or put it off — in an hour, tomorrow, on Monday, before the
+    deadline or at a moment I pick (decision 73).
   Each item has its action right there: done, reply, no intervention needed,
-  approve or reject. When TODO is empty, the screen says so — that is the
+  approve or reject, remove or put off. When TODO is empty, the screen says so — that is the
   goal. Days of my reports waiting for a score are not here: scoring is
   never required, it lives on the employee's page.
 - **Waiting for others** — a list of its own under TODO, shown only when

@@ -255,7 +255,8 @@ Key principles:
   - Attachments live in a separate table, deduplicated by hash. A comment
     refers to them by an array of ids.
   - Reminders (remind) are explicit: an employee decides when to be
-    reminded about a task. Deleted once sent.
+    reminded about a task. Once due it waits in their "Waiting for me"
+    until they remove it or move it.
   - Only an employee can create another employee (an invite). The first
     employee is created by the application on its first start. No roles:
     rights come from relationships. Only the direct manager can dismiss an
@@ -356,7 +357,8 @@ From a notification inbox to a queue.
   meaning.
   What we do: notification is a queue. A notification goes to the
   webhook, the user handles it (closed_at). Cleaned up after a year.
-  Reminders (remind) are explicit: an employee sets them.
+  Reminders (remind) are explicit: an employee sets them; a due one
+  waits for them until removed or moved.
 
 From deleting comments to "they live forever".
   The problem with deleting: delete it and the context is lost. Replies
@@ -508,6 +510,7 @@ the API is implemented.
 
   Reminders:
     - Set a remind (an observer).
+    - Move a remind to a later moment (its author): due again then.
     - Delete a remind (its author).
 
   Notifications:
@@ -931,3 +934,42 @@ The value is the day''s whole time on the task: a new value replaces it
 When the day''s entries exceed the timesheet hours, the frontend shows
 a warning (in the employee''s timesheet).
 Does not notify the task owner.';
+
+
+-- A due reminder waits in "Waiting for me" until removed or moved.
+
+ALTER TABLE remind ADD COLUMN sent_at TIMESTAMPTZ;
+DROP INDEX idx_remind_at;
+CREATE INDEX idx_remind_at ON remind(at) WHERE sent_at IS NULL;
+
+CREATE OR REPLACE FUNCTION send_due_reminds()
+RETURNS VOID AS $$
+DECLARE
+    r remind;
+BEGIN
+    FOR r IN
+        UPDATE remind SET sent_at = NOW() WHERE at <= NOW() AND sent_at IS NULL RETURNING *
+    LOOP
+        PERFORM notify(r.employee_id, r.task_id, jsonb_build_object(
+            'kind', 'remind', 'text', r.value));
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION send_due_reminds() IS
+'Cron, every minute: due reminders -> notification, once (sent_at); the
+reminder stays until its author removes or moves it.';
+
+COMMENT ON TABLE remind IS
+'Task reminders. Any observer can set a reminder for themselves at a
+given moment: a thought put off until then, so it need not be kept in
+mind meanwhile. send_due_reminds() sends it once due (sent_at), and from
+then on it waits in their "Waiting for me" until they remove it or move
+it to a later moment (at changes, sent_at is cleared) — a reminder is not
+gone because a notification went out. Leaving the task deletes the
+reminders.
+value — reminder text (what exactly to remind about). Optional.';
+
+COMMENT ON COLUMN remind.sent_at IS
+'When the notification went out; NULL — not due yet. A sent reminder is
+in "Waiting for me" until removed or moved.';

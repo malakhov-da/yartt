@@ -473,7 +473,7 @@ describe('deadline at risk', () => {
 });
 
 describe('reminders', () => {
-  test('for oneself, in the future; delivered once due, then gone; leaving the task drops them', async () => {
+  test('for oneself, in the future; delivered once due, then waits in TODO until removed or put off; leaving the task drops them', async () => {
     const owner = await createEmployee();
     const helper = await createEmployee();
     const stranger = await createEmployee();
@@ -486,14 +486,31 @@ describe('reminders', () => {
     await expect((await client(stranger.id)).Remind.add({ taskId: id, at: later, text: null })).rejects.toMatchObject({ message: 'no_access' });
     await api.Remind.add({ taskId: id, at: later, text: 'Check the build' });
     await api.Remind.add({ taskId: id, at: new Date(Date.now() + 7_200_000), text: null });
-    expect(await api.Remind.list({ taskId: id })).toMatchObject([{ at: later, text: 'Check the build' }, { text: null }]);
+    expect(await api.Remind.list({ taskId: id })).toMatchObject([{ at: later, text: 'Check the build', due: false }, { text: null }]);
     expect(await (await client(owner.id)).Remind.list({ taskId: id })).toEqual([]);
 
-    // Due: the worker's job sends it and deletes it.
-    await sql`UPDATE remind SET at = NOW() - INTERVAL '1 second' WHERE employee_id = ${helper.id} AND value = 'Check the build'`;
+    // Due: the worker's job sends it once, and it waits in TODO.
+    await sql`UPDATE remind SET at = date_trunc('second', NOW()) - INTERVAL '1 second' WHERE employee_id = ${helper.id} AND value = 'Check the build'`;
     await sql`SELECT send_due_reminds()`;
-    expect(await notifications(helper.id)).toContainEqual(expect.objectContaining({ kind: 'remind', text: 'Check the build' }));
-    expect(await api.Remind.list({ taskId: id })).toHaveLength(1);
+    await sql`SELECT send_due_reminds()`;
+    expect((await notifications(helper.id)).filter((n) => n.kind === 'remind')).toEqual([expect.objectContaining({ text: 'Check the build' })]);
+    const [due] = await api.Remind.list({ taskId: id });
+    expect(due).toMatchObject({ text: 'Check the build', due: true });
+    expect((await api.MyDay.todo()).filter((i) => i.kind === 'remind')).toMatchObject([{ task: { id }, at: due!.at, text: 'Check the build' }]);
+
+    // Put off: not due till then, out of TODO; it keeps its text.
+    await expect(api.Remind.move({ taskId: id, at: due!.at, to: new Date(Date.now() - 1000) })).rejects.toMatchObject({ message: 'remind_in_past' });
+    const tomorrow = new Date(Date.now() + 86_400_000);
+    await api.Remind.move({ taskId: id, at: due!.at, to: tomorrow });
+    expect(await api.Remind.list({ taskId: id })).toMatchObject([{ due: false }, { at: tomorrow, text: 'Check the build', due: false }]);
+    expect((await api.MyDay.todo()).filter((i) => i.kind === 'remind')).toEqual([]);
+
+    // Due again, then removed: gone from TODO.
+    await sql`UPDATE remind SET at = date_trunc('second', NOW()) - INTERVAL '1 second' WHERE employee_id = ${helper.id} AND value = 'Check the build'`;
+    await sql`SELECT send_due_reminds()`;
+    const [again] = (await api.MyDay.todo()).filter((i) => i.kind === 'remind');
+    await api.Remind.remove({ taskId: id, at: again!.at });
+    expect((await api.MyDay.todo()).filter((i) => i.kind === 'remind')).toEqual([]);
 
     await api.Observer.leave({ taskId: id });
     expect((await sql`SELECT 1 FROM remind WHERE employee_id = ${helper.id}`).length).toBe(0);
