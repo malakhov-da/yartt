@@ -1,16 +1,15 @@
 import express, { Router, type Request, type Response } from 'express';
 import ctx from './ctx.ts';
-import env from './env.ts';
 import { AppError } from './errors.ts';
 import * as Attachments from './services/Attachment.ts';
 
 // Files go around tRPC: raw bytes in, raw bytes out.
 //   POST /api/attachments  (body: the file, Content-Type: its type) -> { id }
 //   GET  /api/attachments/:id[?name=file.pdf]
-// Errors answer with the same codes as the API: { appCode }.
+// Errors answer with the same codes as the API: { appCode, params }. A file
+// over the limit or the quota is 413, one whose content was deleted 410
+// (decision 84).
 
-// A demo is open to anyone: a small limit keeps a visitor from filling its database.
-const MAX_SIZE = env.DEMO_DATA ? '2mb' : '25mb';
 // Shown in the page; anything else is downloaded. SVG can carry scripts.
 const INLINE = /^image\/(png|jpeg|gif|webp|avif)$/;
 
@@ -28,10 +27,16 @@ async function employeeId(req: Request, res: Response, upload = false): Promise<
   return context.employeeId;
 }
 
+const STATUS: Record<string, number> = { no_access: 403, forbidden: 403, file_too_big: 413, file_quota: 413, file_purged: 410 };
+
 function fail(res: Response, error: unknown) {
   if (error instanceof AppError) {
-    const status = error.code === 'no_access' || error.code === 'forbidden' ? 403 : 404;
-    res.status(status).json({ appCode: error.code });
+    res.status(STATUS[error.code] ?? 404).json({ appCode: error.code, params: error.params });
+    return;
+  }
+  // The body parser stops a file over the limit before it is read whole.
+  if (typeof error === 'object' && error !== null && 'type' in error && error.type === 'entity.too.large') {
+    res.status(413).json({ appCode: 'file_too_big', params: { maxMb: Attachments.maxBytes() / 1024 / 1024 } });
     return;
   }
   console.error(error);
@@ -39,7 +44,10 @@ function fail(res: Response, error: unknown) {
 }
 
 export default Router()
-  .post('/', express.raw({ type: () => true, limit: MAX_SIZE }), async (req, res) => {
+  .post('/', (req, res, next) => express.raw({ type: () => true, limit: Attachments.maxBytes() })(req, res, (error?: unknown) => {
+    if (error) fail(res, error);
+    else next();
+  }), async (req, res) => {
     const id = await employeeId(req, res, true);
     if (id === null) return;
     if (!Buffer.isBuffer(req.body) || req.body.length === 0) {

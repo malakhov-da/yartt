@@ -1440,3 +1440,26 @@ manager above that person. Decision 78's two blocks are replaced by it.
 (`client/components/MyDayPage.tsx`); `as` in `MyDay.todo`, `waiting`,
 `current`, `Team.summary`, `Tags.stats`, `detail`, `TagLimit.list`,
 `history`, `Bot.list`, `stats` (`viewAs()` in `server/services/Team.ts`).
+
+### 84. Files are limited, and deleting one keeps its place
+
+Nothing stopped someone from attaching a film, or a thousand small files,
+until the database outgrew its server. Now the configuration limits them
+(the installation decides, not the product): a file at most `FILE_MAX_MB`;
+a person's files at most `FILE_QUOTA_MB` together — an upload over it is
+refused with how much is taken; files over `FILE_BIG_MB` keep their
+content `FILE_BIG_DAYS` days after their last use. The rest is kept.
+
+Freeing space is the person's own decision: **My files**, folded at the
+end of My day, shows how much of the quota is taken and every file they
+uploaded — its names in comments, its tasks, when — and "Delete" frees a
+file's space. Only the content goes: the row stays, and so does every
+comment's link, struck through, saying when the file was deleted and who
+uploaded it. Whoever has the file still brings it back by uploading it
+again — the same bytes find the row and fill it, and every link works
+again. Nobody else's file is touched by a person's quota.
+
+*Implemented:* `attachment.purged_at`, `purge_attachment()`,
+`purge_old_attachments()` (migration `0.4-0.5`); `FILE_*` in
+`server/env.ts`; `Attachment.mine`, `Attachment.purge`;
+`client/components/MyDayPage/Files.tsx`.

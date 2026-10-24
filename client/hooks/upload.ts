@@ -1,4 +1,4 @@
-import { isErrorCode } from '#shared/errors.ts';
+import { isErrorCode, type ErrorParams } from '#shared/errors.ts';
 import i18n from '#client/i18n/index.ts';
 import { useStore } from './store.ts';
 
@@ -17,7 +17,8 @@ export async function uploadFile(file: File): Promise<number> {
     return body.id;
   }
   const code = typeof body === 'object' && body !== null && 'appCode' in body ? body.appCode : null;
-  const message = i18n.t(`errors.${isErrorCode(code) ? code : 'internal'}`);
+  const params = (typeof body === 'object' && body !== null && 'params' in body ? body.params : null) as ErrorParams | null;
+  const message = i18n.t(`errors.${isErrorCode(code) ? code : 'internal'}`, params ?? {});
   useStore.setState({ error: message });
   throw new Error(message);
 }

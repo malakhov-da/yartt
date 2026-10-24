@@ -180,6 +180,9 @@ export const helpEn: Help = {
         'After "Send" a comment can be pulled back into editing for a few seconds; then it is never changed or deleted.',
         '"Reply" starts a thread under a comment; the feed keeps a mark at the moment of the reply.',
         'An unfinished comment, form or edit is kept as a draft when you go to another page.',
+        'Files are limited: the size of one and the total of yours are set by the administrator, and big files are kept for a while. '
+          + 'My files, at the bottom of My day, shows how much is taken and deletes those not needed. A link to a deleted file stays: '
+          + 'upload the same file again and it works again.',
       ],
     },
     {

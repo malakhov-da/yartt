@@ -6,6 +6,7 @@ import { useViewAs } from '#client/hooks/viewAs.ts';
 import Fold from './App/Fold.tsx';
 import Bots from './MyDayPage/Bots.tsx';
 import CurrentTasks from './MyDayPage/CurrentTasks.tsx';
+import Files from './MyDayPage/Files.tsx';
 import History from './MyDayPage/History.tsx';
 import TagLimits from './MyDayPage/TagLimits.tsx';
 import TagStats from './MyDayPage/TagStats.tsx';
@@ -73,6 +74,7 @@ export function DayColumns(p: { canScore?: boolean }) {
         {hasBots && (
           <Fold id="bots" title={t('bots.title')} summary={t('fold.bots')}>{(fold) => <Bots fold={fold} />}</Fold>
         )}
+        <Fold id="files" title={t('files.title')} summary={t('fold.files')}>{(fold) => <Files fold={fold} />}</Fold>
       </Stack>
       <Box
         ref={side}

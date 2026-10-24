@@ -4,12 +4,24 @@ export const en: Translation = {
   app: {
     name: 'yartt',
   },
+  files: {
+    title: 'My files',
+    used: '{{used}} of {{quota}} used',
+    rules: 'Files over {{big}} are kept {{days}} days after their last use. A deleted file comes back when it is uploaded again — the links to it work again.',
+    none: 'You have not uploaded any files yet.',
+    unnamed: 'unnamed',
+    purged: 'deleted {{date}}',
+    delete: 'Delete',
+    mb: '{{value}} MB',
+    kb: '{{value}} KB',
+  },
   fold: {
     fold: 'Fold',
     team: 'Time, scores, tasks at risk and delays — for each of your people',
     tags: 'What happened under each tag: tasks, comments, hours and plans',
     limits: 'Hour budgets on tag combinations: what is logged and still planned',
     bots: 'Your bots and your people\'s: whether they work',
+    files: 'The files you uploaded and how much space they take',
   },
   common: {
     save: 'Save',
@@ -439,6 +451,7 @@ export const en: Translation = {
       submit: 'Hand over',
     },
     feed: {
+      filePurged: 'The file\'s content was deleted {{date}} to free space. Whoever uploaded it — {{names}} — can bring it back by uploading the same file again.',
       mentions: 'Open mentions',
       all: 'All events',
       onlyMentions: 'Only comments with open mentions are shown.',
@@ -802,6 +815,9 @@ export const en: Translation = {
     no_pending_request: 'Employee #{{employeeId}} has no pending request for task #{{taskId}}.',
     dependency_cycle: 'Dependencies would form a cycle.',
     unknown_attachment: 'Attachment not found.',
+    file_too_big: 'The file is over {{maxMb}} MB and cannot be uploaded.',
+    file_quota: 'Your files take {{usedMb}} MB of {{quotaMb}} MB already, and this one does not fit. Delete those you no longer need in My files, at the bottom of My day.',
+    file_purged: 'The file\'s content was deleted. Whoever uploaded it can bring it back by uploading the same file again.',
     attachment_in_use: 'Attachment #{{attachmentId}} is used by comments.',
     remind_in_past: 'A reminder can only be set for the future.',
     self_mention: 'You cannot mention yourself.',

@@ -32,7 +32,7 @@ const CommentRow = z.object({
   replyValue: z.string().nullable(),
   isNew: z.boolean(),
 });
-const FileRow = z.object({ id: z.number(), size: z.number(), mime: z.string() });
+const FileRow = z.object({ id: z.number(), size: z.number(), mime: z.string(), purgedAt: z.date().nullable(), uploadedBy: z.number().array() });
 const MentionRow = z.object({
   commentId: z.number(),
   value: z.number(),
@@ -218,7 +218,7 @@ async function load(viewerId: number, taskId: number, ids: number[]): Promise<Ma
   `);
   const fileIds = [...new Set(rows.flatMap((r) => r.attachmentIds))];
   const files = new Map(
-    FileRow.array().parse(await sql`SELECT id, size, mime FROM attachment WHERE id = ANY(${fileIds})`).map((f) => [f.id, f]),
+    FileRow.array().parse(await sql`SELECT id, size, mime, purged_at, uploaded_by FROM attachment WHERE id = ANY(${fileIds})`).map((f) => [f.id, f]),
   );
   const mentions = MentionRow.array().parse(await sql`
     SELECT m.comment_id, m.value, m.closed_at
@@ -242,7 +242,7 @@ async function load(viewerId: number, taskId: number, ids: number[]): Promise<Ma
       : { id: r.replyToId, authorId: r.replyAuthor!, excerpt: plainText(r.replyValue ?? '').slice(0, EXCERPT) },
     files: r.attachmentIds.flatMap((id, i) => {
       const f = files.get(id);
-      return f ? [{ id, name: r.attachmentNames[i] ?? '', size: f.size, mime: f.mime }] : [];
+      return f ? [{ id, name: r.attachmentNames[i] ?? '', size: f.size, mime: f.mime, purgedAt: f.purgedAt, uploadedBy: f.uploadedBy }] : [];
     }),
     mentions: mentions.filter((m) => m.commentId === r.id).map((m) => ({
       employeeId: m.value,

@@ -9,6 +9,10 @@ export const FileRef = z.object({
   name: z.string(),
   size: z.number().int(),
   mime: z.string(),
+  /** Its content was deleted (decision 84): the same file uploaded again brings it back. */
+  purgedAt: z.date().nullable(),
+  /** Who uploaded it — who can bring it back. */
+  uploadedBy: Id.array(),
 });
 export type FileRef = z.infer<typeof FileRef>;
 
@@ -147,3 +151,30 @@ export const CreateCommentInput = z.object({
   taskIds: Id.array().max(50),
 });
 export type CreateCommentInput = z.infer<typeof CreateCommentInput>;
+
+/** A file I uploaded, in My files (decision 84). */
+export const MyFile = z.object({
+  id: Id,
+  size: z.number().int(),
+  mime: z.string(),
+  addedAt: z.date(),
+  /** Uploaded again or attached last: a big file keeps its content a while after it. */
+  usedAt: z.date(),
+  /** NULL — the content is here and counts in my quota. */
+  purgedAt: z.date().nullable(),
+  /** The names it goes by in comments; empty — not attached anywhere yet. */
+  names: z.string().array(),
+  /** The tasks it is in. */
+  taskIds: Id.array(),
+});
+export type MyFile = z.infer<typeof MyFile>;
+
+export const MyFiles = z.object({
+  files: MyFile.array(),
+  usedBytes: z.number(),
+  quotaBytes: z.number(),
+  /** Files over this keep their content `bigDays` days after their last use. */
+  bigBytes: z.number(),
+  bigDays: z.number().int(),
+});
+export type MyFiles = z.infer<typeof MyFiles>;

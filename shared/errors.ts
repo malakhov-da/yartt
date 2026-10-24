@@ -50,6 +50,9 @@ export const ERROR_CODES = [
 
   // comments
   'unknown_attachment',
+  'file_too_big',
+  'file_quota',
+  'file_purged',
   'attachment_in_use',
   'self_mention',
   'mention_not_participant',

@@ -36,6 +36,13 @@ const EnvSchema = z.object({
   OIDC_CLIENT_ID: z.string().optional(),
   OIDC_CLIENT_SECRET: z.string().optional(),
   OIDC_NAME: z.string().min(1).default('SSO'),
+  // Files (decision 84): at most FILE_MAX_MB each; a person's files with
+  // content at most FILE_QUOTA_MB together; files over FILE_BIG_MB keep their
+  // content FILE_BIG_DAYS days after their last use. The demo keeps 2 MB a file.
+  FILE_MAX_MB: z.coerce.number().positive().default(50),
+  FILE_QUOTA_MB: z.coerce.number().positive().default(1024),
+  FILE_BIG_MB: z.coerce.number().positive().default(10),
+  FILE_BIG_DAYS: z.coerce.number().int().positive().default(7),
   // A trial: the demo company in this language on the first start (an empty
   // database), and no sign-in — anyone picks whom to see it as. Unset for work.
   DEMO_DATA: z.enum(DEMO_LANGUAGES).optional().or(z.literal('').transform(() => undefined)),

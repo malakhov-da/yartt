@@ -87,7 +87,18 @@ export default function CommentItem(p: {
                 )}
               </Stack>
             ))}
-            {c.files.map((f) => (
+            {c.files.map((f) => (f.purgedAt ? (
+              // Deleted to free space (decision 84): whoever uploaded it brings it back by uploading it again.
+              <Tooltip
+                key={f.id}
+                title={t('task.feed.filePurged', {
+                  date: format.date(f.purgedAt),
+                  names: f.uploadedBy.map((id) => employees.get(id)?.fullName ?? `#${id}`).join(', '),
+                })}
+              >
+                <Chip size="small" variant="outlined" icon={<AttachFile />} label={f.name} sx={{ textDecoration: 'line-through', color: 'text.secondary' }} />
+              </Tooltip>
+            ) : (
               <Chip
                 key={f.id}
                 size="small"
@@ -98,7 +109,7 @@ export default function CommentItem(p: {
                 href={attachmentUrl(f.id, f.name)}
                 clickable
               />
-            ))}
+            )))}
           </Box>
         )}
         {c.tasks.map((task) => <TaskLine key={task.id} task={task} />)}

@@ -524,7 +524,9 @@ the API is implemented.
     - Closed shifts are immutable.
 
   Comments:
-    - Upload an attachment (deduplicated by hash) -> attachment.id.
+    - Upload an attachment (deduplicated by hash; refused over the size
+      and quota limits; the same bytes restore a purged one) -> attachment.id.
+    - Delete the content of a file one uploaded (purge_attachment).
     - Leave a comment (with attachment_ids and image_ids) — anyone who
       sees the task.
     - Reply to a comment (reply_to_id).
@@ -734,6 +736,8 @@ CRON JOBS (outside SQL)
   - every day:    DELETE FROM attachment a
                    WHERE used_at < NOW() - INTERVAL ''1 day''
                      AND NOT attachment_in_use(a.id);
+  - every hour:   SELECT purge_old_attachments(:big bytes, :days) — the
+                  sizes and days from the configuration.
   - every day:    DELETE FROM visit WHERE at < NOW() - INTERVAL ''1 year'';
   - every day:    DELETE FROM bot_usage WHERE day < CURRENT_DATE - 366;
   - every hour:   ask the identity provider about people last checked a
@@ -1238,3 +1242,94 @@ COMMENT ON TYPE bot_permission IS
   observers     — bring people into tasks it takes part in, run the
                   observers of its own tasks, request access.
 Checked by the application. Never: timesheet, time, scores, people, keys.';
+
+
+-- Storage is limited: a file's content may be deleted, its row stays.
+
+ALTER TABLE attachment
+    ALTER COLUMN value DROP NOT NULL,
+    ADD COLUMN purged_at TIMESTAMPTZ,
+    ADD CONSTRAINT chk_attachment_purged CHECK ((value IS NULL) = (purged_at IS NOT NULL));
+CREATE INDEX idx_attachment_uploaded_by ON attachment USING GIN (uploaded_by);
+
+CREATE OR REPLACE FUNCTION purge_attachment(p_attachment_id INT, p_employee_id INT)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE attachment SET value = NULL, purged_at = NOW()
+     WHERE id = p_attachment_id AND uploaded_by @> ARRAY[p_employee_id] AND value IS NOT NULL;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'attachment % is not a file of employee % with content', p_attachment_id, p_employee_id
+            USING HINT = 'not_found';
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION purge_attachment(INT, INT) IS
+'Someone who uploaded a file deletes its content to free their quota.
+The row stays, and so do the comments that refer to it: their link says
+the file is gone; the same bytes uploaded again bring it back.';
+
+
+CREATE OR REPLACE FUNCTION purge_old_attachments(p_min_size BIGINT, p_days INT)
+RETURNS INT AS $$
+    WITH purged AS (
+        UPDATE attachment SET value = NULL, purged_at = NOW()
+         WHERE value IS NOT NULL AND size > p_min_size AND used_at < NOW() - p_days * INTERVAL '1 day'
+        RETURNING id
+    )
+    SELECT count(*)::int FROM purged
+$$ LANGUAGE sql;
+
+COMMENT ON FUNCTION purge_old_attachments(BIGINT, INT) IS
+'Cron, every hour: the content of files over p_min_size bytes unused for
+p_days days (from the configuration) is deleted; the rows stay.';
+
+COMMENT ON TABLE attachment IS
+'Attachments: files of comments and images inside comments and task
+contexts.
+Uploaded before the comment is sent; the comment refers to them by the
+arrays comment.attachment_ids (files) and comment.image_ids (images in
+the text), a context by task.context_image_ids — by id, not by hash
+(hashes may collide).
+Reading an attachment: whoever uploaded it, or whoever sees a task whose
+comment or context refers to it (the application checks).
+There is no file name here: the same file may arrive under different
+names; the name is stored in comment.attachment_names.
+Deduplication: on upload the application looks for a row with the same
+hash and size and compares the bytes; on a match it returns the existing
+id and updates used_at.
+Cron deletes, once a day, attachments nothing refers to
+(attachment_in_use) that have not been used for more than a day
+(uploaded, but the comment was never sent). An attachment in use cannot
+be deleted (trigger) — comments live forever.
+
+Storage is limited (decision 84), by the configuration, not the
+database: a file at most so large; a person''s files with content (theirs
+— uploaded_by) at most so much together, refused at upload; files above
+a size keep their content so many days after their last use
+(purge_old_attachments()). A person may also delete the content of a
+file they uploaded (purge_attachment()). The row stays — who uploaded
+it, its size, the names in comments — and value goes (purged_at): a link
+to it says the file is gone and who can bring it back. Uploading the
+same bytes again (the same hash and size) restores it in place, so every
+link to it works again.';
+
+COMMENT ON COLUMN attachment.value IS
+'File content. NULL — deleted to free the space (purged_at); the same
+bytes uploaded again bring it back.';
+
+COMMENT ON COLUMN attachment.purged_at IS
+'When the content was deleted — by an uploader or because a big file went
+unused too long. NULL — the content is here.';
+
+COMMENT ON COLUMN attachment.uploaded_by IS
+'Everyone who uploaded these bytes (deduplication returns the same row).
+They may read it before it is attached anywhere; while it has content it
+counts in each one''s quota, and each of them may delete its content. It
+stays after the content is gone: the history of who uploaded what.';
+
+COMMENT ON CONSTRAINT chk_attachment_purged ON attachment IS
+'No content exactly when it was purged.';
+
+COMMENT ON INDEX idx_attachment_uploaded_by IS
+'A person''s files: their list and their quota.';

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, test } from 'vitest';
 import { sql } from '../server/pg.ts';
+import env from '../server/env.ts';
 import * as Attachments from '../server/services/Attachment.ts';
 import { client, createEmployee } from './helpers.ts';
 
@@ -233,6 +234,55 @@ describe('rich text and attachments', () => {
     expect((await Attachments.read(other.id, imageId)).mime).toBe('image/png');
 
     await expect(api.Comment.create(comment(id, '<p>  </p>'))).rejects.toMatchObject({ message: 'invalid_data' });
+  });
+
+  test('files: a size limit, a quota, content deleted to free it, brought back by the same bytes', async () => {
+    const me = await createEmployee();
+    const other = await createEmployee();
+    const id = await createTask(me.id);
+    const api = await client(me.id);
+    const saved = { max: env.FILE_MAX_MB, quota: env.FILE_QUOTA_MB };
+    env.FILE_MAX_MB = 2 / 1024; // 2 KB
+    env.FILE_QUOTA_MB = 3 / 1024; // 3 KB
+    try {
+      const kb = (n: number) => Buffer.from(`${randomUUID()}`.padEnd(n * 1024, 'x'));
+      await expect(Attachments.upload(me.id, kb(3), 'text/plain')).rejects.toMatchObject({ code: 'file_too_big', params: { maxMb: 2 / 1024 } });
+      const firstBytes = kb(2);
+      const first = await Attachments.upload(me.id, firstBytes, 'text/plain');
+      await expect(Attachments.upload(me.id, kb(2), 'text/plain')).rejects.toMatchObject({ code: 'file_quota' });
+      // The same bytes again take no more space.
+      expect(await Attachments.upload(me.id, firstBytes, 'text/plain')).toBe(first);
+      // Someone else's quota is their own.
+      await Attachments.upload(other.id, kb(2), 'text/plain');
+
+      await api.Comment.create({ ...comment(id, '<p>the report</p>'), files: [{ id: first, name: 'report.txt' }] });
+      expect((await api.Attachment.mine()).files).toMatchObject([{ id: first, names: ['report.txt'], taskIds: [id], purgedAt: null }]);
+      await expect((await client(other.id)).Attachment.purge({ id: first })).rejects.toMatchObject({ message: 'not_found' });
+
+      // Deleted: the quota is free, the comment keeps the link and says so.
+      await api.Attachment.purge({ id: first });
+      expect((await api.Attachment.mine()).usedBytes).toBe(0);
+      await expect(Attachments.read(me.id, first)).rejects.toMatchObject({ code: 'file_purged' });
+      const [c] = (await api.Comment.list({ taskId: id, filter: 'all', page: 1 })).items;
+      expect(c).toMatchObject({ files: [{ id: first, uploadedBy: [me.id], purgedAt: expect.any(Date) }] });
+
+      // The same bytes again bring the deleted one back in place: every link works again.
+      expect(await Attachments.upload(me.id, firstBytes, 'text/plain')).toBe(first);
+      expect((await Attachments.read(me.id, first)).value.equals(firstBytes)).toBe(true);
+    } finally {
+      env.FILE_MAX_MB = saved.max;
+      env.FILE_QUOTA_MB = saved.quota;
+    }
+  });
+
+  test('big files unused too long lose their content; the rest stays', async () => {
+    const me = await createEmployee();
+    const big = await Attachments.upload(me.id, Buffer.from(`big-${randomUUID()}`.padEnd(2048, 'x')), 'text/plain');
+    const small = await Attachments.upload(me.id, Buffer.from(`small-${randomUUID()}`), 'text/plain');
+    await sql`UPDATE attachment SET used_at = NOW() - INTERVAL '8 days' WHERE id IN (${big}, ${small})`;
+    await sql`SELECT purge_old_attachments(1024, 7)`;
+    const rows = await sql<{ id: number; purged: boolean }[]>`SELECT id, value IS NULL AS purged FROM attachment WHERE id IN (${big}, ${small}) ORDER BY id`;
+    expect(rows).toEqual([{ id: big, purged: true }, { id: small, purged: false }]);
   });
 
   test('the context keeps its images out of the cleanup', async () => {
