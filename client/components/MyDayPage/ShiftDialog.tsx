@@ -1,8 +1,8 @@
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from '@mui/material';
+import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { fromLocalInput, toLocalInput, useFormat } from '#client/hooks/format.ts';
+import { useFormat } from '#client/hooks/format.ts';
 import { useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 
@@ -21,6 +21,19 @@ export function shiftEnd(): Date {
   return new Date(Math.floor(Date.now() / 60_000) * 60_000 + 60_000);
 }
 
+const pad = (n: number) => String(n).padStart(2, '0');
+const clock = (value: Date) => `${pad(value.getHours())}:${pad(value.getMinutes())}`;
+
+/** HH:mm of the day starting at `midnight`; 00:00 as an end is the midnight after it. */
+function moment(midnight: Date, value: string, end: boolean): Date | null {
+  const match = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return null;
+  const at = new Date(midnight);
+  at.setHours(Number(match[1]), Number(match[2]), 0, 0);
+  if (end && at.getTime() === midnight.getTime()) at.setDate(at.getDate() + 1);
+  return at;
+}
+
 export default function (p: { mode: ShiftDialogMode; from: Date; to: Date; about?: string | null; onClose: () => void }) {
   const { t } = useTranslation();
   const trpc = useTRPC();
@@ -31,15 +44,19 @@ export default function (p: { mode: ShiftDialogMode; from: Date; to: Date; about
   const add = useMutation(trpc.Work.add.mutationOptions(done));
   const update = useMutation(trpc.Work.update.mutationOptions(done));
 
-  const [from, setFrom] = useState(toLocalInput(p.from));
-  const [to, setTo] = useState(toLocalInput(p.to));
+  // A shift belongs to one day (its start's): only the times are picked, and it ends by midnight.
+  const midnight = new Date(p.from);
+  midnight.setHours(0, 0, 0, 0);
+  const nextMidnight = new Date(midnight);
+  nextMidnight.setDate(nextMidnight.getDate() + 1);
+  const [from, setFrom] = useState(clock(p.from));
+  const [to, setTo] = useState(clock(p.to >= nextMidnight ? nextMidnight : p.to));
   const [about, setAbout] = useState(p.about ?? '');
-  const startedAt = fromLocalInput(from);
-  const endedAt = fromLocalInput(to);
-  const latestStart = toLocalInput(new Date());
-  const latestEnd = toLocalInput(shiftEnd());
+  const startedAt = moment(midnight, from, false);
+  const endedAt = moment(midnight, to, true);
   const minutes = startedAt && endedAt ? Math.floor((endedAt.getTime() - startedAt.getTime()) / 60_000) : 0;
-  const valid = startedAt !== null && minutes > 0;
+  const future = endedAt !== null && endedAt > shiftEnd();
+  const valid = startedAt !== null && minutes > 0 && !future;
   const pending = close.isPending || add.isPending || update.isPending;
 
   const save = () => {
@@ -52,22 +69,32 @@ export default function (p: { mode: ShiftDialogMode; from: Date; to: Date; about
     <Dialog open onClose={p.onClose} maxWidth="xs" fullWidth>
       <DialogTitle>{t(`myDay.shift.${p.mode}Title`)}</DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '8px !important' }}>
-        <TextField
-          type="datetime-local"
-          label={t('myDay.shift.from')}
-          value={from}
-          onChange={(e) => setFrom(e.target.value)}
-          slotProps={{ htmlInput: { max: latestStart }, inputLabel: { shrink: true } }}
-        />
-        <TextField
-          type="datetime-local"
-          label={t('myDay.shift.to')}
-          value={to}
-          onChange={(e) => setTo(e.target.value)}
-          error={!valid}
-          helperText={minutes > 0 ? format.minutes(minutes) : t('myDay.shift.endAfterStart')}
-          slotProps={{ htmlInput: { max: latestEnd }, inputLabel: { shrink: true } }}
-        />
+        <Typography variant="body2" sx={{ color: 'text.secondary', '&::first-letter': { textTransform: 'uppercase' } }}>
+          {format.day(`${midnight.getFullYear()}-${pad(midnight.getMonth() + 1)}-${pad(midnight.getDate())}`)}
+        </Typography>
+        <Stack direction="row" spacing={2}>
+          <TextField
+            type="time"
+            label={t('myDay.shift.from')}
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            slotProps={{ inputLabel: { shrink: true } }}
+            sx={{ flex: 1 }}
+          />
+          <TextField
+            type="time"
+            label={t('myDay.shift.to')}
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            error={!valid}
+            slotProps={{ inputLabel: { shrink: true } }}
+            sx={{ flex: 1 }}
+          />
+        </Stack>
+        <Typography variant="caption" sx={{ color: valid ? 'text.secondary' : 'error.main', mt: -1 }}>
+          {future ? t('errors.shift_in_future') : minutes > 0 ? format.minutes(minutes) : t('myDay.shift.endAfterStart')}
+          {' · '}{t('myDay.shift.oneDay')}
+        </Typography>
         <TextField
           autoFocus
           multiline

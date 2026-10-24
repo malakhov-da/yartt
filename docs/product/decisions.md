@@ -1205,3 +1205,24 @@ suggestion.
 
 *Implemented:* `TagInput` in `client/components/App/TagInput.tsx`.
 
+
+### 72. A shift belongs to one day, and an overlap names the shift in the way
+
+A shift was two date-and-time fields, so it could start one day and end
+the next, or last a week by a slip of the date. It counted towards the
+day it started, which a night shift made wrong, and the day's ribbon and
+totals went past midnight. Now a shift belongs to one day of the
+employee: the dialog shows the day and asks only for the times, the end
+is at most the following midnight (00:00), and the database refuses a
+shift running into the next day — work past midnight is a shift of the
+next day. A shift is thereby never longer than 24 hours.
+
+A shift overlapping another was refused with "overlaps another shift",
+so someone adding a shift around the day's shifts could not tell what
+was wrong. Now the refusal names the shift in the way with its times,
+or the open shift and when it started; two starts of the same minute at
+once (a double click) are told as an overlap too, not as an internal
+error.
+
+*Implemented:* `trg_work_check()` (migration `0.4-0.5`),
+`work_pkey` -> `shift_overlap` in `server/errors.ts`; `ShiftDialog`.

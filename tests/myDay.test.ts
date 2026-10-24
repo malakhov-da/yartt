@@ -141,7 +141,7 @@ describe('history', () => {
     `;
     const startedAt = new Date(Math.max(Date.now() - 3_600_000, midnight!.at.getTime()));
     await api.Work.start({ startedAt });
-    await expect(api.Work.start({ startedAt: new Date() })).rejects.toMatchObject({ message: 'shift_overlap' });
+    await expect(api.Work.start({ startedAt: new Date() })).rejects.toMatchObject({ message: 'shift_overlap_open' });
 
     const [today] = (await api.MyDay.history({ page: 1 })).days;
     expect(today!.visits.map((v) => v.taskId)).toEqual([null, id]);
@@ -229,7 +229,7 @@ describe('history', () => {
     const morning = new Date(Date.now() - 6 * hour);
     await api.Work.add({ startedAt: morning, endedAt: new Date(morning.getTime() + 2 * hour), about: 'Morning' });
     await expect(api.Work.add({ startedAt: new Date(morning.getTime() + hour), endedAt: new Date(morning.getTime() + 3 * hour), about: null }))
-      .rejects.toMatchObject({ message: 'shift_overlap' });
+      .rejects.toMatchObject({ message: 'shift_overlap_with' });
     expect(await api.Work.open()).toBeNull();
     const evening = new Date(Date.now() - hour);
     await api.Work.start({ startedAt: evening });
@@ -244,6 +244,39 @@ describe('history', () => {
     // Shifts started 6 hours ago may fall on yesterday: take every day shown.
     const range = { employeeId: me.id, from: days[days.length - 1]!.day, to: days[0]!.day };
     expect((await api.Team.stats(range)).stats.workMinutes).toBe(180);
+  });
+
+  test('a shift belongs to one day; an overlap names the shift in the way', async () => {
+    const me = await createEmployee();
+    const api = await client(me.id);
+    const hour = 3_600_000;
+    // Yesterday in UTC, the employee's time zone.
+    const midnight = new Date(Math.floor(Date.now() / 86_400_000) * 86_400_000 - 86_400_000);
+    const at = (h: number, m = 0) => new Date(midnight.getTime() + h * hour + m * 60_000);
+
+    await api.Work.add({ startedAt: at(10), endedAt: at(12, 30), about: null });
+    // A shift around all of the day's shifts says which one is in the way, with its times.
+    await expect(api.Work.add({ startedAt: at(8), endedAt: at(18), about: null }))
+      .rejects.toMatchObject({ message: 'shift_overlap_with', cause: { params: { from: '10:00', to: '12:30' } } });
+    // Up to midnight is the day's; a minute later is the next day's.
+    await api.Work.add({ startedAt: at(20), endedAt: at(24), about: null });
+    await expect(api.Work.add({ startedAt: at(0), endedAt: at(24, 1), about: null }))
+      .rejects.toMatchObject({ message: 'shift_crosses_day' });
+    await expect(api.Work.update({ startedAt: at(20), newStartedAt: at(20), endedAt: at(25), about: null }))
+      .rejects.toMatchObject({ message: 'shift_crosses_day' });
+
+    await api.Work.start({ startedAt: new Date(Date.now() - 60_000) });
+    await expect(api.Work.start({ startedAt: new Date() })).rejects.toMatchObject({ message: 'shift_overlap_open' });
+  });
+
+  test('two shifts started at the same minute at once: a known error, not an internal one', async () => {
+    const me = await createEmployee();
+    const api = await client(me.id);
+    const startedAt = new Date(Date.now() - 3_600_000);
+    const results = await Promise.allSettled([api.Work.start({ startedAt }), api.Work.start({ startedAt })]);
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    const failed = results.find((r) => r.status === 'rejected');
+    expect(['shift_overlap', 'shift_overlap_open']).toContain((failed as PromiseRejectedResult).reason.message);
   });
 
   test('one entry per task and day: replaced, not added; 0 removes it; the last change is kept', async () => {

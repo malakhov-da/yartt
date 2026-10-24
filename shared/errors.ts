@@ -60,6 +60,9 @@ export const ERROR_CODES = [
 
   // timesheet, time entries, scores
   'shift_overlap',
+  'shift_overlap_with',
+  'shift_overlap_open',
+  'shift_crosses_day',
   'shift_in_future',
   'shift_open',
   'spent_immutable',

@@ -172,6 +172,8 @@ export const helpEn: Help = {
       title: 'Keep the timesheet and a plan',
       steps: [
         '"Start the shift" and "Finish" act at this moment; add a forgotten shift with the clock icon of a day, or confirm the suggestion.',
+        'A shift belongs to one day: only its start and end times are set, the end by 00:00. '
+          + 'Work after midnight is a shift of the next day. Shifts do not overlap: when another is in the way, yartt names its times.',
         'Time on a task for a day is one entry: "Log time" shows what is there, a new value replaces it, 0 removes it.',
         'If you worked on a past day but wrote no shift, yartt suggests one: "Looks like a shift" — confirm it with one click.',
         'Shifts and entries of a day can be fixed until your manager scores it. To fix a scored day, ask your manager to withdraw the score.',

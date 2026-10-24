@@ -117,7 +117,10 @@ range; a click on another heading sorts by it — or the tags
     time is logged where the day is reviewed; the tasks opened and not
     logged are folded under one line, a reminder;
   - the visits one by one, folded too.
-  Any shift is added by hand with the clock in the day's header; a past
+  Any shift is added by hand with the clock in the day's header. A shift
+  belongs to its day: the dialog names the day and asks only for the
+  start and the end, 00:00 as the end being the midnight after it
+  (decision 72); a shift in the way is named with its times. A past
   day suggests the shift its activity shows — a day without shifts, or 30
   minutes or more of visits outside its shifts as the shift that was not
   written down — confirmed with one click.

@@ -13,7 +13,9 @@ export default router({
 
   /**
    * Opens a shift at the given moment (cut to the minute, not later than now).
-   * @throws shift_overlap — a shift is already open or covers the moment.
+   * @throws shift_overlap_open — a shift is already open.
+   * @throws shift_overlap_with — a closed shift covers the moment (its times in params).
+   * @throws shift_overlap — two starts at once.
    * @throws day_scored
    */
   start: authedProcedure
@@ -25,7 +27,8 @@ export default router({
    * Closes the open shift: its start (may be corrected), its end and what was done.
    * @throws not_found — no open shift.
    * @throws invalid_data — the end is not after the start.
-   * @throws shift_overlap
+   * @throws shift_overlap_with, shift_overlap_open — another shift is in the way (its times in params).
+   * @throws shift_crosses_day — the shift ends after the midnight of its day.
    * @throws day_scored
    */
   close: authedProcedure
@@ -37,7 +40,8 @@ export default router({
    * Adds a closed shift at once to any day — a suggestion confirmed, a
    * forgotten or a second shift.
    * @throws invalid_data — the end is not after the start.
-   * @throws shift_overlap
+   * @throws shift_overlap_with, shift_overlap_open — another shift is in the way (its times in params).
+   * @throws shift_crosses_day — the shift ends after the midnight of its day.
    * @throws day_scored
    */
   add: authedProcedure
@@ -49,7 +53,8 @@ export default router({
    * Corrects a closed shift: its start, end and what was done.
    * @throws not_found — no closed shift starting then.
    * @throws invalid_data — the end is not after the start.
-   * @throws shift_overlap
+   * @throws shift_overlap_with, shift_overlap_open — another shift is in the way (its times in params).
+   * @throws shift_crosses_day — the shift ends after the midnight of its day.
    * @throws day_scored — the shift's day, old or new, is scored.
    */
   update: authedProcedure

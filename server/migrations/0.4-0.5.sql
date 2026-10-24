@@ -621,6 +621,7 @@ INVARIANTS (forbidden; all checked in the database)
 
   Timesheet:
     - Overlapping shifts of one employee (including two open ones).
+    - A shift that runs into the next day of the employee.
     - spent_minutes <= 0.
     - A shift that starts in the future or ends after the current minute.
     - Changing or deleting a closed shift.
@@ -712,3 +713,131 @@ CRON JOBS (outside SQL)
   - every day:    UPDATE human SET next_day = NULL
                    WHERE next_day <= local_today(employee_id);
 ';
+
+
+-- A shift belongs to one day, and an overlap names the shift in the way.
+
+CREATE OR REPLACE FUNCTION trg_work_check()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_time_zone TEXT;
+    v_other work;
+BEGIN
+    IF TG_OP IN ('UPDATE', 'DELETE') AND EXISTS (
+        SELECT 1 FROM score
+         WHERE employee_id = OLD.employee_id
+           AND day = local_day(OLD.employee_id, OLD.started_at)
+           AND value IS NOT NULL
+    ) THEN
+        RAISE EXCEPTION 'day is already scored'
+            USING HINT = 'day_scored';
+    END IF;
+
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    END IF;
+
+    -- The end may be the end of the current minute: closing rounds it up.
+    IF NEW.started_at > NOW()
+       OR NEW.started_at + NEW.spent_minutes * INTERVAL '1 minute'
+          > date_trunc('minute', NOW()) + INTERVAL '1 minute' THEN
+        RAISE EXCEPTION 'shift cannot be in the future'
+            USING HINT = 'shift_in_future';
+    END IF;
+
+    -- A shift belongs to one day: it ends by the midnight after its start.
+    SELECT time_zone INTO v_time_zone FROM employee WHERE id = NEW.employee_id;
+    IF NEW.started_at + NEW.spent_minutes * INTERVAL '1 minute'
+       > ((NEW.started_at AT TIME ZONE v_time_zone)::date + 1)::timestamp AT TIME ZONE v_time_zone THEN
+        RAISE EXCEPTION 'shift of employee % runs into the next day', NEW.employee_id
+            USING HINT = 'shift_crosses_day';
+    END IF;
+
+    -- Said with the shift in the way, so the person knows which one to fix;
+    -- excl_work_overlap still guards against two writes at once.
+    SELECT * INTO v_other FROM work w
+     WHERE w.employee_id = NEW.employee_id
+       AND (TG_OP = 'INSERT' OR w.started_at <> OLD.started_at)
+       AND work_period(w.started_at, w.spent_minutes) && work_period(NEW.started_at, NEW.spent_minutes)
+     ORDER BY w.started_at
+     LIMIT 1;
+    IF FOUND THEN
+        IF v_other.spent_minutes IS NULL THEN
+            RAISE EXCEPTION 'shift overlaps the open shift of employee %', NEW.employee_id
+                USING HINT = 'shift_overlap_open',
+                      DETAIL = json_build_object(
+                          'from', to_char(v_other.started_at AT TIME ZONE v_time_zone, 'HH24:MI'))::text;
+        END IF;
+        RAISE EXCEPTION 'shift overlaps another shift of employee %', NEW.employee_id
+            USING HINT = 'shift_overlap_with',
+                  DETAIL = json_build_object(
+                      'from', to_char(v_other.started_at AT TIME ZONE v_time_zone, 'HH24:MI'),
+                      'to', to_char((v_other.started_at + v_other.spent_minutes * INTERVAL '1 minute')
+                                    AT TIME ZONE v_time_zone, 'HH24:MI'))::text;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM score
+         WHERE employee_id = NEW.employee_id
+           AND day = local_day(NEW.employee_id, NEW.started_at)
+           AND value IS NOT NULL
+    ) THEN
+        RAISE EXCEPTION 'day is already scored'
+            USING HINT = 'day_scored';
+    END IF;
+
+    IF TG_OP = 'UPDATE' THEN
+        NEW.updated_at := NOW();
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION trg_work_check() IS
+'The timesheet of a day is the employee''s until the day is scored:
+  - any shift of a day without a standing score can be added, changed
+    or deleted, an open or a closed one;
+  - a shift does not start in the future nor end after the current minute
+    (closing rounds the end up to the minute);
+  - a shift belongs to one day of the employee: it ends by the midnight
+    after its start, so it is never longer than a day (shift_crosses_day);
+  - a shift overlapping another is refused with the other''s times
+    (shift_overlap_with, or shift_overlap_open for the open one), so the person
+    sees which shift is in the way;
+  - nothing changes on a scored day — neither the shift''s old day nor
+    its new one; a withdrawn score (value NULL) frees the day.
+Updates updated_at on UPDATE.';
+
+
+
+COMMENT ON TABLE work IS
+'Timesheet. The employee records: "started at 10:00, worked N minutes".
+Optional — if nobody keeps it, the day cannot be scored.
+
+spent_minutes IS NULL — the shift is open (working right now).
+An open shift lasts until infinity, so an employee has at most one open
+shift and no shift can follow it.
+The employee always closes the shift themselves, with whatever time
+they consider right.
+Shift end = started_at + spent_minutes. Shift day = local_day(started_at).
+A shift belongs to that day alone: it ends by the following midnight, so it
+is never longer than a day — work past midnight is a shift of the next day.
+Shifts of one employee never overlap (EXCLUDE).
+A shift cannot start in the future, nor end after the end of the current
+minute: the timesheet is kept in whole minutes, so closing rounds the end
+up — a shift closed at 17:59:40 ends at 18:00, and one started a moment
+ago can be closed as one minute.
+
+Any shift of a day without a standing score can be added, changed or
+deleted, closed ones included, and a day may have several shifts. A
+score freezes the day''s timesheet; the manager withdrawing the score
+(score.value NULL) lets the employee correct it.
+
+about — what was done during the shift. Free text, optional.
+
+The close_delay metric (delay in closing a shift) is computed on the
+frontend: the difference between updated_at and
+(started_at + spent_minutes). A large one is a signal for the manager.
+
+If more time is logged to tasks (spent_minutes) than worked (work), the
+employee''s timesheet shows a warning.';

@@ -86,6 +86,9 @@ test.describe('My day', () => {
     const before = await edits.count();
     await history.getByRole('button', { name: 'Добавить смену' }).nth(1).click();
     const dialog = page.getByRole('dialog');
+    // A shift is of one day: only its times are picked.
+    await expect(dialog.getByLabel('Начало')).toHaveAttribute('type', 'time');
+    await expect(dialog.getByText(/в пределах одного дня/)).toBeVisible();
     await dialog.getByLabel('Что сделано').fill('Забытая смена');
     await dialog.getByRole('button', { name: 'Сохранить' }).click();
     await expect(history.getByText('Забытая смена')).toBeVisible();
