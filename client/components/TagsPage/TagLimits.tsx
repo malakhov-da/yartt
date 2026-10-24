@@ -18,7 +18,7 @@ import HelpTip from '../App/HelpTip.tsx';
 import TagChip from '../App/TagChip.tsx';
 import TagInput from '../App/TagInput.tsx';
 import { minusDays } from '../App/RangePicker.tsx';
-import TeamChart from './TeamChart.tsx';
+import TeamChart from '../TeamPage/TeamChart.tsx';
 
 /** How a limit stands: over — spent past it; risk — the forecast is past it. */
 export const standing = (l: { minutes: number; spentMinutes: number; forecastMinutes: number }) =>

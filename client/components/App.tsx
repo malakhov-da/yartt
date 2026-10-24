@@ -16,13 +16,18 @@ import OutsideDomainsPage from './OutsideDomainsPage.tsx';
 import LoginPage from './LoginPage.tsx';
 import MyDayPage from './MyDayPage.tsx';
 import NewTaskPage from './NewTaskPage.tsx';
+import TagsPage from './TagsPage.tsx';
 import TaskPage from './TaskPage.tsx';
+import TeamPage from './TeamPage.tsx';
 
-// Screens of the signed-in employee. There is one — My day (decision 31);
-// a task and a person open over it by route. `label` is a translation key
-// for the window title.
+// Screens of the signed-in employee: My day (decision 31), and from the top
+// line My team and Tags (decision 79); a task and a person open over them by
+// route. Each stays mounted once opened, to keep its state. `label` is a
+// translation key for the window title.
 const pages = [
   { path: '/', component: MyDayPage, label: 'nav.myDay' },
+  { path: '/team', component: TeamPage, label: 'nav.team' },
+  { path: '/tags', component: TagsPage, label: 'nav.tags' },
 ] as const;
 
 type PagePath = (typeof pages)[number]['path'];

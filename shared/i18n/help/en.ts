@@ -9,7 +9,7 @@ export const helpEn: Help = {
     + 'and assignees — it replaces them with more flexible mechanisms: tags instead of projects, dependencies instead of '
     + 'subtasks, one owner instead of an assignee, participants invited by name instead of access for "everyone on the project". '
     + 'The timesheet, time entries and scores of the day make work transparent, yet all of it is optional: you can use '
-    + 'only tasks and tags. Everything for the day is on one screen, My day.',
+    + 'only tasks and tags. Everything for the day is on My day; the team and the tags have pages of their own, from the top line.',
   ideasTitle: 'The essentials',
   ideas: [
     {
@@ -225,7 +225,7 @@ export const helpEn: Help = {
     {
       title: 'For a manager',
       steps: [
-        'My team: the share of the timesheet in tasks, scores, tasks at risk and delays of each person; the longest unseen on top.',
+        'My team (the people icon in the top line): the share of the timesheet in tasks, scores, tasks at risk and delays of each person; the longest unseen on top.',
         "A line unfolds into charts; a person's page has their days and figures for any period, what waits for their attention "
           + '(their Waiting for me, without their reminders) and their open tasks.',
         'A score of the day is 0 to 100 with a reason: the quality of decisions, not the result of tasks. The person gets an email. '
@@ -240,7 +240,7 @@ export const helpEn: Help = {
     {
       title: 'See how tags are doing',
       steps: [
-        'The Tags block: what happened to the tasks of each tag from any day to today — open, closed, comments, people, who plans time. '
+        'The Tags page (the tag icon in the top line): what happened to the tasks of each tag from any day to today — open, closed, comments, people, who plans time. '
           + '"?" by a column explains each figure.',
         'By default the tags with the most tasks "In work" are on top; click a column\'s heading to sort by it.',
         'Pick several tags to see them together and one by one.',
@@ -251,7 +251,7 @@ export const helpEn: Help = {
     {
       title: 'Keep a direction within an hour budget',
       steps: [
-        'Hour budgets → New budget: tags, a period and how many hours you and your reports may spend on them. '
+        'On the Tags page, Hour budgets → New budget: tags, a period and how many hours you and your reports may spend on them. '
           + 'A task counts when it carries all those tags.',
         'A line shows how much of the budget is logged and the forecast — logged plus still planned; unfolded, the running total '
           + 'against the budget and the history of changes.',
@@ -265,7 +265,7 @@ export const helpEn: Help = {
         'A bot is an account for automation: builds, monitoring, integrations. Profile → Bots: create one, tick what it may change '
           + 'and keep its key — it is shown once.',
         'The bot works with tasks through the API — say, reports a broken build with a mention — and gets its notifications on its webhook.',
-        'The Bots block in My day shows whether it works: calls by day and refusals.',
+        'The Bots block on the My team page (the people icon in the top line) shows whether it works: calls by day and refusals.',
       ],
     },
   ],

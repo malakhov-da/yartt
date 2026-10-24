@@ -85,6 +85,8 @@ export const ru = {
   nav: {
     help: 'Как работать',
     myDay: 'Мой день',
+    team: 'Моя команда',
+    tags: 'Теги',
     invite: 'Пригласить сотрудника',
     profile: 'Профиль',
     logout: 'Выйти',

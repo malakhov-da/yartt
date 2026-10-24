@@ -11,7 +11,7 @@ async function fits(page: Page) {
 test.describe('at phone width', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test('My day with the team, a task, an employee page, the guide', async ({ page }) => {
+  test('My day, my team, a task, an employee page, the guide', async ({ page }) => {
     await signIn(page);
     await fits(page);
     await page.goto(`/tasks/${await taskId('сайт', 'новая главная к осенней кампании')}`);
@@ -20,7 +20,7 @@ test.describe('at phone width', () => {
     await page.goto(`/employees/${await employeeId('marina@example.com')}`);
     await expect(page.getByRole('heading', { name: 'Показатели' })).toBeVisible();
     await fits(page);
-    await page.goto('/');
+    await page.goto('/team');
     await expect(page.getByRole('heading', { name: 'Моя команда' })).toBeVisible();
     await fits(page);
     // The team table fits its block, its details open too: no scroll inside either.

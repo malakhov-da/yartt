@@ -119,7 +119,7 @@ test.describe('a task', () => {
     await createTask(page, [tag]);
     await page.getByRole('button', { name: 'Изменить' }).first().click();
     const second = unique('второй');
-    await page.getByLabel('Теги').fill(second);
+    await page.getByRole('combobox', { name: 'Теги' }).fill(second);
     await page.getByRole('button', { name: `Новый тег «${second}»` }).click();
     await page.getByRole('button', { name: 'Сохранить' }).click();
     await expect(page.getByText(second, { exact: true }).first()).toBeVisible();

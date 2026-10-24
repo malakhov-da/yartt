@@ -10,13 +10,13 @@ test.describe('new task', () => {
     const tag = unique('форма');
     await page.getByRole('button', { name: 'Новая задача' }).click();
     await expect(page).toHaveURL(/\/tasks\/new$/);
-    await expect(page.getByLabel('Теги')).toBeFocused();
+    await expect(page.getByRole('combobox', { name: 'Теги' })).toBeFocused();
     // Enter makes a new tag when none is spelled so; the cursor stays in the field.
     await page.keyboard.type(tag.toUpperCase());
     await page.keyboard.press('Enter');
     await expect(page.getByRole('button', { name: tag, exact: true })).toBeVisible();
-    await expect(page.getByLabel('Теги')).toHaveValue('');
-    await expect(page.getByLabel('Теги')).toBeFocused();
+    await expect(page.getByRole('combobox', { name: 'Теги' })).toHaveValue('');
+    await expect(page.getByRole('combobox', { name: 'Теги' })).toBeFocused();
     // The button for it holds its place while the letters are checked — the form does not jump —
     // and leaves the cursor in the field too.
     const second = unique('макет');
@@ -28,7 +28,7 @@ test.describe('new task', () => {
     expect(await element!.evaluate((e) => e.isConnected)).toBe(true);
     await page.getByRole('button', { name: `Новый тег «${second}»` }).click();
     await expect(page.getByRole('button', { name: second, exact: true })).toBeVisible();
-    await expect(page.getByLabel('Теги')).toBeFocused();
+    await expect(page.getByRole('combobox', { name: 'Теги' })).toBeFocused();
     // A new tag exists only once the task is saved: titles change while typed.
     expect(await sql`SELECT 1 FROM tag WHERE name = ${tag}`).toHaveLength(0);
     // A tag spelled exactly so exists: it has to be picked before the task is created.
@@ -54,7 +54,7 @@ test.describe('new task', () => {
     await page.getByRole('link', { name: 'Новая задача' }).last().click();
     await expect(page).toHaveURL(new RegExp(`/tasks/new\\?waitsFor=${id}$`));
     await expect(page.getByText('Будет ждать задачу')).toBeVisible();
-    await expect(page.getByLabel('Теги')).toBeFocused();
+    await expect(page.getByRole('combobox', { name: 'Теги' })).toBeFocused();
     // The title starts as that task's tags; the same set is taken, so something must be added.
     await expect(page.getByRole('button', { name: 'склад', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'инвентаризация за октябрь', exact: true })).toBeVisible();

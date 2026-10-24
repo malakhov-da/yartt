@@ -9,7 +9,7 @@ import { useFormat } from '#client/hooks/format.ts';
 import { useEmployees } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import HelpTip from '../App/HelpTip.tsx';
-import TeamChart, { type Detail } from './TeamChart.tsx';
+import TeamChart, { type Detail } from '../TeamPage/TeamChart.tsx';
 
 /** Distinct lines for people, the same person the same color in both charts. */
 const PERSON_COLORS = ['#1e88e5', '#e53935', '#43a047', '#fb8c00', '#8e24aa', '#00897b', '#6d4c41', '#546e7a', '#d81b60', '#3949ab'];

@@ -2,9 +2,10 @@ import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 import { signIn } from './helpers.ts';
 
-// Tags in My day: anyone has it, counted on the tasks they see (decision 58).
+// Tags, from the top line: anyone has it, counted on the tasks they see (decisions 58, 79).
 test('the tag summary: the most active rubrics, a tag unfolds into its people, picked tags add all and any, a CSV', async ({ page }) => {
   await signIn(page, 'pavel@example.com');
+  await page.goto('/tags');
   const block = page.getByRole('region', { name: 'Статистика по тегам' });
   await expect(block.getByRole('row').nth(1)).toBeVisible();
   // What the block shows is under a "?", not in a line of text.

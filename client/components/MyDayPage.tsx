@@ -1,15 +1,9 @@
 import { Box, Stack, Typography } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMe } from '#client/hooks/me.ts';
-import { useTRPC } from '#client/hooks/trpc.ts';
-import Bots from './MyDayPage/Bots.tsx';
+import { useTeamRole } from '#client/hooks/me.ts';
 import CurrentTasks from './MyDayPage/CurrentTasks.tsx';
 import History from './MyDayPage/History.tsx';
-import TagStats from './MyDayPage/TagStats.tsx';
-import Team from './MyDayPage/Team.tsx';
-import TagLimits from './MyDayPage/TagLimits.tsx';
 import Todo from './MyDayPage/Todo.tsx';
 import Waiting from './MyDayPage/Waiting.tsx';
 
@@ -19,13 +13,7 @@ import Waiting from './MyDayPage/Waiting.tsx';
 // visit. At the bottom, the product name and its release (decision 30).
 export default function () {
   const { t } = useTranslation();
-  const trpc = useTRPC();
-  const me = useMe();
-  const employees = useQuery(trpc.Employee.list.queryOptions());
-  const reports = (employees.data ?? []).filter((e) => e.managerId === me.id);
-  const isManager = reports.some((e) => e.kind === 'human');
-  // Under My team, or on its own for someone whose only reports are bots (created from the profile).
-  const hasBots = isManager || reports.some((e) => e.kind === 'bot');
+  const { isManager } = useTeamRole();
 
   // Side by side, the days scroll on their own: the height of the page's
   // scrolling area, less its padding, so the tasks scroll past them.
@@ -52,10 +40,6 @@ export default function () {
           <Todo />
           <Waiting />
           <CurrentTasks team={isManager} />
-          {isManager && <Team />}
-          <TagStats />
-          <TagLimits />
-          {hasBots && <Bots />}
         </Stack>
         <Box
           ref={side}

@@ -304,7 +304,7 @@ check: tasks are named by tags, and each has one owner who sees it done.
 The tag takes off like a rocket: done tasks are how a product gets built
 and shipped.
 
-### 31. One screen, no tabs
+### 31. One screen, no tabs — narrowed by 79
 
 Of the candidate sections none earned a tab: Team is a block of My day for
 someone with reports, the tags live in the profile (they are personal
@@ -1349,3 +1349,22 @@ waiting. Mentions in tasks the manager does not see are left out too.
 *Implemented:* `Team.attention`, `MyDay.todo(me, viewerId)`,
 `MyDay.openOwned`; `client/components/EmployeePage/Attention.tsx`,
 `TodoList` (read-only) in `client/components/MyDayPage/Todo.tsx`.
+
+### 79. My team and Tags are pages of their own
+
+My day had grown: under Current tasks came the team table, the tags,
+the hour budgets and the bots — useful, but not what needs a person
+today, and a manager scrolled past a dashboard to reach their days.
+Now My day keeps only what needs me: Waiting for me, Waiting for
+others, Current tasks and the timesheet. **My team** (`/team`) holds the
+team and the bots, for someone with people or bots under them; **Tags**
+(`/tags`) holds the tag summary and the hour budgets, for everyone. Both
+open from the top line (and its menu at phone width) over My day, the
+way a task does, and keep their state when left. This narrows decision
+31 — still no tabs, no settings screen — rather than reversing it: the
+pages are reached from the line every screen has, and the logo still
+brings My day back as it was.
+
+*Implemented:* `client/components/TeamPage.tsx`, `TagsPage.tsx` (their
+parts in `TeamPage/`, `TagsPage/`), `useTeamRole`; the routes in
+`App.tsx`, the buttons in `Header.tsx`.

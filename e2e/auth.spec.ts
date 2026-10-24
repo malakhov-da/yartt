@@ -49,8 +49,8 @@ test.describe('sign-in', () => {
 
 test('a sign-in link switches to its person even when someone is signed in', async ({ page }) => {
   await signIn(page);
-  await expect(page.getByRole('heading', { name: 'Моя команда' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Моя команда' })).toBeVisible();
   await signIn(page, 'ivan@example.com');
   await expect(page.getByRole('button', { name: /Иван Кузнецов/ })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Моя команда' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Моя команда' })).toHaveCount(0);
 });

@@ -25,6 +25,8 @@ export const en: Translation = {
   nav: {
     help: 'How to work',
     myDay: 'My day',
+    team: 'My team',
+    tags: 'Tags',
     invite: 'Invite an employee',
     profile: 'Profile',
     logout: 'Log out',

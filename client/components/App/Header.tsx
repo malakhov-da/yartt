@@ -1,4 +1,4 @@
-import { HelpOutline, PersonAddAlt1 } from '@mui/icons-material';
+import { Groups, HelpOutline, PersonAddAlt1, Sell } from '@mui/icons-material';
 import { AppBar, Box, ButtonBase, Chip, Divider, IconButton, ListSubheader, Menu, MenuItem, Toolbar, Tooltip, Typography } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { useOutbox } from '#client/hooks/offline.ts';
 import { useSignedOut } from '#client/hooks/session.ts';
-import { useMe } from '#client/hooks/me.ts';
+import { useMe, useTeamRole } from '#client/hooks/me.ts';
 import { showInfo } from '#client/hooks/store.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import AwayButton from './AwayButton.tsx';
@@ -19,7 +19,8 @@ import TopStatus from './TopStatus.tsx';
 
 // The top line: the logo (home — My day, which keeps its state while a task
 // or a person is open), what waits for me and the open shift (TopStatus),
-// "I'm away" (AwayButton), invite and my avatar. No tabs (decision 31); the search is in My day,
+// "I'm away" (AwayButton), My team (someone with people or bots) and Tags
+// (decision 79), the guide, invite and my avatar. No tabs (decision 31); the search is in My day,
 // over Current tasks. In the demo the line says so, and my menu switches whom I see it as.
 export default function () {
   const { t } = useTranslation();
@@ -36,6 +37,7 @@ export default function () {
   }));
   const outbox = useOutbox();
   const demo = useDemo();
+  const { hasBots } = useTeamRole();
   // Unsent changes would be lost: logging out asks first.
   const logOut = () => {
     if (outbox.length && !window.confirm(t('offline.logoutConfirm', { count: outbox.length }))) return;
@@ -56,7 +58,19 @@ export default function () {
         <Box sx={{ flexGrow: 1 }} />
         <TopStatus />
         <AwayButton />
-        {/* The guide; at phone width the line is full — it is in the menu under the avatar too. */}
+        {/* At phone width the line is full: these are in the menu under the avatar too. */}
+        {hasBots && (
+          <Tooltip title={t('nav.team')}>
+            <IconButton component={Link} to="/team" aria-label={t('nav.team')} sx={{ display: { xs: 'none', sm: 'inline-flex' } }}>
+              <Groups />
+            </IconButton>
+          </Tooltip>
+        )}
+        <Tooltip title={t('nav.tags')}>
+          <IconButton component={Link} to="/tags" aria-label={t('nav.tags')} sx={{ display: { xs: 'none', sm: 'inline-flex' } }}>
+            <Sell />
+          </IconButton>
+        </Tooltip>
         <Tooltip title={t('nav.help')}>
           <IconButton component={Link} to="/help" aria-label={t('nav.help')} sx={{ display: { xs: 'none', sm: 'inline-flex' } }}>
             <HelpOutline />
@@ -81,6 +95,8 @@ export default function () {
 
       <Menu anchorEl={menu} open={!!menu} onClose={() => setMenu(null)}>
         <MenuItem onClick={() => { setMenu(null); setProfileOpen(true); }}>{t('nav.profile')}</MenuItem>
+        {hasBots && <MenuItem component={Link} to="/team" onClick={() => setMenu(null)}>{t('nav.team')}</MenuItem>}
+        <MenuItem component={Link} to="/tags" onClick={() => setMenu(null)}>{t('nav.tags')}</MenuItem>
         <MenuItem component={Link} to="/help" onClick={() => setMenu(null)}>{t('nav.help')}</MenuItem>
         <MenuItem onClick={logOut} disabled={logout.isPending}>{t('nav.logout')}</MenuItem>
         {demo && <Divider />}

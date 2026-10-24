@@ -104,11 +104,12 @@ Adding an API: schemas — `shared/<entity>.ts`, SQL — `server/services/<Entit
 procedures — `server/trpc/<Entity>.ts`, wire it in `server/trpc/index.ts`.
 On the client: `useQuery(trpc.<Entity>.<procedure>.queryOptions(input))`.
 
-Screens: there is one — My day (`/`); there are no tabs (decision 31). A
-new place is first a block of My day, a section of the profile dialog or
-something that opens over My day by route, like a task (`/tasks/:id`) or
-a person (`/employees/:id`): a component in `client/components/<Name>Page.tsx`
-and a `matchPath` in `client/components/App.tsx`.
+Screens: My day (`/`) — only what needs the person today — and, from the
+top line, My team (`/team`) and Tags (`/tags`); there are no tabs
+(decisions 31, 79). A new place is first a block of one of them, a section
+of the profile dialog or something that opens over them by route, like a
+task (`/tasks/:id`) or a person (`/employees/:id`): a component in
+`client/components/<Name>Page.tsx` and a route in `client/components/App.tsx`.
 
 ## Database
 

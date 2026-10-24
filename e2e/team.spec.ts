@@ -8,6 +8,7 @@ test.describe('Team and the employee page', () => {
   });
 
   test('My team: my whole team on top, then me and my reports; a report\'s team unfolds into them and theirs; a row opens its details', async ({ page }) => {
+    await page.getByRole('link', { name: 'Моя команда' }).click(); // from the top line
     const team = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Моя команда' }) });
     await expect(team).toBeVisible();
     for (const column of ['Сотрудник', 'В задачах', 'Оценка', 'Задачи', 'Задержка']) {
@@ -67,6 +68,7 @@ test.describe('Team and the employee page', () => {
 
   test('the direct manager brings a report back from the folded list of their dismissed, and dismisses from the details', async ({ page }) => {
     await signIn(page, 'marina@example.com');
+    await page.goto('/team');
     const team = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Моя команда' }) });
     const sergey = team.getByRole('row').filter({ hasText: 'Сергей Волков' }).first();
     await team.getByRole('button', { name: 'Мои уволенные · 1' }).click();
@@ -126,6 +128,7 @@ test.describe('Team and the employee page', () => {
   });
 
   test('payroll export: everyone or the picked, as Excel or CSV, one row per person and day', async ({ page }) => {
+    await page.goto('/team');
     const team = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Моя команда' }) });
     await expect(team.getByRole('row', { name: /Вся моя команда/ })).toBeVisible();
     await team.getByRole('button', { name: 'Выгрузить' }).click();

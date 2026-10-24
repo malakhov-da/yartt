@@ -42,7 +42,7 @@ export const editable = (page: Page) => page.locator('.ProseMirror[contenteditab
 /** Creates a task in the new-task form — each tag typed and made a new one with its button — and opens it. */
 export async function createTask(page: Page, tags: string[]): Promise<void> {
   await page.goto('/tasks/new');
-  await expect(page.getByLabel('Теги')).toBeFocused();
+  await expect(page.getByRole('combobox', { name: 'Теги' })).toBeFocused();
   for (const tag of tags) {
     await page.keyboard.type(tag);
     await page.getByRole('button', { name: `Новый тег «${tag}»` }).click();

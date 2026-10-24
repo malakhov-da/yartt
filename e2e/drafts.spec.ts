@@ -17,7 +17,7 @@ test('a comment, a new task and a context being edited survive going elsewhere',
   await page.getByRole('link', { name: 'Мой день' }).click();
   await panel.getByRole('button', { name: 'Новая задача' }).click();
   const tag = unique('черновик');
-  await expect(page.getByLabel('Теги')).toBeFocused();
+  await expect(page.getByRole('combobox', { name: 'Теги' })).toBeFocused();
   await page.keyboard.type(tag);
   await page.getByRole('button', { name: `Новый тег «${tag}»` }).click();
   await expect(page.getByRole('button', { name: tag, exact: true })).toBeVisible();
