@@ -112,7 +112,8 @@ range; a click on another heading sorts by it — or the tags
     closes it with what was done (the end offered is now, rounded up to
     the minute) — the top line does the same with its icons;
   - every task once, in one line: its one entry of the day — the whole
-    time, set and replaced, 0 removes it, when it was last set on hover
+    time, set and replaced, 0 removes it, at most 24 hours for the day's
+    tasks together, when it was last set on hover
     (decision 60) — and "Log time" (15m, 30m, 1h, 2h a click away), so
     time is logged where the day is reviewed; the tasks opened and not
     logged are folded under one line, a reminder;

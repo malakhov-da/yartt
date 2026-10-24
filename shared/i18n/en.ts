@@ -773,6 +773,7 @@ export const en: Translation = {
     shift_open: 'A shift for this day is still open.',
     spent_immutable: 'Time entries cannot be changed — delete and add again.',
     spent_in_future: 'You cannot log time for a future day.',
+    spent_over_day: 'A day has 24 hours: other tasks of this day already have {{logged}}, this one can have at most {{left}}.',
     day_scored: 'The day is already scored — no changes allowed.',
     score_final: 'A score cannot be deleted or moved to another day.',
     not_manager: 'Only the direct manager of employee #{{employeeId}} can do this.',

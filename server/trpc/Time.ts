@@ -20,6 +20,7 @@ export default router({
    * removes it.
    * @throws no_access
    * @throws spent_in_future
+   * @throws spent_over_day — the day's tasks together would have more than 24 hours.
    * @throws day_scored
    */
   set: authedProcedure

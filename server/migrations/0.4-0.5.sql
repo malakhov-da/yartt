@@ -630,6 +630,8 @@ INVARIANTS (forbidden; all checked in the database)
   Time entries:
     - An entry by someone who does not see the task, for a future day,
       for a scored day.
+    - More than 24 hours logged by one person for one day, all tasks
+      together.
     - Two entries of one person for one task and day.
     - Moving an entry to another task, person or day.
 
@@ -841,3 +843,91 @@ frontend: the difference between updated_at and
 
 If more time is logged to tasks (spent_minutes) than worked (work), the
 employee''s timesheet shows a warning.';
+
+
+-- At most 24 hours are logged for one day, all tasks together.
+
+CREATE OR REPLACE FUNCTION check_day_minutes(p_employee_id INT, p_day DATE, p_task_id INT, p_minutes INT)
+RETURNS VOID AS $$
+DECLARE
+    v_others INT;
+BEGIN
+    -- Two entries of the same day written at once must not both pass.
+    PERFORM pg_advisory_xact_lock(hashtext('yartt.spent'), p_employee_id);
+    SELECT COALESCE(sum(value), 0) INTO v_others FROM spent_minutes
+     WHERE "by" = p_employee_id AND day = p_day AND task_id <> p_task_id;
+    IF v_others + p_minutes > 24 * 60 THEN
+        RAISE EXCEPTION 'more than 24 hours logged by employee % on %', p_employee_id, p_day
+            USING HINT = 'spent_over_day',
+                  DETAIL = json_build_object(
+                      'logged', (v_others / 60) || ':' || lpad((v_others % 60)::text, 2, '0'),
+                      'left', ((24 * 60 - v_others) / 60) || ':' || lpad(((24 * 60 - v_others) % 60)::text, 2, '0'))::text;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION check_day_minutes(INT, DATE, INT, INT) IS
+'A day has 24 hours: the time an employee logs to all tasks of one day
+together is at most that. p_minutes — the new value of the entry of
+p_task_id, which replaces the old one. Refused with spent_over_day, saying
+how much the other tasks of the day already have and how much is left.';
+
+
+CREATE OR REPLACE FUNCTION trg_spent_minutes_check()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'UPDATE' AND (NEW.task_id <> OLD.task_id OR NEW."by" <> OLD."by" OR NEW.day <> OLD.day) THEN
+        RAISE EXCEPTION 'a time entry keeps its task, person and day'
+            USING HINT = 'spent_immutable';
+    END IF;
+
+    IF TG_OP IN ('UPDATE', 'DELETE') THEN
+        IF EXISTS (SELECT 1 FROM score WHERE employee_id = OLD."by" AND day = OLD.day AND value IS NOT NULL) THEN
+            RAISE EXCEPTION 'day is already scored'
+            USING HINT = 'day_scored';
+        END IF;
+        IF TG_OP = 'DELETE' THEN
+            RETURN OLD;
+        END IF;
+        PERFORM check_day_minutes(NEW."by", NEW.day, NEW.task_id, NEW.value);
+        NEW.updated_at := NOW();
+        RETURN NEW;
+    END IF;
+
+    IF NOT can_see(NEW.task_id, NEW."by") THEN
+        RAISE EXCEPTION 'employee % does not see task %', NEW."by", NEW.task_id
+            USING HINT = 'no_access',
+                  DETAIL = json_build_object('taskId', NEW.task_id)::text;
+    END IF;
+
+    IF NEW.day > local_today(NEW."by") THEN
+        RAISE EXCEPTION 'cannot spend time in the future'
+            USING HINT = 'spent_in_future';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM score WHERE employee_id = NEW."by" AND day = NEW.day AND value IS NOT NULL) THEN
+        RAISE EXCEPTION 'day is already scored'
+            USING HINT = 'day_scored';
+    END IF;
+    PERFORM check_day_minutes(NEW."by", NEW.day, NEW.task_id, NEW.value);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION trg_spent_minutes_check() IS
+'Time entries: only by someone who sees the task, not for a future day,
+not for a scored day, and at most a day''s 24 hours on all tasks of the
+day together (check_day_minutes()). An UPDATE sets the value of the same
+task, person and day (updated_at follows); a scored day changes in no way.';
+
+COMMENT ON TABLE spent_minutes IS
+'Time entries: one per task, person and day (uq_spent_minutes_day).
+by — who logged it. Only for oneself, only someone who sees the task
+(can_see). Checked by a trigger.
+Time cannot be logged for a future day or a scored day (trigger), nor more
+than 24 hours for one day, all tasks together (check_day_minutes()).
+The value is the day''s whole time on the task: a new value replaces it
+(updated_at follows), 0 removes the entry — never on a scored day.
+When the day''s entries exceed the timesheet hours, the frontend shows
+a warning (in the employee''s timesheet).
+Does not notify the task owner.';

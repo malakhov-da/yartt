@@ -279,6 +279,21 @@ describe('history', () => {
     expect(['shift_overlap', 'shift_overlap_open']).toContain((failed as PromiseRejectedResult).reason.message);
   });
 
+  test('a day has 24 hours: all tasks of the day together, the entry replaced counted once', async () => {
+    const me = await createEmployee();
+    const api = await client(me.id);
+    const first = await createTask(me.id);
+    const second = await createTask(me.id);
+    await api.Time.set({ taskId: first, day: '2026-01-02', minutes: 20 * 60 });
+    // Replacing the same entry is not adding to it.
+    await api.Time.set({ taskId: first, day: '2026-01-02', minutes: 22 * 60 });
+    await api.Time.set({ taskId: second, day: '2026-01-02', minutes: 2 * 60 });
+    await expect(api.Time.set({ taskId: second, day: '2026-01-02', minutes: 2 * 60 + 1 }))
+      .rejects.toMatchObject({ message: 'spent_over_day', cause: { params: { logged: '22:00', left: '2:00' } } });
+    // Another day is a day of its own.
+    await api.Time.set({ taskId: second, day: '2026-01-03', minutes: 24 * 60 });
+  });
+
   test('one entry per task and day: replaced, not added; 0 removes it; the last change is kept', async () => {
     const me = await createEmployee();
     const other = await createEmployee();

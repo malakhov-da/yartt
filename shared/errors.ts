@@ -67,6 +67,7 @@ export const ERROR_CODES = [
   'shift_open',
   'spent_immutable',
   'spent_in_future',
+  'spent_over_day',
   'day_scored',
   'score_final',
   'not_manager',
