@@ -98,7 +98,7 @@ export const helpEn: Help = {
       title: 'Find a task',
       steps: [
         'The search of Current tasks forgives typos, transliteration and the wrong keyboard layout; a task is found by number too: #12.',
-        'Picked tags narrow every tab — My open, Other open, Closed.',
+        'Picked tags narrow every tab — My open, My team (for a manager: the tasks of their people down the chain), Other open, Closed.',
         'A task number (#12), wherever the task is shown, is a link to it; a tag in a line of Current tasks adds itself to the search on a click.',
         'Hover a task in any list to see its description and how much each person has spent and still plans.',
       ],

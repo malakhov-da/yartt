@@ -153,12 +153,35 @@ describe('current tasks', () => {
     expect(mine.items.map((t) => t.id)).toContain(own);
     expect(mine.items.map((t) => t.id)).not.toContain(closed);
     expect(mine.items.map((t) => t.id)).not.toContain(theirs);
-    expect((await api.MyDay.current({ tab: 'others', page: 1 })).items.map((t) => t.id)).toContain(theirs);
+    expect((await api.MyDay.current({ tab: 'team', page: 1 })).items.map((t) => t.id)).toContain(theirs);
+    expect((await api.MyDay.current({ tab: 'others', page: 1 })).items.map((t) => t.id)).not.toContain(theirs);
 
     const strangerApi = await client(stranger.id);
     expect((await strangerApi.MyDay.current({ tab: 'others', page: 1 })).items.map((t) => t.id)).not.toContain(own);
     await api.Task.makePublic({ id: own });
     expect((await strangerApi.MyDay.current({ tab: 'others', page: 1 })).items.map((t) => t.id)).toContain(own);
+  });
+
+  test('my team: tasks my people own down the chain, apart from the others, in the search too', async () => {
+    const boss = await createEmployee();
+    const lead = await createEmployee({ managerId: boss.id });
+    const dev = await createEmployee({ managerId: lead.id });
+    const outsider = await createEmployee();
+    const tag = `t-${randomUUID().slice(0, 8)}`;
+    const api = await client(boss.id);
+    const devTask = await (await client(dev.id)).Task.create({ tags: [tag, 'dev'] });
+    const outsiderTask = await (await client(outsider.id)).Task.create({ tags: [tag, 'outsider'] });
+    await (await client(outsider.id)).Task.makePublic({ id: outsiderTask });
+
+    const team = await api.MyDay.current({ tab: 'team', page: 1 });
+    expect(team.items.map((t) => t.id)).toEqual([devTask]);
+    expect(team.counts).toMatchObject({ mine: 0, team: 1 });
+    expect((await api.MyDay.current({ tab: 'others', page: 1 })).items.map((t) => t.id)).toContain(outsiderTask);
+
+    const [tagRow] = await sql<{ id: number }[]>`SELECT id FROM tag WHERE name = ${tag}`;
+    const found = await api.Task.search({ tagIds: [tagRow!.id], tab: 'team', page: 1 });
+    expect(found.items.map((t) => t.id)).toEqual([devTask]);
+    expect(found.counts).toEqual({ mine: 0, team: 1, others: 1, closed: 0 });
   });
 
   test('by deadline, nearest first; the same moment and no deadline — by priority, no deadline last', async () => {

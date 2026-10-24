@@ -14,10 +14,11 @@ import TaskLine from '../TaskPage/TaskLine.tsx';
 import TakenLink from '../App/TakenLink.tsx';
 
 const PAGE_SIZE = 20;
-const TABS = ['mine', 'others', 'closed'] as const;
+const TABS = ['mine', 'team', 'others', 'closed'] as const;
 
 /**
- * Every open task I see: mine apart from the others (decision 8), by
+ * Every open task I see: mine apart from the others (decision 8) — and, for
+ * a manager, those their people own (down the chain) apart too — by
  * deadline, with pages; the closed ones in a tab of their own, the most
  * recently closed first (decision 57). The search on top narrows the tabs
  * to the tasks carrying the picked tags — any task then, not mine included;
@@ -27,14 +28,15 @@ const TABS = ['mine', 'others', 'closed'] as const;
  * picked, and is off when a task has that title already. A tag in a line
  * below adds itself to the search.
  */
-export default function () {
+export default function (p: { team: boolean }) {
   const { t } = useTranslation();
   const trpc = useTRPC();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [tab, setTab] = useState<CurrentTab>('mine');
-  const [pages, setPages] = useState<Record<CurrentTab, number>>({ mine: 1, others: 1, closed: 1 });
+  const [pages, setPages] = useState<Record<CurrentTab, number>>({ mine: 1, team: 1, others: 1, closed: 1 });
+  const tabs = TABS.filter((value) => value !== 'team' || p.team);
   const [tags, setTags] = useState<Tag[]>([]);
   const [input, setInput] = useState('');
   const filtering = tags.length > 0;
@@ -61,13 +63,13 @@ export default function () {
   const filter = (next: { tags?: Tag[]; input?: string }) => {
     if (next.tags) setTags(next.tags);
     if (next.input !== undefined) setInput(next.input);
-    setPages({ mine: 1, others: 1, closed: 1 });
+    setPages({ mine: 1, team: 1, others: 1, closed: 1 });
   };
 
   // Nothing found in this tab but something in another: show the first such,
   // once per filter, so the empty tab can still be opened by hand.
   const foundCounts = found.isPlaceholderData ? undefined : found.data?.counts;
-  const other = TABS.find((value) => value !== tab && (foundCounts?.[value] ?? 0) > 0);
+  const other = tabs.find((value) => value !== tab && (foundCounts?.[value] ?? 0) > 0);
   const filterKey = JSON.stringify(tags.map((tag) => tag.id));
   const switchedFor = useRef('');
   useEffect(() => {
@@ -149,8 +151,8 @@ export default function () {
         <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('title.pickFirst', { name: title.pickFirst })}</Typography>
       )}
       <Stack direction="row" sx={{ alignItems: 'center', gap: 1, mb: 1 }}>
-        <Tabs value={tab} onChange={(_, value: CurrentTab) => setTab(value)} sx={{ minHeight: 0, flexGrow: 1 }}>
-          {TABS.map((value) => (
+        <Tabs value={tab} onChange={(_, value: CurrentTab) => setTab(value)} variant="scrollable" scrollButtons={false} sx={{ minHeight: 0, flexGrow: 1 }}>
+          {tabs.map((value) => (
             <Tab
               key={value}
               value={value}

@@ -1319,3 +1319,17 @@ left the editor open.
 
 *Implemented:* `Dependencies.addPart` (`server/services/Dependency.ts`),
 `part_added`; `TaskLine`'s `onNote`; `client/components/TaskPage/Dependencies.tsx`.
+
+### 77. My team's tasks are a tab of their own
+
+A manager sees every task their people take part in, so "Other open"
+mixed the tasks their team owns — what they answer for through their
+people — with ones they merely take part in or that are public; for a
+director it was hundreds of lines with the team's in among them. Now
+Current tasks has **My team** between "My open" and "Other open", shown
+to someone with people under them: the open tasks owned by anyone below
+them down the chain. "Other open" keeps the rest. The search narrows
+the new tab like the others.
+
+*Implemented:* the `team` tab of `MyDay.current` and `Task.search`
+(`subordinates()`); `CurrentTasks`.

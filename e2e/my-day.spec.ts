@@ -58,17 +58,20 @@ test.describe('My day', () => {
     await expect(page.getByText(/Ответ на комментарий CI-бот/)).toBeVisible();
   });
 
-  test('current tasks: mine and others, with pages', async ({ page }) => {
+  test('current tasks: mine, my team\'s and others, with pages', async ({ page }) => {
     await expect(page.getByRole('tab', { name: /Мои открытые · 3/ })).toBeVisible();
-    const others = page.getByRole('tab', { name: /Остальные открытые · \d+/ });
-    await others.click();
+    // Ivan's tickets: he is under Marina, who is under me — my team.
+    await page.getByRole('tab', { name: /Остальные открытые · \d+/ }).click();
+    await expect(page.getByRole('link', { name: /переезд на 5-й этаж/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: /тикет \d+/ })).toHaveCount(0);
+    await page.getByRole('tab', { name: /Моя команда · \d+/ }).click();
     await expect(page.getByRole('link', { name: /тикет \d+/ }).first()).toBeVisible();
     await page.getByRole('button', { name: 'Go to page 2' }).first().click();
     await expect(page.getByRole('link', { name: /#\d+/ }).first()).toBeVisible();
     // The tab keeps its state when coming back from a task.
     await page.getByRole('link', { name: /#\d+/ }).first().click();
     await page.getByRole('link', { name: 'Мой день', exact: true }).click(); // the logo is the way home
-    await expect(page.getByRole('tab', { name: /Остальные/ })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: /Моя команда/ })).toHaveAttribute('aria-selected', 'true');
   });
 
   test('a shift is started now from the top line and finished with what was done', async ({ page }) => {

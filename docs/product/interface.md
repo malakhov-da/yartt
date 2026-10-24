@@ -70,12 +70,13 @@ someone with reports:
   beginning of my comment and their answers so far, "Answered — waiting
   for Done" or "No answer yet"; the longest waiting on top (decision 67).
 - **Current tasks** — every open task I see (no deadline, or a deadline
-  ahead), in two tabs: **My open** (I answer for them) and **Other open** —
-  and the closed ones I see in a third, **Closed** (decision 57); each
+  ahead), in tabs: **My open** (I answer for them), for a manager **My
+  team** (those my people own, down the chain — decision 77) and **Other
+  open** — and the closed ones I see in the last, **Closed** (decision 57); each
   explains itself on hover. Open tasks are by deadline, nearest first,
   the same moment by priority; tasks without a deadline at the end, by
   priority. Closed ones are the most recently closed first. Every tab has
-  pages. For a director "Other open" is hundreds of tasks — pages keep it
+  pages. For a director "My team" is hundreds of tasks — pages keep it
   usable, the search on top narrows it (3). Public tasks of others are in
   "Other open" for everyone: there should be few of them (decision 14).
   "New task" in its title row opens a new task with what the search holds (2a). A task whose

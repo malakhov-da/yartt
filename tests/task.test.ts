@@ -600,7 +600,7 @@ describe('titles', () => {
     const [tagId] = (await sql<{ id: number }[]>`SELECT id FROM tag WHERE name = ${tag}`).map((r) => r.id);
     const found = await api.Task.search({ tagIds: [tagId!], tab: 'closed', page: 1 });
     expect(found.items.map((i) => i.id)).toEqual([second, first]);
-    expect(found.counts).toEqual({ mine: 1, others: 0, closed: 2 });
+    expect(found.counts).toEqual({ mine: 1, team: 0, others: 0, closed: 2 });
   });
 });
 

@@ -51,7 +51,7 @@ export default function () {
         <Stack spacing={2} sx={{ flex: '999 1 560px', minWidth: 0 }}>
           <Todo />
           <Waiting />
-          <CurrentTasks />
+          <CurrentTasks team={isManager} />
           {isManager && <Team />}
           <TagStats />
           <TagLimits />

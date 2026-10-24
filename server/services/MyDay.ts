@@ -182,26 +182,31 @@ export async function waiting(me: number): Promise<WaitingItem[]> {
 
 /**
  * Tasks I see — public ones included (decision 14): the open ones (no
- * deadline or one ahead) I own, or all the other open ones, by deadline,
- * nearest first, the same moment and no deadline by priority; or the
- * closed ones, the most recently closed first (decision 57).
+ * deadline or one ahead) I own, those my people own (down the chain), or
+ * all the other open ones, by deadline, nearest first, the same moment and
+ * no deadline by priority; or the closed ones, the most recently closed
+ * first (decision 57).
  */
 export async function current(me: number, tab: CurrentTab, page: number): Promise<Current> {
   const seen = sql`
-    SELECT k.id, k.owner_id, k.priority, f.value AS deadline, f.value IS NOT NULL AND f.value <= NOW() AS closed
+    SELECT k.id, k.owner_id, k.priority, f.value AS deadline, f.value IS NOT NULL AND f.value <= NOW() AS closed,
+           CASE WHEN k.owner_id = ${me} THEN 'mine'
+                WHEN k.owner_id IN (SELECT subordinates(${me})) THEN 'team'
+                ELSE 'others' END AS whose
       FROM task k
       LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
      WHERE can_see(k.id, ${me})
   `;
   const ids = z.object({ id: z.number() }).array().parse(await sql`
     SELECT id FROM (${seen}) t
-     WHERE ${tab === 'closed' ? sql`closed` : sql`NOT closed AND (owner_id IS NOT DISTINCT FROM ${me}) = ${tab === 'mine'}`}
+     WHERE ${tab === 'closed' ? sql`closed` : sql`NOT closed AND whose = ${tab}`}
      ORDER BY ${tab === 'closed' ? sql`deadline DESC, priority DESC, id DESC` : sql`deadline NULLS LAST, priority DESC, id DESC`}
      LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}
   `).map((r) => r.id);
-  const [counts] = z.object({ mine: z.number(), others: z.number(), closed: z.number() }).array().parse(await sql`
-    SELECT count(*) FILTER (WHERE NOT closed AND owner_id = ${me})::int AS mine,
-           count(*) FILTER (WHERE NOT closed AND owner_id IS DISTINCT FROM ${me})::int AS others,
+  const [counts] = z.object({ mine: z.number(), team: z.number(), others: z.number(), closed: z.number() }).array().parse(await sql`
+    SELECT count(*) FILTER (WHERE NOT closed AND whose = 'mine')::int AS mine,
+           count(*) FILTER (WHERE NOT closed AND whose = 'team')::int AS team,
+           count(*) FILTER (WHERE NOT closed AND whose = 'others')::int AS others,
            count(*) FILTER (WHERE closed)::int AS closed
       FROM (${seen}) t
   `);
