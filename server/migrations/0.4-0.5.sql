@@ -124,7 +124,7 @@ Owners of dependent tasks are notified once the deadline settles, and
 told when the new deadline breaks the latest one their task can live
 with (dependency.latest_at).
 
-A passed deadline closes the task by itself (decision 10), so the owner
+A passed deadline closes the task by itself (decision 2), so the owner
 is warned: from a day before it, the task is in their "Waiting for me"
 ("closes automatically"), and they are notified once (warned_at) if the
 deadline was set earlier than that. When it closes, the owner is told
@@ -159,6 +159,8 @@ RULES:
     waiting for it (dependency_done).
   - a new dependency -> the owner of the task waited for (with the latest
     deadline the waiting task can live with, if set).
+  - someone''s part of a task made a task of theirs -> the owner of the
+    waiting task (part_added).
   - owner change -> the new owner. If the manager initiated it — the
     previous owner too.
   - score -> the scored employee.
@@ -495,6 +497,8 @@ the API is implemented.
 
   Dependencies:
     - Add / change / remove a dependency (owner of task_id only).
+    - Create a task as one''s part of a task one sees: that task waits for
+      the new one (anyone who sees task_id; its owner is notified).
 
   Deadlines:
     - Set / move finished_at (set_finished_at, owner only).
@@ -551,7 +555,8 @@ ACCESS RULES
     - reviewed_at — owner only.
     - owner_id — the current owner or the owner''s direct manager.
     - finished_at — owner only.
-    - dependency — owner of task_id only.
+    - dependency — owner of task_id only; except a new task made as one''s
+      part of task_id, linked as it is created by anyone who sees task_id.
 
   Seeing a task (can_see):
     - The header (tag_ids, priority, finished_at, owner) — everyone.
@@ -1094,8 +1099,20 @@ COMMENT ON COLUMN notification.payload IS
 'JSONB context. Contains kind:
   comment | mention | task_mention | remind | access_request |
   access_opened | access_closed | finished_at_change | dependency_added |
-  deadline_soon | deadline_closed | dependency_done |
+  deadline_soon | deadline_closed | dependency_done | part_added |
   owner_change | owner_handed |
   score | invite | new_report | weekly_digest | bot_key_old.
 Payload keys are camelCase (employeeId, dependencyId, ...).
 A copy for an absent employee''s manager has for = the recipient id.';
+
+COMMENT ON TABLE dependency IS
+'The dependency graph. task_id depends on value.
+Set, changed and removed only by the owner of task_id — except one case,
+checked by the application: someone who sees task_id makes their part of
+it a new task of their own, and task_id waits for it from its creation
+(the owner of task_id is notified, part_added). The owner of the result
+stays its owner; the part is the other''s to own and close.
+Cycles are forbidden (trigger). Self-dependency is forbidden (CHECK).
+Deletion is physical. No audit.
+When finished_at of value is set, moved or cleared, owners of all
+dependent tasks are notified.';

@@ -392,10 +392,15 @@ export const en: Translation = {
     latestHint: 'The latest deadline of #{{dependency}} for #{{dependent}} is {{date}}: any later and #{{dependent}} will not make it. The deadline of #{{dependency}} is now {{deadline}}, in time.',
     latestHintLate: 'The latest deadline of #{{dependency}} for #{{dependent}} is {{date}}, and its deadline is {{deadline}}: both tasks are at risk.',
     latestHintNone: 'The latest deadline of #{{dependency}} for #{{dependent}} is {{date}}, and #{{dependency}} has no deadline: both tasks are at risk.',
-    latestWho: 'The latest deadline is set by the owner of #{{dependent}} — in their task, under "Waits for".',
+    latestWho: 'Only the owner of #{{dependent}} can change it — in their task, under "Waits for".',
+    latestNone: 'no latest deadline',
+    latestNoneHint: 'No latest deadline: #{{dependent}} just waits for #{{dependency}}, by when is not said.',
+    latestClick: 'Click to set or change it.',
     dependency: {
       add: 'Add',
       newTask: 'New task',
+      myPart: 'My part',
+      partHint: 'Your part of this work as a task of its own: you own it, describe it within your bounds and decide when it is done. Task #{{id}} will wait for it, and its owner sees in Waiting for me when yours is done.',
       edit: 'Change the latest deadline',
       remove: 'Remove the dependency',
       task: 'Task',
@@ -412,7 +417,7 @@ export const en: Translation = {
       take: 'Take it',
       title: 'Hand the task over',
       to: 'New owner',
-      hint: 'The new owner is notified. You stay a participant.',
+      hint: 'You give the initiative away whole: the new owner decides what to do with the task and when to close it — you stay a participant. Need someone only to do the work? Do not hand the task over: add them as a participant, and they make their part a task of its own ("My part") that yours waits for.',
       submit: 'Hand over',
     },
     feed: {
@@ -864,6 +869,10 @@ export const en: Translation = {
     dependency_done: {
       subject: 'A task yours waits for is done: {{dependency}}',
       body: '“{{dependency}}”, which your task “{{task}}” waits for, closed by its deadline.',
+    },
+    part_added: {
+      subject: 'Part of your task as a task of its own: {{task}}',
+      body: '{{by}} does their part of your task “{{task}}” in their task “{{dependency}}”. Yours now waits for it; when it is done, it shows in Waiting for me.',
     },
     dependency_added: {
       subject: 'A task waits for yours: {{task}}',

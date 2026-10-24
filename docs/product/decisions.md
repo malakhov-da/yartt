@@ -1261,7 +1261,7 @@ opens the task, where the button is, next to the comments.
 
 ### 75. A deadline warns a day ahead, and an automatic close is confirmed
 
-A passed deadline closes the task by itself (decision 10). The owner
+A passed deadline closes the task by itself (decision 2). The owner
 learned of it only from the closed task — or from their manager, who
 sees automatic closes in the team summary. Now from a day before, the
 task is in the owner's Waiting for me — "closes by itself in 5 hours",
@@ -1286,3 +1286,36 @@ up for confirmation.
 `change_deadline()` (migration `0.4-0.5`); `Task.confirmClosed`,
 `Dependency.noted`; the `closing`, `closed` and `done` items of
 `MyDay.todo`.
+
+### 76. The owner is whose initiative it is; a participant's part is a task of their own
+
+People read "owner" as "assignee": a task to be done by someone was
+handed to them. But the owner decides when the task is done — the doer,
+made owner, could close it and say they would not do it, and the author
+had to start the task anew. The model is right and stays (vision.md,
+"Assignments"):
+the owner is neither the author nor the doer, but the one whose
+initiative it is. Handing a task over gives the initiative away whole;
+whoever wants to keep the result in their hands does not hand it over
+but brings the doer in as a participant — participants do anything
+within the initiative, comment, plan and log hours.
+
+What was missing was the doer's own place. Now a participant has "My
+part" under Waits for: a new task of their own that this one waits for
+from its creation — the one exception to "only the owner links what a
+task waits for", since it adds nothing to the owner's task but a line.
+The doer describes the part strictly as they understand it and within
+their bounds, owns it and closes it; the owner is notified of it, and
+sees it in Waiting for me when it is done (decision 75). The transfer
+dialog and the guide say all this where it is decided.
+
+The latest deadline of a dependency was changed by a button with words
+next to the line. Now the value itself is the control: "needed by …",
+or "no latest deadline" when none is set, is clicked by the owner of
+the waiting task and edited in place of the line, with a hint saying
+so; for everyone else the hint says who may change it. Editing in
+place also fixed a line shown twice while edited, and a remove that
+left the editor open.
+
+*Implemented:* `Dependencies.addPart` (`server/services/Dependency.ts`),
+`part_added`; `TaskLine`'s `onNote`; `client/components/TaskPage/Dependencies.tsx`.

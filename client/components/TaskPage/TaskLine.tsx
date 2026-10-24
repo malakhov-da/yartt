@@ -1,4 +1,5 @@
 import { Box, Stack, Tooltip, Typography } from '@mui/material';
+import type { KeyboardEvent, MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import type { Tag, TaskHeader } from '#shared/task.ts';
@@ -19,10 +20,13 @@ export const taskTitle = (tags: Pick<Tag, 'name'>[]) => tags.map((tag) => tag.na
  * tags and the note, for narrow lists. Hovered, it shows its context and
  * everyone's time on it (TaskHint). The tags read as text; with `onTag`
  * (Current tasks) they are chips, and a tag clicked does that instead of
- * opening the task — it narrows the search.
+ * opening the task — it narrows the search. With `onNote` the note is a
+ * control of its own: clicked, it does that instead of opening the task (a
+ * latest deadline is changed by clicking it).
  */
 export default function (p: {
   task: TaskHeader; note?: string; noteHint?: string; noteWarn?: boolean; dense?: boolean; onTag?: (tag: Tag) => void;
+  onNote?: () => void;
 }) {
   const { t } = useTranslation();
   const format = useFormat();
@@ -70,7 +74,27 @@ export default function (p: {
         <Tooltip title={p.noteHint ?? ''} describeChild>
           <Typography
             variant="caption"
-            sx={{ color: p.noteWarn ? 'warning.dark' : 'text.secondary', fontWeight: p.noteWarn ? 600 : undefined, ...(p.noteHint && { cursor: 'help', borderBottom: 1, borderStyle: 'dotted', borderColor: 'text.disabled' }) }}
+            {...(p.onNote && {
+              role: 'button',
+              tabIndex: 0,
+              onClick: (e: MouseEvent) => { e.preventDefault(); e.stopPropagation(); p.onNote!(); },
+              onKeyDown: (e: KeyboardEvent) => {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                e.preventDefault();
+                e.stopPropagation();
+                p.onNote!();
+              },
+            })}
+            sx={{
+              color: p.noteWarn ? 'warning.dark' : 'text.secondary',
+              fontWeight: p.noteWarn ? 600 : undefined,
+              ...(p.noteHint && { cursor: 'help', borderBottom: 1, borderStyle: 'dotted', borderColor: 'text.disabled' }),
+              // What can be changed looks like it: the link color, a dashed line, a frame on hover.
+              ...(p.onNote && {
+                cursor: 'pointer', color: p.noteWarn ? 'warning.dark' : 'primary.main', borderStyle: 'dashed', borderColor: 'currentcolor',
+                px: 0.5, mx: -0.5, borderRadius: 0.5, '&:hover, &:focus-visible': { bgcolor: 'action.hover', outline: 'none' },
+              }),
+            }}
           >
             {p.note}
           </Typography>

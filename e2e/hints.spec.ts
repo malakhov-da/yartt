@@ -26,10 +26,24 @@ test('a task whose plan does not fit the deadline is marked at risk, and says wh
   await expect(page.getByRole('tooltip').filter({ hasText: /Павел Орлов в плане/ })).toContainText(/Задерживает #\d+/);
 });
 
-test('a latest deadline on the task waited for says who sets it and where', async ({ page }) => {
+test('a latest deadline on the task waited for says who may change it, and is not a control there', async ({ page }) => {
   await signIn(page);
   const api = await taskId('сайт', 'api', 'перевести форму заявки на новый api');
   await page.goto(`/tasks/${await taskId('сайт', 'новая главная к осенней кампании')}`);
+  await expect(page.getByRole('button', { name: /^ждёт эту до / })).toHaveCount(0);
   await page.getByText(/^ждёт эту до /).first().hover();
-  await expect(page.getByRole('tooltip').filter({ hasText: `задаёт владелец #${api}` })).toBeVisible();
+  await expect(page.getByRole('tooltip').filter({ hasText: `может только владелец #${api}` })).toBeVisible();
+});
+
+test('a participant makes their part a task of their own, which the task waits for', async ({ page }) => {
+  await signIn(page, 'pavel@example.com');
+  const site = await taskId('сайт', 'новая главная к осенней кампании');
+  await page.goto(`/tasks/${site}`);
+  await page.getByRole('link', { name: 'Моя часть' }).hover();
+  await expect(page.getByRole('tooltip').filter({ hasText: `Задача #${site} будет её ждать` })).toBeVisible();
+  await page.getByRole('link', { name: 'Моя часть' }).click();
+  const form = page.getByRole('main');
+  await expect(form.getByRole('heading', { name: 'Новая задача' })).toBeVisible();
+  await expect(form.getByText('Её будет ждать задача')).toBeVisible();
+  await expect(form.getByRole('link', { name: new RegExp(`^#${site}`) })).toBeVisible();
 });

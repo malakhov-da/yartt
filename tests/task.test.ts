@@ -437,12 +437,32 @@ describe('creating with details', () => {
     expect((await api.Task.get({ id: mine })).details?.waitsFor.map((d) => d.id)).toEqual([blocker]);
   });
 
-  test("another's task cannot be made to wait; nothing is created then", async () => {
+  test("a task one does not see cannot be made to wait; nothing is created then", async () => {
     const me = await createEmployee();
     const theirs = await createTask((await createEmployee()).id);
     const tag = `n-${randomUUID().slice(0, 8)}`;
-    await expect((await client(me.id)).Task.create({ tags: [tag], waitedOnBy: theirs })).rejects.toMatchObject({ message: 'forbidden' });
+    await expect((await client(me.id)).Task.create({ tags: [tag], waitedOnBy: theirs })).rejects.toMatchObject({ message: 'no_access' });
     expect(await sql`SELECT 1 FROM tag WHERE name = ${tag}`).toHaveLength(0);
+  });
+
+  test('a participant makes their part a task of their own: the task waits for it, its owner is told and sees it done', async () => {
+    const owner = await createEmployee();
+    const doer = await createEmployee();
+    const task = await createTask(owner.id);
+    await (await client(owner.id)).Observer.add({ taskId: task, employeeId: doer.id });
+    const api = await client(doer.id);
+
+    const part = await api.Task.create({ tags: [`n-${randomUUID().slice(0, 8)}`], waitedOnBy: task });
+    expect(await api.Task.get({ id: part })).toMatchObject({ ownerId: doer.id });
+    expect((await api.Task.get({ id: task })).details?.waitsFor.map((d) => d.id)).toEqual([part]);
+    expect(await notifications(owner.id)).toContainEqual(expect.objectContaining({ kind: 'part_added', by: doer.id, dependencyId: part }));
+    // The link stays the owner's to change: the part's owner cannot remove it.
+    await expect(api.Dependency.remove({ taskId: task, value: part })).rejects.toMatchObject({ message: 'forbidden' });
+
+    // Done by its owner: the owner of the waiting task sees it.
+    await api.Task.setDeadline({ id: part, deadline: new Date() });
+    expect((await (await client(owner.id)).MyDay.todo()).filter((i) => i.kind === 'done'))
+      .toMatchObject([{ task: { id: task }, dependency: { id: part } }]);
   });
 });
 

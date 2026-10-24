@@ -148,7 +148,9 @@ async function tagIds(names: string[], db: Sql): Promise<number[]> {
 /**
  * A new private task owned by its creator; tags are created as needed.
  * Priority, deadline, context and one dependency without a latest deadline come in the same
- * transaction, under the same rules as changing them later.
+ * transaction, under the same rules as changing them later — except that a
+ * task made as one's part of another (`waitedOnBy`) needs only to see that
+ * one, not to own it (decision 76).
  */
 export async function create(ownerId: number, input: CreateInput): Promise<number> {
   return sql.begin(async (tx) => {
@@ -164,7 +166,7 @@ export async function create(ownerId: number, input: CreateInput): Promise<numbe
     const id = row!.id;
     if (input.deadline) await db`SELECT set_finished_at(${id}, ${input.deadline})`;
     if (input.waitsFor) await Dependencies.setIn(db, ownerId, { taskId: id, value: input.waitsFor, latestAt: null });
-    if (input.waitedOnBy) await Dependencies.setIn(db, ownerId, { taskId: input.waitedOnBy, value: id, latestAt: null });
+    if (input.waitedOnBy) await Dependencies.addPart(db, ownerId, input.waitedOnBy, id);
     return id;
   });
 }

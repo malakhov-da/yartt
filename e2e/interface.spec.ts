@@ -150,10 +150,15 @@ test.describe('a task', () => {
     await expect(page.getByRole('tooltip').filter({ hasText: `Ждёт #${site}` })).toBeVisible();
     await page.mouse.move(0, 0);
 
-    // It is changed by a button that says so, next to the line.
-    await page.getByRole('button', { name: 'Изменить крайний дедлайн' }).click();
+    // It is changed by clicking it; edited in place, the line is not shown twice, and nothing else is left open.
+    await page.getByText(/^нужна до /).hover();
+    await expect(page.getByRole('tooltip').filter({ hasText: 'Нажмите, чтобы указать или изменить' })).toBeVisible();
+    await page.getByRole('button', { name: /^нужна до / }).click();
     await expect(page.getByLabel(`Крайний дедлайн #${site}`)).toBeVisible();
+    await expect(page.getByRole('link', { name: new RegExp(`^#${site}`) })).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'Убрать зависимость' })).toHaveCount(0);
     await page.getByRole('button', { name: 'Отмена' }).last().click();
+    await expect(page.getByLabel(`Крайний дедлайн #${site}`)).toHaveCount(0);
   });
 
   test('a comment: back to editing restores it; Ctrl+Enter sends; a file and an image go with it', async ({ page }) => {

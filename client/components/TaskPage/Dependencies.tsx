@@ -1,6 +1,7 @@
 import { Add, AddTask, Close } from '@mui/icons-material';
 import { Box, Button, Checkbox, FormControlLabel, IconButton, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import type { TagPart } from '#shared/tags.ts';
@@ -33,12 +34,15 @@ type Draft = {
 /**
  * "Waits for", then "Waited on by". The owner links a task this one waits
  * for — found by tags or number as in the search (decision 55), with or
- * without the latest deadline of it this one can live with — changes and
- * removes it; anyone
- * who sees this task makes one of their own wait for it. "+" in the search
- * opens the new-task form with the title typed, tied to this one. A latest
- * deadline forbids nothing: broken, it is marked on the line and puts both
- * tasks at risk (decision 66).
+ * without the latest deadline of it this one can live with — and removes
+ * it; anyone who sees this task makes one of their own wait for it, or
+ * makes their part of it a new task of their own this one waits for
+ * (decision 76). "+" in the search opens the new-task form with the title
+ * typed, tied to this one. The latest deadline is on the line — "needed
+ * by …", or "no latest deadline" — and the owner changes it by clicking
+ * it; its hint says what it means and who may change it. It forbids
+ * nothing: broken, it is marked on the line and puts both tasks at risk
+ * (decision 66).
  */
 export default function (p: { task: TaskPage & { details: TaskDetails } }) {
   const { t } = useTranslation();
@@ -65,17 +69,29 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
     const { dependent, dependency } = sides(dep, waits);
     return dep.latestAt !== null && isOpen(dependent) && (dependency.deadline === null || dependency.deadline > dep.latestAt);
   };
+  // Not set is a value too: shown as such, so it is seen that it can be set, and by whom.
   const note = (dep: Dependency, waits: boolean) =>
-    dep.latestAt === null ? undefined : t(waits ? 'task.latestMine' : 'task.latestTheirs', { date: format.dateTime(dep.latestAt) });
+    dep.latestAt === null ? t('task.latestNone') : t(waits ? 'task.latestMine' : 'task.latestTheirs', { date: format.dateTime(dep.latestAt) });
   const hint = (dep: Dependency, waits: boolean) => {
-    if (dep.latestAt === null) return undefined;
     const { dependent, dependency } = sides(dep, waits);
-    const params = { dependent: dependent.id, dependency: dependency.id, date: format.dateTime(dep.latestAt) };
-    const state = dependency.deadline === null ? t('task.latestHintNone', params)
+    const params = { dependent: dependent.id, dependency: dependency.id, date: dep.latestAt ? format.dateTime(dep.latestAt) : '' };
+    const state = dep.latestAt === null ? t('task.latestNoneHint', params)
+      : dependency.deadline === null ? t('task.latestHintNone', params)
       : t(broken(dep, waits) ? 'task.latestHintLate' : 'task.latestHint', { ...params, deadline: format.dateTime(dependency.deadline) });
-    // Who may change it — and where — unless it is me, with the button right here.
-    return waits && isOwner ? state : `${state} ${t('task.latestWho', params)}`;
+    return `${state} ${waits && isOwner ? t('task.latestClick') : t('task.latestWho', params)}`;
   };
+  const edit = (dep: Dependency) => setDraft({
+    waits: true,
+    picked: dep,
+    parts: [],
+    input: '',
+    limited: true,
+    latest: dep.latestAt ? toLocalInput(dep.latestAt) : suggest(dep.deadline, task.deadline),
+    editing: dep.id,
+  });
+  // A link removed while it was being edited (here or by someone else) leaves nothing to edit.
+  const editedGone = draft?.editing != null && !task.details.waitsFor.some((dep) => dep.id === draft.editing);
+  useEffect(() => { if (editedGone) setDraft(null); }, [editedGone, setDraft]);
 
   const latest = draft?.limited ? fromLocalInput(draft.latest) : null;
   const valid = !!draft?.picked && draft.picked.id !== task.id && (!draft.limited || latest !== null);
@@ -86,7 +102,54 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
   const groups = [
     { title: t('task.waitsFor'), items: task.details.waitsFor, waits: true },
     { title: t('task.waitedOnBy'), items: task.details.waitedOnBy, waits: false },
-  ].filter((g) => g.items.length > 0 || !g.waits || isOwner);
+  ];
+
+  // The picked task with its latest deadline: in place of its line when it is edited, under the list when it is new.
+  const editor = (d: Draft) => (
+    <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <Box sx={{ flexBasis: '100%', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Box sx={{ flexGrow: 1, minWidth: 0 }}><TaskLine task={d.picked!} /></Box>
+        {d.editing === null && (
+          <Tooltip title={t('task.dependency.other')}>
+            <IconButton size="small" onClick={() => setDraft({ ...d, picked: null })}><Close fontSize="small" /></IconButton>
+          </Tooltip>
+        )}
+      </Box>
+      <FormControlLabel
+        control={<Checkbox checked={d.limited} onChange={(e) => setDraft({
+          ...d,
+          limited: e.target.checked,
+          latest: d.latest || (d.waits ? suggest(d.picked!.deadline, task.deadline) : suggest(task.deadline, d.picked!.deadline)),
+        })} />}
+        label={t('task.dependency.limit')}
+      />
+      {d.limited && (
+        <TextField
+          type="datetime-local"
+          size="small"
+          label={t('task.dependency.latest', { dependency: d.waits ? d.picked!.id : task.id })}
+          value={d.latest}
+          onChange={(e) => setDraft({ ...d, latest: e.target.value })}
+          onKeyDown={(e) => { if (e.key === 'Enter') save(); }}
+          error={latest === null}
+          autoFocus={d.editing !== null}
+          slotProps={{ inputLabel: { shrink: true } }}
+          sx={{ width: 240 }}
+        />
+      )}
+      <Button variant="contained" disabled={!valid || set.isPending} onClick={save}>{t('common.save')}</Button>
+      <Button color="inherit" onClick={() => setDraft(null)}>{t('common.cancel')}</Button>
+      <Typography variant="caption" sx={{ color: 'text.secondary', flexBasis: '100%' }}>
+        {(() => {
+          // Spelled out with the numbers: which task is waited for, and which one would not make it.
+          const ids = d.waits
+            ? { dependent: task.id, dependency: d.picked!.id }
+            : { dependent: d.picked!.id, dependency: task.id };
+          return t(d.limited ? 'task.dependency.limitHelp' : 'task.dependency.freeHelp', ids);
+        })()}
+      </Typography>
+    </Stack>
+  );
 
   return (
     <>
@@ -99,45 +162,40 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
                 {t('task.dependency.add')}
               </Button>
             )}
-            {(!g.waits || isOwner) && !draft && (
-              <Button
-                size="small"
-                startIcon={<AddTask />}
-                component={Link}
-                to={`/tasks/new?${g.waits ? 'waitedOnBy' : 'waitsFor'}=${task.id}`}
-              >
-                {t('task.dependency.newTask')}
-              </Button>
+            {!draft && (
+              // Someone taking part makes their part a task of their own, which this one waits for (decision 76).
+              <Tooltip title={g.waits && !isOwner ? t('task.dependency.partHint', { id: task.id }) : ''} describeChild>
+                <Button
+                  size="small"
+                  startIcon={<AddTask />}
+                  component={Link}
+                  to={`/tasks/new?${g.waits ? 'waitedOnBy' : 'waitsFor'}=${task.id}`}
+                >
+                  {t(g.waits && !isOwner ? 'task.dependency.myPart' : 'task.dependency.newTask')}
+                </Button>
+              </Tooltip>
             )}
           </Stack>
-          {g.items.map((dep) => (
+          {g.items.map((dep) => (g.waits && draft?.editing === dep.id ? <Box key={dep.id}>{editor(draft)}</Box> : (
             <Stack key={dep.id} direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
               <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                <TaskLine task={dep} note={note(dep, g.waits)} noteHint={hint(dep, g.waits)} noteWarn={broken(dep, g.waits)} />
+                <TaskLine
+                  task={dep}
+                  note={note(dep, g.waits)}
+                  noteHint={hint(dep, g.waits)}
+                  noteWarn={broken(dep, g.waits)}
+                  onNote={g.waits && isOwner && !draft ? () => edit(dep) : undefined}
+                />
               </Box>
               {g.waits && isOwner && (
-                <>
-                  {/* Said in words: the latest deadline is set here, by the owner of the waiting task. */}
-                  <Button size="small" sx={{ flexShrink: 0, whiteSpace: 'nowrap' }} onClick={() => setDraft({
-                    waits: true,
-                    picked: dep,
-                    parts: [],
-                    input: '',
-                    limited: true,
-                    latest: dep.latestAt ? toLocalInput(dep.latestAt) : suggest(dep.deadline, task.deadline),
-                    editing: dep.id,
-                  })}>
-                    {t(dep.latestAt ? 'task.dependency.edit' : 'task.dependency.limit')}
-                  </Button>
-                  <Tooltip title={t('task.dependency.remove')}>
-                    <IconButton size="small" disabled={remove.isPending} onClick={() => remove.mutate({ taskId: task.id, value: dep.id })}>
-                      <Close fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </>
+                <Tooltip title={t('task.dependency.remove')}>
+                  <IconButton size="small" disabled={remove.isPending} onClick={() => remove.mutate({ taskId: task.id, value: dep.id })}>
+                    <Close fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               )}
             </Stack>
-          ))}
+          )))}
           {draft && draft.waits === g.waits && !draft.picked && (
             <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
               <TaskPicker
@@ -147,55 +205,13 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
                 exclude={task.id}
                 mine={!g.waits}
                 newTask={`/tasks/new?${g.waits ? 'waitedOnBy' : 'waitsFor'}=${task.id}`}
-                onPick={(picked) => setDraft({ ...draft, picked })}
+                // A task linked already is edited where it is, not shown twice.
+                onPick={(picked) => setDraft({ ...draft, picked, editing: g.items.some((dep) => dep.id === picked.id) ? picked.id : null })}
               />
               <Button color="inherit" onClick={() => setDraft(null)}>{t('common.cancel')}</Button>
             </Stack>
           )}
-          {draft && draft.waits === g.waits && draft.picked && (
-            <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-              <Box sx={{ flexBasis: '100%', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Box sx={{ flexGrow: 1, minWidth: 0 }}><TaskLine task={draft.picked} /></Box>
-                {draft.editing === null && (
-                  <Tooltip title={t('task.dependency.other')}>
-                    <IconButton size="small" onClick={() => setDraft({ ...draft, picked: null })}><Close fontSize="small" /></IconButton>
-                  </Tooltip>
-                )}
-              </Box>
-              <FormControlLabel
-                control={<Checkbox checked={draft.limited} onChange={(e) => setDraft({
-                  ...draft,
-                  limited: e.target.checked,
-                  latest: draft.latest || (draft.waits ? suggest(draft.picked!.deadline, task.deadline) : suggest(task.deadline, draft.picked!.deadline)),
-                })} />}
-                label={t('task.dependency.limit')}
-              />
-              {draft.limited && (
-                <TextField
-                  type="datetime-local"
-                  size="small"
-                  label={t('task.dependency.latest', { dependency: draft.waits ? draft.picked.id : task.id })}
-                  value={draft.latest}
-                  onChange={(e) => setDraft({ ...draft, latest: e.target.value })}
-                  onKeyDown={(e) => { if (e.key === 'Enter') save(); }}
-                  error={latest === null}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                  sx={{ width: 240 }}
-                />
-              )}
-              <Button variant="contained" disabled={!valid || set.isPending} onClick={save}>{t('common.save')}</Button>
-              <Button color="inherit" onClick={() => setDraft(null)}>{t('common.cancel')}</Button>
-              <Typography variant="caption" sx={{ color: 'text.secondary', flexBasis: '100%' }}>
-                {(() => {
-                  // Spelled out with the numbers: which task is waited for, and which one would not make it.
-                  const ids = draft.waits
-                    ? { dependent: task.id, dependency: draft.picked!.id }
-                    : { dependent: draft.picked!.id, dependency: task.id };
-                  return t(draft.limited ? 'task.dependency.limitHelp' : 'task.dependency.freeHelp', ids);
-                })()}
-              </Typography>
-            </Stack>
-          )}
+          {draft && draft.waits === g.waits && draft.picked && draft.editing === null && editor(draft)}
         </Stack>
       ))}
     </>

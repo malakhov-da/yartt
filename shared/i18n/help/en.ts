@@ -13,10 +13,13 @@ export const helpEn: Help = {
   ideasTitle: 'The essentials',
   ideas: [
     {
-      title: 'Whoever starts a task answers for it',
-      text: 'A task is run by its owner — whoever created it or was handed it. Only they decide when it is done and move its deadline. '
-        + 'The other participants are not "assignees": they solve their part in a task of their own or right in this one '
-        + 'when the part is small, like a reviewer\'s — and they plan their time and log their effort just the same.',
+      title: 'The owner is whose initiative it is',
+      text: 'A task has one owner. Not its author and not its doer: the one whose initiative it is — they answer for the result and alone '
+        + 'decide when the task is done, move its deadline and bring people in. Whoever creates a task owns it. '
+        + 'Everyone else is a participant: within someone else\'s initiative they do what is needed, comment, plan their time and log '
+        + 'hours, but do not close it. Handing ownership over gives the initiative away whole: the new owner does with the task what '
+        + 'they decide, closing it included. To keep the result in your hands, do not hand the task over — bring the person in as a '
+        + 'participant. If their part is big, they make it a task of their own with "My part", and yours waits for it.',
     },
     {
       title: 'Access only for those invited',
@@ -122,9 +125,13 @@ export const helpEn: Help = {
       title: 'Link tasks',
       steps: [
         'On a task\'s page: "Waits for" — what it cannot be finished without; "Waited on by" — who needs it. A task is found by tags or number.',
-        'Without a latest deadline a dependency only shows that a task waits for another.',
-        '"Set a latest deadline" — a date and time the task waited for must not finish after, or yours will not make it. '
-          + 'Only the owner of the waiting task sets and changes it — by "Set" or "Change the latest deadline" to the right of the line in "Waits for".',
+        'Links in "Waits for" are added by the task\'s owner. A participant adds there only a new task of their own — with "My part": '
+          + 'they own it, describe it within their bounds and decide when it is done; when it closes, the owner of the waiting task '
+          + 'sees it in Waiting for me.',
+        'Without a latest deadline a dependency only shows that a task waits for another — the line says "no latest deadline".',
+        'A latest deadline is a date and time the task waited for must not finish after, or yours will not make it. '
+          + 'Only the owner of the waiting task sets and changes it: click "needed by …" or "no latest deadline" on the line. '
+          + 'For everyone else its hint says who may change it.',
         'Nothing is forbidden: if its deadline is later or not set, the dependency\'s line is highlighted and both tasks are "At risk" — '
           + 'yours waits for a late one, that one delays yours. You are told of every move of its deadline.',
         'The owner of the task waited for is notified of a new dependency.',
@@ -137,7 +144,8 @@ export const helpEn: Help = {
         'To ask a participant to do something, mention them (@) in a comment and say what is needed: it lands in their Waiting for me. '
           + 'Only those already in the task can be mentioned; in a public task, anyone.',
         'If you need someone who is not in the task and you are not the owner, ask the owner to add them. They can request access themselves.',
-        'The mention is closed when they reply and press "Done". If there is a lot of work, they make a follow-up task, and yours waits for it.',
+        'The mention is closed when they reply and press "Done". If there is a lot of work, they make a task of their own with "My part" '
+          + 'under "Waits for" — yours waits for it, and when it closes you see it in Waiting for me.',
       ],
     },
     {
@@ -158,7 +166,9 @@ export const helpEn: Help = {
     {
       title: 'Hand a task over or leave it',
       steps: [
-        '"Hand over" gives the whole task to another owner; you stay a participant. A manager can hand over their report\'s tasks too.',
+        '"Hand over" gives the whole task to another owner; you stay a participant. The new owner decides everything — closing it '
+          + 'included. So do not hand a task to someone who is only to do the work: bring them in as a participant, and a big part '
+          + 'they make a task of their own ("My part"). A manager can hand over their report\'s tasks too.',
         '"Leave the task" when it is no longer your business. The owner cannot leave, nor a manager while their report takes part.',
       ],
     },

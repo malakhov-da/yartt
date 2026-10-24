@@ -38,6 +38,26 @@ export async function setIn(db: Sql, actorId: number, input: SetDependencyInput)
   }
 }
 
+const Waiting = z.object({ ownerId: z.number().nullable(), sees: z.boolean() });
+
+/**
+ * A new task made as someone's part of another (decision 76): the other one
+ * waits for it, linked as it is created. The owner of the waiting task links
+ * as always; anyone else who sees it may too — the one exception to "only
+ * the owner links what a task waits for", since the new task is theirs and
+ * adds nothing to the other's but a line. Its owner is told (part_added).
+ */
+export async function addPart(db: Sql, actorId: number, taskId: number, value: number): Promise<void> {
+  const [waiting] = Waiting.array().parse(await db`SELECT owner_id, can_see(id, ${actorId}) AS sees FROM task WHERE id = ${taskId}`);
+  if (!waiting) throw new AppError('not_found');
+  if (waiting.ownerId === actorId) return setIn(db, actorId, { taskId, value, latestAt: null });
+  if (!waiting.sees) throw new AppError('no_access', { taskId });
+  await db`INSERT INTO dependency (task_id, value) VALUES (${taskId}, ${value})`;
+  if (waiting.ownerId !== null) {
+    await db`SELECT notify(${waiting.ownerId}, ${taskId}, ${db.json({ kind: 'part_added', by: actorId, dependencyId: value })})`;
+  }
+}
+
 /** The owner of a task stops it waiting for another one. */
 export async function remove(actorId: number, taskId: number, value: number): Promise<void> {
   await sql.begin(async (tx) => {
