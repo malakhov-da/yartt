@@ -624,9 +624,14 @@ ACCESS RULES
       dismissed one always has a manager, and only that manager brings
       them back — under themselves: the employee then moves to another
       manager on their own.
-    - Someone at the top leaves in three steps of their own people:
-      the successor clears their manager (or picks the one above), the
-      leaver picks the successor as manager, the successor dismisses them.
+    - Managers may form a ring (decision 90): directors who pick each
+      other see all of each other''s tasks, like any manager. Rights stay
+      with the direct manager: in a ring each dismisses and scores the
+      one who picked them.
+    - Someone at the top leaves in two steps of their own people: the
+      leaver picks the successor as manager, the successor dismisses
+      them (a successor among the leaver''s direct reports is left without
+      a manager).
       Someone who will not: the installation administrator dismisses them
       with an heir (dismiss_with_heir, server/admin.ts) — outside the API.
     - Setting a manager notifies the new manager (new_report).
@@ -666,7 +671,6 @@ INVARIANTS (forbidden; all checked in the database)
     - A comment attaching its own task.
 
   Hierarchy:
-    - A cycle in manager_id (A -> B -> A).
     - An employee being their own manager.
 
   Timesheet:
@@ -1685,8 +1689,184 @@ An employee cannot be deleted (trigger).
 manager_id — the direct manager. One field, no history.
 Changing the manager is a plain UPDATE (by the employee). The new manager
 is automatically added to all of the employee''s tasks. The old one stays.
-A cycle (A -> B -> A) is forbidden by a trigger. Only a person manages
+Managers may form a ring (A -> B -> A, decision 90). Only a person manages
 (manager_id refers to human); a bot always has a manager.
 
 time_zone — the employee''s time zone. It defines day boundaries for the
 timesheet, time entries and scores.';
+
+-- Managers may form a ring: directors who pick each other see all of
+-- each other's tasks (decision 90).
+
+DROP TRIGGER employee_manager_cycle ON employee;
+DROP FUNCTION trg_employee_manager_cycle();
+
+CREATE OR REPLACE FUNCTION subordinates(p_manager_id INT)
+RETURNS SETOF INT AS $$
+    WITH RECURSIVE tree AS (
+        SELECT id FROM employee WHERE manager_id = p_manager_id
+        UNION
+        SELECT e.id FROM employee e JOIN tree t ON e.manager_id = t.id
+    )
+    SELECT id FROM tree WHERE id <> p_manager_id
+$$ LANGUAGE sql STABLE;
+
+COMMENT ON FUNCTION subordinates(INT) IS
+'All reports, recursively. For the "reports'' tasks" section:
+SELECT * FROM task WHERE owner_id IN (SELECT subordinates(:me)).
+Never the manager themselves: in a ring of managers (decision 90) the
+others of the ring are their reports, they are not their own.';
+
+CREATE OR REPLACE FUNCTION notify(
+    p_employee_id INT,
+    p_task_id INT,
+    p_payload JSONB
+)
+RETURNS VOID AS $$
+DECLARE
+    v_id INT := p_employee_id;
+    v_dismissed_at TIMESTAMPTZ;
+    v_next_day DATE;
+    v_manager_id INT;
+    v_payload JSONB := p_payload;
+    v_seen INT[] := ARRAY[]::INT[];
+BEGIN
+    SELECT dismissed_at INTO v_dismissed_at FROM employee WHERE id = p_employee_id;
+    IF NOT FOUND OR v_dismissed_at IS NOT NULL THEN
+        RETURN;
+    END IF;
+
+    LOOP
+        SELECT e.dismissed_at, h.next_day, e.manager_id
+          INTO v_dismissed_at, v_next_day, v_manager_id
+          FROM employee e LEFT JOIN human h ON h.employee_id = e.id
+         WHERE e.id = v_id;
+
+        IF v_dismissed_at IS NULL THEN
+            INSERT INTO notification (employee_id, task_id, payload)
+            VALUES (v_id, p_task_id, v_payload);
+            EXIT WHEN v_next_day IS NULL OR v_next_day <= local_today(v_id);
+        END IF;
+
+        -- A ring of managers all away (decision 90): the copies stop where they began.
+        v_seen := v_seen || v_id;
+        EXIT WHEN v_manager_id IS NULL OR v_manager_id = ANY(v_seen);
+        v_id := v_manager_id;
+        v_payload := p_payload || jsonb_build_object('for', p_employee_id);
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION notify(INT, INT, JSONB) IS
+'The only way to create a notification.
+A dismissed employee gets nothing. If the recipient is away
+(human.next_day in the future), a copy goes to their manager, and so on up until an
+available one is found — once round a ring of managers at most. Copies carry
+for = the original recipient.';
+
+CREATE OR REPLACE FUNCTION dismiss_employee(p_employee_id INT, p_actor_id INT)
+RETURNS VOID AS $$
+DECLARE
+    v_dismissed_at TIMESTAMPTZ;
+    v_manager_id INT;
+    v_task_id INT;
+BEGIN
+    SELECT dismissed_at, manager_id INTO v_dismissed_at, v_manager_id
+      FROM employee WHERE id = p_employee_id
+       FOR UPDATE;
+
+    IF NOT FOUND OR v_dismissed_at IS NOT NULL THEN
+        RAISE EXCEPTION 'employee % is unknown or already dismissed', p_employee_id
+            USING HINT = 'not_found';
+    END IF;
+    IF v_manager_id IS DISTINCT FROM p_actor_id THEN
+        RAISE EXCEPTION 'only the direct manager can dismiss employee %', p_employee_id
+            USING HINT = 'not_manager',
+                  DETAIL = json_build_object('employeeId', p_employee_id)::text;
+    END IF;
+
+    -- The direct manager is the heir: they are active, they are acting.
+    FOR v_task_id IN
+        UPDATE task SET owner_id = v_manager_id
+         WHERE owner_id = p_employee_id
+        RETURNING id
+    LOOP
+        PERFORM notify(v_manager_id, v_task_id, jsonb_build_object(
+            'kind', 'owner_change', 'from', p_employee_id));
+    END LOOP;
+
+    -- The leaver knew their bots' keys: the bots move on with keys nobody knows.
+    UPDATE bot SET key_hash = digest(new_bot_key(), 'sha256'), key_issued_at = NOW()
+     WHERE employee_id IN (SELECT id FROM employee WHERE manager_id = p_employee_id AND kind = 'bot');
+    -- In a ring the dismissing manager may be a report too: they are left without one.
+    UPDATE employee SET manager_id = NULLIF(v_manager_id, id) WHERE manager_id = p_employee_id;
+
+    UPDATE employee SET dismissed_at = NOW() WHERE id = p_employee_id;
+    UPDATE human SET next_day = NULL WHERE employee_id = p_employee_id;
+
+    DELETE FROM token WHERE employee_id = p_employee_id;
+    DELETE FROM session WHERE employee_id = p_employee_id;
+    DELETE FROM remind WHERE employee_id = p_employee_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION dismiss_employee(INT, INT) IS
+'Dismisses an employee. Only the direct manager (p_actor_id) can do it;
+an employee without a manager cannot be dismissed.
+  1. All tasks (open and closed — a closed one can be reopened) go to the
+     manager with a notification.
+  2. Reports move to the manager (who is notified: new_report); the keys
+     of their bots are replaced with ones nobody knows. In a ring
+     (decision 90) the manager may be one of them: they are left
+     without a manager.
+  3. dismissed_at = NOW() — signing in is impossible. The email and
+     manager_id are kept, so the same manager can bring the employee back
+     as they were.
+  4. Sessions, magic tokens and reminders are deleted; a dismissed bot''s
+     key stops working (authenticate_bot).
+History (scores, time entries, comments) is kept.';
+
+CREATE OR REPLACE FUNCTION dismiss_with_heir(p_employee_id INT, p_heir_id INT)
+RETURNS VOID AS $$
+DECLARE
+    v_manager_id INT;
+BEGIN
+    PERFORM pg_advisory_xact_lock(hashtext('yartt.hierarchy'));
+    SELECT manager_id INTO v_manager_id FROM employee WHERE id = p_employee_id AND dismissed_at IS NULL FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'employee % is unknown or already dismissed', p_employee_id
+            USING HINT = 'not_found';
+    END IF;
+    IF p_heir_id = p_employee_id OR NOT EXISTS (SELECT 1 FROM employee WHERE id = p_heir_id AND dismissed_at IS NULL) THEN
+        RAISE EXCEPTION 'heir % is unknown, dismissed or the employee themselves', p_heir_id
+            USING HINT = 'not_found';
+    END IF;
+
+    -- An heir from the employee's own subtree steps out of it first: their place is above.
+    -- Already the employee's manager (a ring, decision 90), they have it.
+    IF p_heir_id IN (SELECT subordinates(p_employee_id)) AND v_manager_id IS DISTINCT FROM p_heir_id THEN
+        UPDATE employee SET manager_id = v_manager_id WHERE id = p_heir_id;
+    END IF;
+    UPDATE employee SET manager_id = p_heir_id WHERE id = p_employee_id;
+    PERFORM dismiss_employee(p_employee_id, p_heir_id);
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION dismiss_with_heir(INT, INT) IS
+'For the installation administrator (server/admin.ts), not the API: the
+way to dismiss someone who will not hand over — in particular someone at
+the top, whom nobody in the product can dismiss. The heir becomes the
+employee''s manager and dismisses them (dismiss_employee): the tasks and
+the team, dismissed reports included, go to the heir, the only one who
+can bring the employee back. An heir from the employee''s own subtree
+first leaves it for the employee''s place (under their manager, or at
+the top): otherwise they would stay in a ring with the team they take
+over.';
+
+COMMENT ON COLUMN employee.manager_id IS
+'The direct manager — always a person. One field, no history.
+The current manager scores the day.
+A ring (A -> B -> A) is allowed (decision 90): its people see each
+other''s tasks, and each dismisses and scores the one who picked them.
+A person picks their own; a bot''s is whoever created it or got it
+handed over (transfer_bot()).';

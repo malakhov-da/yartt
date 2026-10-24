@@ -62,15 +62,50 @@ describe('employee', () => {
     expect(saved.nextDay).toBe('2026-12-31');
   });
 
-  test('setManager rejects cycles', async () => {
+  test('nobody is their own manager', async () => {
     const boss = await createEmployee();
-    const dev = await createEmployee({ managerId: boss.id });
-
-    await expect((await client(boss.id)).Employee.setManager({ managerId: dev.id }))
-      .rejects.toMatchObject({ message: 'manager_cycle' });
     await expect((await client(boss.id)).Employee.setManager({ managerId: boss.id }))
-      .rejects.toMatchObject({ message: 'manager_cycle' });
-    await (await client(dev.id)).Employee.setManager({ managerId: null });
+      .rejects.toMatchObject({ message: 'manager_self' });
+  });
+
+  test('managers may form a ring: each sees the others\' tasks, rights stay with the direct manager', async () => {
+    const a = await createEmployee();
+    const b = await createEmployee({ managerId: a.id });
+    const c = await createEmployee({ managerId: b.id });
+    const dev = await createEmployee({ managerId: c.id });
+    const [tag] = await sql<{ id: number }[]>`INSERT INTO tag (name) VALUES (${'ring-' + a.id}) RETURNING id`;
+    const [devTask] = await sql<{ id: number }[]>`INSERT INTO task (owner_id, tag_ids) VALUES (${dev.id}, ${[tag!.id]}) RETURNING id`;
+    await (await client(a.id)).Employee.setManager({ managerId: c.id }); // a -> c -> b -> a
+    const [tag2] = await sql<{ id: number }[]>`INSERT INTO tag (name) VALUES (${'ring2-' + a.id}) RETURNING id`;
+    const [aTask] = await sql<{ id: number }[]>`INSERT INTO task (owner_id, tag_ids) VALUES (${a.id}, ${[tag2!.id]}) RETURNING id`;
+
+    const sees = async (taskId: number) => (await sql<{ v: boolean }[]>`
+      SELECT array_agg(can_see(${taskId}, x) ORDER BY x) AS v FROM unnest(${[a.id, b.id, c.id]}::int[]) x
+    `)[0]!.v;
+    expect(await sees(devTask!.id)).toEqual([true, true, true]);
+    expect(await sees(aTask!.id)).toEqual([true, true, true]);
+    // The others of the ring are one's reports, never oneself.
+    const [under] = await sql<{ ids: number[] }[]>`SELECT array_agg(s ORDER BY s) AS ids FROM subordinates(${a.id}) s`;
+    expect(under!.ids).toEqual([b.id, c.id, dev.id].sort((x, y) => x - y));
+    const today = new Date().toISOString().slice(0, 10);
+    const team = await (await client(a.id)).Team.summary({ from: today, to: today });
+    expect(team.map((m) => m.employeeId).sort((x, y) => x - y)).toEqual([a.id, b.id, c.id, dev.id].sort((x, y) => x - y));
+
+    // Everyone of the ring away: a notification goes round once — a copy each — and stops.
+    await sql`UPDATE human SET next_day = CURRENT_DATE + 7 WHERE employee_id IN (${a.id}, ${b.id}, ${c.id})`;
+    await sql`SELECT notify(${a.id}, NULL, '{"kind": "invite", "by": 0}'::jsonb)`;
+    const [sent] = await sql<{ n: number }[]>`
+      SELECT count(*)::int AS n FROM notification WHERE employee_id IN (${a.id}, ${b.id}, ${c.id}) AND payload->>'kind' = 'invite' AND payload->>'by' = '0'
+    `;
+    expect(sent!.n).toBe(3);
+    await sql`UPDATE human SET next_day = NULL WHERE employee_id IN (${a.id}, ${b.id}, ${c.id})`;
+
+    // Only the direct manager dismisses, in a ring too; the last pair leaves one without a manager.
+    await expect((await client(b.id)).Employee.dismiss({ id: a.id })).rejects.toMatchObject({ message: 'not_manager' });
+    await (await client(c.id)).Employee.dismiss({ id: a.id }); // b moves to c: b <-> c
+    await (await client(b.id)).Employee.dismiss({ id: c.id }); // b and dev move to b: b has none
+    const managers = new Map((await (await client(b.id)).Employee.list()).map((e) => [e.id, e.managerId]));
+    expect([managers.get(b.id), managers.get(dev.id), managers.get(c.id)]).toEqual([null, b.id, b.id]);
   });
 
   test('only the direct manager dismisses; tasks and reports move to them', async () => {
@@ -167,16 +202,14 @@ describe('employee', () => {
     expect((await api.Employee.list()).find((e) => e.id === dev.id)?.managerId).toBe(peer.id);
   });
 
-  test('someone at the top leaves through their own people: the successor steps out, becomes their manager, dismisses them', async () => {
+  test('someone at the top leaves through their own people: the successor becomes their manager, dismisses them', async () => {
     const top = await createEmployee();
     const heir = await createEmployee({ managerId: top.id });
     const other = await createEmployee({ managerId: top.id });
     const gone = await createEmployee({ managerId: top.id });
     await (await client(top.id)).Employee.dismiss({ id: gone.id });
-    // While the heir is under the top, the top cannot pick them: a cycle.
-    await expect((await client(top.id)).Employee.setManager({ managerId: heir.id })).rejects.toMatchObject({ message: 'manager_cycle' });
 
-    await (await client(heir.id)).Employee.setManager({ managerId: null });
+    // A ring for a moment: the heir is under the top, and the top under the heir.
     await (await client(top.id)).Employee.setManager({ managerId: heir.id });
     const heirApi = await client(heir.id);
     await heirApi.Employee.dismiss({ id: top.id });

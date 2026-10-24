@@ -25,7 +25,7 @@ export const ERROR_CODES = [
   'email_outside_domains',
   'invalid_locale',
   'invalid_time_zone',
-  'manager_cycle',
+  'manager_self',
 
   // bots
   'bot_not_permitted',

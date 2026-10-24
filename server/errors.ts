@@ -18,7 +18,7 @@ const CONSTRAINT_CODES: Record<string, ErrorCode> = {
   uq_employee_email: 'email_taken',
   employee_locale_check: 'invalid_locale',
   chk_employee_time_zone: 'invalid_time_zone',
-  chk_employee_manager_not_self: 'manager_cycle',
+  chk_employee_manager_not_self: 'manager_self',
   uq_task_tag_ids: 'tag_set_taken',
   chk_task_tag_ids_set: 'invalid_data',
   chk_tag_name: 'invalid_data',

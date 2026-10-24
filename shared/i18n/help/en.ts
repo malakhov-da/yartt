@@ -379,6 +379,12 @@ export const helpEn: Help = {
         + 'their reports take part in, all the way up the chain, with no permissions to set.',
     },
     {
+      q: "How do directors see each other's tasks?",
+      a: 'They pick each other as managers in the profile: managers may form a ring. Then each sees everything to do with the '
+        + 'others, as a manager does. The rights stay with the direct manager: in a ring each may score the days of, and '
+        + 'dismiss, whoever picked them as manager.',
+    },
+    {
       q: 'Why can a task not be deleted, nor a comment edited?',
       a: 'History should not get lost: metrics and links to the task stay right. An outdated comment is not edited but answered. '
         + 'To avoid sending something by mistake, a comment can be pulled back into editing for a few seconds.',

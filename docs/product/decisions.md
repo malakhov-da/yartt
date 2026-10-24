@@ -596,10 +596,9 @@ manager, and when a manager is dismissed their reports, the dismissed
 included, move to the manager above.
 
 Someone at the top has no manager and cannot be dismissed. They leave
-through their own people, each acting for themselves: the successor
-steps out from under them (clears their manager, or picks the leaver's),
-the leaver picks the successor as their manager — no cycle any more —
-and the successor dismisses them, getting the team. No special "hand
+through their own people, each acting for themselves: the leaver picks
+the successor as their manager — a ring for a moment (decision 90) — and
+the successor dismisses them, getting the team. No special "hand
 over" operation: it would have the leaver move the successor, and a
 manager does not move people. Deliberately not added: a manager moving a
 report, dismissed or brought back, to another manager.
@@ -1570,3 +1569,32 @@ queue like everything else; nobody stands as its sender.
 
 *Implemented:* the `welcome` notification (`shared/notification.ts`,
 `mail.welcome`); `server/bootstrap.ts` sends it to the first employee.
+
+### 90. Managers may form a ring
+
+A CEO and a CTO wanted to see each other's work, and two directors
+each other's: a manager sees everything to do with their people, but
+`manager_id` refused a cycle, so two people could never be each other's
+managers. The tree guarded nothing, though: picking a manager opens
+one's own tasks to them, never someone else's to oneself, so no ring
+shows anyone what its people did not open themselves. Now managers may
+form a ring — A picks B, B picks C, C picks A — and each sees everything
+to do with the others, as any manager does, with nothing new to learn.
+
+The rights stay with the direct manager, in a ring as elsewhere: each
+scores the days of, and dismisses, whoever picked them. That power was
+handed over by the one who picked, as always. Dismissing someone of a
+ring moves their reports to their manager, as always; in the last pair
+that is the one dismissing, who is then left without a manager.
+Someone at the top now leaves in two steps: they pick the successor as
+manager, and the successor dismisses them.
+
+A person has one manager, so a ring has nobody above it: it is the top
+of the company, or a group of its own. Two heads of departments under
+one CEO cannot ring each other without leaving the CEO.
+
+*Implemented:* `trg_employee_manager_cycle()` removed; `subordinates()`
+never returns the manager themselves, `notify()` goes round a ring of
+the away once, `dismiss_employee()` leaves the last of a pair without a
+manager (migration `0.4-0.5`); the code `manager_cycle` became
+`manager_self`.

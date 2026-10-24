@@ -9,8 +9,8 @@ describe('error codes', () => {
     const boss = await createEmployee();
     const dev = await createEmployee({ managerId: boss.id });
 
-    await expect((await client(boss.id)).Employee.setManager({ managerId: dev.id })).rejects.toMatchObject({
-      message: 'manager_cycle',
+    await expect((await client(dev.id)).Employee.dismiss({ id: boss.id })).rejects.toMatchObject({
+      message: 'not_manager',
       cause: { params: { employeeId: boss.id } },
     });
   });

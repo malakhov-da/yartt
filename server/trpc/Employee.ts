@@ -53,7 +53,7 @@ export default router({
    * Sets the signed-in employee's own manager (null — none). The new manager
    * is notified, then scores the employee's days and sees their tasks.
    * @throws not_found — the manager is unknown, dismissed or a bot.
-   * @throws manager_cycle
+   * @throws manager_self — the employee themselves.
    */
   setManager: authedProcedure
     .input(z.object({ managerId: Id.nullable() }))

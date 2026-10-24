@@ -827,7 +827,7 @@ export const en: Translation = {
     email_taken: 'An employee with this email already exists.',
     invalid_locale: 'Unknown language.',
     invalid_time_zone: 'Unknown time zone.',
-    manager_cycle: 'Not allowed: managers would form a cycle (employee #{{employeeId}}).',
+    manager_self: 'Nobody can be their own manager.',
     bot_not_permitted: 'The bot may not do this: its manager sets what it may change in its settings.',
     tag_set_taken: 'A task with this set of tags already exists — add a tag to tell them apart.',
     unknown_tag: 'Unknown tag.',

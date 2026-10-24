@@ -13,6 +13,7 @@ persona goal it serves. Status: **now** — stage one, **next** — stage two,
 | "I'll be away" from the top line: the day I'm back in one click, seen on every page | everyone: going on leave takes a second, and nothing waits unseen meanwhile | now (done) |
 | Profile behind the avatar: name, sign-in email (a new one confirmed by a link sent there), about me (position, contacts); back at work on (vacation, sick leave), time zone, language, pronoun applied at once | Pavel: control what others see | now (done) |
 | Choose own manager | Marina: the org chart builds itself | now (done) |
+| Managers may pick each other — a ring: directors see all of each other's work, each keeps the rights over whoever picked them | Oleg: the heads of the company see each other's work without a setting | now (done) |
 | Dismiss / bring back a direct report, with the email they had; their tasks and reports move to the manager | Marina: no orphaned work, nobody else can do it | now (done) |
 | The new manager is notified when someone chooses them | Marina: no surprise reports | now (done) |
 
