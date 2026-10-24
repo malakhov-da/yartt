@@ -181,7 +181,7 @@ export const helpEn: Help = {
         'After "Send" a comment can be pulled back into editing for a few seconds; then it is never changed or deleted.',
         '"Reply" starts a thread under a comment; the feed keeps a mark at the moment of the reply.',
         'An unfinished comment, form or edit is kept as a draft when you go to another page.',
-        'Files are limited: the size of one and the total of yours are set by the administrator, and big files are kept for a while. '
+        'Files are limited: the size of one and the total of yours are set by the administrator; nothing is deleted by age. '
           + 'My files, at the bottom of My day, shows how much is taken and lets go of those not needed.',
         'A file is kept while at least one person keeps it in their files. Need someone else\'s file from a task — press "Keep in my '
           + 'files" by it: it stays with you even if its author lets it go. When nobody keeps a file, its content is deleted and the '

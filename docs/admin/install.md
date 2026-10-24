@@ -38,7 +38,6 @@ work, [demo.env.example](../../demo.env.example) for a trial. Copy one to
 | `EMAIL_DOMAINS` | no | the company's mail domains, comma-separated (`corp.com,corp.kz`): no other address can be invited or set; someone who already has one signs in only to change it, and their mail gets that request instead of notifications, once a day. Exact domains, subdomains are not included. Empty — any address |
 | `FILE_MAX_MB` | no | the largest file that can be attached, in MB; default `50` (the demo keeps 2) |
 | `FILE_QUOTA_MB` | no | how much one person's files may take together, in MB; default `1024`. Over it an upload is refused, and the person deletes the content of files they no longer need in "My files" |
-| `FILE_BIG_MB`, `FILE_BIG_DAYS` | no | files over `FILE_BIG_MB` (default `10`) keep their content `FILE_BIG_DAYS` days (default `7`) after their last use; the rest is kept. A deleted file comes back when the same file is uploaded again |
 | `COOKIE_SECURE` | no | `true` (default) — keep it unless you test over plain HTTP |
 | `FIRST_EMPLOYEE_EMAIL`, `FIRST_EMPLOYEE_NAME` | first start, without `OIDC_ISSUER` | the first employee, created only while there are no employees |
 | `FIRST_EMPLOYEE_LOCALE`, `FIRST_EMPLOYEE_TIME_ZONE` | no | `ru` / `en`; an IANA zone such as `Europe/Moscow`. Invited employees inherit them from whoever invites |

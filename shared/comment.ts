@@ -179,8 +179,5 @@ export const MyFiles = z.object({
   files: MyFile.array(),
   usedBytes: z.number(),
   quotaBytes: z.number(),
-  /** Files over this keep their content `bigDays` days after their last use. */
-  bigBytes: z.number(),
-  bigDays: z.number().int(),
 });
 export type MyFiles = z.infer<typeof MyFiles>;

@@ -101,7 +101,7 @@ const MyFileRow = z.object({
  * newest first, with what they take of the quota (decision 84): the names
  * they go by in comments and the tasks they are in, how many hold them.
  */
-export async function mine(employeeId: number): Promise<{ files: MyFile[]; usedBytes: number; quotaBytes: number; bigBytes: number; bigDays: number }> {
+export async function mine(employeeId: number): Promise<{ files: MyFile[]; usedBytes: number; quotaBytes: number }> {
   const files = MyFileRow.array().parse(await sql`
     SELECT a.id, a.held_by @> ARRAY[${employeeId}::int] AS held, cardinality(a.held_by) AS holders,
            a.size, a.mime, a.added_at, a.used_at, a.purged_at,
@@ -119,8 +119,6 @@ export async function mine(employeeId: number): Promise<{ files: MyFile[]; usedB
     files,
     usedBytes: await usedBytes(employeeId),
     quotaBytes: env.FILE_QUOTA_MB * MB,
-    bigBytes: env.FILE_BIG_MB * MB,
-    bigDays: env.FILE_BIG_DAYS,
   };
 }
 
@@ -145,9 +143,4 @@ export async function keep(employeeId: number, id: number): Promise<void> {
 /** Lets a file go, to free the quota; the last one to let it go deletes its content, the links say so. */
 export async function release(employeeId: number, id: number): Promise<void> {
   await sql`SELECT release_attachment(${id}, ${employeeId})`;
-}
-
-/** The worker's job: big files unused too long lose their content. */
-export async function purgeOld(db = sql): Promise<void> {
-  await db`SELECT purge_old_attachments(${env.FILE_BIG_MB * MB}, ${env.FILE_BIG_DAYS})`;
 }

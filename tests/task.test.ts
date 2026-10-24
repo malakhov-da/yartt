@@ -291,16 +291,6 @@ describe('rich text and attachments', () => {
     }
   });
 
-  test('big files unused too long lose their content; the rest stays', async () => {
-    const me = await createEmployee();
-    const big = await Attachments.upload(me.id, Buffer.from(`big-${randomUUID()}`.padEnd(2048, 'x')), 'text/plain');
-    const small = await Attachments.upload(me.id, Buffer.from(`small-${randomUUID()}`), 'text/plain');
-    await sql`UPDATE attachment SET used_at = NOW() - INTERVAL '8 days' WHERE id IN (${big}, ${small})`;
-    await sql`SELECT purge_old_attachments(1024, 7)`;
-    const rows = await sql<{ id: number; purged: boolean }[]>`SELECT id, value IS NULL AS purged FROM attachment WHERE id IN (${big}, ${small}) ORDER BY id`;
-    expect(rows).toEqual([{ id: big, purged: true }, { id: small, purged: false }]);
-  });
-
   test('the context keeps its images out of the cleanup', async () => {
     const owner = await createEmployee();
     const id = await createTask(owner.id);

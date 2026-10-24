@@ -3,7 +3,6 @@ import { Locale } from '#shared/employee.ts';
 import { NotificationPayload } from '#shared/notification.ts';
 import { refreshDemo } from './demo.ts';
 import { outsideDomains } from './domains.ts';
-import * as Attachments from './services/Attachment.ts';
 import * as Bots from './services/Bot.ts';
 import { checkPeople } from './sso.ts';
 import { deliver } from './delivery.ts';
@@ -43,11 +42,6 @@ const JOBS: { name: string; every: number; run: (sql: Sql) => Promise<unknown> }
     name: 'weekly_digests',
     every: HOUR,
     run: (sql) => sql`SELECT send_weekly_digests()`,
-  },
-  {
-    name: 'purge_old_attachments',
-    every: HOUR,
-    run: (sql) => Attachments.purgeOld(sql),
   },
   {
     name: 'session_cleanup',

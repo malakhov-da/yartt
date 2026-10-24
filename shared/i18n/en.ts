@@ -7,7 +7,7 @@ export const en: Translation = {
   files: {
     title: 'My files',
     used: '{{used}} of {{quota}} used',
-    rules: 'A file is kept while at least one person keeps it in their files; it counts in the quota of everyone who keeps it. Files over {{big}} are kept {{days}} days after their last use. A deleted file comes back when it is uploaded again — the links to it work again.',
+    rules: 'A file is kept while at least one person keeps it in their files; it counts in the quota of everyone who keeps it. A deleted file comes back when it is uploaded again — the links to it work again.',
     none: 'You have not uploaded any files yet.',
     unnamed: 'unnamed',
     purged: 'deleted {{date}}',

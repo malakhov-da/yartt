@@ -1451,8 +1451,9 @@ Nothing stopped someone from attaching a film, or a thousand small files,
 until the database outgrew its server. Now the configuration limits them
 (the installation decides, not the product): a file at most `FILE_MAX_MB`;
 a person's files at most `FILE_QUOTA_MB` together — an upload over it is
-refused with how much is taken; files over `FILE_BIG_MB` keep their
-content `FILE_BIG_DAYS` days after their last use. The rest is kept.
+refused with how much is taken. Nothing is deleted by size or age: an
+old file may be exactly the one needed, and only a person knows which
+they can do without — they let go of files when their quota runs out.
 
 A file is kept while someone holds it in their quota. Whoever uploads it
 holds it; anyone who sees a file in a task can keep it too ("Keep in my
@@ -1469,8 +1470,7 @@ files are one row whoever uploads them, so a file shared in a team is
 stored once.
 
 *Implemented:* `attachment.held_by`, `purged_at`, `keep_attachment()`,
-`release_attachment()`,
-`purge_old_attachments()` (migration `0.4-0.5`); `FILE_*` in
+`release_attachment()` (migration `0.4-0.5`); `FILE_*` in
 `server/env.ts`; `Attachment.mine`, `keep`, `release`;
 `client/components/MyDayPage/Files.tsx`.
 

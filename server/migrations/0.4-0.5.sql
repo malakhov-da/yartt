@@ -743,8 +743,6 @@ CRON JOBS (outside SQL)
   - every day:    DELETE FROM attachment a
                    WHERE used_at < NOW() - INTERVAL ''1 day''
                      AND NOT attachment_in_use(a.id);
-  - every hour:   SELECT purge_old_attachments(:big bytes, :days) — the
-                  sizes and days from the configuration.
   - every day:    DELETE FROM visit WHERE at < NOW() - INTERVAL ''1 year'';
   - every day:    DELETE FROM bot_usage WHERE day < CURRENT_DATE - 366;
   - every hour:   ask the identity provider about people last checked a
@@ -1304,21 +1302,6 @@ deleted. The row stays, and so do the comments that refer to it: their
 link says the file is gone; the same bytes uploaded again bring it back.';
 
 
-CREATE OR REPLACE FUNCTION purge_old_attachments(p_min_size BIGINT, p_days INT)
-RETURNS INT AS $$
-    WITH purged AS (
-        UPDATE attachment SET value = NULL, purged_at = NOW(), held_by = '{}'
-         WHERE value IS NOT NULL AND size > p_min_size AND used_at < NOW() - p_days * INTERVAL '1 day'
-        RETURNING id
-    )
-    SELECT count(*)::int FROM purged
-$$ LANGUAGE sql;
-
-COMMENT ON FUNCTION purge_old_attachments(BIGINT, INT) IS
-'Cron, every hour: the content of files over p_min_size bytes unused for
-p_days days (from the configuration) is deleted, whoever holds them; the
-rows stay.';
-
 COMMENT ON TABLE attachment IS
 'Attachments: files of comments and images inside comments and task
 contexts.
@@ -1341,9 +1324,9 @@ be deleted (trigger) — comments live forever.
 
 Storage is limited (decision 84), by the configuration, not the
 database: a file at most so large; the files a person holds (held_by) at
-most so much together, refused at upload or keep; files above a size
-keep their content so many days after their last use
-(purge_old_attachments()).
+most so much together, refused at upload or keep. Nothing deletes a
+file''s content by its size or age: people let go of what they no longer
+need when their quota runs out.
 A file is kept while someone holds it: its uploaders, and whoever saw it
 in a task and kept it (keep_attachment()) — a file handed to the one who
 needs it stays theirs when its author lets it go. Letting a file go
@@ -1354,13 +1337,12 @@ says the file is gone. Anyone uploading the same bytes again (the same
 hash and size) restores it in place, so every link to it works again.';
 
 COMMENT ON COLUMN attachment.value IS
-'File content. NULL — deleted when nobody held it any more, or a big file
-went unused too long (purged_at); the same bytes uploaded again bring it
-back.';
+'File content. NULL — deleted when nobody held it any more (purged_at);
+the same bytes uploaded again bring it back.';
 
 COMMENT ON COLUMN attachment.purged_at IS
-'When the content was deleted — the last holder let it go, or a big file
-went unused too long. NULL — the content is here.';
+'When the content was deleted — the last holder let it go. NULL — the
+content is here.';
 
 COMMENT ON COLUMN attachment.uploaded_by IS
 'Everyone who uploaded these bytes (deduplication returns the same row).

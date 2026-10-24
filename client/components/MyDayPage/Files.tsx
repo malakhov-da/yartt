@@ -49,7 +49,7 @@ export default function (p: { fold?: ReactNode }) {
           <Typography variant="body2">{t('files.used', { used: bytes(data.usedBytes), quota: bytes(data.quotaBytes) })}</Typography>
           <LinearProgress variant="determinate" value={share} color={share >= 90 ? 'warning' : 'primary'} sx={{ height: 6, borderRadius: 3 }} />
           <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            {t('files.rules', { big: bytes(data.bigBytes), days: data.bigDays })}
+            {t('files.rules')}
           </Typography>
         </Stack>
       )}
