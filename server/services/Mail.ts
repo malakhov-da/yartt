@@ -57,6 +57,9 @@ export async function renderMail(message: Message): Promise<{ subject: string; t
       : '',
     url: p.kind === 'login' || p.kind === 'email_confirm' || p.kind === 'email_outside_domains' ? p.url : `${env.PUBLIC_URL}/login`,
     email: 'email' in p ? p.email : '',
+    deadline: 'deadline' in p
+      ? new Date(p.deadline).toLocaleString(message.to.locale, { dateStyle: 'long', timeStyle: 'short', timeZone: message.to.timeZone })
+      : '',
   };
 
   if (p.kind === 'score') return renderScore(message, p, params.by ?? '', person('for' in p ? p.for : undefined));
@@ -77,7 +80,7 @@ export async function renderMail(message: Message): Promise<{ subject: string; t
   if ('for' in p && p.for !== undefined) lines.push(interpolate(t.awayCopy, { name: person(p.for) }));
   if (message.taskId !== null) lines.push(interpolate(t.open, { url: `${env.PUBLIC_URL}/tasks/${message.taskId}` }));
   // The other task the message names is a link too.
-  const other = p.kind === 'finished_at_change' ? { id: p.dependencyId, title: params.dependency }
+  const other = p.kind === 'finished_at_change' || p.kind === 'dependency_done' ? { id: p.dependencyId, title: params.dependency }
     : p.kind === 'dependency_added' ? { id: p.dependentId, title: params.dependent } : null;
   if (other) lines.push(interpolate(t.openOther, { task: other.title ?? '', url: `${env.PUBLIC_URL}/tasks/${other.id}` }));
   if (p.kind === 'bot_key_old') lines.push(interpolate(t.weekly_digest.open, { url: `${env.PUBLIC_URL}/` }));

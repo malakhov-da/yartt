@@ -26,12 +26,15 @@ const ReviewRow = z.object({
 });
 const RequestRow = z.object({ taskId: z.number(), employeeId: z.number() });
 const RemindRow = z.object({ taskId: z.number(), at: z.date(), text: z.string().nullable() });
+const DeadlineRow = z.object({ taskId: z.number(), at: z.date(), closed: z.boolean() });
+const DoneRow = z.object({ taskId: z.number(), value: z.number(), at: z.date() });
 
 /**
  * What waits for my reaction: access requests to my tasks first (they have
  * no time and block "No intervention needed"), then open mentions of me, my
- * tasks with new comments by others and my reminders that came due, newest
- * first.
+ * tasks with new comments by others, my reminders that came due, my tasks
+ * closing by their deadline within a day or closed by it and not confirmed,
+ * and tasks mine wait for that are done, newest first.
  */
 export async function todo(me: number): Promise<TodoItem[]> {
   const requests = RequestRow.array().parse(await sql`
@@ -64,7 +67,25 @@ export async function todo(me: number): Promise<TodoItem[]> {
     SELECT task_id, at, value AS text FROM remind WHERE employee_id = ${me} AND sent_at IS NOT NULL
   `);
 
-  const ids = [...new Set([...requests, ...mentions, ...reviews, ...reminds].map((r) => r.taskId))];
+  // A passed deadline closes the task by itself: a day of warning, then a confirmation.
+  const deadlines = DeadlineRow.array().parse(await sql`
+    SELECT f.task_id, f.value AS at, f.value <= NOW() AS closed
+      FROM task k JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
+     WHERE k.owner_id = ${me}
+       AND ((f.value > NOW() AND f.value <= NOW() + INTERVAL '1 day' AND f.value - f.entered_at > INTERVAL '1 minute')
+            OR (f.closed_told_at IS NOT NULL AND f.confirmed_at IS NULL AND f.value <= NOW()))
+  `);
+  // Done by someone else: what I closed myself I know of.
+  const done = DoneRow.array().parse(await sql`
+    SELECT d.task_id, d.value, d.done_at AS at
+      FROM dependency d JOIN task k ON k.id = d.task_id JOIN task v ON v.id = d.value
+     WHERE k.owner_id = ${me} AND d.done_at IS NOT NULL AND v.owner_id IS DISTINCT FROM ${me}
+  `);
+
+  const ids = [...new Set([
+    ...[...requests, ...mentions, ...reviews, ...reminds, ...deadlines, ...done].map((r) => r.taskId),
+    ...done.map((d) => d.value),
+  ])];
   const tasks = new Map((await headers(me, ids)).map((h) => [h.id, h]));
 
   const timed: (TodoItem & { at: Date })[] = [
@@ -90,6 +111,15 @@ export async function todo(me: number): Promise<TodoItem[]> {
     ...reminds.flatMap((r) => {
       const task = tasks.get(r.taskId);
       return task ? [{ kind: 'remind' as const, task, at: r.at, text: r.text }] : [];
+    }),
+    ...deadlines.flatMap((r) => {
+      const task = tasks.get(r.taskId);
+      return task ? [{ kind: r.closed ? 'closed' as const : 'closing' as const, task, at: r.at }] : [];
+    }),
+    ...done.flatMap((r) => {
+      const task = tasks.get(r.taskId);
+      const dependency = tasks.get(r.value);
+      return task && dependency ? [{ kind: 'done' as const, task, dependency, at: r.at }] : [];
     }),
   ];
   timed.sort((a, b) => b.at.getTime() - a.at.getTime());

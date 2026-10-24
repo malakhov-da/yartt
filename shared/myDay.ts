@@ -51,7 +51,35 @@ export const TodoRemind = z.object({
 });
 export type TodoRemind = z.infer<typeof TodoRemind>;
 
-export const TodoItem = z.discriminatedUnion('kind', [TodoMention, TodoReview, TodoRequest, TodoRemind]);
+/** My task closes by its deadline within a day: move the deadline if the work is not done. */
+export const TodoClosing = z.object({
+  kind: z.literal('closing'),
+  task: TaskHeader,
+  /** The deadline. */
+  at: z.date(),
+});
+export type TodoClosing = z.infer<typeof TodoClosing>;
+
+/** My task closed by a deadline set in advance: confirm it, or move the deadline and it is open again. */
+export const TodoClosed = z.object({
+  kind: z.literal('closed'),
+  task: TaskHeader,
+  /** When it closed — the deadline. */
+  at: z.date(),
+});
+export type TodoClosed = z.infer<typeof TodoClosed>;
+
+/** A task my task waits for is done. */
+export const TodoDone = z.object({
+  kind: z.literal('done'),
+  /** My waiting task. */
+  task: TaskHeader,
+  dependency: TaskHeader,
+  at: z.date(),
+});
+export type TodoDone = z.infer<typeof TodoDone>;
+
+export const TodoItem = z.discriminatedUnion('kind', [TodoMention, TodoReview, TodoRequest, TodoRemind, TodoClosing, TodoClosed, TodoDone]);
 export type TodoItem = z.infer<typeof TodoItem>;
 
 /** My access request to someone's task, not answered yet. */

@@ -47,3 +47,15 @@ export async function remove(actorId: number, taskId: number, value: number): Pr
     if (rows.length === 0) throw new AppError('not_found');
   });
 }
+
+/** The owner of a task takes note that a task it waits for is done: it leaves their Waiting for me. */
+export async function noted(actorId: number, taskId: number, value: number): Promise<void> {
+  await sql.begin(async (tx) => {
+    const db = tx as unknown as Sql;
+    await db`SELECT check_owner(${taskId}, ${actorId})`;
+    const rows = await db`
+      UPDATE dependency SET done_at = NULL WHERE task_id = ${taskId} AND value = ${value} AND done_at IS NOT NULL RETURNING value
+    `;
+    if (rows.length === 0) throw new AppError('not_found');
+  });
+}

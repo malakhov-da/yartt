@@ -1258,3 +1258,31 @@ happen. Now the item says how many comments and from whom, and "Read"
 opens the task, where the button is, next to the comments.
 
 *Implemented:* `client/components/MyDayPage/Todo.tsx`.
+
+### 75. A deadline warns a day ahead, and an automatic close is confirmed
+
+A passed deadline closes the task by itself (decision 10). The owner
+learned of it only from the closed task — or from their manager, who
+sees automatic closes in the team summary. Now from a day before, the
+task is in the owner's Waiting for me — "closes by itself in 5 hours",
+with "Move the deadline" — and if the deadline was set earlier than
+that, they are notified once. When a deadline set in advance comes, the
+item turns into "Closed by its deadline": the owner is notified and
+confirms the close, or moves the deadline and the task is open again.
+The closing is still automatic: confirming it is a look back, not a
+condition, so a task never hangs open for want of a click.
+
+What waits for a closed task hears it is done: its owner gets "A task
+this one waits for is done" in Waiting for me, with "Noted", whether the
+task closed by hand or by its deadline (by its deadline they are
+notified too; by hand they already were, as for every deadline change).
+Reopened, the task is not done any more.
+
+Nothing is backfilled: tasks closed before the upgrade are not brought
+up for confirmation.
+
+*Implemented:* `finished_at.warned_at`, `closed_told_at`,
+`confirmed_at`, `dependency.done_at`, `send_deadline_notices()`,
+`change_deadline()` (migration `0.4-0.5`); `Task.confirmClosed`,
+`Dependency.noted`; the `closing`, `closed` and `done` items of
+`MyDay.todo`.

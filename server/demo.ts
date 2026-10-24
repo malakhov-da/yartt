@@ -284,7 +284,18 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
   await P.Task.setDeadline({ id: promo, deadline: daysAhead(7) });
   await sql`UPDATE finished_at SET value = NOW() - INTERVAL '3 days', entered_at = NOW() - INTERVAL '10 days' WHERE task_id = ${promo}`;
 
-  // 13. Olga's private task (I see it as her manager).
+  // 13. What deadlines bring to Waiting for me: my report closes by itself tomorrow morning
+  // (set days ago); it waits for Pavel's promo, closed by its deadline — I see it is done, and
+  // Pavel is asked to confirm the closing.
+  await I.Dependency.set({ taskId: report, value: promo, latestAt: null });
+  await sql`
+    UPDATE finished_at SET value = NOW() + INTERVAL '20 hours', entered_at = NOW() - INTERVAL '5 days'
+     WHERE task_id = ${report} AND expired_at IS NULL
+  `;
+  await sql`UPDATE finished_at SET closed_told_at = value WHERE task_id = ${promo} AND expired_at IS NULL`;
+  await sql`UPDATE dependency SET done_at = NOW() - INTERVAL '3 days' WHERE task_id = ${report} AND value = ${promo}`;
+
+  // 14. Olga's private task (I see it as her manager).
   const docs = await L.Task.create({ tags: tags.docs });
   await L.Task.update({ id: docs, priority: 'LOW', context: t.context.docs });
 

@@ -72,6 +72,9 @@ export const helpEn: Help = {
         'New comments on your task are read in the task itself ("Read"). If nothing there waits for your decision, press '
           + '"No intervention needed" in it — the task leaves the list until a new comment. Waiting for me has no such button '
           + 'on purpose: comments are never skipped unread.',
+        'A day before its deadline your task shows in Waiting for me: "Closes by itself in …". Not making it — move the deadline. '
+          + 'When the deadline comes, the task closes and asks for a confirmation: "Confirm" or "Open again".',
+        'When a task yours waits for closes, it shows in Waiting for me too — mark it "Noted".',
         'Waiting for others, under it — what waits for others: your access requests and your mentions not closed yet. '
           + 'The longest waiting on top; a request can be withdrawn right there.',
         'Start your shift with ▶ in the top line or in the Timesheet.',

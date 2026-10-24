@@ -38,6 +38,60 @@ describe('waiting', () => {
 });
 
 describe('todo', () => {
+  test('a passed deadline: a day of warning, then a closing to confirm; what waits for the task hears it is done', async () => {
+    const owner = await createEmployee();
+    const waiting = await createEmployee();
+    const task = await createTask(owner.id);
+    const dependent = await createTask(waiting.id);
+    const api = await client(owner.id);
+    await (await client(waiting.id)).Dependency.set({ taskId: dependent, value: task, latestAt: null });
+    const kinds = async (employeeId: number) => (await sql<{ payload: { kind: string } }[]>`
+      SELECT payload FROM notification WHERE employee_id = ${employeeId} ORDER BY id
+    `).map((n) => n.payload.kind);
+    const todo = async (employeeId: number) =>
+      (await (await client(employeeId)).MyDay.todo()).filter((i) => ['closing', 'closed', 'done'].includes(i.kind));
+
+    // Set two days ahead, now 12 hours away: in TODO, and the owner is told once.
+    await api.Task.setDeadline({ id: task, deadline: new Date(Date.now() + 12 * 3_600_000) });
+    await sql`UPDATE finished_at SET entered_at = NOW() - INTERVAL '2 days' WHERE task_id = ${task}`;
+    await sql`SELECT send_deadline_notices()`;
+    await sql`SELECT send_deadline_notices()`;
+    expect(await todo(owner.id)).toMatchObject([{ kind: 'closing', task: { id: task } }]);
+    expect((await kinds(owner.id)).filter((k) => k === 'deadline_soon')).toHaveLength(1);
+
+    // The deadline came: the closing waits for a confirmation; the waiting task's owner hears it is done.
+    await sql`UPDATE finished_at SET value = NOW() - INTERVAL '1 minute' WHERE task_id = ${task} AND expired_at IS NULL`;
+    await sql`SELECT send_deadline_notices()`;
+    expect(await todo(owner.id)).toMatchObject([{ kind: 'closed', task: { id: task } }]);
+    expect(await kinds(owner.id)).toContain('deadline_closed');
+    expect(await todo(waiting.id)).toMatchObject([{ kind: 'done', task: { id: dependent }, dependency: { id: task } }]);
+    expect(await kinds(waiting.id)).toContain('dependency_done');
+
+    await expect((await client(waiting.id)).Task.confirmClosed({ id: task })).rejects.toMatchObject({ message: 'forbidden' });
+    await api.Task.confirmClosed({ id: task });
+    expect(await todo(owner.id)).toEqual([]);
+    await expect(api.Task.confirmClosed({ id: task })).rejects.toMatchObject({ message: 'not_found' });
+    await (await client(waiting.id)).Dependency.noted({ taskId: dependent, value: task });
+    expect(await todo(waiting.id)).toEqual([]);
+  });
+
+  test('a task closed by hand is not one to confirm, but what waits for it hears it is done; reopened, it is not', async () => {
+    const owner = await createEmployee();
+    const waiting = await createEmployee();
+    const task = await createTask(owner.id);
+    const dependent = await createTask(waiting.id);
+    const api = await client(owner.id);
+    await (await client(waiting.id)).Dependency.set({ taskId: dependent, value: task, latestAt: null });
+    await api.Task.setDeadline({ id: task, deadline: new Date() });
+    await sql`SELECT send_deadline_notices()`;
+    expect((await api.MyDay.todo()).filter((i) => i.kind === 'closed')).toEqual([]);
+    const waitingApi = await client(waiting.id);
+    expect((await waitingApi.MyDay.todo()).filter((i) => i.kind === 'done')).toHaveLength(1);
+    // Reopened: not done any more (the change replaces the last one within a minute).
+    await api.Task.setDeadline({ id: task, deadline: new Date(Date.now() + 86_400_000 * 3) });
+    expect((await waitingApi.MyDay.todo()).filter((i) => i.kind === 'done')).toEqual([]);
+  });
+
   test('an open mention stays until "Done"', async () => {
     const owner = await createEmployee();
     const helper = await createEmployee();

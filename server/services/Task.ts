@@ -274,6 +274,19 @@ export async function markReviewed(actorId: number, taskId: number): Promise<voi
   await sql`SELECT mark_reviewed(${taskId}, ${actorId})`;
 }
 
+/** The owner confirms that the task, closed by its deadline, is closed as it should be. */
+export async function confirmClosed(actorId: number, taskId: number): Promise<void> {
+  await sql.begin(async (tx) => {
+    await tx`SELECT check_owner(${taskId}, ${actorId})`;
+    const rows = await tx`
+      UPDATE finished_at SET confirmed_at = NOW()
+       WHERE task_id = ${taskId} AND expired_at IS NULL AND value <= NOW() AND confirmed_at IS NULL
+      RETURNING task_id
+    `;
+    if (rows.length === 0) throw new AppError('not_found');
+  });
+}
+
 export async function makePublic(actorId: number, taskId: number): Promise<void> {
   await sql`SELECT make_public(${taskId}, ${actorId})`;
 }

@@ -1,4 +1,4 @@
-import { AlternateEmail, ChatBubbleOutline, LockOpen, NotificationsActive } from '@mui/icons-material';
+import { AlternateEmail, ChatBubbleOutline, EventBusy, LockOpen, NotificationsActive, TaskAlt } from '@mui/icons-material';
 import { Box, Button, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import { keyframes } from '@mui/material/styles';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -88,6 +88,8 @@ const key = (item: TodoItem) =>
   item.kind === 'mention' ? `m${item.task.id}-${item.commentId}`
   : item.kind === 'request' ? `r${item.task.id}-${item.employeeId}`
   : item.kind === 'remind' ? `t${item.task.id}-${item.at.getTime()}`
+  : item.kind === 'done' ? `d${item.task.id}-${item.dependency.id}`
+  : item.kind === 'closing' || item.kind === 'closed' ? `${item.kind}${item.task.id}`
   : `v${item.task.id}`;
 
 function Item(p: { item: TodoItem }) {
@@ -104,6 +106,11 @@ function Item(p: { item: TodoItem }) {
   const approve = useMutation(trpc.Observer.approve.mutationOptions({ onSuccess: refresh }));
   const reject = useMutation(trpc.Observer.reject.mutationOptions({ onSuccess: refresh }));
   const removeRemind = useMutation(trpc.Remind.remove.mutationOptions({ onSuccess: refresh }));
+  const confirmClosed = useMutation(trpc.Task.confirmClosed.mutationOptions({ onSuccess: refresh }));
+  const noted = useMutation(trpc.Dependency.noted.mutationOptions({ onSuccess: refresh }));
+  const openTask = (label: string) => (
+    <Button size="small" component={Link} to={`/tasks/${item.task.id}`}>{label}</Button>
+  );
 
   const { item } = p;
   let icon, text, actions;
@@ -169,6 +176,45 @@ function Item(p: { item: TodoItem }) {
           {t('task.remind.done')}
         </Button>
       </>
+    );
+  } else if (item.kind === 'closing') {
+    icon = <EventBusy fontSize="small" color="warning" />;
+    text = (
+      <>
+        <Typography variant="body2">{t('myDay.todo.closing', { time: format.relative(item.at), at: format.dateTime(item.at) })}</Typography>
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.todo.closingHint')}</Typography>
+      </>
+    );
+    actions = openTask(t('myDay.todo.moveDeadline'));
+  } else if (item.kind === 'closed') {
+    icon = <EventBusy fontSize="small" />;
+    text = (
+      <>
+        <Typography variant="body2">{t('myDay.todo.closed', { at: format.dateTime(item.at) })}</Typography>
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.todo.closedHint')}</Typography>
+      </>
+    );
+    actions = (
+      <>
+        {openTask(t('myDay.todo.reopen'))}
+        <Button size="small" variant="contained" disabled={confirmClosed.isPending} onClick={() => confirmClosed.mutate({ id: item.task.id })}>
+          {t('myDay.todo.confirm')}
+        </Button>
+      </>
+    );
+  } else if (item.kind === 'done') {
+    icon = <TaskAlt fontSize="small" color="success" />;
+    text = (
+      <>
+        <Typography variant="body2">{t('myDay.todo.done')} · {format.relative(item.at)}</Typography>
+        <TaskLine task={item.dependency} dense />
+      </>
+    );
+    actions = (
+      <Button size="small" variant="outlined" disabled={noted.isPending}
+        onClick={() => noted.mutate({ taskId: item.task.id, value: item.dependency.id })}>
+        {t('myDay.todo.noted')}
+      </Button>
     );
   } else {
     const input = { taskId: item.task.id, employeeId: item.employeeId };

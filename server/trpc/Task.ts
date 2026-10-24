@@ -121,6 +121,19 @@ export default router({
     .mutation(({ input, ctx }) => Tasks.markReviewed(ctx.employeeId, input.id)),
 
   /**
+   * The owner confirms that the task, closed by its deadline, is closed as
+   * it should be: it leaves their Waiting for me. Not done, the deadline is
+   * moved instead (setDeadline) and the task is open again.
+   * @throws forbidden — not the owner.
+   * @throws not_found — the task is not closed, or already confirmed.
+   */
+  confirmClosed: authedProcedure
+    .meta({ bot: 'task' })
+    .input(z.object({ id: Id }))
+    .output(z.void())
+    .mutation(({ input, ctx }) => Tasks.confirmClosed(ctx.employeeId, input.id)),
+
+  /**
    * The owner makes the task public: every observer row closes, everyone
    * sees it, waiting requesters are told it is open.
    * @throws forbidden — not the owner.

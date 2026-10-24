@@ -41,6 +41,17 @@ test.describe('My day', () => {
     await expect(todo.getByText('Спросить Павла')).toHaveCount(0);
   });
 
+  test('TODO: my task closing by its deadline tomorrow, and a task it waits for that is done', async ({ page }) => {
+    const todo = page.locator('div.MuiPaper-root').filter({ has: page.getByRole('heading', { name: /Ждёт меня/ }) }).first();
+    await expect(todo.getByText(/^Закроется сама через \d+ (час|часа|часов)/)).toBeVisible();
+    await expect(todo.getByRole('link', { name: 'Перенести дедлайн' })).toBeVisible();
+    const done = todo.locator('.MuiStack-root').filter({ hasText: 'Готова задача, которую ждёт эта' })
+      .filter({ has: page.getByRole('button', { name: 'Принято' }) }).last();
+    await expect(done.getByText('лендинг осенней промо-акции')).toBeVisible();
+    await done.getByRole('button', { name: 'Принято' }).click();
+    await expect(todo.getByText('Готова задача, которую ждёт эта')).toHaveCount(0);
+  });
+
   test('TODO: reply right from My day', async ({ page }) => {
     const item = page.locator('.MuiStack-root').filter({ hasText: 'Сборка #512 упала' }).filter({ has: page.getByRole('button', { name: 'Ответить' }) }).last();
     await item.getByRole('button', { name: 'Ответить' }).click();

@@ -20,6 +20,12 @@ export const NotificationPayload = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('finished_at_change'), dependencyId: Id, late: z.boolean().optional(), ...Copy }),
   /** Someone's task now waits for mine; `hard` — it has a latest deadline for mine (the name is kept for webhooks). */
   z.object({ kind: z.literal('dependency_added'), by: Id, dependentId: Id, hard: z.boolean(), ...Copy }),
+  /** My task closes by its deadline within a day; `deadline` — when, ISO. */
+  z.object({ kind: z.literal('deadline_soon'), deadline: z.string(), ...Copy }),
+  /** My task closed by its deadline, set in advance: it waits in Waiting for me for my confirmation. */
+  z.object({ kind: z.literal('deadline_closed'), ...Copy }),
+  /** A task mine waits for closed by its deadline. */
+  z.object({ kind: z.literal('dependency_done'), dependencyId: Id, ...Copy }),
   z.object({ kind: z.literal('owner_change'), from: Id, ...Copy }),
   z.object({ kind: z.literal('owner_handed'), by: Id, employeeId: Id, ...Copy }),
   // Every version of a score is mailed: the employee's mail is its history.

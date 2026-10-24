@@ -31,4 +31,16 @@ export default router({
     .input(z.object({ taskId: Id, value: Id }))
     .output(z.void())
     .mutation(({ input, ctx }) => Dependencies.remove(ctx.employeeId, input.taskId, input.value)),
+
+  /**
+   * The owner of `taskId` takes note that `value`, which it waits for, is
+   * done: it leaves their Waiting for me.
+   * @throws forbidden — not the owner of `taskId`.
+   * @throws not_found — no such dependency, or nothing to take note of.
+   */
+  noted: authedProcedure
+    .meta({ bot: 'task' })
+    .input(z.object({ taskId: Id, value: Id }))
+    .output(z.void())
+    .mutation(({ input, ctx }) => Dependencies.noted(ctx.employeeId, input.taskId, input.value)),
 });

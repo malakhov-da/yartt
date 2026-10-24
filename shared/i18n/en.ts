@@ -62,6 +62,15 @@ export const en: Translation = {
       remind: 'Reminder · {{time}}',
       reviewHint: 'Open the task and read them. If nothing waits for your decision, say so there — with "No intervention needed": it is not here, so that comments are never skipped unread.',
       read: 'Read',
+      closing: 'Closes by itself {{time}} — the deadline is {{at}}',
+      closingHint: 'A deadline that comes closes the task. Not making it — move the deadline in advance; all done — nothing is needed.',
+      moveDeadline: 'Move the deadline',
+      closed: 'Closed by its deadline {{at}}',
+      closedHint: 'Confirm that it is done. If not, move the deadline and the task is open again.',
+      reopen: 'Open again',
+      confirm: 'Confirm',
+      done: 'A task this one waits for is done',
+      noted: 'Noted',
     },
     waiting: {
       title: 'Waiting for others',
@@ -843,6 +852,18 @@ export const en: Translation = {
       subject: 'Deadline changed: {{dependency}}',
       body: 'The deadline of "{{dependency}}" changed; your task "{{task}}" depends on it.',
       late: 'It is now later than the latest your task can live with, or gone: both tasks are at risk.',
+    },
+    deadline_soon: {
+      subject: 'Your task closes by itself tomorrow: {{task}}',
+      body: 'The deadline of “{{task}}” is {{deadline}}. When it comes, the task closes by itself. If the work is not done, move the deadline in advance; if it is, nothing is needed.',
+    },
+    deadline_closed: {
+      subject: 'Closed by its deadline: {{task}}',
+      body: 'The deadline of “{{task}}” came, and the task closed. Confirm it in Waiting for me — or, if the work is not done, move the deadline and the task is open again.',
+    },
+    dependency_done: {
+      subject: 'A task yours waits for is done: {{dependency}}',
+      body: '“{{dependency}}”, which your task “{{task}}” waits for, closed by its deadline.',
     },
     dependency_added: {
       subject: 'A task waits for yours: {{task}}',
