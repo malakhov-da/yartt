@@ -87,10 +87,10 @@ test.describe('My day', () => {
     const history = page.locator('.MuiPaper-root').filter({ has: page.getByRole('heading', { name: 'Табель' }) });
     await expect(history.getByText('Сегодня', { exact: true })).toBeVisible();
     await expect(history.locator('.MuiPagination-root')).toHaveCount(0);
-    await expect(history.getByLabel('Лента дня: смены, заходы и действия')).toHaveCount(2);
+    await expect(history.getByLabel('Лента дня: смены, активность и действия')).toHaveCount(2);
     // History is Pavel's own page: all his days, in pages.
     await history.getByRole('link', { name: 'История' }).click();
-    await expect(page.getByLabel('Лента дня: смены, заходы и действия').nth(2)).toBeVisible();
+    await expect(page.getByLabel('Лента дня: смены, активность и действия').nth(2)).toBeVisible();
     await page.goto('/');
 
     // Every task once, with its one entry of the day: deleting it sets 0.

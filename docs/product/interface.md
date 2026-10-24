@@ -128,7 +128,8 @@ range; a click on another heading sorts by it — or the tags
     (decision 60) — and "Log time" (15m, 30m, 1h, 2h a click away), so
     time is logged where the day is reviewed; the tasks opened and not
     logged are folded under one line, a reminder;
-  - the visits one by one, folded too.
+  - the visits one by one, folded too under "Activity" (the screens and
+    tasks opened; "visits" in the code).
   Any shift is added by hand with the clock in the day's header. A shift
   belongs to its day: the dialog names the day and asks only for the
   start and the end, 00:00 as the end being the midnight after it

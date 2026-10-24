@@ -166,7 +166,7 @@ export const ru = {
       quiet: 'Активности не было.',
       stats: 'История',
       opened: 'Открывались без списания · {{count}}',
-      visits: 'Заходы · {{count}}',
+      visits: 'Активность · {{count}}',
     },
     team: {
       title: 'Моя команда',
@@ -254,7 +254,7 @@ export const ru = {
       hideDetails: 'Скрыть подробности',
     },
     ribbon: {
-      label: 'Лента дня: смены, заходы и действия',
+      label: 'Лента дня: смены, активность и действия',
       shift: 'Смена {{from}}–{{to}}',
       openShift: 'Смена идёт с {{from}}',
       outside: 'вне смены',

@@ -41,7 +41,7 @@ test.describe('wide', () => {
   test('the timesheet beside the tasks scrolls on its own', async ({ page }) => {
     await signIn(page);
     const sheet = page.getByRole('heading', { name: 'Табель' }).locator('xpath=ancestor::div[contains(@class, "MuiBox-root")][1]');
-    const visits = sheet.getByRole('button', { name: /^Заходы · \d+$/ });
+    const visits = sheet.getByRole('button', { name: /^Активность · \d+$/ });
     await expect(visits).toHaveCount(2);
     for (const button of await visits.all()) await button.click();
     const main = page.locator('main').first();

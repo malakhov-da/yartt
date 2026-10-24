@@ -159,7 +159,7 @@ test.describe('Team and the employee page', () => {
     try {
       await page.goto(`/employees/${olga}`);
       const today = page.locator('.MuiPaper-outlined').filter({ hasText: 'Сегодня' }).first();
-      await today.getByRole('button', { name: /^Заходы · \d+$/ }).click();
+      await today.getByRole('button', { name: /^Активность · \d+$/ }).click();
       const body = today.locator('> div').first();
       expect(await body.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true);
       // The last visit scrolls into view and takes a click: nothing lies over it.

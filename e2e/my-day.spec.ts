@@ -141,10 +141,10 @@ test.describe('My day', () => {
     await expect(day).toBeVisible();
     await expect(day.getByText(/^В сменах: /)).toBeVisible(); // next to the time logged to tasks
     // The ribbon shows the visits; one by one they are a click away, in the whole day.
-    await expect(day.getByLabel('Лента дня: смены, заходы и действия')).toBeVisible();
+    await expect(day.getByLabel('Лента дня: смены, активность и действия')).toBeVisible();
     await day.getByRole('button', { name: 'Подробнее' }).click();
     const whole = page.getByRole('dialog');
-    await whole.getByRole('button', { name: /^Заходы · \d+$/ }).click();
+    await whole.getByRole('button', { name: /^Активность · \d+$/ }).click();
     await expect(whole.getByText('20:10', { exact: true })).toBeVisible();
   });
 });
@@ -178,7 +178,7 @@ test('Waiting for others: my request not answered yet, withdrawn from there', as
 
 test('what was done, a dot on the ribbon, opens its task', async ({ page }) => {
   await signIn(page);
-  const ribbon = page.getByLabel('Лента дня: смены, заходы и действия').first();
+  const ribbon = page.getByLabel('Лента дня: смены, активность и действия').first();
   const dot = ribbon.getByRole('link').last(); // dots of the same moment lie one on another: the top one
   await expect(dot).toHaveAccessibleName(/#\d+ /);
   await dot.click();

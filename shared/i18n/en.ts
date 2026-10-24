@@ -106,7 +106,7 @@ export const en: Translation = {
       quiet: 'No activity.',
       stats: 'History',
       opened: 'Opened, nothing logged · {{count}}',
-      visits: 'Visits · {{count}}',
+      visits: 'Activity · {{count}}',
     },
     team: {
       title: 'My team',
@@ -194,7 +194,7 @@ export const en: Translation = {
       hideDetails: 'Hide the details',
     },
     ribbon: {
-      label: 'The day: shifts, visits and what was done',
+      label: 'The day: shifts, activity and what was done',
       shift: 'Shift {{from}}–{{to}}',
       openShift: 'Shift since {{from}}',
       outside: 'outside a shift',
