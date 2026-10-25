@@ -395,8 +395,11 @@ export const helpEn: Help = {
         },
         {
           q: 'Why no percentage done on a task?',
-          a: 'Hours logged are not work done: a task may take 90% of its hours and be half done. So a task\'s line says "5h → 3h": '
-            + 'how much was logged and how much is left in the plans. A plan is the time left, revised as the work goes.',
+          a: 'A percentage would be counted in hours: 5 logged of 8 makes 62%. But at no moment does it say how much is done. '
+            + 'At the start few hours are logged and the plan is still a guess: 6% says only that the work began. At the end it '
+            + 'nears 100, yet the last steps are often the longest, and a task stays at "90%" for weeks. In the middle more work '
+            + 'turns up, the plan grows, and the percentage drops though the work went on. So a task\'s line shows the hours as '
+            + 'they are, "5h → 3h": logged, and still in plans. How much is done, the comments and the owner will tell.',
         },
         {
           q: 'Why can a task not be deleted, nor a comment edited?',
