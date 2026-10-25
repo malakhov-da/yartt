@@ -120,8 +120,9 @@ range; a click on another heading sorts by it — or the tags
   combination of tags for a fixed period that I set for myself and
   everyone under me, and those my managers set (they count my hours) and
   my people set. A line: the tags, the period, "70h of 80h · 88% ·
-  forecast 89h" — logged, and of the plans what fits before its end at
-  the pace of the last 28 days (decision 91) — with a bar, coloured when
+  forecast 89h (+11% vs the budget)" — logged, and of the plans what
+  fits before its end at the pace of the last 28 days (decision 91), and
+  how far the forecast is above or below the limit — with a bar, coloured when
   the forecast or the logged time passes the limit; unfolded, the
   plans left and that pace, the running total day by day against the
   limit and every version.

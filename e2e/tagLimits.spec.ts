@@ -7,7 +7,7 @@ test('a budget shows spent of the limit and the forecast; a change is a new vers
   await unfold(page, 'Бюджеты часов'); // folded in My day until opened
   const block = page.getByRole('region', { name: 'Бюджеты часов' });
   // The demo's budget on the site: logged and planned already go past it.
-  await expect(block.getByText(/из 80ч · \d+% · прогноз/)).toBeVisible();
+  await expect(block.getByText(/из 80ч · \d+% · прогноз .* \([+−]?\d+% к бюджету\)/)).toBeVisible();
 
   await block.getByRole('button', { name: 'Изменить (новая версия)' }).first().click();
   await expect(block.getByText(/Сохранение создаст новую версию/)).toBeVisible();

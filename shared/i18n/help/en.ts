@@ -322,7 +322,8 @@ export const helpEn: Help = {
             'The Hour budgets block → New budget: tags, a period and how many hours you and your reports may spend on them. '
               + 'A task counts when it carries all those tags.',
             'A line shows what is logged and the forecast: logged plus the part of the plans that fits before the end of the period '
-              + 'at the pace of the last 28 days. A plan for a year does not all go into a half-year budget.',
+              + 'at the pace of the last 28 days. A plan for a year does not all go into a half-year budget. In brackets, how many '
+              + 'percent the forecast is above or below the budget.',
             'Unfolded, a line shows the running total against the budget and the history of changes.',
             'Setting My plan on a task under a budget, you see the forecast it would make.',
             'Changing a budget makes a new version, and the old one stays in the history. Your managers and your reports see it.',

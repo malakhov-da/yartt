@@ -27,13 +27,14 @@ export const standing = (l: { minutes: number; spentMinutes: number; forecastMin
 
 const COLOR = { over: 'error.main', risk: 'warning.dark', ok: 'text.secondary' } as const;
 
-/** "70h of 100h · 70% · forecast 89h" — the figures of a limit in one line, coloured by how it stands. */
+/** "70h of 100h · 70% · forecast 89h (−11% vs the budget)" — the figures of a limit in one line, coloured by how it stands. */
 export function LimitFigures(p: { limit: TagLimit; forecast?: number }) {
   const { t } = useTranslation();
   const format = useFormat();
   const l = p.limit;
   const forecast = p.forecast ?? l.forecastMinutes;
   const state = standing({ ...l, forecastMinutes: forecast });
+  const delta = Math.round(((forecast - l.minutes) / l.minutes) * 100);
   return (
     <Typography variant="body2" sx={{ color: COLOR[state], fontWeight: state === 'ok' ? undefined : 600 }}>
       {t('tagLimits.figures', {
@@ -41,6 +42,7 @@ export function LimitFigures(p: { limit: TagLimit; forecast?: number }) {
         limit: format.minutes(l.minutes),
         percent: Math.round((l.spentMinutes / l.minutes) * 100),
         forecast: format.minutes(forecast),
+        delta: delta > 0 ? `+${delta}%` : delta < 0 ? `−${-delta}%` : '0%',
       })}
     </Typography>
   );
