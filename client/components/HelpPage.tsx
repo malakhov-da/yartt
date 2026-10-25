@@ -8,11 +8,16 @@ import Diagrams from './HelpPage/Diagrams.tsx';
 
 const GUIDES: Record<string, Help> = { ru: helpRu, en: helpEn };
 
+// Three levels that read apart: the page (h1), its sections (h2, a card each),
+// and the headings inside a section — a principle, a diagram, a topic (h3).
+const SECTION = { fontWeight: 600 } as const;
+const SUBHEAD = { fontWeight: 600, color: 'text.primary' } as const;
+
 /** A topic of the use cases or the answers: its title over its folds. */
 function Group(p: { title: string; children: ReactNode }) {
   return (
-    <Box component="section" aria-label={p.title} sx={{ mt: 2 }}>
-      <Typography variant="overline" sx={{ color: 'text.secondary' }}>{p.title}</Typography>
+    <Box component="section" aria-label={p.title} sx={{ mt: 3 }}>
+      <Typography variant="h3" component="h3" sx={{ ...SUBHEAD, mb: 0.5 }}>{p.title}</Typography>
       {p.children}
     </Box>
   );
@@ -23,7 +28,7 @@ function Fold(p: { title: string; children: ReactNode }) {
   return (
     <Accordion disableGutters elevation={0} sx={{ '&:before': { display: 'none' }, borderBottom: 1, borderColor: 'divider' }}>
       <AccordionSummary expandIcon={<ExpandMore />}>
-        <Typography sx={{ fontWeight: 500 }}>{p.title}</Typography>
+        <Typography>{p.title}</Typography>
       </AccordionSummary>
       <AccordionDetails>{p.children}</AccordionDetails>
     </Accordion>
@@ -45,11 +50,11 @@ export default function () {
   return (
     <Stack spacing={2} sx={{ width: '100%', maxWidth: 960, mx: 'auto', alignSelf: 'flex-start' }}>
       <Paper sx={{ p: { xs: 2, sm: 3 } }}>
-        <Typography variant="h2" sx={{ fontWeight: 600, mb: 1 }}>{help.title}</Typography>
+        <Typography variant="h1" sx={{ fontWeight: 600, mb: 1 }}>{help.title}</Typography>
         <Typography sx={{ mb: 1 }}>{help.intro}</Typography>
         {help.principles.map((principle, i) => (
-          <Box key={principle.title} component="section" aria-label={principle.title} sx={{ mt: 2.5 }}>
-            <Typography variant="h3" sx={{ fontWeight: 600 }}>{i + 1}. {principle.title}</Typography>
+          <Box key={principle.title} component="section" aria-label={principle.title} sx={{ mt: 3 }}>
+            <Typography variant="h3" component="h2" sx={SUBHEAD}>{i + 1}. {principle.title}</Typography>
             <Typography sx={{ mt: 0.5, mb: 1 }}>{principle.text}</Typography>
             {principle.instead.map((row) => (
               <Box
@@ -70,19 +75,19 @@ export default function () {
       </Paper>
 
       <Paper component="section" aria-label={help.quickStartTitle} sx={{ p: { xs: 2, sm: 3 } }}>
-        <Typography variant="h3" sx={{ fontWeight: 600, mb: 1.5 }}>{help.quickStartTitle}</Typography>
+        <Typography variant="h2" sx={{ ...SECTION, mb: 1.5 }}>{help.quickStartTitle}</Typography>
         <Box component="ol" sx={{ m: 0, pl: 3 }}>
           {help.quickStart.map((step) => <Typography key={step} component="li" sx={{ mb: 1 }}>{step}</Typography>)}
         </Box>
       </Paper>
 
       <Paper component="section" aria-label={help.diagramsTitle} sx={{ p: { xs: 2, sm: 3 } }}>
-        <Typography variant="h3" sx={{ fontWeight: 600, mb: 2 }}>{help.diagramsTitle}</Typography>
+        <Typography variant="h2" sx={{ ...SECTION, mb: 2 }}>{help.diagramsTitle}</Typography>
         <Diagrams diagrams={help.diagrams} />
       </Paper>
 
       <Paper sx={{ p: { xs: 2, sm: 3 } }}>
-        <Typography variant="h3" sx={{ fontWeight: 600, mb: 1 }}>{help.scenariosTitle}</Typography>
+        <Typography variant="h2" sx={SECTION}>{help.scenariosTitle}</Typography>
         {help.scenarios.map((group) => (
           <Group key={group.title} title={group.title}>
             {group.items.map((scenario) => (
@@ -97,7 +102,7 @@ export default function () {
       </Paper>
 
       <Paper sx={{ p: { xs: 2, sm: 3 } }}>
-        <Typography variant="h3" sx={{ fontWeight: 600, mb: 1 }}>{help.faqTitle}</Typography>
+        <Typography variant="h2" sx={SECTION}>{help.faqTitle}</Typography>
         {help.faq.map((group) => (
           <Group key={group.title} title={group.title}>
             {group.items.map((item) => (

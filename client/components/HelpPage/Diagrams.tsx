@@ -132,10 +132,10 @@ export default function (p: { diagrams: Diagrams }) {
     { title: d.part.title, body: <Part d={d.part} /> },
   ];
   return (
-    <Stack spacing={3}>
+    <Stack spacing={4}>
       {items.map((item) => (
         <Box key={item.title} component="figure" sx={{ m: 0 }}>
-          <Typography component="figcaption" sx={{ fontWeight: 600, mb: 1 }}>{item.title}</Typography>
+          <Typography component="figcaption" variant="h3" sx={{ fontWeight: 600, mb: 1 }}>{item.title}</Typography>
           {item.body}
         </Box>
       ))}
