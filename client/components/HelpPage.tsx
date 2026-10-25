@@ -47,9 +47,9 @@ export default function () {
       <Paper sx={{ p: { xs: 2, sm: 3 } }}>
         <Typography variant="h2" sx={{ fontWeight: 600, mb: 1 }}>{help.title}</Typography>
         <Typography sx={{ mb: 1 }}>{help.intro}</Typography>
-        {help.principles.map((principle) => (
+        {help.principles.map((principle, i) => (
           <Box key={principle.title} component="section" aria-label={principle.title} sx={{ mt: 2.5 }}>
-            <Typography variant="h3" sx={{ fontWeight: 600 }}>{principle.title}</Typography>
+            <Typography variant="h3" sx={{ fontWeight: 600 }}>{i + 1}. {principle.title}</Typography>
             <Typography sx={{ mt: 0.5, mb: 1 }}>{principle.text}</Typography>
             {principle.instead.map((row) => (
               <Box

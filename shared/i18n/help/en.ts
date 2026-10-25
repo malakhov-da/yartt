@@ -16,7 +16,8 @@ export const helpEn: Help = {
     },
     {
       title: 'Seen by those invited',
-      text: 'A task may hold salaries, clients, people. Access to it is given by people, by name, not by a title or a project membership.',
+      text: 'A task may hold salaries, clients and people. It may hold an idea too early to share with everyone, or a rough one '
+        + 'its owner has yet to think through. So access to a task is given by name, not by a title or a project membership.',
       instead: [
         { usual: 'Access to a whole project', yartt: 'An invitation to the task', text: 'A task is seen by its participants and their managers. Everyone else sees its tags, priority and deadline: they can find it and ask for access.' },
         { usual: 'Roles and admins', yartt: 'Relationships', text: 'Rights come from owning a task, taking part in it and being someone\'s direct manager.' },
@@ -24,11 +25,12 @@ export const helpEn: Help = {
     },
     {
       title: 'Links, not a hierarchy',
-      text: 'Work does not fit a tree: a task touches several directions at once and may be needed by several others.',
+      text: 'Work does not fit a tree: one task belongs to several directions at once, and several other tasks may wait for its result.',
       instead: [
         { usual: 'A title', yartt: 'A set of tags', text: '"website · homepage · banner". The set is unique and the suggestions offer existing tags, so the same thing gets the same name.' },
         { usual: 'A project', yartt: 'A shared tag', text: 'A task can be in several "projects" at once. A new tag appears when it is needed.' },
-        { usual: 'A subtask', yartt: 'A "Waits for" link', text: 'One task can be needed by several. A latest deadline shows where a promise is at risk.' },
+        { usual: 'A subtask', yartt: 'A "Waits for" link', text: 'A task waits for those it cannot be finished without, and may itself be needed by several. Each link may say by when '
+          + 'the result is needed (a latest deadline), so a delay shows early.' },
       ],
     },
     {
@@ -36,13 +38,14 @@ export const helpEn: Help = {
       text: 'The tracker forbids nothing, so there is no reason to fool it. The timesheet and scores are optional, and when kept, they show the work, not zeal.',
       instead: [
         { usual: 'Percent done', yartt: '"5h → 3h"', text: 'How much everyone has logged and still plans: hours measure the amount of work, not people.' },
-        { usual: 'Scoring results', yartt: 'Scoring the day\'s decisions', text: 'Were the priorities right, was help asked for in time. A task\'s result also depends on plans and chance.' },
+        { usual: 'Scoring results', yartt: 'Scoring the day\'s decisions', text: 'A task\'s result also depends on plans and chance, so it does not always tell much. The day\'s decisions depend on '
+          + 'the person: were the priorities right, was help asked for in time.' },
       ],
     },
   ],
   quickStartTitle: 'Your first day: five steps',
   quickStart: [
-    'Open My day (the only screen) and work through Waiting for me on top. The goal is an empty list.',
+    'Open My day (the main screen) and work through Waiting for me on top. The goal is an empty list.',
     'Your tasks are in Available tasks. My open: those you own or plan time on. Other open: those you take part in.',
     'Make a task: pick tags from the suggestions in the search, type your own and press "New task". There is no separate title: the tags are the title.',
     'Bring people in with "Add a participant" on the task\'s page. A participant sees the task but is not notified of comments. '
