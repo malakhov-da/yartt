@@ -497,10 +497,11 @@ export const helpEn: Help = {
         + 'anyone else\'s. So the choice is for whoever the data belongs to. The chosen manager is notified, so no swap goes unseen.',
     },
     {
-      q: 'Why are there no criteria for scoring a day?',
-      a: 'A score is a manager\'s judgement of a person\'s decisions, with a reason written for each. Which decisions are good '
-        + 'is for a team to agree: it differs for development, sales and support. Built-in criteria would be a setting, and yartt '
-        + 'has none.',
+      q: 'By what is a day scored?',
+      a: 'By the person\'s decisions that day, not by the results of tasks over a period: were the priorities right, was help '
+        + 'asked for in time, was nothing needless taken on. A task\'s result depends on plans, colleagues and chance; the day\'s '
+        + 'decisions depend on the person. The manager writes a reason with every score — which decision and why — so scores '
+        + 'do not slide into liking and disliking.',
     },
     {
       q: 'Why no metrics of estimate accuracy, deadline moves or priorities?',
