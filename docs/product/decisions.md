@@ -1699,11 +1699,11 @@ opened the same form; and a participant could not link a task that
 already existed, even their own. Linking binds nobody to anything: it
 only says what waits for what.
 
-Now anyone who sees a task links what it waits for — an existing task
-or a new one made right there — and from its page a task of their own
-that waits for it, under "Add" and "New task", the same for everyone;
-"My part" is gone. Linking speaks for the waiting task, so it takes
-seeing that one: nobody makes a task they do not see wait. The usual
+Now anyone links two tasks they see, the same rule from either side —
+in "Waits for" and in "Waited on by", an existing task or a new one made
+right there — under "Add" and "New task", the same for everyone; "My
+part" is gone. Seeing both is what makes a link a statement about them:
+nobody makes a task they do not see wait, or waited on. The usual
 way to take part stays a plan within the task; a task of one's own is
 for when one needs a deadline of one's own and to decide oneself when
 it is done.
@@ -1725,7 +1725,7 @@ reject), mentions (answer or close), reminders (done or put off), a plan
 left on an overdue task (clear it), and the review. The review is every
 notice the owner reacts to by moving `reviewed_at`: new comments by
 others, links added by others on either side, dependencies done, the
-task handed to them, the deadline a day ahead and the deadline passed.
+deadline a day ahead and the deadline passed.
 The same block, the same way, is in My day and on top of the task.
 The tasks are in the order of their deadlines, the overdue and the
 nearest first, those without a deadline last; with the same deadline,
@@ -1753,9 +1753,11 @@ warning is a notice at the deadline minus a day, so a review after it
 takes it away; the overdue one is the deadline itself, and only
 finishing or moving it takes it away. A mention of the owner is both a
 mention and a new comment. Handing a task over still resets
-`reviewed_at`, and now keeps when (`handed_at`): until the new owner
-reviews it, the handover is the first notice and only what came after
-it is new — they are not shown the task's whole history as new.
+`reviewed_at`, and now keeps when (`handed_at`). Until the new owner
+accepts it, their review is the handover alone, with "Accept": not the
+task's whole history as new, and nothing to read before it is theirs.
+Accepting puts `reviewed_at` at the handover, and access requests do not
+hold it up; what came after it is the review from then on.
 
 *Implemented:* `dependency.added_at`, `added_by`, `task.handed_at`,
 `mark_reviewed(p_until)` (migration `0.4-0.5`); `Dependencies.set`/`remove`

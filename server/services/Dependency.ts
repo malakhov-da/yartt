@@ -6,14 +6,15 @@ import { sql, type Sql } from '../pg.ts';
 const Ends = z.object({
   waitingOwnerId: z.number().nullable(),
   valueOwnerId: z.number().nullable(),
-  sees: z.boolean(),
+  seesWaiting: z.boolean(),
+  seesValue: z.boolean(),
   exists: z.boolean(),
 });
 
 /**
  * Links what waits for what (decision 94). Linking binds nobody: anyone who
- * sees the waiting task adds what it waits for, and the owners of both other than
- * them are told — the owner of the task waited for (dependency_added, with
+ * sees both tasks links them, either way — the same rule from either
+ * side — and the owners of both other than them are told — the owner of the task waited for (dependency_added, with
  * whether it has a latest deadline) and the owner of the waiting one
  * (waits_added). The latest deadline is the waiting task's owner's alone:
  * they set and change it. Cycles are refused (trigger); a latest deadline
@@ -28,14 +29,16 @@ export async function setIn(db: Sql, actorId: number, input: SetDependencyInput)
   if (input.value === input.taskId) throw new AppError('dependency_cycle');
   const [ends] = Ends.array().parse(await db`
     SELECT k.owner_id AS waiting_owner_id, v.owner_id AS value_owner_id,
-           can_see(k.id, ${actorId}) AS sees,
+           can_see(k.id, ${actorId}) AS sees_waiting, can_see(v.id, ${actorId}) AS sees_value,
            EXISTS (SELECT 1 FROM dependency WHERE task_id = k.id AND value = v.id) AS exists
       FROM task k, task v
      WHERE k.id = ${input.taskId} AND v.id = ${input.value}
   `);
   if (!ends) throw new AppError('not_found');
+  // A new link joins two tasks its author sees; the latest deadline of one there is its owner's either way.
+  if (!ends.exists && !ends.seesWaiting) throw new AppError('no_access', { taskId: input.taskId });
+  if (!ends.exists && !ends.seesValue) throw new AppError('no_access', { taskId: input.value });
   if (ends.waitingOwnerId !== actorId) {
-    if (!ends.sees) throw new AppError('no_access', { taskId: input.taskId });
     if (input.latestAt !== null) throw new AppError('forbidden');
     // Linked already: what is left to change is the owner's latest deadline.
     if (ends.exists) return;

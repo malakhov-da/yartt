@@ -126,6 +126,7 @@ function Line(p: { icon: React.ReactNode; children: React.ReactNode; actions?: R
  * and one button that takes them away — up to the newest shown, so what
  * comes later stays. "No intervention needed", after a warning; "Finish"
  * when the task is overdue. The new comments are read in a table first.
+ * A task handed to me shows only that, with "Accept".
  */
 function Review(p: { item: TodoReview; readOnly?: boolean }) {
   const { t } = useTranslation();
@@ -152,20 +153,32 @@ function Review(p: { item: TodoReview; readOnly?: boolean }) {
     item.comments && t('task.review.comments', { count: item.comments.count }),
     item.links.length > 0 && t('task.review.links', { count: item.links.length }),
     item.done.length > 0 && t('task.review.done', { count: item.done.length }),
-    item.handedAt && t('task.review.handed'),
     deadline && !overdue && t('task.review.closing'),
   ].filter(Boolean).join(', ');
   const moveDeadline = (
     <Button size="small" component={Link} to={`/tasks/${item.task.id}`}>{t('myDay.todo.moveDeadline')}</Button>
   );
 
+  // Handed to me and not accepted yet: the handover alone; what came before it is not mine to review.
+  if (item.handedAt) {
+    return (
+      <Line
+        icon={<SwapHoriz fontSize="small" />}
+        readOnly={p.readOnly}
+        actions={(
+          <Button size="small" variant="contained" disabled={reviewed.isPending} onClick={() => reviewed.mutate({ id: item.task.id, until: item.at })}>
+            {t('myDay.todo.accept')}
+          </Button>
+        )}
+      >
+        <Typography variant="body2">{t('myDay.todo.handed')} · {format.relative(item.handedAt)}</Typography>
+        {!p.readOnly && <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.todo.handedHint')}</Typography>}
+      </Line>
+    );
+  }
+
   return (
     <Stack spacing={1}>
-      {item.handedAt && (
-        <Line icon={<SwapHoriz fontSize="small" />} readOnly={p.readOnly}>
-          <Typography variant="body2">{t('myDay.todo.handed')} · {format.relative(item.handedAt)}</Typography>
-        </Line>
-      )}
       {deadline && (
         <Line icon={<EventBusy fontSize="small" color={overdue ? 'error' : 'warning'} />} readOnly={p.readOnly} actions={moveDeadline}>
           <Typography variant="body2">

@@ -47,6 +47,8 @@ describe('todo', () => {
     const api = await client(owner.id);
     const helperApi = await client(helper.id);
     const waitingApi = await client(waiting.id);
+    // A link joins two tasks its author sees (decision 94).
+    await api.Observer.add({ taskId: task, employeeId: waiting.id });
     await waitingApi.Dependency.set({ taskId: dependent, value: task, latestAt: null });
     await api.Observer.add({ taskId: task, employeeId: helper.id });
     await helperApi.Time.setLeft({ taskId: task, minutes: 120 });
@@ -105,6 +107,8 @@ describe('todo', () => {
     const dependent = await createTask(waiting.id);
     const api = await client(owner.id);
     const waitingApi = await client(waiting.id);
+    // A link joins two tasks its author sees (decision 94).
+    await api.Observer.add({ taskId: task, employeeId: waiting.id });
     await waitingApi.Dependency.set({ taskId: dependent, value: task, latestAt: null });
 
     await api.Time.setLeft({ taskId: task, minutes: 30 });
@@ -198,6 +202,7 @@ describe('todo', () => {
     const mine = await createTask(owner.id);
     const theirs = await createTask(other.id);
     await (await client(owner.id)).Observer.add({ taskId: mine, employeeId: doer.id });
+    await (await client(other.id)).Observer.add({ taskId: theirs, employeeId: doer.id });
 
     await (await client(doer.id)).Dependency.set({ taskId: mine, value: theirs, latestAt: null });
     expect((await (await client(owner.id)).MyDay.todo())).toMatchObject([
@@ -208,12 +213,16 @@ describe('todo', () => {
     ]);
     expect(await (await client(doer.id)).MyDay.todo()).toEqual([]);
 
-    // Handed over: the new owner sees the handover, not what came before it.
+    // Handed over: until accepted, the new owner sees the handover alone — not what came before it,
+    // nor after; an access request does not hold the acceptance up.
     await (await client(owner.id)).Task.transfer({ id: mine, ownerId: heir.id });
-    const [handed] = await (await client(heir.id)).MyDay.todo();
+    await (await client(doer.id)).Comment.create(comment(mine, '<p>Welcome</p>'));
+    const heirApi = await client(heir.id);
+    const [handed] = await heirApi.MyDay.todo();
     expect(handed).toMatchObject({ kind: 'review', task: { id: mine }, handedAt: expect.any(Date), links: [], comments: null });
-    await (await client(heir.id)).Task.markReviewed({ id: mine, until: handed?.kind === 'review' ? handed.at : undefined });
-    expect(await (await client(heir.id)).MyDay.todo()).toEqual([]);
+    await heirApi.Task.markReviewed({ id: mine });
+    // Accepted: what came after the handover is the review now.
+    expect(await heirApi.MyDay.todo()).toMatchObject([{ kind: 'review', handedAt: null, comments: { count: 1 } }]);
   });
 
   test('tasks by deadline, the overdue and nearest first, no deadline last; the same deadline, the newer first', async () => {

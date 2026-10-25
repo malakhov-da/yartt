@@ -33,11 +33,10 @@ type Draft = {
 };
 
 /**
- * "Waits for", then "Waited on by". Anyone who sees this task links what
- * it waits for, and one of their own tasks that waits for it — found by
- * tags or number as in the search (decision 55), or a new one made from
- * here — and removes what they linked; the owner of the waiting task
- * removes any (decision 94). The latest deadline is the
+ * "Waits for", then "Waited on by". Anyone who sees this task links on
+ * either side another task they see — found by tags or number as in the
+ * search (decision 55), or a new one made from here — and removes what
+ * they linked; the owner of the waiting task removes any (decision 94). The latest deadline is the
  * waiting task's owner's: offered to them when linking, on the line —
  * "needed by …", or "no latest deadline" — and changed by clicking it; its
  * hint says what it means and who may change it. It forbids nothing:
@@ -210,8 +209,6 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
                 input={draft.input}
                 onChange={(next) => setDraft({ ...draft, ...next })}
                 exclude={task.id}
-                // A link is added by someone who sees the waiting task: here, a task of mine.
-                mine={!g.waits}
                 newTask={`/tasks/new?${g.waits ? 'waitedOnBy' : 'waitsFor'}=${task.id}`}
                 // A task linked already is edited where it is, not shown twice.
                 onPick={(picked) => setDraft({ ...draft, picked, editing: g.items.some((dep) => dep.id === picked.id) ? picked.id : null })}

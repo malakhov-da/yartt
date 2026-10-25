@@ -129,8 +129,9 @@ export const helpEn: Help = {
             'Everything that needs your reaction sits under the line of its task. The tasks go by deadline: the overdue and the nearest on top.',
             'A mention: reply and press "Done".',
             'An access request to your task: approve or reject it.',
-            'Whatever is new in your task is one block: comments, new links, tasks it waits for that are done, the task handed '
-              + 'to you and its deadline a day ahead. The same block is on top of the task\'s page.',
+            'Whatever is new in your task is one block: comments, new links, tasks it waits for that are done, and its '
+              + 'deadline a day ahead. The same block is on top of the task\'s page.',
+            'A task handed to you shows only that at first, with "Accept". After it, whatever is new goes to the block.',
             'Open the new comments with "Read" and scroll them to the end. If nothing is needed of you, press "No intervention '
               + 'needed": what you saw goes away, whatever came later stays.',
             'Your task\'s deadline has passed: what to do is under "Close a task".',
@@ -239,7 +240,7 @@ export const helpEn: Help = {
           title: 'Link tasks',
           steps: [
             'On a task\'s page, "Waits for" is what it cannot be finished without, "Waited on by" is who needs it. A task is found by tags or number.',
-            'Anyone who sees the task adds a link: any task to "Waits for", one of their own to "Waited on by" — an existing one, '
+            'Anyone who sees both tasks links them, the same in "Waits for" and in "Waited on by": an existing one, '
               + 'or a new one with "New task". A link is removed by the owner of the waiting task or by whoever added it.',
             'A participant needs a task of their own when they need a deadline of their own. If hours in this task are enough, '
               + 'they plan them in it (see the diagram above).',

@@ -146,7 +146,7 @@ export const CreateInput = z.object({
   /** NULL or left out — no deadline. */
   deadline: z.date().nullable().optional(),
   context: Html.nullable().optional(),
-  /** The new task waits for this one (no latest deadline). */
+  /** The new task waits for this one (no latest deadline); the creator must see it. */
   waitsFor: Id.optional(),
   /** This task waits for the new one (no latest deadline); the creator must see it. */
   waitedOnBy: Id.optional(),

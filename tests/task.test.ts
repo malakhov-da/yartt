@@ -444,6 +444,7 @@ describe('deadline changes settle', () => {
     const id = await createTask(owner.id);
     const base = await createTask(other.id);
     const otherApi = await client(other.id);
+    await otherApi.Observer.add({ taskId: base, employeeId: owner.id });
     await (await client(owner.id)).Dependency.set({ taskId: id, value: base, latestAt: day(2) });
     const told = async () => (await notifications(owner.id)).filter((n) => n.kind === 'finished_at_change');
 
@@ -472,10 +473,14 @@ describe('dependencies', () => {
 
     await expect((await client(stranger.id)).Dependency.set({ taskId: id, value: base, latestAt: null }))
       .rejects.toMatchObject({ message: 'no_access' });
+    // A link joins two tasks its author sees, the same from either side (decision 94).
+    await expect(api.Dependency.set({ taskId: id, value: base, latestAt: null })).rejects.toMatchObject({ message: 'no_access' });
+    await otherApi.Observer.add({ taskId: base, employeeId: owner.id });
     await api.Dependency.set({ taskId: id, value: base, latestAt: null });
     expect((await api.Task.get({ id })).details?.waitsFor).toMatchObject([{ id: base, latestAt: null, late: [], delays: [] }]);
     expect(await notifications(other.id)).toContainEqual(expect.objectContaining({ kind: 'dependency_added', by: owner.id, hard: false }));
 
+    await api.Observer.add({ taskId: id, employeeId: other.id });
     await expect(otherApi.Dependency.set({ taskId: base, value: id, latestAt: null }))
       .rejects.toMatchObject({ message: 'dependency_cycle' });
     await expect(api.Dependency.set({ taskId: id, value: id, latestAt: null })).rejects.toMatchObject({ message: 'dependency_cycle' });
@@ -484,7 +489,6 @@ describe('dependencies', () => {
     await api.Dependency.set({ taskId: id, value: base, latestAt: day(1) });
     expect(await api.Task.get({ id })).toMatchObject({ late: [base], delays: [] });
     expect(await api.Task.get({ id: base })).toMatchObject({ late: [], delays: [id] });
-    expect((await api.Task.get({ id: base })).details).toBeNull(); // header only for me — I do not observe it
 
     // In time: no risk. Moved past it: allowed, both at risk again, and I am told it is late.
     await otherApi.Task.setDeadline({ id: base, deadline: new Date(Date.now() + 86_400_000 / 2) });
@@ -517,6 +521,7 @@ describe('creating with details', () => {
     const theirs = await createTask(other.id);
     const mine = await createTask(me.id);
     const deadline = new Date(Date.now() + 86_400_000);
+    await (await client(other.id)).Observer.add({ taskId: theirs, employeeId: me.id });
 
     const id = await api.Task.create({
       tags: [`n-${randomUUID().slice(0, 8)}`], priority: 'HIGH', deadline, context: '<p>why</p>', waitsFor: theirs,
@@ -546,6 +551,7 @@ describe('creating with details', () => {
     const task = await createTask(owner.id);
     const theirs = await createTask(other.id);
     await (await client(owner.id)).Observer.add({ taskId: task, employeeId: doer.id });
+    await (await client(other.id)).Observer.add({ taskId: theirs, employeeId: doer.id });
     const api = await client(doer.id);
 
     const part = await api.Task.create({ tags: [`n-${randomUUID().slice(0, 8)}`], waitedOnBy: task });

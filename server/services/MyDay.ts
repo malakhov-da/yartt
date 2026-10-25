@@ -43,8 +43,8 @@ const ORDER: TodoItem['kind'][] = ['request', 'review', 'mention', 'remind', 'pl
  * What waits for my reaction (decision 94): tasks, each with its groups —
  * access requests to my tasks, the review of my tasks (what came since I
  * last looked: comments by others, dependencies added by others, tasks
- * mine waits for done, a task handed to me, its deadline a day ahead or
- * passed), open mentions of me, my reminders that came due, and overdue
+ * mine waits for done, its deadline a day ahead or passed — or, handed to
+ * me and not accepted yet, the handover alone), open mentions of me, my reminders that came due, and overdue
  * tasks with my time still planned on them. The tasks go by deadline, the
  * overdue and the nearest first, those without one or closed last; the same
  * deadline, the newer task first. All of it is computed from the data:
@@ -151,11 +151,17 @@ export async function todo(me: number, viewerId: number = me, taskId?: number): 
     ...handed.flatMap((h): TodoItem[] => {
       const task = tasks.get(h.taskId);
       if (!task) return [];
+      // Handed to me and not accepted yet: the handover alone, accepted by one press.
+      if (h.unreviewed && h.at) {
+        return [{
+          kind: 'review', task, at: h.at, comments: null, handedAt: h.at, links: [], done: [], deadline: null, pendingRequests: h.pending,
+        }];
+      }
       const c = comments.find((r) => r.taskId === h.taskId);
       const deadline = deadlines.find((r) => r.taskId === h.taskId);
       const review = {
         comments: c ? { count: c.n, authorIds: [...new Set(c.authorIds)], at: c.at } : null,
-        handedAt: h.unreviewed ? h.at : null,
+        handedAt: null,
         links: links.filter((l) => l.taskId === h.taskId).flatMap((l) => {
           const other = tasks.get(l.other);
           return other ? [{ task: other, waits: l.waits, by: l.by, at: l.at }] : [];
@@ -167,7 +173,7 @@ export async function todo(me: number, viewerId: number = me, taskId?: number): 
         deadline: deadline ? { at: deadline.at, overdue: deadline.overdue, plans: deadline.plans } : null,
       };
       const moments = [
-        review.comments?.at, review.handedAt, deadline?.noticeAt,
+        review.comments?.at, deadline?.noticeAt,
         ...review.links.map((l) => l.at), ...review.done.map((d) => d.at),
       ].filter((d) => d instanceof Date);
       if (moments.length === 0) return [];

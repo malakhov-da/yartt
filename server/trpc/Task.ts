@@ -58,11 +58,11 @@ export default router({
   /**
    * Creates a private task owned by the signed-in employee; new tags are
    * created. Priority, deadline, context and a dependency without a latest deadline — the new
-   * task waits for `waitsFor`, or `waitedOnBy` (a task the creator sees,
-   * decision 94) waits for it — may come at
+   * task waits for `waitsFor`, or `waitedOnBy` waits for it (a task the
+   * creator sees, decision 94) — may come at
    * once, and the `participants` brought in, each told. Returns its id.
    * @throws tag_set_taken — a task with this set of tags exists.
-   * @throws no_access — the creator does not see `waitedOnBy`.
+   * @throws no_access — the creator does not see `waitsFor` or `waitedOnBy`.
    * @throws not_found — an unknown task to depend on.
    * @throws unknown_attachment — an image the creator may not read.
    */

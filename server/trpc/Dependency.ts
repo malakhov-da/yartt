@@ -6,13 +6,13 @@ import { authedProcedure, router } from '../trpc.ts';
 
 export default router({
   /**
-   * Makes `taskId` wait for `value`: anyone who sees `taskId` (decision
+   * Makes `taskId` wait for `value`: anyone who sees both tasks (decision
    * 94). The latest deadline of `value` it can live with is set or changed
    * by the owner of `taskId` only; for anyone else it is NULL, and a
    * dependency already there is left as it is. A latest deadline forbids
    * nothing: a later deadline of `value`, or none, puts both tasks at risk.
    * The owners of both tasks, other than the caller, are notified of a new one.
-   * @throws no_access — does not see `taskId`.
+   * @throws no_access — does not see one of them (`taskId` names it).
    * @throws forbidden — a latest deadline from someone not the owner of `taskId`.
    * @throws not_found — unknown task.
    * @throws dependency_cycle — `value` already waits for `taskId`, or is it.

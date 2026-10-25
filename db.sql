@@ -403,8 +403,8 @@ the API is implemented.
 
   Dependencies:
     - Add a dependency — an existing task or one created with it (anyone
-      who sees task_id, the task that waits; the owners of both, other
-      than whoever added it, are notified).
+      who sees both tasks, the same from either side; the owners of both,
+      other than whoever added it, are notified).
     - Set / change its latest deadline (owner of task_id only).
     - Remove a dependency (owner of task_id, or whoever added it).
 
@@ -470,7 +470,7 @@ ACCESS RULES
     - reviewed_at — owner only.
     - owner_id — the current owner or the owner''s direct manager.
     - finished_at — owner only.
-    - dependency — added by anyone who sees task_id; latest_at
+    - dependency — added by anyone who sees both task_id and value; latest_at
       by the owner of task_id only; removed by the owner of task_id or
       whoever added it (decision 94).
 
@@ -1434,17 +1434,19 @@ COMMENT ON COLUMN task.reviewed_at IS
 decision: the moment of the newest notice they were shown, never later
 (decision 94). Updated only by mark_reviewed(), which is refused while an
 access request waits for an answer, and never moves back.
-The review notices are what came after it — after handed_at while NULL:
-comments by others, dependencies added by others on either side,
-dependencies done, the handover, the deadline a day ahead. An overdue
-deadline is not taken away by it: only closing or moving it.
+The review notices are what came after it: comments by others,
+dependencies added by others on either side, dependencies done, the
+deadline a day ahead. Handed over and not accepted yet (NULL, handed_at
+set), the review is the handover alone. An overdue deadline is not taken
+away by it: only closing or moving it.
 Reset to NULL when the owner changes.';
 
 COMMENT ON COLUMN task.handed_at IS
 'When the task last came to its current owner (trigger on owner_id).
-Until they review it (reviewed_at NULL) the handover is a notice of their
-review, and only what came after it is new to them. NULL — never handed
-over: the creator owns it.';
+Until they accept it (reviewed_at NULL, mark_reviewed()) their review
+shows the handover alone; accepted, reviewed_at is handed_at, and only
+what came after it is new to them. NULL — never handed over: the creator
+owns it.';
 
 COMMENT ON CONSTRAINT chk_task_tag_ids_set ON task IS
 'Tags: non-empty, no NULLs, no duplicates.';
@@ -1581,8 +1583,8 @@ CREATE INDEX idx_dependency_value ON dependency(value);
 
 COMMENT ON TABLE dependency IS
 'The dependency graph. task_id depends on value.
-Linking binds nobody (decision 94): anyone who sees task_id adds what it
-waits for — an existing task or a new one, made with it — and the
+Linking binds nobody (decision 94): anyone who sees both tasks links them
+— an existing task or a new one, made with it — and the
 owners of both other than whoever added it are notified (waits_added,
 dependency_added) and see it in their review. latest_at is the owner of
 task_id''s alone; a dependency is removed by the owner of task_id or by
@@ -4558,6 +4560,12 @@ CREATE OR REPLACE FUNCTION mark_reviewed(p_task_id INT, p_actor_id INT, p_until 
 RETURNS VOID AS $$
 BEGIN
     PERFORM check_owner(p_task_id, p_actor_id);
+    -- Handed over and not accepted yet: accepting takes away the handover only.
+    UPDATE task SET reviewed_at = handed_at
+     WHERE id = p_task_id AND reviewed_at IS NULL AND handed_at IS NOT NULL;
+    IF FOUND THEN
+        RETURN;
+    END IF;
     IF EXISTS (
         SELECT 1 FROM observer
          WHERE task_id = p_task_id
@@ -4582,8 +4590,11 @@ COMMENT ON FUNCTION mark_reviewed(INT, INT, TIMESTAMPTZ) IS
 waits for their decision. reviewed_at goes to p_until — the newest notice
 of the review they were shown — so whatever came later stays (decision
 94); NULL — now. Never later than now, never back. Refused while an
-access request waits: that is exactly something that needs the owner. It
-never closes the task — that is close_task() (decision 93).';
+access request waits: that is exactly something that needs the owner. A
+task handed over and not accepted yet (reviewed_at NULL, handed_at set)
+is accepted instead: reviewed_at goes to handed_at, whatever p_until, and
+requests do not block it. It never closes the task — that is
+close_task() (decision 93).';
 
 
 CREATE OR REPLACE FUNCTION close_task(p_task_id INT, p_actor_id INT)

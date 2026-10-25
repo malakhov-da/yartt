@@ -49,7 +49,7 @@ tags, the hour budgets and the bots (decision 83):
     line "New comments: 7, from …" with "Read" that opens them all in a
     table, in full; links others added on either side ("Pavel: this task
     now waits for" and the task); tasks it waits for that their owners
-    closed; the task handed to me; its deadline a day ahead ("Deadline in
+    closed; its deadline a day ahead ("Deadline in
     5 hours", with "Move the deadline") or passed ("Overdue", with whose
     plans are left). One button for the whole group: "No intervention
     needed", after a warning naming what will go away; on an overdue task
@@ -57,7 +57,9 @@ tags, the hour budgets and the bots (decision 83):
     Disabled until the table of new comments was scrolled to its end
     (kept in the page, not the database), and while an access request
     waits. It takes away what was shown — up to its newest notice — so
-    whatever came later stays;
+    whatever came later stays. A task handed to me and not accepted yet
+    shows only "The task was handed to you" with "Accept"; accepted, what
+    came after the handover is its review;
   - mentions of me that are still open. A mention closes only explicitly
     ("Done"): a reply alone does not mean the request is handled — but
     "Done" needs a reply: until I reply to the mentioning comment
@@ -208,9 +210,9 @@ Left, top to bottom:
   else its hint names who may change it (decision 76). Resolved
   dependencies stay in the list, struck through, so the history of what
   blocked the task is not lost. **Add** and **New task** are next to each
-  list for anyone who sees the task (decision 94): in Waits for any task
-  this one waits for, in Waited on by one of my own that waits for it; the
-  latest deadline is offered only to the owner of the waiting task. For a
+  list for anyone who sees the task (decision 94), the same on both: the
+  search offers only tasks I see; the latest deadline is offered only to
+  the owner of the waiting task. For a
   participant, the hint of New task in Waits for says when a task of
   their own is needed — a deadline of their own — and that otherwise a
   plan here is enough. A line is removed by the owner of the waiting task

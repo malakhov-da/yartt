@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import type { TagPart } from '#shared/tags.ts';
 import type { TaskHeader } from '#shared/task.ts';
-import { useMe } from '#client/hooks/me.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import TagInput, { useTitle } from '../App/TagInput.tsx';
 import TaskLine from './TaskLine.tsx';
@@ -15,8 +14,8 @@ const SHOWN = 8;
 
 /**
  * A task to link, found as in the search (decision 55): by tags, or by its
- * number ("#12"); a click picks one. `mine` — only my own tasks (one I can
- * make wait). Its "+" opens a new task with the title typed, already tied
+ * number ("#12"); a click picks one. Only tasks I see: a link joins two
+ * tasks its author sees (decision 94). Its "+" opens a new task with the title typed, already tied
  * by `newTask` (the form's address).
  */
 export default function (p: {
@@ -24,24 +23,22 @@ export default function (p: {
   input: string;
   onChange: (next: { parts: TagPart[]; input: string }) => void;
   exclude: number;
-  mine?: boolean;
   newTask: string;
   onPick: (task: TaskHeader) => void;
 }) {
   const { t } = useTranslation();
   const trpc = useTRPC();
   const navigate = useNavigate();
-  const me = useMe();
   const tagIds = p.parts.flatMap((part) => ('tag' in part ? [part.tag.id] : []));
   const number = Number(/^#?(\d+)$/.exec(p.input.trim())?.[1]) || null;
   const title = useTitle(p.parts, number ? '' : p.input);
   const byNumber = useQuery(trpc.Task.get.queryOptions({ id: number ?? 0 }, { enabled: number !== null, retry: false }));
   const found = useQuery(trpc.Task.search.queryOptions(
-    { tagIds, tab: p.mine ? 'mine' : 'all', page: 1 },
+    { tagIds, tab: 'all', page: 1 },
     { enabled: tagIds.length > 0 && number === null, placeholderData: keepPreviousData },
   ));
   const results = (number !== null ? (byNumber.data ? [byNumber.data] : []) : tagIds.length ? (found.data?.items ?? []) : [])
-    .filter((task) => task.id !== p.exclude && (!p.mine || task.ownerId === me.id))
+    .filter((task) => task.id !== p.exclude && ('canSee' in task ? task.canSee : task.access !== 'none' && task.access !== 'requested'))
     .slice(0, SHOWN);
   const canCreate = number === null && (title.names.length === 0 || title.ready);
 

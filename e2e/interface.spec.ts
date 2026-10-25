@@ -138,10 +138,14 @@ test.describe('a task', () => {
     await page.getByRole('button', { name: 'Убрать дедлайн' }).click();
     await expect(page.getByLabel('Дедлайн')).toHaveValue('');
 
-    // The site is due in a few days, but I need it by tomorrow: allowed, and both are at risk.
+    // A task I do not see is not offered: a link joins two tasks its author sees (decision 94).
     await page.getByLabel('Дедлайн').fill(`${new Date().getFullYear() + 1}-01-10T12:00`);
-    const site = await taskId('сайт', 'новая главная к осенней кампании');
+    const hidden = await taskId('сайт', 'новая главная к осенней кампании');
     await page.getByRole('button', { name: 'Добавить' }).first().click();
+    await page.getByLabel('Найти задачу: теги или номер').fill(`#${hidden}`);
+    await expect(page.getByRole('button', { name: `Выбрать задачу #${hidden}` })).toHaveCount(0);
+    // The public move is due in two weeks, but I need it by tomorrow: allowed, and both are at risk.
+    const site = await taskId('офис', 'переезд на 5-й этаж');
     await page.getByLabel('Найти задачу: теги или номер').fill(`#${site}`);
     await page.getByRole('button', { name: `Выбрать задачу #${site}` }).click();
     await expect(page.getByText(`Без крайнего дедлайна видно только, что #`)).toBeVisible();

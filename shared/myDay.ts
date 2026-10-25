@@ -47,7 +47,10 @@ export const TodoReview = z.object({
   at: z.date(),
   /** Comments by others: how many, the authors in the order they first wrote, the newest one's moment; NULL — none. */
   comments: z.object({ count: z.number().int(), authorIds: Id.array(), at: z.date() }).nullable(),
-  /** The task came to me then, and I have not reviewed it since; NULL — not a notice. */
+  /**
+   * The task came to me then and I have not accepted it: the review is
+   * this alone, accepted by one press; NULL — not handed or accepted.
+   */
   handedAt: z.date().nullable(),
   links: ReviewLink.array(),
   /** Tasks mine waits for that their owners closed. */
