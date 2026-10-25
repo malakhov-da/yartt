@@ -365,7 +365,15 @@ export const helpEn: Help = {
       a: 'With someone who sets the task and someone who does it, responsibility blurs and a task hangs on whoever cannot close it. '
         + 'In yartt a task is run by its owner, and only they decide when it is done. Others solve their part: help is asked with '
         + 'a mention, and a big part of the work goes into a task of the doer\'s own with "My part", which yours waits for. '
-        + 'Do not make the doer the owner: the owner is whose initiative it is and may close the task without doing it.',
+        + 'Do not make the doer the owner: the owner is whose initiative it is and may close the task without doing it. '
+        + 'Starting a task for a developer, bring them in under "Participants" right in the new-task form.',
+    },
+    {
+      q: 'Why an owner, not an author and an assignee?',
+      a: 'The author is whoever pressed the button, the assignee whoever does the work; neither necessarily answers for the result. '
+        + 'The owner is whose initiative it is: they decide the task is done, move its deadline, and answer if it closed undone. '
+        + 'They may hand the initiative over whole — then the new owner decides everything. To keep the result in your hands, '
+        + 'do not hand it over: bring the person in as a participant.',
     },
     {
       q: 'Why does a task close by itself when its deadline comes?',
@@ -381,7 +389,8 @@ export const helpEn: Help = {
     {
       q: "Why do managers see their reports' tasks?",
       a: 'A manager answers for their people and needs to see what they are busy with. So they become a participant of every task '
-        + 'their reports take part in, all the way up the chain, with no permissions to set.',
+        + 'their reports take part in, all the way up the chain, with no permissions to set. It adds no noise: comments notify '
+        + 'only the owner and those mentioned; the manager simply sees the task when they need to.',
     },
     {
       q: "How do directors see each other's tasks?",
@@ -415,7 +424,9 @@ export const helpEn: Help = {
       q: 'Why does my manager see my activity?',
       a: 'For transparency and trust. It works for an honest employee: the manager sees how the work really goes and can trust them more. '
         + 'And looking busy only on paper gets hard: the ribbon of the day shows when a person was here and whether that agrees with '
-        + 'their shifts and entries. The rules are the same for everyone in the chain.',
+        + 'their shifts and entries. The rules are the same for everyone in the chain. '
+        + 'Activity is not counted as time, nor scored: opening an old task to look something up is normal work, '
+        + 'and a task opened once closed is not listed among "Opened without logging".',
     },
     {
       q: 'Why is time on a task one entry a day?',
@@ -431,6 +442,78 @@ export const helpEn: Help = {
       q: 'Why are there no roles or admins?',
       a: 'Rights follow relationships: the owner of a task, a participant, the direct manager. Nobody gets access by a title '
         + 'that is not in the org chart.',
+    },
+    {
+      q: 'Why can a mention not be closed without a reply?',
+      a: 'A mention is a request, and whoever mentioned must know it reached the person. "Done" without a reply leaves them '
+        + 'guessing: read or not, taken up or not. A short reply is enough — "got it, I will look on Thursday". To only let someone '
+        + 'know, asking for nothing, do not mention them: add them as a participant — they see the task, and it does not reach '
+        + 'their Waiting for me.',
+    },
+    {
+      q: 'How does "Done" differ from "No intervention needed"?',
+      a: '"Done" closes a mention: whoever was mentioned presses it, after replying. "No intervention needed" is pressed by the '
+        + 'owner of a task once they have read its new comments and decided nothing is needed of them — so it sits in the task, '
+        + 'next to the comments, and only the owner has it.',
+    },
+    {
+      q: 'Why is there no "All tasks" tab?',
+      a: 'Open tasks need attention, closed ones are for reference, so they are on different tabs and do not get in each other\'s '
+        + 'way. With a search by tags every tab shows how many it found, so a closed match shows without switching.',
+    },
+    {
+      q: 'Why are tasks linked only by "Waits for"?',
+      a: 'Waiting means something: one task cannot end before another, and the deadlines are checked. "Related to" constrains '
+        + 'nothing and only adds arrows. Tasks are related in yartt by their tags: a click on a tag finds every task with it, '
+        + 'and a task made from another one, or "My part", starts with its tags.',
+    },
+    {
+      q: 'Why no start date and no "planned" status?',
+      a: 'Statuses and start dates go stale before anyone updates them. The deadline sets the order. Agreeing to a task is the '
+        + 'person\'s own plan: they are brought in and put hours in "My plan". When the plan does not fit their time before the '
+        + 'deadline, the task is "At risk", and that shows early. How much a person has planned already shows in My team (backlog).',
+    },
+    {
+      q: 'Why no percentage done on a task?',
+      a: 'Hours logged are not work done: a task may take 90% of its hours and be half done. So a task\'s line says "5h → 3h": '
+        + 'how much everyone logged and how much is still in their plans. A plan is the time left, revised as the work goes.',
+    },
+    {
+      q: 'Why does an hour budget forbid nothing?',
+      a: 'A budget is a guide: it helps notice in time that something went off plan and needs correcting. Its forecast is what '
+        + 'was logged plus what everyone still plans on its tasks, so an overrun shows in the plan dialog, before the hours are '
+        + 'spent. A ban would not make the work smaller: the time would be logged elsewhere, and the figures would stop being true. '
+        + 'What to spend hours on beyond a budget is for people to decide, not a counter.',
+    },
+    {
+      q: 'Why can time be logged for past days?',
+      a: 'A task is often written down after the work began, and a timesheet is filled in at the end of a day or a week. A ban '
+        + 'would hit the honest. Late filling shows anyway: an entry has its date, My team shows how late the timesheet is written, '
+        + 'and a day the manager scored can no longer change.',
+    },
+    {
+      q: 'Why does an employee choose their own manager?',
+      a: 'Choosing a manager opens one\'s own tasks to them and gives them the right to score one\'s days — and gets nothing of '
+        + 'anyone else\'s. So the choice is for whoever the data belongs to. The chosen manager is notified, so no swap goes unseen.',
+    },
+    {
+      q: 'Why are there no criteria for scoring a day?',
+      a: 'A score is a manager\'s judgement of a person\'s decisions, with a reason written for each. Which decisions are good '
+        + 'is for a team to agree: it differs for development, sales and support. Built-in criteria would be a setting, and yartt '
+        + 'has none.',
+    },
+    {
+      q: 'Why no metrics of estimate accuracy, deadline moves or priorities?',
+      a: 'Such metrics teach people to play the tracker instead of working: rewarded for accurate estimates, they pad them; for '
+        + 'few moves, they set deadlines with a margin; for many tasks, they split them. My team shows only what cannot be '
+        + 'improved by working worse: the share of one\'s time in tasks, scores, reaction to mentions, how late the timesheet is '
+        + 'written, whether the backlog grows.',
+    },
+    {
+      q: 'Why one screen, without sections or a menu?',
+      a: 'What matters — what waits for you and your tasks — is always on top. The team, tags, budgets, bots and files below are '
+        + 'folded into lines and open on a click. There were separate sections, but a manager needs a report\'s day on one screen, '
+        + 'seen with their eyes.',
     },
     {
       q: 'What does "At risk" mean?',
