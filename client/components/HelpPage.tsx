@@ -32,10 +32,10 @@ function Fold(p: { title: string; children: ReactNode }) {
 
 /**
  * The guide (`/help`, decision 62), over My day like a task, in the order a
- * newcomer needs it (decisions 80, 92): five steps for the first day,
- * diagrams of the screen, the roles, a task's life and "My part", yartt set
- * against the usual tracker, how to do the usual things and why the unusual
- * rules are so, both by topic — in the person's language, written for it,
+ * newcomer needs it (decisions 80, 92): how work goes and what yartt has
+ * instead of the usual tracker, five steps for the first day, diagrams of
+ * the screen, the roles, a task's life and "My part", how to do the usual
+ * things and why the unusual rules are so, both by topic — in the person's language, written for it,
  * not translated word by word.
  */
 export default function () {
@@ -46,7 +46,24 @@ export default function () {
     <Stack spacing={2} sx={{ width: '100%', maxWidth: 960, mx: 'auto', alignSelf: 'flex-start' }}>
       <Paper sx={{ p: { xs: 2, sm: 3 } }}>
         <Typography variant="h2" sx={{ fontWeight: 600, mb: 1 }}>{help.title}</Typography>
-        <Typography>{help.intro}</Typography>
+        {help.intro.map((text) => <Typography key={text} sx={{ mb: 1 }}>{text}</Typography>)}
+        <Box component="section" aria-label={help.insteadTitle} sx={{ mt: 2.5 }}>
+          <Typography variant="h3" sx={{ fontWeight: 600, mb: 1.5 }}>{help.insteadTitle}</Typography>
+          {help.instead.map((row) => (
+            <Box
+              key={row.usual}
+              sx={{
+                display: 'grid', alignItems: 'center', columnGap: 1.5, rowGap: 0.5, py: 1, borderTop: 1, borderColor: 'divider',
+                gridTemplateColumns: { xs: 'minmax(0, 1fr) 16px minmax(0, 1fr)', sm: '190px 16px 210px minmax(0, 1fr)' },
+              }}
+            >
+              <Typography component="s" sx={{ color: 'text.secondary' }}>{row.usual}</Typography>
+              <ArrowForward sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <Typography sx={{ fontWeight: 600 }}>{row.yartt}</Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary', gridColumn: { xs: '1 / -1', sm: 'auto' } }}>{row.text}</Typography>
+            </Box>
+          ))}
+        </Box>
       </Paper>
 
       <Paper component="section" aria-label={help.quickStartTitle} sx={{ p: { xs: 2, sm: 3 } }}>
@@ -59,24 +76,6 @@ export default function () {
       <Paper component="section" aria-label={help.diagramsTitle} sx={{ p: { xs: 2, sm: 3 } }}>
         <Typography variant="h3" sx={{ fontWeight: 600, mb: 2 }}>{help.diagramsTitle}</Typography>
         <Diagrams diagrams={help.diagrams} />
-      </Paper>
-
-      <Paper component="section" aria-label={help.insteadTitle} sx={{ p: { xs: 2, sm: 3 } }}>
-        <Typography variant="h3" sx={{ fontWeight: 600, mb: 1.5 }}>{help.insteadTitle}</Typography>
-        {help.instead.map((row) => (
-          <Box
-            key={row.usual}
-            sx={{
-              display: 'grid', alignItems: 'center', columnGap: 1.5, rowGap: 0.5, py: 1, borderTop: 1, borderColor: 'divider',
-              gridTemplateColumns: { xs: 'minmax(0, 1fr) 16px minmax(0, 1fr)', sm: '190px 16px 210px minmax(0, 1fr)' },
-            }}
-          >
-            <Typography component="s" sx={{ color: 'text.secondary' }}>{row.usual}</Typography>
-            <ArrowForward sx={{ fontSize: 16, color: 'text.secondary' }} />
-            <Typography sx={{ fontWeight: 600 }}>{row.yartt}</Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary', gridColumn: { xs: '1 / -1', sm: 'auto' } }}>{row.text}</Typography>
-          </Box>
-        ))}
       </Paper>
 
       <Paper sx={{ p: { xs: 2, sm: 3 } }}>

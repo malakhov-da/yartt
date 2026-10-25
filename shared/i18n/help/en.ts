@@ -4,12 +4,15 @@ import type { Help } from './ru.ts';
 
 export const helpEn: Help = {
   title: 'How to work in yartt',
-  intro:
-    'yartt is a task tracker without projects, subtasks or assignees. Every task has one owner, '
-    + 'and only those invited see it.',
+  intro: [
+    'In yartt every task has one owner: they decide when it is done and answer for its deadline. Only those invited see '
+      + 'a task; each does their part in it and logs their own time.',
+    'The day starts with Waiting for me: everything that needs your reaction. Once it is cleared, you work in your tasks: '
+      + 'comment, bring people in, move deadlines.',
+  ],
   quickStartTitle: 'Your first day: five steps',
   quickStart: [
-    'Open My day — the only screen. On top is Waiting for me: everything that needs your reaction. The goal is an empty list.',
+    'Open My day (the only screen) and work through Waiting for me on top. The goal is an empty list.',
     'Your tasks are in Available tasks. My open: those you own or plan time on. Other open: those you take part in.',
     'Make a task: pick tags from the suggestions in the search, type your own and press "New task". There is no separate title: the tags are the title.',
     'Bring people in with "Add a participant" on the task\'s page. A participant sees the task but is not notified of comments. '
@@ -68,7 +71,7 @@ export const helpEn: Help = {
       side: { title: 'Timesheet', text: 'shifts, time entries and activity, today and the day before' },
     },
   },
-  insteadTitle: 'Instead of the usual',
+  insteadTitle: 'What is not here, and what instead',
   instead: [
     {
       usual: 'A title',

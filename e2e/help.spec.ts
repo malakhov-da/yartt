@@ -13,12 +13,12 @@ test.describe('the guide', () => {
     await page.getByRole('link', { name: 'Как работать' }).click();
     await expect(page).toHaveURL(/\/help$/);
     await expect(page.getByRole('heading', { name: 'Как работать в яртт' })).toBeVisible();
-    // A newcomer starts with five steps, then the diagrams and yartt set against the usual tracker.
+    // A newcomer learns what yartt has instead of the usual tracker, then five steps, then the diagrams.
     await expect(page.getByRole('region', { name: 'Первый день: пять шагов' }).getByRole('listitem')).toHaveCount(5);
     const diagrams = page.getByRole('region', { name: 'Как это устроено' });
     await expect(diagrams.getByText('Кто есть кто в задаче')).toBeVisible();
     await expect(diagrams.getByText('Хозяин инициативы — один на задачу')).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Вместо привычного' }).getByText('Зависимость «Ждёт»', { exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Чего здесь нет и что вместо' }).getByText('Зависимость «Ждёт»', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Почему задача закрывается сама, когда наступает срок?' }).click();
     await expect(page.getByText(/настоящая ответственность за срок/)).toBeVisible();
 
