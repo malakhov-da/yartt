@@ -58,7 +58,11 @@ traces and screenshots of failures is in `e2e-report/`
   appeared in a later version — a new feature's rows the old data could
   not have — is added by that step's asymmetry script
   `tests/fixtures/<from>-<to>.sql` (explicit values for every column);
-  everything else must come through the migration.
+  everything else must come through the migration. A step may read the
+  clock (a deadline passed or not), so both here and in `npm run fixture
+  -- --migrate` each step runs with `now()` pinned to the moment of the
+  release it starts from — the commit of tag `X.Y.0` (`pinClock()` in
+  `scripts/data.ts`): the check gives the same answer on any later day.
 
 Today's test data is made by `npm run fixture`: from scratch (the demo
 data, dumped — for the first version), or with `-- --migrate` from the

@@ -2,6 +2,8 @@
 // compared table by table. Used to check that migrations carry data, not only
 // the schema (tests/schema.test.ts, docs/engineering/testing.md).
 
+import { execFileSync } from 'node:child_process';
+import { join } from 'node:path';
 import { z } from 'zod';
 import type { Sql } from '../server/pg.ts';
 
@@ -91,4 +93,46 @@ export async function dataOf(sql: Sql): Promise<Record<string, string[]>> {
     `)).map((r) => r.line);
   }
   return result;
+}
+
+/** When each release X.Y was made, by version: the commit time of its tag X.Y.0. */
+export function releaseMoments(): Record<string, string> {
+  const root = join(import.meta.dirname, '..');
+  const git = (...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+  return Object.fromEntries(git('tag', '--list', '[0-9]*.[0-9]*.0').split('\n').filter(Boolean)
+    .map((tag) => [tag.replace(/\.0$/, ''), git('log', '-1', '--format=%cI', tag)]));
+}
+
+/**
+ * Pins now() of a fresh database to the moment of a release while the
+ * database is at that release's schema version (the real now() at any other):
+ * a migration step from X.Y runs as of X.Y.0, as when `npm run fixture --
+ * --migrate` turned that release's data into the next one. What a step derives
+ * from now() — a deadline passed or not — then comes out the same in the
+ * fixture and in every later test run. A now() of its own comes before
+ * pg_catalog in the search path, so it is set on the database before anything
+ * else connects: `db` is a connection used for this only, then closed.
+ */
+export async function pinClock(db: Sql, moments: Record<string, string>): Promise<void> {
+  await db.unsafe(`
+    CREATE SCHEMA clock;
+    CREATE TABLE clock.release (version TEXT PRIMARY KEY, at TIMESTAMPTZ NOT NULL);
+    CREATE FUNCTION clock.now() RETURNS TIMESTAMPTZ AS $$
+    DECLARE
+        v_at TIMESTAMPTZ;
+    BEGIN
+        IF to_regclass('public.schema_version') IS NOT NULL THEN
+            EXECUTE 'SELECT r.at FROM clock.release r JOIN public.schema_version s ON s.version = r.version
+                      WHERE s.expired_at IS NULL' INTO v_at;
+        END IF;
+        RETURN COALESCE(v_at, pg_catalog.now());
+    END;
+    $$ LANGUAGE plpgsql STABLE;
+    DO $$ BEGIN
+        EXECUTE format('ALTER DATABASE %I SET search_path = public, clock, pg_catalog', current_database());
+    END $$;
+  `);
+  for (const [version, at] of Object.entries(moments)) {
+    await db`INSERT INTO clock.release (version, at) VALUES (${version}, ${at})`;
+  }
 }

@@ -7,7 +7,8 @@
 //                                 in a temporary database, dumped. For the first
 //                                 version, before anything is released.
 //   npm run fixture -- --migrate — from the last release: its db.sql and data,
-//                                 today's migrations, then the asymmetry scripts
+//                                 today's migrations (each step as of the release
+//                                 it starts from: pinClock), then the asymmetry scripts
 //                                 tests/fixtures/<from>-<to>.sql (data that only
 //                                 appeared in the new version). Review the diff.
 //
@@ -20,7 +21,7 @@ import { join } from 'node:path';
 import postgres from 'postgres';
 import { connect } from '../server/pg.ts';
 import { MIGRATIONS_DIR, migrate, parseMigrations, planMigrations, versionOfDbSql } from '../server/migrate.ts';
-import { dumpData, loadData } from './data.ts';
+import { dumpData, loadData, pinClock, releaseMoments } from './data.ts';
 
 const root = join(import.meta.dirname, '..');
 const FIXTURE = join(root, 'tests', 'fixtures', 'data.sql');
@@ -41,6 +42,10 @@ try {
     const tags = execFileSync('git', ['tag', '--list', '[0-9]*.[0-9]*.[0-9]*', '--sort=-v:refname'], { cwd: root, encoding: 'utf8' }).split('\n').filter(Boolean);
     const tag = tags[0];
     if (!tag) throw new Error('No release tag: use `npm run fixture` without --migrate');
+    // Each step as of the release it starts from, as tests/schema.test.ts runs it.
+    const pin = connect(url.toString());
+    await pinClock(pin, releaseMoments());
+    await pin.end();
     const db = connect(url.toString());
     try {
       const oldSchema = execFileSync('git', ['show', `${tag}:db.sql`], { cwd: root, encoding: 'utf8' });

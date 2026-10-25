@@ -8,7 +8,7 @@ import { connect, sql } from '../server/pg.ts';
 import {
   DB_SQL_PATH, MIGRATIONS_DIR, checkMigrationSql, migrate, parseMigrations, parseVersion, planMigrations, versionOfDbSql,
 } from '../server/migrate.ts';
-import { dataOf, dumpData, loadData } from '../scripts/data.ts';
+import { dataOf, dumpData, loadData, pinClock, releaseMoments } from '../scripts/data.ts';
 
 // Schema fingerprint: everything db.sql defines except data.
 const FINGERPRINT = `
@@ -102,13 +102,18 @@ test('released migrations are transactional', async () => {
 
 const FIXTURES = join(import.meta.dirname, 'fixtures');
 
-/** A fresh database for one check, dropped afterwards. */
-async function scratch(name: string, use: (db: ReturnType<typeof connect>) => Promise<void>) {
+/** A fresh database for one check, dropped afterwards; `clock` — its now() pinned to the releases (pinClock). */
+async function scratch(name: string, use: (db: ReturnType<typeof connect>) => Promise<void>, clock?: Record<string, string>) {
   const admin = postgres(inject('adminUrl'), { onnotice: () => {} });
   await admin.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
   await admin.unsafe(`CREATE DATABASE ${name}`);
   const url = new URL(inject('adminUrl'));
   url.pathname = `/${name}`;
+  if (clock) {
+    const pin = connect(url.toString());
+    await pinClock(pin, clock);
+    await pin.end();
+  }
   const db = connect(url.toString());
   try {
     await use(db);
@@ -142,7 +147,9 @@ describe.skipIf(releases.length === 0)('releases', () => {
   // The data of a release, migrated, is the data of today — but for what only
   // appeared later, which the asymmetry scripts of the steps between add
   // (tests/fixtures/<from>-<to>.sql). Everything else must come through the
-  // migrations.
+  // migrations. Each step runs as of the release it starts from, as when its
+  // fixture was made, so a migration may read now() and the check still
+  // holds on any later day.
   test.each(releases)('%s carries its test data to the test data of today', async (tag) => {
     const oldSchema = git('show', `${tag}:db.sql`);
     let oldData: string;
@@ -163,7 +170,7 @@ describe.skipIf(releases.length === 0)('releases', () => {
         if (existsSync(asymmetry)) await loadData(db, await readFile(asymmetry, 'utf8'));
       }
       migrated = await dataOf(db);
-    });
+    }, releaseMoments());
     let expected: Record<string, string[]> = {};
     await scratch(`yartt_to_${process.pid}`, async (db) => {
       await db.unsafe(await readFile(DB_SQL_PATH, 'utf8'));
