@@ -189,7 +189,7 @@ describe('tag summary', () => {
     const today = (await devApi.MyDay.history({ page: 1 })).today;
     await devApi.Time.set({ taskId: both, day: today, minutes: 90 });
     await devApi.Comment.create({ taskId: onlyA, html: '<p>Done</p>', replyToId: null, files: [], mentionIds: [], taskIds: [] });
-    await sql`SELECT set_finished_at(${onlyA}, NOW() - INTERVAL '1 minute')`;
+    await devApi.Task.close({ id: onlyA });
     expect(hidden).toBeGreaterThan(0);
 
     const ids = (await sql<{ id: number }[]>`SELECT id FROM tag WHERE name IN (${a}, ${b}) ORDER BY name`).map((r) => r.id);
@@ -198,7 +198,7 @@ describe('tag summary', () => {
     // The hidden task of a stranger is not counted: only what I see (dev's tasks, through the manager chain).
     // The dev logged 90 minutes under a (and under b): the line's hours are everyone's together.
     expect(line('tag', a)).toMatchObject({
-      open: 1, stale: 0, finished: 1, expired: 0, active: 2, comments: 1, discussed: 1, minutes: 90, leftMinutes: 0, people: 1, planners: 0, lastDay: today,
+      open: 1, stale: 0, finished: 1, late: 0, active: 2, comments: 1, discussed: 1, minutes: 90, leftMinutes: 0, people: 1, planners: 0, lastDay: today,
     });
     expect(line('tag', b)).toMatchObject({ open: 1, finished: 0, active: 1, comments: 0, discussed: 0, minutes: 90, people: 1 });
     expect(line('all')).toMatchObject({ open: 1, finished: 0 });

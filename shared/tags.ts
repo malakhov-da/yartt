@@ -103,10 +103,10 @@ export const TagStatsRow = z.object({
   atRisk: z.number().int(),
   /** Of the open, untouched in the range: no comment, no time logged. */
   stale: z.number().int(),
-  /** Closed in the range by hand: "Finish", or a deadline moved to the past. */
+  /** Closed by their owner in the range, by the deadline (decision 93). */
   finished: z.number().int(),
-  /** Closed in the range by a deadline set in advance. */
-  expired: z.number().int(),
+  /** Closed in the range after the deadline had passed: overdue first. */
+  late: z.number().int(),
   /** Tasks with any activity in the range — comments, time, closing: what "popular" means here. */
   active: z.number().int(),
   comments: z.number().int(),

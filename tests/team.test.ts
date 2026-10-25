@@ -105,13 +105,17 @@ describe('team', () => {
     await shift(dev.id, 2, 6);
     await (await client(lead.id)).Team.score({ employeeId: dev.id, day: scored, value: 80, reason: null });
 
-    // Finished by the owner; missed: a deadline set in advance that passed (moved back in SQL to simulate time).
+    // Finished in time by the owner; late: closed after a deadline set in advance had passed (moved back in
+    // SQL to simulate time); overdue: passed and not closed, still open (decision 93).
     const api = await client(dev.id);
     const finished = await createTask(dev.id);
-    await api.Task.setDeadline({ id: finished, deadline: new Date() }); // "Finish"
-    const missed = await createTask(dev.id);
-    await api.Task.setDeadline({ id: missed, deadline: new Date(Date.now() + 3_600_000) });
-    await sql`UPDATE finished_at SET value = NOW() - INTERVAL '1 hour', entered_at = NOW() - INTERVAL '2 days' WHERE task_id = ${missed}`;
+    await api.Task.close({ id: finished }); // "Finish"
+    for (const close of [true, false]) {
+      const missed = await createTask(dev.id);
+      await api.Task.setDeadline({ id: missed, deadline: new Date(Date.now() + 3_600_000) });
+      await sql`UPDATE finished_at SET value = NOW() - INTERVAL '1 hour', entered_at = NOW() - INTERVAL '2 days' WHERE task_id = ${missed}`;
+      if (close) await api.Task.close({ id: missed });
+    }
     await createTask(dev.id); // open
 
     const range = await lastDays(boss.id, 7);
@@ -122,8 +126,8 @@ describe('team', () => {
       stats: { workMinutes: 14 * 60, workDays: 2, scoredDays: 1, weightedScore: 80 },
       unscoredDays: 1,
       finished: 1,
-      expired: 1,
-      openTasks: 1,
+      late: 1,
+      openTasks: 2,
     });
     expect((await (await client(dev.id)).Team.summary({ from: range.from, to: range.to })).map((m) => m.employeeId)).toEqual([dev.id]);
   });
@@ -149,7 +153,7 @@ describe('team', () => {
     const devApi = await client(dev.id);
     const open = await devApi.Task.create({ tags: [`a-${randomUUID().slice(0, 8)}`] });
     const closed = await devApi.Task.create({ tags: [`a-${randomUUID().slice(0, 8)}`] });
-    await devApi.Task.setDeadline({ id: closed, deadline: new Date() });
+    await devApi.Task.close({ id: closed });
     await (await client(peer.id)).Observer.request({ taskId: open });
     await devApi.Remind.add({ taskId: open, at: new Date(Date.now() + 60_000), text: 'mine alone' });
     await sql`UPDATE remind SET at = date_trunc('second', NOW()) - INTERVAL '1 second' WHERE employee_id = ${dev.id}`;
@@ -328,9 +332,12 @@ describe('team', () => {
     let member = (await summary()).find((m) => m.employeeId === dev.id)!;
     expect(member).toMatchObject({ backlogMinutes: 210, backlogGrowthMinutes: 210 });
     expect(member.days.at(-1)).toMatchObject({ backlogMinutes: 210 });
-    // Closed by its deadline, the plan not cleared yet: it leaves the backlog all the same.
+    // Overdue, it is still open: its plan stays in the backlog (decision 93); closed, it leaves it.
     await devApi.Task.setDeadline({ id: a, deadline: new Date(Date.now() + 3_600_000) });
     await sql`UPDATE finished_at SET value = NOW() WHERE task_id = ${a} AND expired_at IS NULL`;
+    member = (await summary()).find((m) => m.employeeId === dev.id)!;
+    expect(member.backlogMinutes).toBe(210);
+    await sql`UPDATE finished_at SET confirmed_at = NOW() WHERE task_id = ${a} AND expired_at IS NULL`;
     member = (await summary()).find((m) => m.employeeId === dev.id)!;
     expect(member.backlogMinutes).toBe(90);
 
@@ -356,7 +363,7 @@ describe('team', () => {
     expect(await digests()).toEqual([]);
     await sql`SELECT send_weekly_digests(${await monday('09:05')})`;
     await sql`SELECT send_weekly_digests(${await monday('10:05')})`; // once a week
-    expect(await digests()).toEqual([expect.objectContaining({ unscored: 1, expired: 0, atRisk: 0 })]);
+    expect(await digests()).toEqual([expect.objectContaining({ unscored: 1, overdue: 0, atRisk: 0 })]);
 
     // A manager with nothing waiting gets no email.
     const calm = await createEmployee();

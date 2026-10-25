@@ -133,7 +133,7 @@ export async function stats(viewerId: number, since: string): Promise<BotStats[]
     ),
     open_task AS (
       SELECT k.id, k.owner_id FROM task k
-       WHERE NOT EXISTS (SELECT 1 FROM finished_at f WHERE f.task_id = k.id AND f.expired_at IS NULL AND f.value <= NOW())
+       WHERE NOT EXISTS (SELECT 1 FROM finished_at f WHERE f.task_id = k.id AND f.expired_at IS NULL AND f.confirmed_at IS NOT NULL)
     )
     SELECT b.id,
            (SELECT count(*) FROM open_task k WHERE k.owner_id = b.id)::int AS open_tasks,
@@ -141,7 +141,7 @@ export async function stats(viewerId: number, since: string): Promise<BotStats[]
              WHERE o.value = b.id AND o.added_at IS NOT NULL AND o.deleted_at IS NULL
                AND k.owner_id IS DISTINCT FROM b.id)::int AS observed_tasks,
            (SELECT count(*) FROM task k JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
-             WHERE k.owner_id = b.id AND f.value >= r.since AND f.value < LEAST(r.until, NOW()))::int AS closed_tasks,
+             WHERE k.owner_id = b.id AND f.confirmed_at >= r.since AND f.confirmed_at < r.until)::int AS closed_tasks,
            (SELECT count(*) FROM comment c
              WHERE c.created_by = b.id AND c.created_at >= r.since AND c.created_at < r.until)::int AS comments,
            (SELECT count(*) FROM mention m JOIN comment c ON c.task_id = m.task_id AND c.id = m.comment_id

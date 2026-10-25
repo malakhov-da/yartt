@@ -86,18 +86,30 @@ export default router({
     .mutation(({ input, ctx }) => Tasks.update(ctx.employeeId, input)),
 
   /**
-   * The owner sets, moves or clears (null) the deadline. A deadline in the
-   * past closes the task; "Finish" is setting it to now. Closing it so is
-   * confirming it at once, as markReviewed.
+   * The owner sets, moves or clears (null) the deadline. It never closes the
+   * task: a deadline that passes makes it overdue, and a moved one opens a
+   * closed task again (decision 93). Closing is close.
    * @throws forbidden — not the owner.
-   * @throws plans_left — closing: someone still has time planned on it.
-   * @throws pending_requests — closing: answer the access requests first.
    */
   setDeadline: authedProcedure
     .meta({ bot: 'task' })
     .input(z.object({ id: Id, deadline: z.date().nullable() }))
     .output(z.void())
     .mutation(({ input, ctx }) => Tasks.setDeadline(ctx.employeeId, input.id, input.deadline)),
+
+  /**
+   * The owner closes the task — the only way a task closes (decision 93).
+   * An overdue one is closed at the deadline it missed, any other now; the
+   * tasks waiting for it are done for from then on, their owners notified.
+   * A closed task is left as it is.
+   * @throws forbidden — not the owner.
+   * @throws plans_left — someone still has time planned on it.
+   */
+  close: authedProcedure
+    .meta({ bot: 'task' })
+    .input(z.object({ id: Id }))
+    .output(z.void())
+    .mutation(({ input, ctx }) => Tasks.close(ctx.employeeId, input.id)),
 
   /**
    * Hands the task over to another employee. The owner or the owner's
@@ -124,11 +136,9 @@ export default router({
 
   /**
    * "No intervention needed": the owner confirms nothing in the task waits
-   * for their decision. On a closed task it confirms the closing: the tasks
-   * waiting for it are done for from then on, their owners notified.
+   * for their decision. It is about the comments and never closes the task.
    * @throws forbidden — not the owner.
    * @throws pending_requests — answer the access requests first.
-   * @throws plans_left — the task is closed and someone still has time planned on it.
    */
   markReviewed: authedProcedure
     .meta({ bot: 'task' })

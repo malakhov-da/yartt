@@ -11,7 +11,7 @@ export const helpEn: Help = {
       text: 'When two people answer for a task, nobody does. So a task has one owner, and its deadline is their promise, not a wish.',
       instead: [
         { usual: 'A reporter and an assignee', yartt: 'An owner and participants', text: 'The owner decides when the task is done. Participants work in it but do not close it.' },
-        { usual: 'Statuses', yartt: 'A deadline', text: 'A task is open until its deadline and closes by itself when it comes.' },
+        { usual: 'Statuses', yartt: 'A deadline and "Finish"', text: 'A task is open until its owner finishes it. When the deadline passes with the task open, it is overdue, and yartt reminds the owner.' },
       ],
     },
     {
@@ -69,14 +69,14 @@ export const helpEn: Help = {
         + 'Need someone only to do the work? Bring them in as a participant.',
     },
     lifecycle: {
-      title: 'A task\'s life: the deadline closes it',
+      title: 'A task\'s life: its owner closes it',
       steps: [
         { title: 'Created', text: 'Whoever created it owns it. Only participants see it.' },
-        { title: 'In work', text: 'Comments, mentions, participants\' plans and time.' },
-        { title: 'A day before the deadline', text: 'In the owner\'s Waiting for me: "Closes by itself in …". All done — "Finish"; not making it — move the deadline.' },
-        { title: 'The deadline comes', text: 'The task is closed. The owner confirms it or opens it again.' },
+        { title: 'In work', text: 'Comments, mentions, plans and time. A day before the deadline Waiting for me reminds the owner.' },
+        { title: 'Overdue', text: 'If it did not make it: the deadline passed with the task open. Waiting for me reminds the owner until they finish it or move the deadline.' },
+        { title: 'Finished', text: 'The owner pressed "Finish". A moved deadline opens it again.' },
       ],
-      finish: '"Finish" closes it earlier: the deadline becomes "now".',
+      finish: 'A task can be finished at any step. Before its deadline the deadline becomes "now"; after it, it stays as it was, so a late close shows.',
     },
     part: {
       title: 'My part: a task of your own within someone else\'s initiative',
@@ -201,10 +201,11 @@ export const helpEn: Help = {
         {
           title: 'Close a task',
           steps: [
-            '"Finish" closes the task at once. Otherwise it closes by itself at its deadline.',
-            'A task closed by its deadline the owner confirms with "Confirm" or opens again with "Open again" and a new deadline.',
-            'It is confirmed once nobody has time planned on it. Whoever does gets "Clear my plan" in Waiting for me.',
-            'To reopen a closed task, clear or move its deadline. Closed tasks are in the Closed tab, the most recent first.',
+            'Only the owner closes a task, with "Finish" on its page or in Waiting for me. It never closes by itself at its deadline.',
+            'When the deadline passes and the task is not finished, it is overdue. It stays in My open with its date in red, and '
+              + 'Waiting for me keeps a reminder: finish the task or move the deadline.',
+            'It can be finished once nobody has time planned on it. Whoever does gets "Clear my plan" in Waiting for me.',
+            'A moved deadline opens a closed task again. Closed tasks are in the Closed tab, the most recent first.',
             'Changes of the deadline within a minute count as one: owners of dependent tasks are told once it has stood for a minute.',
           ],
         },
@@ -297,7 +298,7 @@ export const helpEn: Help = {
             'A score of the day is 0 to 100 with a reason. The person gets an email. A score can be changed (another email goes out) '
               + 'or withdrawn so they can fix their timesheet.',
             '"Export" saves the timesheet, entries and scores of the picked people for a period as Excel or CSV, for payroll.',
-            'Every Monday an email comes: days waiting for a score, tasks closed by their deadline and tasks at risk.',
+            'Every Monday an email comes: days waiting for a score, overdue tasks and tasks at risk.',
             'Only the direct manager dismisses someone: the dismissed person\'s tasks and reports go to that manager. '
               + 'The dismissed come back from "My dismissed" under the team table.',
           ],
@@ -367,9 +368,10 @@ export const helpEn: Help = {
             + 'owner: they could close the task without doing it.',
         },
         {
-          q: 'Why does a task close by itself when its deadline comes?',
-          a: 'So that whoever started the task truly answers for its deadline. If you do not want it closed, set a real deadline '
-            + 'and move it in advance. A manager sees tasks closed by their deadline apart from those closed by hand.',
+          q: 'Why does only the owner close a task, not its deadline?',
+          a: 'Closing a task says the result is there. That is for whoever answers for the result to say: a deadline does not know '
+            + 'whether the work is done. So a passed deadline only makes the task overdue and reminds its owner. Everyone waiting '
+            + 'for the task sees it is overdue, and a manager sees how many tasks were closed after their deadline.',
         },
         {
           q: 'Why no start date and no "planned" status?',

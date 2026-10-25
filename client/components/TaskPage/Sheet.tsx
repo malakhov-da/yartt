@@ -46,7 +46,9 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
   const d = task.details;
   const isOwner = task.access === 'owner';
   const owner = task.ownerId === null ? undefined : employees.get(task.ownerId);
-  const closed = task.deadline !== null && task.deadline <= new Date();
+  // Only the owner closes a task; a passed deadline leaves it open, overdue (decision 93).
+  const closed = task.closed;
+  const overdue = !closed && task.deadline !== null && task.deadline <= new Date();
   const me = useMe();
   // The owner and the owner's direct manager hand the task over; an ownerless one is taken.
   const canTransfer = task.ownerId !== null && (isOwner || owner?.managerId === me.id);
@@ -55,6 +57,7 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
   const update = useMutation(trpc.Task.update.mutationOptions({ onSuccess: refresh }));
   const setDeadline = useMutation(trpc.Task.setDeadline.mutationOptions({ onSuccess: refresh }));
   const markReviewed = useMutation(trpc.Task.markReviewed.mutationOptions({ onSuccess: refresh }));
+  const close = useMutation(trpc.Task.close.mutationOptions({ onSuccess: refresh }));
   const take = useMutation(trpc.Task.take.mutationOptions({ onSuccess: refresh }));
 
   // The title being changed: its tags and the text typed after them (decision 55).
@@ -69,7 +72,7 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
     update.mutate({ id: task.id, context: html }, { onSuccess: () => setContextDraft(null) });
   };
 
-  // What a deadline means here: it closes the task when it comes (decision 10).
+  // What a deadline means here: a promise that reminds its owner, never closes the task (decision 93).
   const deadlineHint = task.deadline
     ? t('task.deadlineHint', { date: format.dateTime(task.deadline), relative: format.relative(task.deadline) })
     : t('task.deadlineNoneHint');
@@ -166,7 +169,11 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
                 <span>{task.deadline ? format.dateTime(task.deadline) : t('task.noDeadline')}</span>
               )}
             </Tooltip>
-            {task.deadline && <span>{closed ? t('task.closed') : format.relative(task.deadline)}</span>}
+            {task.deadline && (
+              <Box component="span" sx={overdue ? { color: 'error.main', fontWeight: 500 } : undefined}>
+                {closed ? t('task.closed') : overdue ? t('task.overdue', { relative: format.relative(task.deadline) }) : format.relative(task.deadline)}
+              </Box>
+            )}
             {!closed && <RiskChip task={task} />}
             <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
               {task.isPublic ? <Public fontSize="small" /> : <Lock fontSize="small" />}
@@ -175,7 +182,7 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
           </Stack>
         </Stack>
         {isOwner && !closed && (
-          <Button variant="contained" startIcon={<Check />} onClick={() => setDeadline.mutate({ id: task.id, deadline: new Date() })}>
+          <Button variant="contained" startIcon={<Check />} disabled={close.isPending} onClick={() => close.mutate({ id: task.id })}>
             {t('task.finish')}
           </Button>
         )}

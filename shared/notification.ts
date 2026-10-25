@@ -50,8 +50,8 @@ export const NotificationPayload = z.discriminatedUnion('kind', [
     kind: z.literal('weekly_digest'),
     /** Days of direct reports waiting for a score. */
     unscored: z.number().int(),
-    /** Tasks of the subtree closed automatically last week. */
-    expired: z.number().int(),
+    /** Tasks of the subtree overdue now: the deadline passed, the owner did not close them (decision 93); absent before 0.5. */
+    overdue: z.number().int().default(0),
     /** Tasks of the subtree at risk now. */
     atRisk: z.number().int(),
     /** Direct reports the identity provider no longer lets in, not dismissed yet; absent before 0.2. */

@@ -88,6 +88,14 @@ export const DeadlineEvent = z.object({
 });
 export type DeadlineEvent = z.infer<typeof DeadlineEvent>;
 
+/** The owner closed the task (decision 93); `at` later than `deadline` — after it had passed. */
+export const ClosedEvent = z.object({
+  kind: z.literal('closed'),
+  at: z.date(),
+  deadline: z.date(),
+});
+export type ClosedEvent = z.infer<typeof ClosedEvent>;
+
 /** A comment of another task attached this one. */
 export const MentionedInEvent = z.object({
   kind: z.literal('mentioned_in'),
@@ -125,7 +133,7 @@ export const PlanEvent = z.object({
 });
 export type PlanEvent = z.infer<typeof PlanEvent>;
 
-export const FeedItem = z.discriminatedUnion('kind', [Comment, ReplyEvent, DeadlineEvent, MentionedInEvent, SpentEvent, PlanEvent]);
+export const FeedItem = z.discriminatedUnion('kind', [Comment, ReplyEvent, DeadlineEvent, ClosedEvent, MentionedInEvent, SpentEvent, PlanEvent]);
 export type FeedItem = z.infer<typeof FeedItem>;
 
 /**

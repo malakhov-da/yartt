@@ -495,6 +495,14 @@ describe('dependencies', () => {
     const [risk] = await sql<{ value: boolean }[]>`SELECT at_risk(${base}) AS value`;
     expect(risk!.value).toBe(true);
 
+    // Due in time but overdue past the latest deadline: still late, as it is not closed (decision 93); closed, not any more.
+    await otherApi.Task.setDeadline({ id: base, deadline: new Date(Date.now() + 86_400_000 / 2) });
+    await sql`UPDATE dependency SET latest_at = NOW() - INTERVAL '1 hour' WHERE task_id = ${id}`;
+    await sql`UPDATE finished_at SET value = NOW() - INTERVAL '2 hours' WHERE task_id = ${base} AND expired_at IS NULL`;
+    expect(await api.Task.get({ id })).toMatchObject({ late: [base] });
+    await otherApi.Task.close({ id: base });
+    expect(await api.Task.get({ id })).toMatchObject({ late: [] });
+
     await api.Dependency.remove({ taskId: id, value: base });
     expect((await api.Task.get({ id })).details?.waitsFor).toEqual([]);
     await expect(api.Dependency.remove({ taskId: id, value: base })).rejects.toMatchObject({ message: 'not_found' });
@@ -546,7 +554,7 @@ describe('creating with details', () => {
     await expect(api.Dependency.remove({ taskId: task, value: part })).rejects.toMatchObject({ message: 'forbidden' });
 
     // Done by its owner: the owner of the waiting task sees it.
-    await api.Task.setDeadline({ id: part, deadline: new Date() });
+    await api.Task.close({ id: part });
     expect((await (await client(owner.id)).MyDay.todo()).filter((i) => i.kind === 'done'))
       .toMatchObject([{ task: { id: task }, dependency: { id: part } }]);
   });
@@ -692,8 +700,11 @@ describe('titles', () => {
     const first = await api.Task.create({ tags: [tag, 'a'] });
     const second = await api.Task.create({ tags: [tag, 'b'] });
     const open = await api.Task.create({ tags: [tag, 'c'] });
+    // Closed by their owner an hour apart; a passed deadline alone is not closed (decision 93).
     await sql`SELECT set_finished_at(${first}, NOW() - INTERVAL '2 hours')`;
-    await sql`SELECT set_finished_at(${second}, NOW() - INTERVAL '1 hour')`;
+    await sql`SELECT set_finished_at(${second}, NOW() - INTERVAL '3 hours')`;
+    await sql`UPDATE finished_at SET confirmed_at = NOW() - INTERVAL '2 hours' WHERE task_id = ${first}`;
+    await sql`UPDATE finished_at SET confirmed_at = NOW() - INTERVAL '1 hour' WHERE task_id = ${second}`;
 
     // Other tests leave public tasks behind: only mine are looked at.
     const ours = (items: { id: number }[]) => items.map((i) => i.id).filter((id) => [first, second, open].includes(id));

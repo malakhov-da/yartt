@@ -36,7 +36,7 @@ radical about it:
 | Titles                | A unique set of tags, suggested as typed so the same thing keeps one name — synonyms become rare, nothing is lost |
 | Subtasks              | Dependencies between equal tasks: a follow-up takes the tags of its origin and adds its own; one task may be needed by several; a dependency may carry the latest deadline the waiting task can live with — broken, both tasks are at risk — so promises are kept in check |
 | Assignments           | One owner — whoever started the task — who alone decides when it is done; participants solve their part, in a follow-up task or right there, and plan and log their own time |
-| Statuses and workflows| A deadline: the task is done when it passes, so whoever started it answers for a sensible one |
+| Statuses and workflows| A deadline, and the owner who closes the task: a passed deadline makes it overdue and reminds them, so whoever started it answers for a sensible one |
 | A single estimate     | Shifts, time entries and plans of time left side by side: several views of the same time instead of one figure taken on trust |
 | Performance reviews   | A daily score of decisions, not of results, with feedback |
 | Notification inbox    | Email in your language, or another channel  |

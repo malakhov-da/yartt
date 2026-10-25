@@ -16,7 +16,7 @@ export const taskTitle = (tags: Pick<Tag, 'name'>[]) => tags.map((tag) => tag.na
 
 /**
  * A task as a line: number, tags, priority, a note (`noteWarn` — something is wrong), deadline, owner. A closed
- * one (its deadline passed) is struck through. `dense` — only the number,
+ * one (its owner closed it) is struck through; an overdue one says so by its deadline (decision 93). `dense` — only the number,
  * tags and the note, for narrow lists. Hovered, it shows its context and
  * everyone's time on it (TaskHint). The tags read as text; with `onTag`
  * (Current tasks) they are chips, and a tag clicked does that instead of
@@ -32,7 +32,8 @@ export default function (p: {
   const format = useFormat();
   const employees = useEmployees();
   const owner = p.task.ownerId === null ? undefined : employees.get(p.task.ownerId);
-  const closed = p.task.deadline !== null && p.task.deadline <= new Date();
+  const closed = p.task.closed;
+  const overdue = !closed && p.task.deadline !== null && p.task.deadline <= new Date();
 
   return (
     <TaskHint taskId={p.task.id}>
@@ -102,8 +103,9 @@ export default function (p: {
       )}
       {!p.dense && (
         <>
-          <Typography variant="body2" sx={{ minWidth: 64, textAlign: 'right' }}>
+          <Typography variant="body2" sx={{ minWidth: 64, textAlign: 'right', ...(overdue && { color: 'error.main', fontWeight: 500 }) }}>
             {p.task.deadline ? format.date(p.task.deadline) : t('task.noDeadline')}
+            {overdue && ` · ${t('task.overdueShort')}`}
           </Typography>
           {owner && <EmployeeAvatar employee={owner} size={24} />}
         </>

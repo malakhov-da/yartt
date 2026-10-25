@@ -66,7 +66,7 @@ export async function renderMail(message: Message): Promise<{ subject: string; t
     const w = t.weekly_digest;
     const lines = [w.body];
     if (p.unscored) lines.push(interpolate(w.unscored, { count: String(p.unscored) }));
-    if (p.expired) lines.push(interpolate(w.expired, { count: String(p.expired) }));
+    if (p.overdue) lines.push(interpolate(w.overdue, { count: String(p.overdue) }));
     if (p.atRisk) lines.push(interpolate(w.atRisk, { count: String(p.atRisk) }));
     if (p.blocked) lines.push(interpolate(w.blocked, { count: String(p.blocked) }));
     return { subject: w.subject, text: [lines.join('\n'), interpolate(w.open, { url: `${env.PUBLIC_URL}/` })].join('\n\n') };

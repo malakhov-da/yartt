@@ -41,14 +41,14 @@ test.describe('My day', () => {
     await expect(todo.getByText('Спросить Павла')).toHaveCount(0);
   });
 
-  test('TODO: my task closing by its deadline tomorrow, and a task it waits for that is done', async ({ page }) => {
+  test('TODO: my task due tomorrow, and a task it waits for that is done', async ({ page }) => {
     const todo = page.locator('div.MuiPaper-root').filter({ has: page.getByRole('heading', { name: /Ждёт меня/ }) }).first();
-    await expect(todo.getByText(/^Закроется сама через \d+ (час|часа|часов)/)).toBeVisible();
+    await expect(todo.getByText(/^Дедлайн через \d+ (час|часа|часов)/)).toBeVisible();
     await expect(todo.getByRole('link', { name: 'Перенести дедлайн' })).toBeVisible();
     await expect(todo.getByRole('button', { name: 'Завершить' })).toBeVisible(); // done already — closed now
     const done = todo.locator('.MuiStack-root').filter({ hasText: 'Готова задача, которую ждёт эта' })
       .filter({ has: page.getByRole('button', { name: 'Принято' }) }).last();
-    // Marina closed it by hand — confirmed at once; Pavel's promo, closed by its deadline, waits for his confirmation.
+    // Marina closed hers; Pavel's promo is overdue and open: not done for me until he closes it (decision 93).
     await expect(done.getByText('договор с новым поставщиком')).toBeVisible();
     await done.getByRole('button', { name: 'Принято' }).click();
     await expect(todo.getByText('Готова задача, которую ждёт эта')).toHaveCount(0);

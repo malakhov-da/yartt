@@ -199,8 +199,8 @@ export default function (p: { fold?: ReactNode }) {
                         {row.stale > 0 && note(t('tagStats.stale', { count: row.stale }), true)}
                       </TableCell>
                       <TableCell align="right" sx={wide}>
-                        {row.finished + row.expired}
-                        {row.expired > 0 && note(t('tagStats.expired', { count: row.expired }))}
+                        {row.finished + row.late}
+                        {row.late > 0 && note(t('tagStats.late', { count: row.late }))}
                       </TableCell>
                       <TableCell align="right" sx={wide}>
                         {row.comments}

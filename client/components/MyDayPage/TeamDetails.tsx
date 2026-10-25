@@ -113,7 +113,7 @@ export default function (p: { group: Group; onChanged: () => void }) {
             {t('myDay.team.details.open', { count: m.open })}
             {m.atRisk > 0 && <Box component="span" sx={{ color: 'warning.dark' }}> · {t('myDay.team.atRiskCount', { count: m.atRisk })}</Box>}
           </Line>
-          <Line>{t('myDay.team.details.closed', { finished: m.finished, expired: m.expired })}</Line>
+          <Line>{t('myDay.team.details.closed', { finished: m.finished, late: m.late })}</Line>
           {m.backlog ? (
             <>
               <Line>

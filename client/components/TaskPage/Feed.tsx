@@ -1,4 +1,4 @@
-import { Event, ExpandLess, ExpandMore, HourglassBottom, Link as LinkIcon, Reply as ReplyIcon, TaskAlt } from '@mui/icons-material';
+import { Check, Event, ExpandLess, ExpandMore, HourglassBottom, Link as LinkIcon, Reply as ReplyIcon, TaskAlt } from '@mui/icons-material';
 import { Box, Button, ButtonBase, Chip, Pagination, Paper, Stack, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -131,6 +131,10 @@ function EventLine(p: { taskId: number; item: Exclude<FeedItem, { kind: 'comment
       text = item.from === null && item.to !== null ? t('task.feed.deadlineSet', { to: format.dateTime(item.to) })
         : item.to === null && item.from !== null ? t('task.feed.deadlineCleared', { from: format.dateTime(item.from) })
         : t('task.feed.deadlineMoved', { from: format.dateTime(item.from!), to: format.dateTime(item.to!) });
+      break;
+    case 'closed':
+      icon = <Check fontSize="small" />;
+      text = item.at > item.deadline ? t('task.feed.closedLate', { deadline: format.dateTime(item.deadline) }) : t('task.feed.closedTask');
       break;
     case 'mentioned_in':
       icon = <LinkIcon fontSize="small" />;

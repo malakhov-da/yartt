@@ -16,7 +16,7 @@ comes from the org chart, not from a role.
 
 *Implemented:* `dismiss_employee()`, `restore_employee()` in `db.sql`.
 
-### 2. A passed deadline closes the task — on purpose
+### 2. A passed deadline closes the task — on purpose — reversed by 93
 
 A task whose deadline passes is closed automatically, even if the work is
 not finished. This is a feature: it makes whoever started the task
@@ -102,7 +102,7 @@ open mention is also the only way a task one merely observes reaches their
 TODO — the rest of its comments stay quiet, so Marina's sixty observed
 tasks do not flood her day.
 
-### 10. Finishing a task is setting its deadline to now
+### 10. Finishing a task is setting its deadline to now — reworked by 93
 
 There is no "done" status and no separate field: "Finish" sets finished_at
 to the current moment and the task is closed. A manual close and a passed
@@ -314,7 +314,7 @@ left, tabs would be a bar with a single item — so there are none. The
 logo is the way home; a task and a person's page open over My day by
 route and My day keeps its state underneath.
 
-### 32. Closed by hand or automatically
+### 32. Closed by hand or automatically — reworked by 93
 
 A task is closed one way — its deadline comes (decision 10). The team
 summary tells the two cases apart by the current deadline row: set at the
@@ -1516,7 +1516,7 @@ returning NULL for whoever must confirm (migration `0.4-0.5`);
 `Auth.ssoPending`, `Auth.ssoSendEmail`, `Auth.ssoConfirm`;
 `client/components/SsoEmailPage.tsx`, `SsoConfirmPage.tsx`.
 
-### 87. A closed task is confirmed by "No intervention needed", once nobody plans time on it
+### 87. A closed task is confirmed by "No intervention needed", once nobody plans time on it — reworked by 93
 
 Decision 75 kept three marks on a deadline — warned, told it closed,
 confirmed — and a cron every minute to set the first two and send their
@@ -1649,3 +1649,42 @@ glossary is gone.
 *Implemented:* `instead`, the grouped `scenarios` and `faq` in
 `shared/i18n/help/*.ts`; `glossary` and `ideas` removed;
 `client/components/HelpPage.tsx`.
+
+### 93. Only the owner closes a task; a deadline reminds
+
+Decision 87 made a task closed by its deadline wait for its owner's
+confirmation, and made it done for what waits for it only then. But the
+rest of yartt still read a passed deadline as closed: the task left My
+open for Closed, the team summary counted it closed "automatically",
+the interface said "closes by itself". The same task was open for one
+rule and closed for another, and a task whose owner was away simply
+vanished from the lists while nothing about it was done.
+
+Now a task is closed only when its owner closes it, and everything
+reads that one fact. A deadline that passes makes the task overdue: it
+stays open — in My open, first by its deadline, its date in red — and
+sits in its owner's Waiting for me as "Overdue" with "Finish" and "Move
+the deadline" until they do one of them. "Finish" on an overdue task
+closes it at the deadline it missed, so closing late stays visible; on
+any other it puts the deadline at now, as before. Closing is still
+refused while someone has time planned on the task (decision 87).
+"No intervention needed" goes back to being about the comments only: a
+task is never closed by reading it.
+
+The confirmation is kept on the deadline row (`finished_at.confirmed_at`),
+not on the task: a moved deadline is a new row, so the task opens again
+by itself, and handing a task over — which resets `reviewed_at` — leaves
+it closed. An overdue task waited for breaks the latest deadline of the
+waiting one once that has passed, so both are at risk. The team summary
+and the tag summary say how many tasks were closed in time and how many
+after their deadline; Monday's email counts the overdue ones. Nothing is
+sent at the moment a deadline passes: Waiting for me is computed, and an
+email would need a mark of its own. Tasks closed before count as closed
+at the deadline they had.
+
+*Implemented:* `finished_at.confirmed_at`, `close_task()`; `mark_reviewed()`
+no longer closes; `dependency_risk()`, `at_risk()`, `backlog_minutes()`,
+`send_weekly_digests()` (`overdue`) read the confirmation (migration
+`0.4-0.5`); `Task.close`, `TaskHeader.closed`, the `overdue` item of
+`MyDay.todo`, the `closed` event of the feed; `late` instead of
+`expired` in `Team.summary` and `Tags.stats`.

@@ -19,8 +19,8 @@ test.describe('the guide', () => {
     await expect(diagrams.getByText('Кто есть кто в задаче')).toBeVisible();
     await expect(diagrams.getByText('Хозяин инициативы — один на задачу')).toBeVisible();
     await expect(page.getByRole('region', { name: 'Связи вместо иерархии' }).getByText('Зависимость «Ждёт»', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Почему задача закрывается сама, когда наступает срок?' }).click();
-    await expect(page.getByText(/настоящая ответственность за срок/)).toBeVisible();
+    await page.getByRole('button', { name: 'Почему задачу закрывает только владелец, а не срок?' }).click();
+    await expect(page.getByText(/дедлайн не знает, сделана ли работа/)).toBeVisible();
 
     await sql`UPDATE employee SET locale = 'en' WHERE email = 'olga@example.com'`;
     await page.reload();

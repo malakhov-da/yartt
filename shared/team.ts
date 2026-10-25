@@ -61,11 +61,11 @@ export const Member = z.object({
   stats: Stats,
   /** Past days with a closed timesheet and no score — what the direct manager may score. */
   unscoredDays: z.number().int(),
-  /** Their tasks closed by hand in the range: "Finish", or a deadline moved to the past. */
+  /** Their tasks closed in the range by their deadline (decision 93: only the owner closes a task). */
   finished: z.number().int(),
-  /** Their tasks closed automatically in the range: a deadline set in advance came. */
-  expired: z.number().int(),
-  /** Their open tasks now. */
+  /** Their tasks closed in the range after their deadline had passed: overdue first. */
+  late: z.number().int(),
+  /** Their open tasks now, overdue ones included. */
   openTasks: z.number().int(),
   /** Of them, at risk (db.sql, at_risk): a plan does not fit before the deadline, or a latest deadline around it is broken. */
   atRisk: z.number().int(),

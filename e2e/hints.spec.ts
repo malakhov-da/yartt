@@ -13,7 +13,7 @@ test('"My open" and a deadline explain what they mean', async ({ page }) => {
   await page.goto(`/tasks/${await taskId('сайт', 'новая главная к осенней кампании')}`);
   await page.getByLabel('Дедлайн').hover();
   // Hints of the task lines under the pointer on the way may show too: the deadline's is the one looked for.
-  await expect(page.getByRole('tooltip').filter({ hasText: /Когда он наступит, задача закроется сама/ })).toBeVisible();
+  await expect(page.getByRole('tooltip').filter({ hasText: /закрывает задачу только владелец/ })).toBeVisible();
 });
 
 test('a task whose plan does not fit the deadline is marked at risk, and says whose plan', async ({ page }) => {

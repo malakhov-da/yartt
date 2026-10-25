@@ -108,12 +108,12 @@ Key principles:
   - All work happens in comments.
   - Comments are never deleted or hidden. If a comment is outdated, reply
     to it (reply_to_id) and say so.
-  - A task cannot be deleted. A task is closed by setting finished_at in
-    the past. The owner can move finished_at (later or earlier) or clear
-    it — owners of dependent tasks are notified.
-  - A passed deadline closes the task by itself — on purpose. An owner who
-    did not finish in time has to move the deadline before it passes, or
-    explain why the task is closed but not done.
+  - A task cannot be deleted. A task is closed only by its owner, who
+    confirms it (close_task()): a passed deadline does not close it, it
+    makes the task overdue — still open, in its owner''s "Waiting for me"
+    until they close it or move the deadline (decision 93). The owner can
+    move finished_at (later or earlier) or clear it — owners of dependent
+    tasks are notified; a moved deadline opens a closed task again.
   - A task has an owner (owner_id). There is no separate creator role.
   - Ownership can be transferred by the owner or by the owner''s direct
     manager. The previous owner stays an observer. When the owner is
@@ -232,9 +232,9 @@ From assignments to ownership.
   What we do: the task owner is responsible for the result. The owner is
   the author of the idea and the one in charge. They work alone or bring
   others in. The others are observers: they log time, comment, plan, but
-  are not responsible for the result. Ownership can be transferred. A
-  task cannot be "closed" as an action — finished_at is set instead.
-  When finished_at arrives, the task is done automatically.
+  are not responsible for the result. Ownership can be transferred. Only
+  the owner closes the task, by confirming it; a deadline that arrives
+  only makes it overdue.
 
 From scoring tasks to scoring people per day.
   The problem with scoring tasks: a task lasts months and ten people work
@@ -262,9 +262,9 @@ From deleting to closing.
   The problem with deleting: delete it and the data is gone. Metrics
   drift. History is lost. Links break.
   What we do: a task cannot be deleted (trigger). finished_at can be
-  set, cleared (the task is back in progress) or moved. When finished_at
-  arrives, the task is done automatically. A signal: "missed it and did
-  not warn" — if the owner forgot to move it.
+  set, cleared (the task is back in progress) or moved. A task is closed
+  when its owner confirms it; one whose deadline passed unconfirmed is
+  overdue — a signal: "missed it and did not warn".
 
 From watching a person to requesting access.
   The problem with observer_link: A "watches" B and sees all of B''s
@@ -385,9 +385,8 @@ the API is implemented.
     - Create a task (owner = creator, tags, priority).
     - Change tag_ids / priority / context (owner only).
     - "No intervention needed" (mark_reviewed: owner only, not while an
-      access request waits, nor on a closed task while someone still has
-      time planned on it). On a closed task it is the confirmation that
-      it is closed as it should be.
+      access request waits). It is about the comments; it never closes
+      the task.
     - Make public / private (make_public / make_private: owner only).
     - Transfer ownership (the owner or the owner''s manager).
     - Take an ownerless task (owner_id IS NULL, any observer).
@@ -410,10 +409,10 @@ the API is implemented.
   Deadlines:
     - Set / move finished_at (set_finished_at, owner only).
     - Clear finished_at (clear_finished_at, owner only).
-    - Close by hand: a deadline at or before now, confirmed at once
-      (set_finished_at, then mark_reviewed — refused the same way).
-    - Confirm a task closed by its deadline (mark_reviewed); the tasks
-      waiting for it are done for from then on (dependency.done_at).
+    - Close a task (close_task: owner only, not while someone still has
+      time planned on it): an open one is closed now, an overdue one at
+      its passed deadline; the tasks waiting for it are done for from
+      then on (dependency.done_at).
     - Take note that a task waited for is done (mark_reviewed of the
       waiting task).
 
@@ -1393,8 +1392,8 @@ Not a read receipt.
 reviewed_at (not counting the owner''s comments).
 Reset to NULL when the owner changes (trigger).
 
-A task cannot be deleted (trigger). A task is closed by setting
-finished_at in the past. A closed task can be commented on, have time
+A task cannot be deleted (trigger). A task is closed by its owner
+(close_task(), finished_at.confirmed_at). A closed task can be commented on, have time
 logged, have its tags changed — just like an open one. "When it was
 created" is not stored — it is not a metric, to avoid gaming lead time.';
 
@@ -1592,8 +1591,7 @@ the deadline of value is later than latest_at or not set, the constraint
 is broken (dependency_risk()) and both tasks are at risk (at_risk()).';
 
 COMMENT ON COLUMN dependency.done_at IS
-'When the owner of value confirmed it closed (mark_reviewed() of a
-closed task, or closing it by hand): only then is it done for task_id,
+'When the owner of value closed it (close_task()): only then is it done for task_id,
 whose owner is notified (dependency_done) and sees it in "Waiting for
 me" while done_at is after their own task''s reviewed_at — "No
 intervention needed" there takes note. Cleared when value reopens
@@ -1607,7 +1605,10 @@ CREATE TABLE finished_at (
     task_id INT NOT NULL REFERENCES task(id),
     value TIMESTAMPTZ NOT NULL,
     entered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    expired_at TIMESTAMPTZ
+    expired_at TIMESTAMPTZ,
+    confirmed_at TIMESTAMPTZ,
+
+    CONSTRAINT chk_finished_at_confirmed CHECK (confirmed_at IS NULL OR confirmed_at >= value)
 );
 CREATE UNIQUE INDEX uq_finished_at_active
     ON finished_at(task_id) WHERE expired_at IS NULL;
@@ -1616,7 +1617,9 @@ CREATE INDEX idx_finished_at_task ON finished_at(task_id);
 COMMENT ON TABLE finished_at IS
 'Task deadline history.
 Current = expired_at IS NULL. There may be no rows — "not set".
-The task is done when the current value <= NOW().
+The task is closed when the current row is confirmed (confirmed_at), and
+only its owner confirms it (close_task()). A current value <= NOW() not
+confirmed is an overdue task: still open (decision 93).
 
 Set, moved (later or earlier) and cleared only by the owner —
 through set_finished_at / clear_finished_at.
@@ -1628,14 +1631,12 @@ Owners of dependent tasks are notified once the deadline settles, and
 told when the new deadline breaks the latest one their task can live
 with (dependency.latest_at).
 
-A passed deadline closes the task by itself (decision 2), so the owner
-sees it coming: from a day before it, the task is in their "Waiting for
-me" ("closes automatically"). Once closed it waits there while the owner
-has not looked at it since (task.reviewed_at before the deadline): they
-confirm it ("No intervention needed", refused while someone still has
-time planned on it — that plan is cleared first) or move the deadline.
-Closing by hand is confirmed at once. Nothing is sent: "Waiting for me"
-is computed from these rows (decision 87).';
+A deadline reminds its owner: from a day before it the task is in their
+"Waiting for me" ("deadline in …"), and once it passed unconfirmed it
+stays there as overdue until they close it (refused while someone still
+has time planned on it — that plan is cleared first) or move the
+deadline. Nothing is sent: "Waiting for me" is computed from these rows
+(decision 87).';
 
 COMMENT ON COLUMN finished_at.task_id IS
 'Which task.';
@@ -1648,6 +1649,16 @@ COMMENT ON COLUMN finished_at.entered_at IS
 
 COMMENT ON COLUMN finished_at.expired_at IS
 'When it stopped being current. NULL = current.';
+
+COMMENT ON COLUMN finished_at.confirmed_at IS
+'When the owner closed the task at this deadline (close_task()). Never
+before the deadline itself: an open task is closed by a deadline set to
+now and confirmed at once. Later than value — closed after its deadline.
+A new row (the deadline moved) starts unconfirmed: the task is open
+again. NULL — not closed.';
+
+COMMENT ON CONSTRAINT chk_finished_at_confirmed ON finished_at IS
+'A deadline is confirmed only once it has come.';
 
 COMMENT ON INDEX uq_finished_at_active IS
 'Exactly one current deadline: UNIQUE (task_id) WHERE expired_at IS NULL.';
@@ -1687,7 +1698,7 @@ COMMENT ON COLUMN estimate_minutes.value IS
 
 COMMENT ON COLUMN estimate_minutes.about IS
 'What they still mean to do for these minutes, in their words (decision
-88): so the owner of a closed task knows what a plan left on it is about,
+88): so the owner of an overdue task knows what a plan left on it is about,
 and others what the hours are for. NULL — not said.';
 
 COMMENT ON COLUMN estimate_minutes.entered_at IS
@@ -1707,12 +1718,12 @@ RETURNS INT AS $$
          SELECT 1 FROM finished_at f
           WHERE f.task_id = es.task_id
             AND f.entered_at <= p_at AND (f.expired_at IS NULL OR f.expired_at > p_at)
-            AND f.value <= p_at)
+            AND f.confirmed_at <= p_at)
 $$ LANGUAGE sql STABLE;
 
 COMMENT ON FUNCTION backlog_minutes(INT, TIMESTAMPTZ) IS
 'The employee''s backlog at a moment: how many more minutes they planned
-to spend (their estimates current then) on tasks still open then. Its
+to spend (their estimates current then) on tasks not closed then. Its
 change over a range is whether planned work grows faster than it is done.';
 
 
@@ -1732,7 +1743,7 @@ RETURNS TABLE (employee_id INT, day DATE, minutes INT) AS $$
                 SELECT 1 FROM finished_at f
                  WHERE f.task_id = es.task_id
                    AND f.entered_at <= d.at AND (f.expired_at IS NULL OR f.expired_at > d.at)
-                   AND f.value <= d.at)
+                   AND f.confirmed_at <= d.at)
      GROUP BY d.id, d.day
 $$ LANGUAGE sql STABLE;
 
@@ -2253,8 +2264,8 @@ RULES:
     without them) -> the employee.
   - finished_at set / moved / cleared -> owners of dependent tasks, once
     it settles (deadline_settles(): the worker holds it that long).
-  - a closed task confirmed by its owner (mark_reviewed) -> the owners of
-    the tasks waiting for it (dependency_done).
+  - a task closed by its owner (close_task) -> the owners of the tasks
+    waiting for it (dependency_done).
   - a new dependency -> the owner of the task waited for (with the latest
     deadline the waiting task can live with, if set).
   - someone''s part of a task made a task of theirs -> the owner of the
@@ -3255,8 +3266,9 @@ RETURNS TABLE (task_id INT, value INT, latest_at TIMESTAMPTZ, deadline TIMESTAMP
       LEFT JOIN finished_at ft ON ft.task_id = d.task_id AND ft.expired_at IS NULL
      WHERE (d.task_id = p_task_id OR d.value = p_task_id)
        AND d.latest_at IS NOT NULL
-       AND (ft.value IS NULL OR ft.value > NOW())
-       AND (fv.value IS NULL OR fv.value > d.latest_at)
+       AND ft.confirmed_at IS NULL
+       AND (fv.value IS NULL OR fv.value > d.latest_at
+            OR (fv.confirmed_at IS NULL AND d.latest_at < NOW()))
      ORDER BY d.task_id, d.value
 $$ LANGUAGE sql STABLE;
 
@@ -3264,14 +3276,15 @@ COMMENT ON FUNCTION dependency_risk(INT) IS
 'Broken deadline constraints around the task, in both directions: a
 dependency whose waiting task (task_id) is open while the deadline of the
 task waited for (value) is later than the latest one the waiting task can
-live with (latest_at), or not set. Where p_task_id is task_id it is late
+live with (latest_at), or not set, or that latest one has passed with the
+task waited for still open (overdue). Where p_task_id is task_id it is late
 because of value; where it is value it delays task_id.';
 
 
 CREATE OR REPLACE FUNCTION at_risk(p_task_id INT)
 RETURNS BOOLEAN AS $$
     SELECT NOT EXISTS (SELECT 1 FROM finished_at f
-                        WHERE f.task_id = p_task_id AND f.expired_at IS NULL AND f.value <= NOW())
+                        WHERE f.task_id = p_task_id AND f.expired_at IS NULL AND f.confirmed_at IS NOT NULL)
        AND (EXISTS (SELECT 1 FROM deadline_risk(p_task_id))
             OR EXISTS (SELECT 1 FROM dependency_risk(p_task_id)))
 $$ LANGUAGE sql STABLE;
@@ -4518,10 +4531,6 @@ returned, so the interface can offer to bring them back
 
 CREATE OR REPLACE FUNCTION mark_reviewed(p_task_id INT, p_actor_id INT)
 RETURNS VOID AS $$
-DECLARE
-    v_closed BOOLEAN;
-    v_plans INT;
-    r RECORD;
 BEGIN
     PERFORM check_owner(p_task_id, p_actor_id);
     IF EXISTS (
@@ -4534,45 +4543,67 @@ BEGIN
             USING HINT = 'pending_requests',
                   DETAIL = json_build_object('taskId', p_task_id)::text;
     END IF;
-
-    v_closed := EXISTS (SELECT 1 FROM finished_at
-                         WHERE task_id = p_task_id AND expired_at IS NULL AND value <= NOW());
-    IF v_closed THEN
-        -- Work still planned is not done: whoever planned it clears it first.
-        SELECT count(*) INTO v_plans FROM estimate_minutes WHERE task_id = p_task_id AND expired_at IS NULL;
-        IF v_plans > 0 THEN
-            RAISE EXCEPTION 'task % is closed with % plans left', p_task_id, v_plans
-                USING HINT = 'plans_left',
-                      DETAIL = json_build_object('taskId', p_task_id, 'count', v_plans)::text;
-        END IF;
-    END IF;
     UPDATE task SET reviewed_at = NOW() WHERE id = p_task_id;
-
-    -- Confirmed closed: done for what waits for it, whose owners hear it.
-    IF v_closed THEN
-        FOR r IN
-            UPDATE dependency d SET done_at = NOW()
-              FROM task t
-             WHERE d.value = p_task_id AND t.id = d.task_id AND d.done_at IS NULL
-            RETURNING d.task_id, t.owner_id
-        LOOP
-            IF r.owner_id IS NOT NULL AND r.owner_id <> p_actor_id THEN
-                PERFORM notify(r.owner_id, r.task_id, jsonb_build_object(
-                    'kind', 'dependency_done', 'dependencyId', p_task_id));
-            END IF;
-        END LOOP;
-    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION mark_reviewed(INT, INT) IS
 '"No intervention needed": the owner confirms that nothing in the task
 waits for their decision. Refused while an access request waits: that is
-exactly something that needs the owner. On a closed task it confirms the
-closing (decision 87): refused while someone still has time planned on
-it (plans_left — whoever planned it clears it), and the tasks waiting for
-it are done for from then on (dependency.done_at), their owners notified
-(dependency_done). Closing by hand is confirmed the same way at once.';
+exactly something that needs the owner. It never closes the task — that
+is close_task() (decision 93).';
+
+
+CREATE OR REPLACE FUNCTION close_task(p_task_id INT, p_actor_id INT)
+RETURNS VOID AS $$
+DECLARE
+    v_plans INT;
+    r RECORD;
+BEGIN
+    PERFORM check_owner(p_task_id, p_actor_id);
+    IF EXISTS (SELECT 1 FROM finished_at
+                WHERE task_id = p_task_id AND expired_at IS NULL AND confirmed_at IS NOT NULL) THEN
+        RETURN;
+    END IF;
+    -- Work still planned is not done: whoever planned it clears it first.
+    SELECT count(*) INTO v_plans FROM estimate_minutes WHERE task_id = p_task_id AND expired_at IS NULL;
+    IF v_plans > 0 THEN
+        RAISE EXCEPTION 'task % has % plans left', p_task_id, v_plans
+            USING HINT = 'plans_left',
+                  DETAIL = json_build_object('taskId', p_task_id, 'count', v_plans)::text;
+    END IF;
+
+    -- An overdue task is closed at the deadline it missed, so that stays
+    -- visible; any other one now.
+    IF NOT EXISTS (SELECT 1 FROM finished_at
+                    WHERE task_id = p_task_id AND expired_at IS NULL AND value <= NOW()) THEN
+        PERFORM change_deadline(p_task_id, NOW());
+    END IF;
+    UPDATE finished_at SET confirmed_at = NOW() WHERE task_id = p_task_id AND expired_at IS NULL;
+
+    -- Closed: done for what waits for it, whose owners hear it.
+    FOR r IN
+        UPDATE dependency d SET done_at = NOW()
+          FROM task t
+         WHERE d.value = p_task_id AND t.id = d.task_id AND d.done_at IS NULL
+        RETURNING d.task_id, t.owner_id
+    LOOP
+        IF r.owner_id IS NOT NULL AND r.owner_id <> p_actor_id THEN
+            PERFORM notify(r.owner_id, r.task_id, jsonb_build_object(
+                'kind', 'dependency_done', 'dependencyId', p_task_id));
+        END IF;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION close_task(INT, INT) IS
+'The owner closes the task (decision 93) — the only way a task closes.
+An overdue one (its deadline passed) is closed at that deadline, so
+closing late stays visible (confirmed_at later than value); any other
+one gets the deadline now, closed at once. Refused while someone still
+has time planned on it (plans_left — whoever planned it clears it). The
+tasks waiting for it are done for from then on (dependency.done_at),
+their owners notified (dependency_done). A closed task is left as it is.';
 
 
 -- ----------------------------------------------------------------------------
@@ -4585,7 +4616,7 @@ RETURNS INT AS $$
 DECLARE
     v_manager RECORD;
     v_unscored INT;
-    v_expired INT;
+    v_overdue INT;
     v_at_risk INT;
     v_blocked INT;
     v_sent INT := 0;
@@ -4612,12 +4643,11 @@ BEGIN
            AND d.day >= (p_now AT TIME ZONE v_manager.time_zone)::date - 30
            AND NOT EXISTS (SELECT 1 FROM score s
                             WHERE s.employee_id = d.employee_id AND s.day = d.day AND s.value IS NOT NULL);
-        -- Tasks of the team closed automatically last week: a deadline set in advance came.
-        SELECT count(*) INTO v_expired
+        -- Tasks of the team overdue now: the deadline passed and nobody closed them.
+        SELECT count(*) INTO v_overdue
           FROM task k JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
          WHERE k.owner_id IN (SELECT subordinates(v_manager.id))
-           AND f.value <= p_now AND f.value > p_now - INTERVAL '7 days'
-           AND f.value - f.entered_at > INTERVAL '1 minute';
+           AND f.value <= p_now AND f.confirmed_at IS NULL;
         SELECT count(*) INTO v_at_risk
           FROM task k
          WHERE k.owner_id IN (SELECT subordinates(v_manager.id))
@@ -4629,10 +4659,10 @@ BEGIN
 
         UPDATE human SET weekly_digest_on = (p_now AT TIME ZONE v_manager.time_zone)::date WHERE employee_id = v_manager.id;
         -- Nothing to say, nothing sent: a quiet week needs no email.
-        IF v_unscored + v_expired + v_at_risk + v_blocked > 0 THEN
+        IF v_unscored + v_overdue + v_at_risk + v_blocked > 0 THEN
             INSERT INTO notification (employee_id, task_id, payload)
             VALUES (v_manager.id, NULL, jsonb_build_object(
-                'kind', 'weekly_digest', 'unscored', v_unscored, 'expired', v_expired, 'atRisk', v_at_risk,
+                'kind', 'weekly_digest', 'unscored', v_unscored, 'overdue', v_overdue, 'atRisk', v_at_risk,
                 'blocked', v_blocked));
             v_sent := v_sent + 1;
         END IF;
@@ -4644,8 +4674,8 @@ $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION send_weekly_digests(TIMESTAMPTZ) IS
 'Cron, every hour: on Monday from 09:00 in each manager''s time zone,
 once a week, a summary of what waits for them — days of direct reports
-waiting for a score (the last 30), tasks of the subtree closed
-automatically last week, tasks of the subtree at risk now, direct reports
+waiting for a score (the last 30), tasks of the subtree overdue now,
+tasks of the subtree at risk now, direct reports
 the identity provider no longer lets in (to dismiss). Sent only if
 something is there; not copied to anyone (it is about their own team).
 Only for someone with people under them (bots do not count).
@@ -4746,11 +4776,9 @@ BEGIN
        AND payload->>'dependencyId' = p_task_id::text;
     IF v_changed THEN
         PERFORM notify_dependents(p_task_id);
-        -- Open again: what waits for it waits again. Closed, it is done once
-        -- its owner confirms it (mark_reviewed()).
-        IF p_value IS NULL OR p_value > NOW() THEN
-            UPDATE dependency SET done_at = NULL WHERE value = p_task_id AND done_at IS NOT NULL;
-        END IF;
+        -- A new deadline is not closed: what waits for it waits again until
+        -- its owner closes it (close_task()).
+        UPDATE dependency SET done_at = NULL WHERE value = p_task_id AND done_at IS NOT NULL;
     END IF;
 END;
 $$ LANGUAGE plpgsql;
@@ -4762,10 +4790,9 @@ removed and the one before it reopened, then the new change is made — so
 the history keeps the last decision, dated by it, and a value changed
 back is no change at all. Owners of dependent tasks get one notification
 for the settled deadline (notify_dependents(); unsent ones about the
-replaced change are dropped). A deadline put at or before now closes the
-task; the application confirms it at once (mark_reviewed()), which marks
-the tasks waiting for it done for. Moved ahead or cleared, they are not
-done for any more (done_at cleared).';
+replaced change are dropped). Any change opens a closed task again: the
+new row is not confirmed, and the tasks waiting for it are not done for
+any more (done_at cleared). Closing is close_task().';
 
 
 CREATE OR REPLACE FUNCTION set_finished_at(p_task_id INT, p_value TIMESTAMPTZ)

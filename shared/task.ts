@@ -29,8 +29,10 @@ export const TaskHeader = z.object({
   id: Id,
   tags: Tag.array(),
   priority: Priority,
-  /** NULL — no deadline. A deadline in the past means the task is closed. */
+  /** NULL — no deadline. Passed while the task is open — overdue (decision 93). */
   deadline: z.date().nullable(),
+  /** Its owner closed it (db.sql, close_task); only that closes a task. */
+  closed: z.boolean(),
   /** NULL — an ownerless task (its owner was dismissed without a manager). */
   ownerId: Id.nullable(),
   isPublic: z.boolean(),

@@ -19,7 +19,7 @@ export async function mine(viewerId: number, query: string, page: number): Promi
   const tags = sql`
     SELECT t.id, t.name, u.color, COALESCE(u.weight, 0) AS weight,
            count(*)::int AS tasks,
-           count(*) FILTER (WHERE f.value IS NULL OR f.value > NOW())::int AS open,
+           count(*) FILTER (WHERE f.confirmed_at IS NULL)::int AS open,
            (u.tag_id IS NOT NULL) AS personal
       FROM task k
       CROSS JOIN LATERAL unnest(k.tag_ids) AS kt(id)
@@ -284,7 +284,7 @@ function scope(viewerId: number, from: string, to: string) {
         FROM employee e WHERE e.id = ${viewerId}
     ),
     v AS (
-      SELECT k.id, k.tag_ids, f.value AS deadline, f.entered_at
+      SELECT k.id, k.tag_ids, f.value AS deadline, f.confirmed_at AS closed_at
         FROM task k
         LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
        WHERE can_see(k.id, ${viewerId})
@@ -307,18 +307,18 @@ function scope(viewerId: number, from: string, to: string) {
     ),
     m AS (
       SELECT v.id, v.tag_ids,
-             (v.deadline IS NULL OR v.deadline > NOW()) AS open,
+             v.closed_at IS NULL AS open,
              at_risk(v.id) AS at_risk,
-             COALESCE(v.deadline <= NOW() AND v.deadline >= r.since AND v.deadline < r.until, FALSE) AS closed_in,
-             (v.deadline AT TIME ZONE r.time_zone)::date AS closed_day,
-             COALESCE(v.deadline - v.entered_at > INTERVAL '1 minute', FALSE) AS auto,
+             COALESCE(v.closed_at >= r.since AND v.closed_at < r.until, FALSE) AS closed_in,
+             (v.closed_at AT TIME ZONE r.time_zone)::date AS closed_day,
+             COALESCE(v.closed_at > v.deadline, FALSE) AS late,
              (SELECT count(*) FROM cm WHERE cm.task_id = v.id)::int AS comments,
              EXISTS (SELECT 1 FROM tp WHERE tp.task_id = v.id) AS touched,
              GREATEST(
                (SELECT max((c.created_at AT TIME ZONE r.time_zone)::date) FROM comment c
                   JOIN human h ON h.employee_id = c.created_by WHERE c.task_id = v.id),
                (SELECT max(s.day) FROM spent_minutes s WHERE s.task_id = v.id),
-               CASE WHEN v.deadline <= NOW() THEN (v.deadline AT TIME ZONE r.time_zone)::date END
+               (v.closed_at AT TIME ZONE r.time_zone)::date
              ) AS last_day
         FROM v CROSS JOIN r
     )
@@ -329,8 +329,8 @@ const figures = () => sql`
   count(*) FILTER (WHERE m.open)::int AS open,
   count(*) FILTER (WHERE m.at_risk)::int AS at_risk,
   count(*) FILTER (WHERE m.open AND NOT m.touched)::int AS stale,
-  count(*) FILTER (WHERE m.closed_in AND NOT m.auto)::int AS finished,
-  count(*) FILTER (WHERE m.closed_in AND m.auto)::int AS expired,
+  count(*) FILTER (WHERE m.closed_in AND NOT m.late)::int AS finished,
+  count(*) FILTER (WHERE m.closed_in AND m.late)::int AS late,
   count(*) FILTER (WHERE m.closed_in OR m.touched)::int AS active,
   COALESCE(sum(m.comments), 0)::int AS comments,
   count(*) FILTER (WHERE m.comments > 0)::int AS discussed,
@@ -348,7 +348,7 @@ function order(sort: TagSort) {
   switch (sort) {
     case 'active': return sql`active DESC, open DESC`;
     case 'open': return sql`open DESC, active DESC`;
-    case 'closed': return sql`finished + expired DESC, active DESC`;
+    case 'closed': return sql`finished + late DESC, active DESC`;
     case 'comments': return sql`comments DESC, active DESC`;
     case 'hours': return sql`minutes DESC, left_minutes DESC, active DESC`;
     case 'last': return sql`last_day DESC NULLS LAST, active DESC`;
@@ -454,7 +454,7 @@ export async function detail(viewerId: number, input: TagDetailInput): Promise<T
          AND NOT EXISTS (
            SELECT 1 FROM finished_at f
             WHERE f.task_id = e.task_id AND f.entered_at <= dd.at AND (f.expired_at IS NULL OR f.expired_at > dd.at)
-              AND f.value <= dd.at)
+              AND f.confirmed_at <= dd.at)
     )`;
   const days = Days.array().parse(await sql`${base} SELECT dd.day::text AS day FROM dd ORDER BY dd.day`).map((d) => d.day);
   const persons = PersonRow.array().parse(await sql`

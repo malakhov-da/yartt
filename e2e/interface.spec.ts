@@ -64,18 +64,18 @@ test.describe('My day', () => {
     await expect(page.getByText(/от Иван Кузнецов/)).toHaveCount(0);
   });
 
-  test('TODO: a task closed by its deadline waits for a confirmation, once the plans on it are cleared', async ({ page }) => {
+  test('TODO: an overdue task stays open until its owner finishes it, once the plans on it are cleared', async ({ page }) => {
     await signIn(page, 'pavel@example.com');
     const todo = page.locator('div.MuiPaper-root').filter({ has: page.getByRole('heading', { name: /Ждёт меня/ }) }).first();
-    const item = todo.locator('.MuiStack-root').filter({ hasText: /^Закрылась по дедлайну/ })
-      .filter({ has: page.getByRole('button', { name: 'Подтвердить' }) }).last();
-    await expect(item.getByRole('link', { name: 'Вернуть в работу' })).toBeVisible();
+    const item = todo.locator('.MuiStack-root').filter({ hasText: /^Просрочена: дедлайн прошёл/ })
+      .filter({ has: page.getByRole('button', { name: 'Завершить' }) }).last();
+    await expect(item.getByRole('link', { name: 'Перенести дедлайн' })).toBeVisible();
     await expect(item.getByText(/^Ещё запланировано: Павел/)).toBeVisible();
-    await expect(item.getByRole('button', { name: 'Подтвердить' })).toBeDisabled();
+    await expect(item.getByRole('button', { name: 'Завершить' })).toBeDisabled();
     await todo.getByRole('button', { name: 'Обнулить план' }).click();
     await expect(todo.getByRole('button', { name: 'Обнулить план' })).toHaveCount(0);
-    await item.getByRole('button', { name: 'Подтвердить' }).click();
-    await expect(todo.getByText(/^Закрылась по дедлайну/)).toHaveCount(0);
+    await item.getByRole('button', { name: 'Завершить' }).click();
+    await expect(todo.getByText(/^Просрочена: дедлайн прошёл/)).toHaveCount(0);
   });
 
   test('TODO: the items of one task are under one line of it', async ({ page }) => {

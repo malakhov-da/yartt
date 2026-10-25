@@ -15,6 +15,7 @@ const HeaderRow = z.object({
   tagIds: z.number().array(),
   priority: Priority,
   deadline: z.date().nullable(),
+  closed: z.boolean(),
   ownerId: z.number().nullable(),
   isPublic: z.boolean(),
   riskEmployeeId: z.number().nullable(),
@@ -35,13 +36,13 @@ export async function headers(viewerId: number, ids: number[], db: Sql = sql): P
   if (ids.length === 0) return [];
   const rows = HeaderRow.array().parse(await db`
     SELECT k.id, ordered_tags(${viewerId}, k.tag_ids) AS tag_ids, k.priority, k.owner_id,
-           f.value AS deadline, is_public(k.id) AS is_public,
+           f.value AS deadline, f.confirmed_at IS NOT NULL AS closed, is_public(k.id) AS is_public,
            r.employee_id AS risk_employee_id, r.planned_minutes AS risk_planned, r.capacity_minutes AS risk_capacity,
            -- Broken latest deadlines around an open task: what it waits for is late, or it delays others.
            ARRAY(SELECT d.value FROM dependency_risk(k.id) d
-                  WHERE d.task_id = k.id AND (f.value IS NULL OR f.value > NOW())) AS late,
+                  WHERE d.task_id = k.id AND f.confirmed_at IS NULL) AS late,
            ARRAY(SELECT d.task_id FROM dependency_risk(k.id) d
-                  WHERE d.value = k.id AND (f.value IS NULL OR f.value > NOW())) AS delays
+                  WHERE d.value = k.id AND f.confirmed_at IS NULL) AS delays
       FROM task k
       LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
       LEFT JOIN LATERAL deadline_risk(k.id) r ON TRUE
@@ -140,7 +141,8 @@ export async function hours(viewerId: number, ids: number[]): Promise<z.infer<ty
 
 export async function search(viewerId: number, input: SearchInput): Promise<SearchResult> {
   const where = sql`k.tag_ids @> ${input.tagIds}::int[]`;
-  const closed = sql`(f.value IS NOT NULL AND f.value <= NOW())`;
+  // Closed is what its owner closed (decision 93); an overdue task is still open, first by its deadline.
+  const closed = sql`(f.confirmed_at IS NOT NULL)`;
   const [counts] = z.object({ mine: z.number(), team: z.number(), others: z.number(), closed: z.number() }).array().parse(await sql`
     SELECT count(*) FILTER (WHERE NOT closed AND whose = 'mine')::int AS mine,
            count(*) FILTER (WHERE NOT closed AND whose = 'team')::int AS team,
@@ -154,7 +156,7 @@ export async function search(viewerId: number, input: SearchInput): Promise<Sear
   const tab = input.tab === 'all' ? sql`TRUE`
     : input.tab === 'closed' ? closed
     : sql`NOT ${closed} AND ${whose(viewerId)} = ${input.tab}`;
-  const order = input.tab === 'closed' ? sql`f.value DESC, k.priority DESC, k.id DESC`
+  const order = input.tab === 'closed' ? sql`f.confirmed_at DESC, k.priority DESC, k.id DESC`
     : sql`${closed}, f.value NULLS LAST, k.priority DESC, k.id DESC`;
   const ids = Id.array().parse(await sql`
     SELECT k.id
@@ -203,7 +205,7 @@ export async function similar(viewerId: number, names: string[]): Promise<TaskHe
      WHERE k.tag_ids && (SELECT array_agg(id) FROM t)
        AND k.tag_ids <> (SELECT array_agg(id ORDER BY id) FROM t)
      ORDER BY (SELECT count(*) FROM unnest(k.tag_ids) x WHERE x IN (SELECT id FROM t)) DESC,
-              (f.value IS NULL OR f.value > NOW()) DESC, k.id DESC
+              f.confirmed_at IS NULL DESC, k.id DESC
      LIMIT ${SIMILAR}
   `).map((r) => r.id);
   return headers(viewerId, ids);
@@ -287,21 +289,19 @@ export async function assertReadable(ids: number[], employeeId: number, db: Sql 
   if (readable.length !== new Set(ids).size) throw new AppError('unknown_attachment');
 }
 
-/** Sets or moves the deadline; NULL clears it. Owner only. */
+/** Sets or moves the deadline; NULL clears it. Owner only. Never closes the task: it opens a closed one. */
 export async function setDeadline(actorId: number, taskId: number, deadline: Date | null): Promise<void> {
   await sql.begin(async (tx) => {
     const db = tx as unknown as Sql;
     await assertOwner(taskId, actorId, db);
     if (deadline === null) await db`SELECT clear_finished_at(${taskId})`;
     else await db`SELECT set_finished_at(${taskId}, ${deadline})`;
-    // Closed by hand is confirmed at once, refused the same way (decision 87).
-    if (deadline !== null) {
-      await db`
-        SELECT mark_reviewed(${taskId}, ${actorId}) FROM finished_at
-         WHERE task_id = ${taskId} AND expired_at IS NULL AND value <= NOW()
-      `;
-    }
   });
+}
+
+/** The owner closes the task — the only way it closes (decision 93); close_task() checks the owner. */
+export async function close(actorId: number, taskId: number): Promise<void> {
+  await sql`SELECT close_task(${taskId}, ${actorId})`;
 }
 
 const OwnerRow = z.object({ ownerId: z.number().nullable(), managerId: z.number().nullable() });

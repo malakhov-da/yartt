@@ -25,9 +25,9 @@ persona goal it serves. Status: **now** — stage one, **next** — stage two,
 | Tags in lower case; found despite typos, transliteration and the wrong layout; several words read as a set of tags | everyone: one tag is not spelled five ways | now (done) |
 | Tags shown in my own order: personal weight, then how often I meet the tag | everyone: the "title" reads naturally | now (in the database) |
 | Context: what the owner wants, rich text with images, edited only by the owner | Marina: one source of truth | now (done) |
-| Finish a task: the deadline is set to now and the task is closed | everyone: one way to close, no status | now (done) |
+| Finish a task: only its owner closes it — an open one with the deadline set to now, an overdue one at the deadline it missed; refused while time is planned on it | everyone: one way to close, no status | now (done) |
 | Priority: low / normal / high / critical | Marina: order without debate | now (done) |
-| Deadline; move it later or earlier, clear it. A passed deadline closes the task by itself. Changes within a minute of each other are one: the history keeps the last decision, dependent tasks are told once it settles | Marina: plans that can change honestly, and nobody forgets to say they slipped | now (done) |
+| Deadline; move it later or earlier, clear it. A passed deadline makes the task overdue: still open, in its owner's Waiting for me until they finish it or move the deadline; a moved deadline opens a closed task again. Changes within a minute of each other are one: the history keeps the last decision, dependent tasks are told once it settles | Marina: plans that can change honestly, and nobody forgets to say they slipped | now (done) |
 | "No intervention needed": the owner confirms nothing waits for them; new comments since then put the task back in TODO | Marina: know what changed since she last looked | now (done) |
 | Transfer ownership (owner or their manager) | Marina: hand over without losing history | now (done) |
 | Take an ownerless task | Pavel: pick up what nobody owns | now (done) |
@@ -52,7 +52,7 @@ persona goal it serves. Status: **now** — stage one, **next** — stage two,
 | A shift suggested for activity outside the written shifts of a past day | Pavel: an evening of work is not lost from the timesheet | now (done) |
 | Export for payroll: timesheet, logged time and scores of the picked people for a range, as Excel or CSV | Marina: hand the month to accounting without retyping | now (done) |
 | Bots: an employee kind of its own, created by anyone, run by its manager; one key, permissions that only narrow what it sees, its own signed JSON webhook; no timesheet, scores or reports. Bots under My team from any day to today: tasks, comments, calls by day, share refused, share delivered, the quiet first; a yearly word about an old key | Pavel: a failed build lands in the task as a mention, and the bot cannot do more than it should | now (done) |
-| A weekly email for managers: Monday morning, days waiting for a score, tasks closed automatically, tasks at risk | Marina: the week starts with what needs her | now (done) |
+| A weekly email for managers: Monday morning, days waiting for a score, overdue tasks, tasks at risk | Marina: the week starts with what needs her | now (done) |
 | A dark theme: as the system, or chosen in the profile | Pavel: My day open all evening without glare | now (done) |
 | Installable (PWA) and working offline: changes made without a connection are kept and sent at the first chance | everyone: a train or a basement does not stop work | now (done) |
 | The top line: how many TODO items wait for me, starting a shift now, the open shift and closing it, from any page | Pavel: notice a mention and close the day without going back to My day | now (done) |
@@ -99,7 +99,7 @@ its manager wants that.
 | Employee page: their days and scores, seen by the employee and managers above | Marina: honest feedback with facts | now (done) |
 | Score a past day of a direct report on their page, 0–100, with an optional reason; correct it later, every version is emailed | Marina: honest feedback with facts | now (done) |
 | Workload and weighted score for any period, with a chart by day or week | Marina, Oleg: workload and quality side by side | now (done) |
-| Team summary in My day: the subtree for a range — hours, score, days to score, tasks closed by hand and automatically | Marina, Oleg: the whole team in one table | now (done) |
+| Team summary in My day: the subtree for a range — hours, score, days to score, tasks closed in time and after the deadline | Marina, Oleg: the whole team in one table | now (done) |
 | Avatars | everyone: recognize people faster | now (done) |
 
 ## Never

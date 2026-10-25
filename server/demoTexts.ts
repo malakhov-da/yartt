@@ -37,7 +37,7 @@ const ru = {
     promo: ['сайт', 'лендинг осенней промо-акции'],
     docs: ['найм', 'документация', 'памятка новичку на первую неделю'],
   },
-  // What a plan left on a task closed by its deadline is for (decision 88).
+  // What a plan left on an overdue task is for (decision 88).
   planAbout: 'вычитать тексты баннеров и выложить их',
   context: {
     site: '<p>Новая главная к запуску осенней кампании.</p><ul><li>блок с ценами</li><li>отзывы клиентов</li><li>форма заявки</li></ul><p>Готово, когда страница на проде и форма пишет в CRM.</p>',

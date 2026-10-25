@@ -51,7 +51,7 @@ export const TodoRemind = z.object({
 });
 export type TodoRemind = z.infer<typeof TodoRemind>;
 
-/** My task closes by its deadline within a day: move the deadline if the work is not done. */
+/** My open task's deadline comes within a day: close it if the work is done, move the deadline if not. */
 export const TodoClosing = z.object({
   kind: z.literal('closing'),
   task: TaskHeader,
@@ -65,24 +65,22 @@ export const PlanLeft = z.object({ employeeId: Id, minutes: z.number().int(), ab
 export type PlanLeft = z.infer<typeof PlanLeft>;
 
 /**
- * My task closed by its deadline and not looked at since (decision 87):
- * confirm it ("No intervention needed"), or move the deadline and it is
- * open again. Confirmed only once nobody has time planned on it.
+ * My task is overdue: its deadline passed and I have not closed it
+ * (decision 93). It stays here until I close it or move the deadline;
+ * closed only once nobody has time planned on it.
  */
-export const TodoClosed = z.object({
-  kind: z.literal('closed'),
+export const TodoOverdue = z.object({
+  kind: z.literal('overdue'),
   task: TaskHeader,
-  /** When it closed — the deadline. */
+  /** The deadline it missed. */
   at: z.date(),
   /** Whose plans are still on it: each clears their own first. */
   plans: PlanLeft.array(),
-  /** Comments by others I have not looked at: confirmed in the task then, not here. */
-  unread: z.number().int(),
 });
-export type TodoClosed = z.infer<typeof TodoClosed>;
+export type TodoOverdue = z.infer<typeof TodoOverdue>;
 
 /**
- * A task my task waits for is done — its owner confirmed it closed — since
+ * A task my task waits for is done — its owner closed it — since
  * I last looked at mine: "No intervention needed" takes note.
  */
 export const TodoDone = z.object({
@@ -96,11 +94,11 @@ export const TodoDone = z.object({
 });
 export type TodoDone = z.infer<typeof TodoDone>;
 
-/** A closed task with my time still planned on it: cleared, its owner can confirm it closed. */
+/** An overdue task with my time still planned on it: cleared, its owner can close it. */
 export const TodoPlanLeft = z.object({
   kind: z.literal('plan_left'),
   task: TaskHeader,
-  /** When it closed — the deadline. */
+  /** The deadline it missed. */
   at: z.date(),
   minutes: z.number().int(),
   /** What I said it is for; NULL — not said. */
@@ -109,7 +107,7 @@ export const TodoPlanLeft = z.object({
 export type TodoPlanLeft = z.infer<typeof TodoPlanLeft>;
 
 export const TodoItem = z.discriminatedUnion('kind', [
-  TodoMention, TodoReview, TodoRequest, TodoRemind, TodoClosing, TodoClosed, TodoDone, TodoPlanLeft,
+  TodoMention, TodoReview, TodoRequest, TodoRemind, TodoClosing, TodoOverdue, TodoDone, TodoPlanLeft,
 ]);
 export type TodoItem = z.infer<typeof TodoItem>;
 

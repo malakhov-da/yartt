@@ -139,9 +139,15 @@ test.describe.serial('a task from creation to hand-over', () => {
     await expect(page.getByText('Глянуть ещё раз')).toHaveCount(0);
   });
 
-  test('finish closes it; the hand-over leaves me an observer', async () => {
+  test('finish closes it once my plan is cleared; the hand-over leaves me an observer', async () => {
+    // Time still planned on it is not done: closing is refused until the plan is cleared.
     await page.getByRole('button', { name: 'Завершить' }).click();
-    await expect(page.getByText('Закрыта')).toBeVisible();
+    await expect(page.getByText(/не закрыть: на ней остались планы/)).toBeVisible();
+    await page.getByRole('button', { name: 'Мой план' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Убрать план' }).click();
+    await page.getByRole('button', { name: 'Завершить' }).click();
+    await expect(page.getByText('Закрыта', { exact: true })).toBeVisible();
+    await expect(page.getByText('Задача закрыта', { exact: true })).toBeVisible(); // in the feed
 
     await page.getByRole('button', { name: 'Передать' }).click();
     await page.getByLabel('Новый владелец').click();

@@ -30,7 +30,7 @@ export type Metrics = {
   /** Past days waiting for a score: a person — for my score; a team — for its manager's. */
   unscored: number | null;
   finished: number;
-  expired: number;
+  late: number;
   open: number;
   atRisk: number;
   /** A person's planned work and its change over the range; a group has none (hours are not combined). */
@@ -72,7 +72,7 @@ export function metrics(g: Group): Metrics {
     unscored: g.kind === 'person' ? (g.person.direct ? g.person.unscoredDays : null)
       : g.kind === 'team' ? sum(g.direct, (m) => m.unscoredDays) : null,
     finished: sum(people, (m) => m.finished),
-    expired: sum(people, (m) => m.expired),
+    late: sum(people, (m) => m.late),
     open: sum(people, (m) => m.openTasks),
     atRisk: sum(people, (m) => m.atRisk),
     backlog: g.kind === 'person' ? { minutes: g.person.backlogMinutes, growth: g.person.backlogGrowthMinutes } : null,

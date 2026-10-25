@@ -59,7 +59,7 @@ async function current(viewerId: number, taskId: number | null): Promise<TagLimi
                AND s."by" IN (SELECT person FROM people WHERE people.id = l.id))::int AS spent_minutes,
            (SELECT COALESCE(sum(e.value), 0) FROM estimate_minutes e JOIN task k ON k.id = e.task_id
               LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
-             WHERE e.expired_at IS NULL AND k.tag_ids @> l.tag_ids AND (f.value IS NULL OR f.value > NOW())
+             WHERE e.expired_at IS NULL AND k.tag_ids @> l.tag_ids AND f.confirmed_at IS NULL
                AND e."by" IN (SELECT person FROM people WHERE people.id = l.id))::int AS left_minutes,
            (SELECT COALESCE(sum(s.value), 0) FROM spent_minutes s JOIN task k ON k.id = s.task_id
              WHERE k.tag_ids @> l.tag_ids AND s.day > t.today - 28 AND s.day <= t.today

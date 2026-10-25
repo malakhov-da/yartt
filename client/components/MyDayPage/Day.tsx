@@ -153,7 +153,7 @@ export default function (p: {
         sx={{
           flexGrow: 1, minWidth: 0, color: 'text.primary', textDecoration: 'none', overflowWrap: 'anywhere',
           '&:hover': { textDecoration: 'underline' },
-          ...(header.deadline !== null && header.deadline <= new Date() && { color: 'text.secondary' }),
+          ...(header.closed && { color: 'text.secondary' }),
         }}
       >
         <Box component="span" sx={{ fontFamily: 'monospace', color: 'primary.main', mr: 0.75 }}>#{header.id}</Box>

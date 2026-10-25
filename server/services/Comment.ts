@@ -9,7 +9,7 @@ export const PAGE_SIZE = 20;
 const EXCERPT = 140;
 
 const FeedRow = z.object({
-  kind: z.enum(['comment', 'reply', 'deadline', 'mentioned_in', 'spent', 'plan']),
+  kind: z.enum(['comment', 'reply', 'deadline', 'closed', 'mentioned_in', 'spent', 'plan']),
   at: z.date(),
   commentId: z.number().nullable(),
   from: z.date().nullable(),
@@ -55,7 +55,8 @@ const tree = (taskId: number) => sql`
 /**
  * Every event of a task: threads (by their first comment) and replies in
  * them, deadline moves (a row of finished_at; a
- * clear is a row closed without a successor), comments of other tasks that
+ * clear is a row closed without a successor), its closing by the owner
+ * (a confirmed row of finished_at), comments of other tasks that
  * attach this one, time logged, and time left set or cleared (a row of
  * estimate_minutes; a clear is a row closed without a successor).
  * 'mentions' keeps only the threads with an open mention.
@@ -86,6 +87,10 @@ function rawEvents(taskId: number, filter: FeedFilter) {
       FROM finished_at f
      WHERE f.task_id = ${taskId} AND ${all} AND f.expired_at IS NOT NULL
        AND NOT EXISTS (SELECT 1 FROM finished_at n WHERE n.task_id = f.task_id AND n.entered_at = f.expired_at)
+    UNION ALL
+    SELECT 'closed', f.confirmed_at, NULL, NULL, f.value, NULL, NULL, NULL, NULL, NULL
+      FROM finished_at f
+     WHERE f.task_id = ${taskId} AND ${all} AND f.confirmed_at IS NOT NULL
     UNION ALL
     SELECT 'mentioned_in', c.created_at, NULL, NULL, NULL, NULL, NULL, NULL, tm.task_id, NULL
       FROM task_mention tm JOIN comment c ON c.task_id = tm.task_id AND c.id = tm.comment_id
@@ -168,6 +173,8 @@ export async function list(viewerId: number, taskId: number, filter: FeedFilter,
       }
       case 'deadline':
         return [{ kind: 'deadline', at: r.at, from: r.from, to: r.to }];
+      case 'closed':
+        return [{ kind: 'closed', at: r.at, deadline: r.to! }];
       case 'mentioned_in': {
         const task = sources.get(r.sourceTaskId!);
         return task ? [{ kind: 'mentioned_in', at: r.at, task }] : [];

@@ -19,7 +19,7 @@ const ExtraRow = z.object({
   employeeId: z.number(),
   unscoredDays: z.number(),
   finished: z.number(),
-  expired: z.number(),
+  late: z.number(),
   openTasks: z.number(),
   atRisk: z.number(),
   recordDelayMinutes: z.number().nullable(),
@@ -199,7 +199,7 @@ async function delaysByDay(ids: number[], from: string, to: string): Promise<z.i
  * The team summary: me first (my own report), then the whole subtree of my
  * reports, direct ones first — without those invited after the range or
  * dismissed before it — for a range of their days — workload and
- * score, days waiting for a score, tasks closed by hand and automatically
+ * score, days waiting for a score, tasks closed in time and after the deadline
  * (decision 32). People are compared by shares, not hours (decision 68).
  */
 export async function summary(viewerId: number, from: string, to: string): Promise<Member[]> {
@@ -216,8 +216,8 @@ export async function summary(viewerId: number, from: string, to: string): Promi
   `);
   const ids = rows.map((r) => r.id);
   const byId = await stats(ids, { from, to });
-  // The current deadline row tells how a task closed: set at the moment it took effect —
-  // by hand ("Finish" or moved to the past); set in advance and then reached — automatically.
+  // The current deadline row tells how a task closed (decision 93): closed by its owner at or
+  // before the deadline — in time; after it, overdue first — late.
   const extra = new Map(ExtraRow.array().parse(await sql`
     WITH e AS (SELECT id, time_zone, local_today(id) AS today FROM employee WHERE id = ANY(${ids})),
          -- Days of the range with shifts, all closed and before today, not scored: grouped once.
@@ -252,19 +252,19 @@ export async function summary(viewerId: number, from: string, to: string): Promi
              FROM asked a
          ),
          closed AS (
-           SELECT k.owner_id, f.value - f.entered_at > INTERVAL '1 minute' AS automatic
+           SELECT k.owner_id, f.confirmed_at > f.value AS late
              FROM task k
              JOIN e ON e.id = k.owner_id
              JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
-            WHERE f.value <= NOW() AND (f.value AT TIME ZONE e.time_zone)::date BETWEEN ${from}::date AND ${to}::date
+            WHERE (f.confirmed_at AT TIME ZONE e.time_zone)::date BETWEEN ${from}::date AND ${to}::date
          )
     SELECT e.id AS employee_id,
            COALESCE((SELECT n FROM unscored u WHERE u.employee_id = e.id), 0) AS unscored_days,
-           (SELECT count(*)::int FROM closed c WHERE c.owner_id = e.id AND NOT c.automatic) AS finished,
-           (SELECT count(*)::int FROM closed c WHERE c.owner_id = e.id AND c.automatic) AS expired,
+           (SELECT count(*)::int FROM closed c WHERE c.owner_id = e.id AND NOT c.late) AS finished,
+           (SELECT count(*)::int FROM closed c WHERE c.owner_id = e.id AND c.late) AS late,
            (SELECT count(*)::int FROM task k
               LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
-             WHERE k.owner_id = e.id AND (f.value IS NULL OR f.value > NOW())) AS open_tasks,
+             WHERE k.owner_id = e.id AND f.confirmed_at IS NULL) AS open_tasks,
            (SELECT count(*)::int FROM task k WHERE k.owner_id = e.id AND at_risk(k.id)) AS at_risk,
            (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY GREATEST(0,
                      extract(epoch FROM w.updated_at - (w.started_at + w.spent_minutes * INTERVAL '1 minute')) / 60))

@@ -243,7 +243,7 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
   const budget = await I.Task.create({ tags: tags.budget });
   await I.Task.setDeadline({ id: budget, deadline: daysAhead(2) });
   await I.Task.setDeadline({ id: budget, deadline: daysAhead(4) });
-  await I.Task.setDeadline({ id: budget, deadline: new Date() });
+  await I.Task.close({ id: budget });
 
   // 7. Pavel's task waits for the site and needs it by the day after tomorrow — but the site is due
   // later: both tasks are at risk, his late because of mine, mine delaying his (I am told).
@@ -283,22 +283,22 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
   await O.Comment.create(comment(printer, t.comments.printer));
   await sql`UPDATE task SET owner_id = NULL WHERE id = ${printer}`;
 
-  // 12. For the team summary: Marina closed a task by hand; Pavel's closed automatically
-  // (set a week ahead, reached three days ago — only SQL can move time).
+  // 12. For the team summary: Marina closed a task in time; Pavel's is overdue — set a week
+  // ahead, passed three days ago (only SQL can move time), still open until he closes it (decision 93).
   const vendor = await M.Task.create({ tags: tags.vendor });
   await M.Task.setDeadline({ id: vendor, deadline: daysAhead(2) });
-  // My report waits for it too: closed by hand, it is done for me at once.
+  // My report waits for it too: closed by its owner, it is done for me at once.
   await I.Dependency.set({ taskId: report, value: vendor, latestAt: null });
-  await M.Task.setDeadline({ id: vendor, deadline: new Date() });
+  await M.Task.close({ id: vendor });
   const promo = await P.Task.create({ tags: tags.promo });
   await P.Task.setDeadline({ id: promo, deadline: daysAhead(7) });
-  // Hours still planned on it when it closed: Pavel clears them before he confirms the closing.
+  // Hours still planned on it: Pavel clears them before he can close it.
   await P.Time.setLeft({ taskId: promo, minutes: 120, about: t.planAbout });
   await sql`UPDATE finished_at SET value = NOW() - INTERVAL '3 days', entered_at = NOW() - INTERVAL '10 days' WHERE task_id = ${promo}`;
 
-  // 13. What deadlines bring to Waiting for me: my report closes by itself tomorrow morning
-  // (set days ago); it waits for Pavel's promo, closed by its deadline and not confirmed yet —
-  // Pavel is asked to, and it is not done for me until he does (decision 87).
+  // 13. What deadlines bring to Waiting for me: my report's deadline is tomorrow morning (set
+  // days ago); it waits for Pavel's promo, overdue — Pavel is reminded to close it or move
+  // the deadline, and it is not done for me until he closes it (decision 93).
   await I.Dependency.set({ taskId: report, value: promo, latestAt: null });
   await sql`
     UPDATE finished_at SET value = NOW() + INTERVAL '20 hours', entered_at = NOW() - INTERVAL '5 days'

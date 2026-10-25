@@ -1870,3 +1870,985 @@ A ring (A -> B -> A) is allowed (decision 90): its people see each
 other''s tasks, and each dismisses and scores the one who picked them.
 A person picks their own; a bot''s is whoever created it or got it
 handed over (transfer_bot()).';
+
+
+-- A task is closed only by its owner (decision 93): a passed deadline makes
+-- it overdue, still open, until they close it or move the deadline. Tasks
+-- closed before count as closed at the deadline they had, as before.
+
+ALTER TABLE finished_at ADD COLUMN confirmed_at TIMESTAMPTZ;
+UPDATE finished_at SET confirmed_at = value WHERE value <= COALESCE(expired_at, NOW());
+ALTER TABLE finished_at
+    ADD CONSTRAINT chk_finished_at_confirmed CHECK (confirmed_at IS NULL OR confirmed_at >= value);
+
+CREATE OR REPLACE FUNCTION mark_reviewed(p_task_id INT, p_actor_id INT)
+RETURNS VOID AS $$
+BEGIN
+    PERFORM check_owner(p_task_id, p_actor_id);
+    IF EXISTS (
+        SELECT 1 FROM observer
+         WHERE task_id = p_task_id
+           AND added_at IS NULL
+           AND deleted_at IS NULL
+    ) THEN
+        RAISE EXCEPTION 'task % has access requests waiting for an answer', p_task_id
+            USING HINT = 'pending_requests',
+                  DETAIL = json_build_object('taskId', p_task_id)::text;
+    END IF;
+    UPDATE task SET reviewed_at = NOW() WHERE id = p_task_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION mark_reviewed(INT, INT) IS
+'"No intervention needed": the owner confirms that nothing in the task
+waits for their decision. Refused while an access request waits: that is
+exactly something that needs the owner. It never closes the task — that
+is close_task() (decision 93).';
+
+
+CREATE OR REPLACE FUNCTION close_task(p_task_id INT, p_actor_id INT)
+RETURNS VOID AS $$
+DECLARE
+    v_plans INT;
+    r RECORD;
+BEGIN
+    PERFORM check_owner(p_task_id, p_actor_id);
+    IF EXISTS (SELECT 1 FROM finished_at
+                WHERE task_id = p_task_id AND expired_at IS NULL AND confirmed_at IS NOT NULL) THEN
+        RETURN;
+    END IF;
+    -- Work still planned is not done: whoever planned it clears it first.
+    SELECT count(*) INTO v_plans FROM estimate_minutes WHERE task_id = p_task_id AND expired_at IS NULL;
+    IF v_plans > 0 THEN
+        RAISE EXCEPTION 'task % has % plans left', p_task_id, v_plans
+            USING HINT = 'plans_left',
+                  DETAIL = json_build_object('taskId', p_task_id, 'count', v_plans)::text;
+    END IF;
+
+    -- An overdue task is closed at the deadline it missed, so that stays
+    -- visible; any other one now.
+    IF NOT EXISTS (SELECT 1 FROM finished_at
+                    WHERE task_id = p_task_id AND expired_at IS NULL AND value <= NOW()) THEN
+        PERFORM change_deadline(p_task_id, NOW());
+    END IF;
+    UPDATE finished_at SET confirmed_at = NOW() WHERE task_id = p_task_id AND expired_at IS NULL;
+
+    -- Closed: done for what waits for it, whose owners hear it.
+    FOR r IN
+        UPDATE dependency d SET done_at = NOW()
+          FROM task t
+         WHERE d.value = p_task_id AND t.id = d.task_id AND d.done_at IS NULL
+        RETURNING d.task_id, t.owner_id
+    LOOP
+        IF r.owner_id IS NOT NULL AND r.owner_id <> p_actor_id THEN
+            PERFORM notify(r.owner_id, r.task_id, jsonb_build_object(
+                'kind', 'dependency_done', 'dependencyId', p_task_id));
+        END IF;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION close_task(INT, INT) IS
+'The owner closes the task (decision 93) — the only way a task closes.
+An overdue one (its deadline passed) is closed at that deadline, so
+closing late stays visible (confirmed_at later than value); any other
+one gets the deadline now, closed at once. Refused while someone still
+has time planned on it (plans_left — whoever planned it clears it). The
+tasks waiting for it are done for from then on (dependency.done_at),
+their owners notified (dependency_done). A closed task is left as it is.';
+
+
+CREATE OR REPLACE FUNCTION change_deadline(p_task_id INT, p_value TIMESTAMPTZ)
+RETURNS VOID AS $$
+DECLARE
+    v_entered_at TIMESTAMPTZ;
+    v_changed BOOLEAN;
+BEGIN
+    -- The last change, made less than deadline_settles() ago, is undone:
+    -- the new one replaces it, so of a person picking a date only the
+    -- last pick stays.
+    SELECT entered_at INTO v_entered_at FROM finished_at
+     WHERE task_id = p_task_id AND expired_at IS NULL
+       FOR UPDATE;
+    IF FOUND THEN
+        IF v_entered_at > NOW() - deadline_settles() THEN
+            DELETE FROM finished_at WHERE task_id = p_task_id AND expired_at IS NULL;
+            UPDATE finished_at SET expired_at = NULL
+             WHERE task_id = p_task_id AND expired_at = v_entered_at;
+        END IF;
+    ELSE
+        -- No deadline: the last change was a clear, the row closed last.
+        UPDATE finished_at SET expired_at = NULL
+         WHERE task_id = p_task_id
+           AND expired_at > NOW() - deadline_settles()
+           AND expired_at = (SELECT max(expired_at) FROM finished_at WHERE task_id = p_task_id);
+    END IF;
+
+    -- The change against what was there before: the same value is no change.
+    IF p_value IS NULL THEN
+        UPDATE finished_at SET expired_at = NOW()
+         WHERE task_id = p_task_id AND expired_at IS NULL;
+        v_changed := FOUND;
+    ELSE
+        v_changed := NOT EXISTS (SELECT 1 FROM finished_at
+                                  WHERE task_id = p_task_id AND expired_at IS NULL AND value = p_value);
+        IF v_changed THEN
+            UPDATE finished_at SET expired_at = NOW()
+             WHERE task_id = p_task_id AND expired_at IS NULL;
+            INSERT INTO finished_at (task_id, value) VALUES (p_task_id, p_value);
+        END IF;
+    END IF;
+
+    -- Told about the settled deadline only: what waits to be sent about the
+    -- replaced change is dropped, and nothing is sent when it came back.
+    DELETE FROM notification
+     WHERE sent_at IS NULL
+       AND added_at > NOW() - deadline_settles()
+       AND payload->>'kind' = 'finished_at_change'
+       AND payload->>'dependencyId' = p_task_id::text;
+    IF v_changed THEN
+        PERFORM notify_dependents(p_task_id);
+        -- A new deadline is not closed: what waits for it waits again until
+        -- its owner closes it (close_task()).
+        UPDATE dependency SET done_at = NULL WHERE value = p_task_id AND done_at IS NOT NULL;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION change_deadline(INT, TIMESTAMPTZ) IS
+'Sets, moves or (p_value NULL) clears the deadline. A change less than
+deadline_settles() after the previous one replaces it: that row is
+removed and the one before it reopened, then the new change is made — so
+the history keeps the last decision, dated by it, and a value changed
+back is no change at all. Owners of dependent tasks get one notification
+for the settled deadline (notify_dependents(); unsent ones about the
+replaced change are dropped). Any change opens a closed task again: the
+new row is not confirmed, and the tasks waiting for it are not done for
+any more (done_at cleared). Closing is close_task().';
+
+
+CREATE OR REPLACE FUNCTION dependency_risk(p_task_id INT)
+RETURNS TABLE (task_id INT, value INT, latest_at TIMESTAMPTZ, deadline TIMESTAMPTZ) AS $$
+    SELECT d.task_id, d.value, d.latest_at, fv.value
+      FROM dependency d
+      LEFT JOIN finished_at fv ON fv.task_id = d.value AND fv.expired_at IS NULL
+      LEFT JOIN finished_at ft ON ft.task_id = d.task_id AND ft.expired_at IS NULL
+     WHERE (d.task_id = p_task_id OR d.value = p_task_id)
+       AND d.latest_at IS NOT NULL
+       AND ft.confirmed_at IS NULL
+       AND (fv.value IS NULL OR fv.value > d.latest_at
+            OR (fv.confirmed_at IS NULL AND d.latest_at < NOW()))
+     ORDER BY d.task_id, d.value
+$$ LANGUAGE sql STABLE;
+
+COMMENT ON FUNCTION dependency_risk(INT) IS
+'Broken deadline constraints around the task, in both directions: a
+dependency whose waiting task (task_id) is open while the deadline of the
+task waited for (value) is later than the latest one the waiting task can
+live with (latest_at), or not set, or that latest one has passed with the
+task waited for still open (overdue). Where p_task_id is task_id it is late
+because of value; where it is value it delays task_id.';
+
+
+CREATE OR REPLACE FUNCTION at_risk(p_task_id INT)
+RETURNS BOOLEAN AS $$
+    SELECT NOT EXISTS (SELECT 1 FROM finished_at f
+                        WHERE f.task_id = p_task_id AND f.expired_at IS NULL AND f.confirmed_at IS NOT NULL)
+       AND (EXISTS (SELECT 1 FROM deadline_risk(p_task_id))
+            OR EXISTS (SELECT 1 FROM dependency_risk(p_task_id)))
+$$ LANGUAGE sql STABLE;
+
+COMMENT ON FUNCTION at_risk(INT) IS
+'An open task at risk: someone''s plan does not fit before its deadline
+(deadline_risk()), or a deadline constraint around it is broken
+(dependency_risk()) — it is late because of a task it waits for, or it
+delays a task that waits for it.';
+
+
+CREATE OR REPLACE FUNCTION backlog_minutes(p_employee_id INT, p_at TIMESTAMPTZ)
+RETURNS INT AS $$
+    SELECT COALESCE(sum(es.value), 0)::int
+      FROM estimate_minutes es
+     WHERE es."by" = p_employee_id
+       AND es.entered_at <= p_at AND (es.expired_at IS NULL OR es.expired_at > p_at)
+       AND NOT EXISTS (
+         SELECT 1 FROM finished_at f
+          WHERE f.task_id = es.task_id
+            AND f.entered_at <= p_at AND (f.expired_at IS NULL OR f.expired_at > p_at)
+            AND f.confirmed_at <= p_at)
+$$ LANGUAGE sql STABLE;
+
+COMMENT ON FUNCTION backlog_minutes(INT, TIMESTAMPTZ) IS
+'The employee''s backlog at a moment: how many more minutes they planned
+to spend (their estimates current then) on tasks not closed then. Its
+change over a range is whether planned work grows faster than it is done.';
+
+
+CREATE OR REPLACE FUNCTION backlog_by_day(p_employee_ids INT[], p_from DATE, p_to DATE)
+RETURNS TABLE (employee_id INT, day DATE, minutes INT) AS $$
+    WITH d AS (
+        SELECT e.id, g::date AS day,
+               LEAST(NOW(), (g::date + 1)::timestamp AT TIME ZONE e.time_zone) AS at
+          FROM employee e, generate_series(p_from, p_to, INTERVAL '1 day') g
+         WHERE e.id = ANY(p_employee_ids)
+    )
+    SELECT d.id, d.day, COALESCE(sum(es.value), 0)::int
+      FROM d
+      LEFT JOIN estimate_minutes es
+             ON es."by" = d.id AND es.entered_at <= d.at AND (es.expired_at IS NULL OR es.expired_at > d.at)
+            AND NOT EXISTS (
+                SELECT 1 FROM finished_at f
+                 WHERE f.task_id = es.task_id
+                   AND f.entered_at <= d.at AND (f.expired_at IS NULL OR f.expired_at > d.at)
+                   AND f.confirmed_at <= d.at)
+     GROUP BY d.id, d.day
+$$ LANGUAGE sql STABLE;
+
+COMMENT ON FUNCTION backlog_by_day(INT[], DATE, DATE) IS
+'backlog_minutes() at the end of every day of a range (now for today), for
+several people at once — one set-based query instead of a call per
+person and day, for the sparklines of My team.';
+
+
+CREATE OR REPLACE FUNCTION send_weekly_digests(p_now TIMESTAMPTZ DEFAULT NOW())
+RETURNS INT AS $$
+DECLARE
+    v_manager RECORD;
+    v_unscored INT;
+    v_overdue INT;
+    v_at_risk INT;
+    v_blocked INT;
+    v_sent INT := 0;
+BEGIN
+    FOR v_manager IN
+        SELECT e.id, e.time_zone FROM employee e JOIN human h ON h.employee_id = e.id
+         WHERE e.dismissed_at IS NULL
+           AND EXISTS (SELECT 1 FROM employee r
+                        WHERE r.manager_id = e.id AND r.kind = 'human' AND r.dismissed_at IS NULL)
+           AND extract(isodow FROM p_now AT TIME ZONE e.time_zone) = 1
+           AND (p_now AT TIME ZONE e.time_zone)::time >= TIME '09:00'
+           AND (h.weekly_digest_on IS NULL OR h.weekly_digest_on < (p_now AT TIME ZONE e.time_zone)::date)
+         FOR UPDATE OF h SKIP LOCKED
+    LOOP
+        -- Past days of direct reports (the last 30) with a closed timesheet and no standing score.
+        SELECT count(*) INTO v_unscored FROM (
+            SELECT w.employee_id, local_day(w.employee_id, w.started_at) AS day
+              FROM work w JOIN employee r ON r.id = w.employee_id
+             WHERE r.manager_id = v_manager.id AND r.dismissed_at IS NULL
+             GROUP BY 1, 2
+            HAVING bool_and(w.spent_minutes IS NOT NULL)
+        ) d
+         WHERE d.day < (p_now AT TIME ZONE v_manager.time_zone)::date
+           AND d.day >= (p_now AT TIME ZONE v_manager.time_zone)::date - 30
+           AND NOT EXISTS (SELECT 1 FROM score s
+                            WHERE s.employee_id = d.employee_id AND s.day = d.day AND s.value IS NOT NULL);
+        -- Tasks of the team overdue now: the deadline passed and nobody closed them.
+        SELECT count(*) INTO v_overdue
+          FROM task k JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
+         WHERE k.owner_id IN (SELECT subordinates(v_manager.id))
+           AND f.value <= p_now AND f.confirmed_at IS NULL;
+        SELECT count(*) INTO v_at_risk
+          FROM task k
+         WHERE k.owner_id IN (SELECT subordinates(v_manager.id))
+           AND at_risk(k.id);
+        -- Direct reports the identity provider no longer lets in, not dismissed yet.
+        SELECT count(*) INTO v_blocked
+          FROM employee r JOIN human h ON h.employee_id = r.id
+         WHERE r.manager_id = v_manager.id AND r.dismissed_at IS NULL AND h.idp_blocked_at IS NOT NULL;
+
+        UPDATE human SET weekly_digest_on = (p_now AT TIME ZONE v_manager.time_zone)::date WHERE employee_id = v_manager.id;
+        -- Nothing to say, nothing sent: a quiet week needs no email.
+        IF v_unscored + v_overdue + v_at_risk + v_blocked > 0 THEN
+            INSERT INTO notification (employee_id, task_id, payload)
+            VALUES (v_manager.id, NULL, jsonb_build_object(
+                'kind', 'weekly_digest', 'unscored', v_unscored, 'overdue', v_overdue, 'atRisk', v_at_risk,
+                'blocked', v_blocked));
+            v_sent := v_sent + 1;
+        END IF;
+    END LOOP;
+    RETURN v_sent;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION send_weekly_digests(TIMESTAMPTZ) IS
+'Cron, every hour: on Monday from 09:00 in each manager''s time zone,
+once a week, a summary of what waits for them — days of direct reports
+waiting for a score (the last 30), tasks of the subtree overdue now,
+tasks of the subtree at risk now, direct reports
+the identity provider no longer lets in (to dismiss). Sent only if
+something is there; not copied to anyone (it is about their own team).
+Only for someone with people under them (bots do not count).
+Safe with several workers (SKIP LOCKED, weekly_digest_on). p_now is the
+moment to act as of — NOW() for the cron, a chosen Monday in tests.';
+
+
+COMMENT ON SCHEMA public IS
+'yartt — a task tracker without projects, subtasks or assignments.
+
+
+============================================================================
+PHILOSOPHY
+============================================================================
+
+yartt is a task tracker without projects and subtasks. Flexible clustering
+through tags, links through a dependency graph, responsibility through
+ownership.
+
+Key principles:
+  - No projects. Flexible clustering through tags.
+  - No task titles. The set of tags is the task "title": nobody has to
+    agree on a title format, and searching by tags keeps their variety
+    under control.
+  - No subtasks. Links go through dependency — a directed graph.
+  - No assignments. The task owner (the author becomes the owner) is
+    responsible for getting it done on time and well thought out. The
+    owner directs other employees within the task like a project manager,
+    or works alone if nobody else is needed.
+  - Access is defined by task visibility (observer).
+  - A task is private while it has active observers: only they see it.
+    The owner of a private task is always an observer. The manager
+    (recursively up manager_id) is automatically added as an observer to
+    every task of their reports.
+  - A task with no active observers is public: every employee sees it.
+    The owner makes a task public (all observers go) and private again.
+  - The header of any task — tags, priority, deadline — is visible to
+    every employee, so a person can tell whether to ask for access. The
+    context, comments and people are visible only to those who see the
+    task. Only the owner changes the header and the context.
+  - All work happens in comments.
+  - Comments are never deleted or hidden. If a comment is outdated, reply
+    to it (reply_to_id) and say so.
+  - A task cannot be deleted. A task is closed only by its owner, who
+    confirms it (close_task()): a passed deadline does not close it, it
+    makes the task overdue — still open, in its owner''s "Waiting for me"
+    until they close it or move the deadline (decision 93). The owner can
+    move finished_at (later or earlier) or clear it — owners of dependent
+    tasks are notified; a moved deadline opens a closed task again.
+  - A task has an owner (owner_id). There is no separate creator role.
+  - Ownership can be transferred by the owner or by the owner''s direct
+    manager. The previous owner stays an observer. When the owner is
+    dismissed, their tasks go to their manager. With no manager the task
+    is left without an owner and any observer can take it.
+  - Observers see the task and change only their own things: comments,
+    their time entries, their time left, their reminders, their mentions —
+    and bring others in, the way a copy is added to an email. The owner
+    keeps the rest of access: removes observers, answers requests and
+    makes the task public or private. A mention in a private task
+    addresses only its observers; anyone else is brought in by a
+    participant or asks for access.
+  - Access is revoked explicitly: an observer can leave, the owner can
+    remove an observer. There is also an access request flow: an employee
+    files a request (added_at = NULL), the owner is notified and approves
+    it (added_at = NOW()) or rejects it (deleted_at = NOW()). Opening and
+    closing someone''s access is notified to them.
+  - The deadline (finished_at) lives in an interval table. The current
+    value = expired_at IS NULL. Clearing = closing the active row without
+    opening a new one.
+  - A dependency may carry the latest deadline of the task waited for that
+    the waiting task can live with (latest_at). Nothing is forbidden by
+    it: when the deadline waited for is later, or there is none, both
+    tasks are at risk (at_risk()) — the waiting one is late because of
+    the other, the other delays it — and the owner of the waiting task is
+    told as the deadline moves.
+  - Anyone sets limits of hours on a combination of tags for a fixed
+    period (tag_limit): how much they and everyone under them may spend
+    on it. A task under several limits counts in each. A limit is never
+    edited: a change closes it and opens a new one, so its history is
+    kept. It warns, it forbids nothing.
+  - Work quality is scored only per employee per day, never per task.
+    The current manager (employee.manager_id) scores any past day with a
+    filled timesheet. Scores are optional: the manager decides which days
+    to score, if any. After the first score neither the timesheet nor
+    the time entries of that day can change. The score itself can be
+    corrected by the current manager; every version (value, reason, time
+    and the previous value) is emailed to the employee — the mail is the
+    history, the table keeps only the current value.
+  - The timesheet and time entries are optional too: they are kept when the
+    manager asks for them.
+  - Workload comes from the timesheet (work). Quality and workload are
+    kept apart. A bonus is the manager''s decision; the system provides
+    both metrics.
+  - The timesheet only moves forward: a closed shift cannot be changed
+    or deleted. People think when closing a shift instead of editing it
+    afterwards.
+  - While a person is away (human.next_day in the future),
+    notifications go both to them and to their manager (recursively up
+    manager_id until an available manager is found).
+  - Notifications are a queue in the database. The worker delivers them
+    by email (SMTP from the configuration) and/or to an outgoing webhook
+    for other channels (sent_at); the user handles a notification
+    (closed_at). Cleaned up after a year.
+  - Comments are never edited. The interface protects against accidental
+    sending: a sent comment can be pulled back into editing for a few
+    seconds and only then goes to the server.
+  - Attachments live in a separate table, deduplicated by hash; a file is
+    kept while someone holds it in their quota. A comment refers to them
+    by an array of ids.
+  - Reminders (remind) are explicit: an employee decides when to be
+    reminded about a task. Once due it waits in their "Waiting for me"
+    until they remove it or move it.
+  - Only an employee can create another employee (an invite). The first
+    employee is created by the application on its first start, and is
+    greeted with a link to sign in (welcome), as is anyone the
+    installation''s administrator adds outside the API. No roles:
+    rights come from relationships. Only the direct manager can dismiss an
+    employee or bring them back.
+  - An employee is a person or a bot. A bot is a program — CI,
+    monitoring — that owns tasks, comments and is mentioned like a
+    person, through the API with its key, within permissions that only
+    narrow what its relationships allow. It has no timesheet, time or
+    scores and manages nobody. Its manager — whoever created it or got it
+    handed over — runs it; its notifications go to its own webhook.
+  - Visits are logged: opening a task or any other screen. They show the
+    owner who looked at a task and help to suggest when a shift started
+    and ended.
+  - One database — one company. No multi-tenancy.
+
+
+============================================================================
+WHY WE DROP THE USUAL CONSTRUCTS
+============================================================================
+
+From projects to tags.
+  The problem with projects: a rigid hierarchy. A task belongs to one
+  project. To share one task you have to share the whole project or
+  build ACLs. To reclassify a task you have to move it, which breaks
+  links and reports.
+  What we do: tags are free clustering. A task can have several tags.
+  Tags are labels, not folders. Access to a task is separate from tags.
+  The set of tags is unique and serves as the task title. There is no
+  "belongs to a project" — a task exists on its own.
+
+From titles to sets of tags.
+  The problem with titles: everyone words them differently, one task is
+  called five ways, free-text search is weak.
+  What we do: title = a unique set of tags. New tags appear, but
+  searching through existing ones keeps the vocabulary compact.
+
+From subtasks to dependencies.
+  The problem with subtasks: a hierarchy. Parent and child. A parent
+  cannot be closed while a child is open. Deep nesting. "Zombie parents"
+  (all children closed, the parent hangs).
+  What we do: a directed dependency graph. A depends on B — A cannot be
+  considered done until B is done. But B is not part of A. It is a
+  separate task with its own owner. No "levels", only a network. Cycles
+  and self-dependencies are forbidden.
+
+From assignments to ownership.
+  The problem with assignments: a manager gives a task to an assignee.
+  The assignee does it. The manager checks. A "done / not done"
+  argument. Double responsibility. A task "hangs" on an assignee who
+  cannot close it. Or the assignee "closed" it and the manager disagrees.
+  What we do: the task owner is responsible for the result. The owner is
+  the author of the idea and the one in charge. They work alone or bring
+  others in. The others are observers: they log time, comment, plan, but
+  are not responsible for the result. Ownership can be transferred. Only
+  the owner closes the task, by confirming it; a deadline that arrives
+  only makes it overdue.
+
+From scoring tasks to scoring people per day.
+  The problem with scoring tasks: a task lasts months and ten people work
+  on it — what do you score? Whom do you blame? Unclear. A "bad" or
+  "good" score is subjective and vague. Gaming: close faster to avoid
+  being late, or drag it out to look "hard".
+  What we do: the manager scores a person''s day, 0–100%. The score is
+  about the quality of the day''s decisions: did the person pick the
+  right priorities, do their decisions match the manager''s
+  understanding. Not about the task result. A task may fail while the
+  scores are good if the person chose well every day — then the problem
+  is in priorities, plans or the manager, not in the person. Weighted by
+  timesheet hours.
+
+From created_by to owner_id.
+  The problem with created_by: the creator is a role without
+  responsibility. "I created it, but it is not mine." Responsibility
+  blurs.
+  What we do: owner_id. Creator = owner. No separate "author" role.
+  Ownership can be transferred. No "who created it" history — not
+  needed. Creation is not a metric. Lead time / cycle time are easy to
+  game (create only "quick" tasks). created_at is not stored at all.
+
+From deleting to closing.
+  The problem with deleting: delete it and the data is gone. Metrics
+  drift. History is lost. Links break.
+  What we do: a task cannot be deleted (trigger). finished_at can be
+  set, cleared (the task is back in progress) or moved. A task is closed
+  when its owner confirms it; one whose deadline passed unconfirmed is
+  overdue — a signal: "missed it and did not warn".
+
+From watching a person to requesting access.
+  The problem with observer_link: A "watches" B and sees all of B''s
+  tasks. Cognitive load. "I followed Pete — now there are 200 tasks in
+  my feed."
+  What we do: access is per task. Want to see it — ask, or get added.
+  A manager is automatically added to every task of their reports (down
+  the hierarchy).
+
+From a notification inbox to a queue.
+  The problem with an inbox: "1000 unread". Nobody reads them. They lose
+  meaning.
+  What we do: notification is a queue. A notification goes to the
+  webhook, the user handles it (closed_at). Cleaned up after a year.
+  Reminders (remind) are explicit: an employee sets them; a due one
+  waits for them until removed or moved.
+
+From deleting comments to "they live forever".
+  The problem with deleting: delete it and the context is lost. Replies
+  dangle. Links break.
+  What we do: comments are never deleted or hidden (trigger). If a
+  comment is outdated, reply to it (reply_to_id) and say so.
+  reply_to_id is the parent''s local id.
+
+From parsing @username to attachments.
+  Employees (mention) and tasks (task_mention) are attached to a comment
+  explicitly. No text parsing.
+
+
+============================================================================
+SEARCH
+============================================================================
+
+  - By tags: autocomplete forgiving typos, transliteration and the wrong
+    keyboard layout. Every tag keeps its name in Latin letters
+    (tag.latin); the typed text, and the same keys read with each other
+    layout of the person (human.keyboards; the layouts themselves are
+    in the application), are transliterated the same way and compared
+    with Levenshtein and trigrams. Comparing in Latin also keeps trigrams
+    working when the database locale is C, where pg_trgm ignores non-ASCII
+    letters. Candidates are picked by the indexes on tag.latin first — the
+    nearest by trigrams (GiST, KNN), the exact name, names starting with
+    the word — so the cost does not grow with every tag.
+    Then tasks WHERE tag_ids @> ARRAY[...] (GIN).
+  - By text: task.context and comment.value with ILIKE / similarity
+    (trigrams work for any language and for substrings).
+
+
+============================================================================
+TASK IDENTIFIERS
+============================================================================
+
+  - task.id — SERIAL PRIMARY KEY, immutable. All FKs and URLs use it.
+  - task.tag_ids — the set of tags, stored sorted (trigger).
+    UNIQUE: two tasks with the same set of tags are impossible.
+    On a conflict the application asks to add a tag.
+  - Tags cannot be empty (at least one tag).
+  - Duplicate tags are forbidden. All tags must exist.
+
+
+============================================================================
+AUTHENTICATION
+============================================================================
+
+  - The email token (token) is single-use and lives 10 minutes.
+  - The session token (session) is long-lived: 30 days of inactivity.
+  - The database stores only SHA-256 of the tokens. Tokens are 32 random
+    bytes, so no salt is needed. A database leak (backup, replica,
+    read-only SQL injection) does not let anyone sign in.
+  - Issuing and checking tokens — functions issue_token, login,
+    authenticate.
+
+
+============================================================================
+OPERATIONS
+============================================================================
+What the application must be able to do. No URLs — they are defined when
+the API is implemented.
+
+  Authentication:
+    - With the company''s identity provider configured (OIDC), only through
+      it: the provider''s answer -> sign_in_external(); someone it lets in
+      for the first time confirms their email by a link opened in the same
+      browser (begin_external_sign_in(), send_external_email(),
+      confirm_external_email()); no sign-in links, no invites (people come
+      in by signing in).
+    - Otherwise: request sign-in by email -> issue_token(), send the link through the
+      webhook directly (not through notification — the token must not lie
+      in the database in plain text).
+    - Follow the link from the email -> login(), set the cookie.
+    - Every request -> authenticate().
+    - Log out -> deletes the session.
+    - Log out everywhere -> deletes all sessions of the employee.
+
+  Employees:
+    - Invite an employee (any employee: email, full_name, locale)
+      -> notify(kind = invite).
+    - Edit the profile (full_name, about, next_day, time_zone, locale).
+    - Change one''s email -> request_email_change(), the link goes by email
+      to the new address only; following it -> confirm_email_change().
+
+  Bots:
+    - Create a bot (create_bot: any person, under themselves).
+    - Change its name, pronoun, about, permissions, webhook (its direct
+      manager, check_bot_manager).
+    - Replace its key (reset_bot_key: its direct manager).
+    - Hand it to another person (transfer_bot: its direct manager).
+    - Dismiss / bring back — like anyone, by its direct manager.
+    - Every API request with a key -> authenticate_bot().
+    - Set / change manager_id (the employee themselves).
+    - Dismiss an employee (dismiss_employee: the direct manager).
+    - Bring a dismissed employee back (restore_employee: the direct manager).
+
+  Visits:
+    - Open a task / any other screen -> log_visit().
+
+  Tasks:
+    - Create a task (owner = creator, tags, priority).
+    - Change tag_ids / priority / context (owner only).
+    - "No intervention needed" (mark_reviewed: owner only, not while an
+      access request waits). It is about the comments; it never closes
+      the task.
+    - Make public / private (make_public / make_private: owner only).
+    - Transfer ownership (the owner or the owner''s manager).
+    - Take an ownerless task (owner_id IS NULL, any observer).
+
+  Access:
+    - Add an observer or bring one back (add_observer: any participant).
+    - Request access (request_access: the employee themselves).
+    - Withdraw one''s own request (withdraw_access).
+    - Approve a request (approve_access: the owner).
+    - Reject a request (reject_access: the owner).
+    - Remove an observer (remove_observer: the owner).
+    - Leave a task (leave_task: the observer themselves, except the owner
+      and the manager of an observing report).
+
+  Dependencies:
+    - Add / change / remove a dependency (owner of task_id only).
+    - Create a task as one''s part of a task one sees: that task waits for
+      the new one (anyone who sees task_id; its owner is notified).
+
+  Deadlines:
+    - Set / move finished_at (set_finished_at, owner only).
+    - Clear finished_at (clear_finished_at, owner only).
+    - Close a task (close_task: owner only, not while someone still has
+      time planned on it): an open one is closed now, an overdue one at
+      its passed deadline; the tasks waiting for it are done for from
+      then on (dependency.done_at).
+    - Take note that a task waited for is done (mark_reviewed of the
+      waiting task).
+
+  Time left:
+    - Set / change / clear estimate_minutes for oneself (anyone who sees
+      the task).
+
+  Time entries:
+    - Set one''s time on a task for a day (anyone who sees the task): the
+      day''s whole time, replacing what was there; 0 removes the entry.
+
+  Timesheet:
+    - Open a shift (started_at = NOW, spent_minutes = NULL).
+    - Change the open shift (started_at, about).
+    - Close a shift (spent_minutes = N, about = text).
+    - Delete the open shift.
+    - Closed shifts are immutable.
+
+  Comments:
+    - Upload an attachment (deduplicated by hash; refused over the size
+      and quota limits; the same bytes restore a purged one) -> attachment.id.
+    - Keep a file one sees in a task (keep_attachment); let a file one
+      holds go (release_attachment) — the last one to let it go deletes
+      its content.
+    - Leave a comment (with attachment_ids and image_ids) — anyone who
+      sees the task.
+    - Reply to a comment (reply_to_id).
+    - Attach an employee -> mention.
+    - Attach a task -> task_mention.
+
+  Mentions:
+    - Close a mention (closed_at = NOW, explicitly, by the mentioned employee).
+
+  Reminders:
+    - Set a remind (an observer).
+    - Move a remind to a later moment (its author): due again then.
+    - Delete a remind (its author).
+
+  Notifications:
+    - Close a notification (closed_at = NOW).
+
+  Scores:
+    - Score an employee''s past day or correct the score (the current
+      manager; every version is notified to the employee).
+
+
+============================================================================
+ACCESS RULES
+============================================================================
+
+  Task:
+    - priority, tag_ids, context — owner only.
+    - reviewed_at — owner only.
+    - owner_id — the current owner or the owner''s direct manager.
+    - finished_at — owner only.
+    - dependency — owner of task_id only; except a new task made as one''s
+      part of task_id, linked as it is created by anyone who sees task_id.
+
+  Seeing a task (can_see):
+    - The header (tag_ids, priority, finished_at, owner) — everyone.
+    - The rest (context, comments, people, time) — the active observers
+      of a private task; everyone for a public task.
+
+  Observers:
+    - Add or bring back an observer — any participant of a private task
+      (like a copy in an email); remove — owner only.
+    - Make the task public / private — owner only.
+    - Any employee can request access to a private task.
+    - Approve / reject a request — owner only.
+    - Leave a task — the observer themselves. The owner cannot leave.
+    - A manager cannot be removed (and cannot leave) while a report of
+      theirs (recursively) observes the task.
+
+  Time left and time entries:
+    - estimate_minutes — anyone who sees the task, for themselves only.
+    - spent_minutes — anyone who sees the task, for themselves only.
+    - remind — anyone who sees the task, for themselves only.
+    - work — the employee themselves (their own shift).
+
+  Comments:
+    - Leave a comment — anyone who sees the task.
+    - Attach an employee or a task — anyone who sees the task.
+    - A private task: only an active observer can be attached (mentioned).
+      A public task: any active employee can be attached.
+
+  Scores:
+    - score — only the current manager (employee.manager_id).
+
+  Bots:
+    - Create — any person, under themselves.
+    - Change, replace the key, hand over, dismiss, bring back — its
+      direct manager only.
+    - What it may change — its permissions (bot_permission), checked by
+      the application; never more than its relationships allow.
+
+  Employees:
+    - Invite — any employee.
+    - manager_id — the employee themselves (own profile). No confirmation
+      from the manager: such a substitution is too noticeable.
+    - Dismiss / bring back — the direct manager only. An employee with no
+      manager cannot be dismissed (nobody dismisses themselves); a
+      dismissed one always has a manager, and only that manager brings
+      them back — under themselves: the employee then moves to another
+      manager on their own.
+    - Managers may form a ring (decision 90): directors who pick each
+      other see all of each other''s tasks, like any manager. Rights stay
+      with the direct manager: in a ring each dismisses and scores the
+      one who picked them.
+    - Someone at the top leaves in two steps of their own people: the
+      leaver picks the successor as manager, the successor dismisses
+      them (a successor among the leaver''s direct reports is left without
+      a manager).
+      Someone who will not: the installation administrator dismisses them
+      with an heir (dismiss_with_heir, server/admin.ts) — outside the API.
+    - Setting a manager notifies the new manager (new_report).
+
+
+============================================================================
+INVARIANTS (forbidden; all checked in the database)
+============================================================================
+
+  Task:
+    - Empty tag_ids, NULL inside, duplicates, unknown tags.
+    - Two tasks with the same set of tags.
+    - Deleting a task.
+    - The owner of a private task who is not an observer.
+
+  Mentions:
+    - Closing a mention the mentioned employee has not replied to (no
+      reply of theirs to the mentioning comment).
+
+  Tags:
+    - Deleting a tag that is in use.
+    - A name with capital letters or surrounding spaces.
+
+  Dependencies:
+    - Self-dependency (task_id = value).
+    - A cycle (A -> B -> A).
+
+  Observers:
+    - Two open rows (task_id, value): request + access, two requests,
+      two accesses.
+    - An active observer whose manager is not an observer.
+    - Closing a manager''s access while a report of theirs observes the task.
+
+  Mentions:
+    - Self-mention.
+    - Mentioning a dismissed employee.
+    - A comment attaching its own task.
+
+  Hierarchy:
+    - An employee being their own manager.
+
+  Timesheet:
+    - Overlapping shifts of one employee (including two open ones).
+    - A shift that runs into the next day of the employee.
+    - spent_minutes <= 0.
+    - A shift that starts in the future or ends after the current minute.
+    - Changing or deleting a closed shift.
+    - Any timesheet change for a scored day.
+
+  Time entries:
+    - An entry by someone who does not see the task, for a future day,
+      for a scored day.
+    - More than 24 hours logged by one person for one day, all tasks
+      together.
+    - Two entries of one person for one task and day.
+    - Moving an entry to another task, person or day.
+
+  Deadlines:
+    - finished_at.value IS NULL (clearing = closing the row without a new one).
+
+  Scores:
+    - A score not by the current manager.
+    - Scoring today or a future day.
+    - Scoring a day without closed shifts or with an open shift.
+    - A score changed by anyone but the current manager; deleting a score.
+
+  Comments:
+    - Changing or deleting a comment.
+    - A comment by someone who does not see the task.
+    - attachment_ids / image_ids with duplicates or unknown attachments.
+    - Deleting an attachment referenced by a comment or a task context.
+    - reply_to_id pointing to a missing comment of the same task.
+
+  Employees:
+    - Deleting an employee (dismissal only).
+    - An employee without the row of its kind, or with both (human, bot).
+    - A bot with an email, without a manager, or managing anyone.
+    - A bot with a timesheet, time entries, estimates, scores, reminders,
+      visits, sessions or tag settings (they refer to human).
+
+
+============================================================================
+WHAT THE APPLICATION DOES ITSELF (not in the database)
+============================================================================
+
+  - Permission checks "owner only" / "manager only" for task operations
+    (priority, tag_ids, context, owner_id, finished_at, dependency).
+  - The "for oneself" check for estimate_minutes and remind.
+  - Sanitizing the HTML of comment.value and task.context (an allow-list
+    of tags; images only from the application''s own attachments) and
+    filling comment.image_ids / task.context_image_ids from it.
+  - A frontend warning "more time logged than in the timesheet".
+  - Creating notifications through notify(): comment, mention, task
+    attachment, owner change, score. Database functions create the rest.
+  - Protection against accidental comment sending: after "Send" the
+    comment stays in the interface for a few seconds with a "Back to
+    editing" button and only then goes to the server.
+  - Attachment deduplication: on upload, look for an attachment with the
+    same hash and size and compare the bytes (or take one whose content
+    was deleted); on a match return the existing id. The file name is stored in the comment
+    (attachment_names), not in the attachment.
+  - Notification delivery: the worker reads notification WHERE sent_at
+    IS NULL (a finished_at_change only once deadline_settles() has
+    passed since it was added), sends an email in the recipient''s language (SMTP from the
+    config) and/or posts it to the webhook (URL and secret in the config,
+    body signed with HMAC-SHA256), then sets sent_at = NOW().
+  - The close_delay metric (delay in closing a shift) — on the frontend.
+  - Rate limiting of issue_token: 5 links per employee in 15 minutes.
+
+
+============================================================================
+CRON JOBS (outside SQL)
+============================================================================
+
+  - every minute: SELECT send_due_reminds();
+  - every hour:   DELETE FROM token
+                   WHERE sent_at < NOW() - CASE WHEN email IS NULL THEN INTERVAL ''1 hour''
+                                                ELSE INTERVAL ''2 days'' END;
+  - every hour:   DELETE FROM external_sign_in WHERE created_at < NOW() - INTERVAL ''1 hour'';
+  - every hour:   SELECT send_weekly_digests();
+  - every day:    DELETE FROM session WHERE last_seen_at < NOW() - INTERVAL ''30 days'';
+  - every day:    DELETE FROM notification WHERE added_at < NOW() - INTERVAL ''1 year'';
+  - every day:    DELETE FROM attachment a
+                   WHERE used_at < NOW() - INTERVAL ''1 day''
+                     AND NOT attachment_in_use(a.id);
+  - every day:    DELETE FROM visit WHERE at < NOW() - INTERVAL ''1 year'';
+  - every day:    DELETE FROM bot_usage WHERE day < CURRENT_DATE - 366;
+  - every hour:   ask the identity provider about people last checked a
+                  day ago or more (human.idp_refresh_token); a refusal ->
+                  SELECT idp_refused(employee_id).
+  - every day:    SELECT send_bot_key_reminders();
+  - every day:    DELETE FROM tag t
+                   WHERE created_at < NOW() - INTERVAL ''1 day''
+                     AND NOT EXISTS (SELECT 1 FROM task WHERE tag_ids @> ARRAY[t.id])
+                     AND NOT EXISTS (SELECT 1 FROM user_tag WHERE tag_id = t.id);
+  - every day:    UPDATE human SET next_day = NULL
+                   WHERE next_day <= local_today(employee_id);
+';
+
+COMMENT ON TABLE task IS
+'A task — only "what this entity is".
+
+id — SERIAL, immutable PK. All FKs and URLs use it.
+
+tag_ids — the set of tags, which is also the task "title". Stored sorted
+(trigger), so UNIQUE (tag_ids) forbids two tasks with the same set. An
+empty set, duplicates and unknown tags are forbidden.
+
+owner_id — the current owner, responsible for getting it done on time and
+well thought out. Always an observer of a private task (trigger). May be
+NULL — an ownerless task (after the owner was dismissed with no manager).
+
+PUBLIC AND PRIVATE: a task with active observers is private, one without
+them is public (see is_public(), can_see()). A new task is private: its
+owner becomes its first observer.
+
+tag_ids, priority and the deadline are the header, visible to every
+employee. context is visible to those who see the task. All of them are
+changed only by the owner.
+
+reviewed_at — when the owner last confirmed that nothing in the task
+waits for their decision ("No intervention needed", mark_reviewed()).
+Not a read receipt.
+"Needs attention" rule: reviewed_at IS NULL or there is a comment after
+reviewed_at (not counting the owner''s comments).
+Reset to NULL when the owner changes (trigger).
+
+A task cannot be deleted (trigger). A task is closed by its owner
+(close_task(), finished_at.confirmed_at). A closed task can be commented on, have time
+logged, have its tags changed — just like an open one. "When it was
+created" is not stored — it is not a metric, to avoid gaming lead time.';
+
+COMMENT ON COLUMN dependency.done_at IS
+'When the owner of value closed it (close_task()): only then is it done for task_id,
+whose owner is notified (dependency_done) and sees it in "Waiting for
+me" while done_at is after their own task''s reviewed_at — "No
+intervention needed" there takes note. Cleared when value reopens
+(change_deadline()). NULL — not done.';
+
+COMMENT ON TABLE finished_at IS
+'Task deadline history.
+Current = expired_at IS NULL. There may be no rows — "not set".
+The task is closed when the current row is confirmed (confirmed_at), and
+only its owner confirms it (close_task()). A current value <= NOW() not
+confirmed is an overdue task: still open (decision 93).
+
+Set, moved (later or earlier) and cleared only by the owner —
+through set_finished_at / clear_finished_at.
+Move: the old row is closed and a new one opened.
+Clear: the old row is closed, no new one is created.
+A change within deadline_settles() of the previous one replaces it
+(change_deadline()): a person trying dates leaves only the last one.
+Owners of dependent tasks are notified once the deadline settles, and
+told when the new deadline breaks the latest one their task can live
+with (dependency.latest_at).
+
+A deadline reminds its owner: from a day before it the task is in their
+"Waiting for me" ("deadline in …"), and once it passed unconfirmed it
+stays there as overdue until they close it (refused while someone still
+has time planned on it — that plan is cleared first) or move the
+deadline. Nothing is sent: "Waiting for me" is computed from these rows
+(decision 87).';
+
+COMMENT ON COLUMN finished_at.confirmed_at IS
+'When the owner closed the task at this deadline (close_task()). Never
+before the deadline itself: an open task is closed by a deadline set to
+now and confirmed at once. Later than value — closed after its deadline.
+A new row (the deadline moved) starts unconfirmed: the task is open
+again. NULL — not closed.';
+
+COMMENT ON CONSTRAINT chk_finished_at_confirmed ON finished_at IS
+'A deadline is confirmed only once it has come.';
+
+COMMENT ON COLUMN estimate_minutes.about IS
+'What they still mean to do for these minutes, in their words (decision
+88): so the owner of an overdue task knows what a plan left on it is about,
+and others what the hours are for. NULL — not said.';

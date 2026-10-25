@@ -29,9 +29,8 @@ const RemindRow = z.object({ taskId: z.number(), at: z.date(), text: z.string().
 const DeadlineRow = z.object({
   taskId: z.number(),
   at: z.date(),
-  closed: z.boolean(),
+  overdue: z.boolean(),
   plans: z.object({ employeeId: z.number(), minutes: z.number(), about: z.string().nullable() }).array(),
-  unread: z.number(),
 });
 const DoneRow = z.object({ taskId: z.number(), value: z.number(), at: z.date(), unread: z.number() });
 const PlanRow = z.object({ taskId: z.number(), at: z.date(), minutes: z.number(), about: z.string().nullable() });
@@ -44,9 +43,9 @@ const unread = (me: number) => sql`
 /**
  * What waits for my reaction: access requests to my tasks first (they have
  * no time and block "No intervention needed"), then open mentions of me, my
- * tasks with new comments by others, my reminders that came due, my tasks
- * closing by their deadline within a day or closed by it and not looked at
- * since, closed tasks with my time still planned on them, and tasks mine
+ * tasks with new comments by others, my reminders that came due, my open
+ * tasks whose deadline comes within a day or has passed (overdue, decision
+ * 93), overdue tasks with my time still planned on them, and tasks mine
  * wait for that are done since I looked at mine, newest first (decision 87).
  * All of it is computed from the data: nothing is marked as sent.
  * `viewerId` — a manager looking at it on the employee's page: then the
@@ -84,25 +83,23 @@ export async function todo(me: number, viewerId: number = me): Promise<TodoItem[
     SELECT task_id, at, value AS text FROM remind WHERE employee_id = ${me} AND sent_at IS NOT NULL
   `);
 
-  // A passed deadline closes the task by itself: a day of warning, then a
-  // confirmation — wanted while the owner has not looked at it since it closed.
+  // A deadline reminds, it never closes (decision 93): a day ahead, then
+  // overdue until the owner closes the task or moves the deadline.
   const deadlines = DeadlineRow.array().parse(await sql`
-    SELECT f.task_id, f.value AS at, f.value <= NOW() AS closed,
+    SELECT f.task_id, f.value AS at, f.value <= NOW() AS overdue,
            COALESCE((SELECT json_agg(json_build_object('employeeId', e."by", 'minutes', e.value, 'about', e.about) ORDER BY e.entered_at)
-                       FROM estimate_minutes e WHERE e.task_id = k.id AND e.expired_at IS NULL), '[]') AS plans,
-           ${unread(me)} AS unread
+                       FROM estimate_minutes e WHERE e.task_id = k.id AND e.expired_at IS NULL), '[]') AS plans
       FROM task k JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
-     WHERE k.owner_id = ${me}
-       AND ((f.value > NOW() AND f.value <= NOW() + INTERVAL '1 day' AND f.value - f.entered_at > INTERVAL '1 minute')
-            OR (f.value <= NOW() AND (k.reviewed_at IS NULL OR k.reviewed_at < f.value)))
+     WHERE k.owner_id = ${me} AND f.confirmed_at IS NULL
+       AND (f.value <= NOW() OR (f.value <= NOW() + INTERVAL '1 day' AND f.value - f.entered_at > INTERVAL '1 minute'))
   `);
-  // Closed, yet my time is still planned on it: its owner confirms it only once it is cleared.
+  // Overdue, yet my time is still planned on it: its owner closes it only once it is cleared.
   const plansLeft = PlanRow.array().parse(await sql`
     SELECT e.task_id, f.value AS at, e.value AS minutes, e.about
       FROM estimate_minutes e JOIN finished_at f ON f.task_id = e.task_id AND f.expired_at IS NULL
-     WHERE e."by" = ${me} AND e.expired_at IS NULL AND f.value <= NOW()
+     WHERE e."by" = ${me} AND e.expired_at IS NULL AND f.value <= NOW() AND f.confirmed_at IS NULL
   `);
-  // Done by someone else — confirmed by its owner — since I looked at mine: what I closed myself I know of.
+  // Done by someone else — closed by its owner — since I looked at mine: what I closed myself I know of.
   const done = DoneRow.array().parse(await sql`
     SELECT d.task_id, d.value, d.done_at AS at, ${unread(me)} AS unread
       FROM dependency d JOIN task k ON k.id = d.task_id JOIN task v ON v.id = d.value
@@ -143,8 +140,8 @@ export async function todo(me: number, viewerId: number = me): Promise<TodoItem[
     ...deadlines.flatMap((r) => {
       const task = tasks.get(r.taskId);
       if (!task) return [];
-      const item: TodoItem = r.closed
-        ? { kind: 'closed', task, at: r.at, plans: r.plans, unread: r.unread }
+      const item: TodoItem = r.overdue
+        ? { kind: 'overdue', task, at: r.at, plans: r.plans }
         : { kind: 'closing', task, at: r.at };
       return [item];
     }),
@@ -217,8 +214,8 @@ export async function waiting(me: number, viewerId: number = me): Promise<Waitin
 }
 
 /**
- * Tasks I see — public ones included (decision 14): the open ones (no
- * deadline or one ahead) I own or plan time on, those my people own or plan
+ * Tasks I see — public ones included (decision 14): the open ones (not
+ * closed by their owner, overdue included — decision 93) I own or plan time on, those my people own or plan
  * time on (down the chain — decision 85), or
  * all the other open ones, by deadline, nearest first, the same moment and
  * no deadline by priority; or the closed ones, the most recently closed
@@ -226,7 +223,7 @@ export async function waiting(me: number, viewerId: number = me): Promise<Waitin
  */
 export async function current(me: number, tab: CurrentTab, page: number): Promise<Current> {
   const seen = sql`
-    SELECT k.id, k.owner_id, k.priority, f.value AS deadline, f.value IS NOT NULL AND f.value <= NOW() AS closed,
+    SELECT k.id, k.owner_id, k.priority, f.value AS deadline, f.confirmed_at AS closed_at, f.confirmed_at IS NOT NULL AS closed,
            ${whose(me)} AS whose
       FROM task k
       LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
@@ -235,7 +232,7 @@ export async function current(me: number, tab: CurrentTab, page: number): Promis
   const ids = z.object({ id: z.number() }).array().parse(await sql`
     SELECT id FROM (${seen}) t
      WHERE ${tab === 'closed' ? sql`closed` : sql`NOT closed AND whose = ${tab}`}
-     ORDER BY ${tab === 'closed' ? sql`deadline DESC, priority DESC, id DESC` : sql`deadline NULLS LAST, priority DESC, id DESC`}
+     ORDER BY ${tab === 'closed' ? sql`closed_at DESC, priority DESC, id DESC` : sql`deadline NULLS LAST, priority DESC, id DESC`}
      LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}
   `).map((r) => r.id);
   const [counts] = z.object({ mine: z.number(), team: z.number(), others: z.number(), closed: z.number() }).array().parse(await sql`
