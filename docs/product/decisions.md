@@ -1625,3 +1625,23 @@ person's load to cap it, while the pace is a fact anyone can check.
 
 *Implemented:* `TagLimit.aheadMinutes`, `forecast()` in
 `shared/tagLimit.ts`; `TagLimit.list`, `.forTask`.
+
+### 92. The guide explains each idea once, and sets yartt against the usual
+
+The guide had grown by additions: the owner was explained in the
+diagram, in the essentials, in the glossary, in two answers and in three
+how-tos; mentions and "My part" in five places each. A reader met the
+same idea in different words and could not tell which was the rule. The
+glossary only repeated the diagrams and the how-tos in fewer words.
+
+Now every idea has one home. The diagrams say who does what; "Instead of
+the usual" sets each construct yartt drops against what takes its place
+— a title against a set of tags, a subtask against "Waits for", statuses
+against a deadline — in one line each; the how-tos say how, the answers
+say why, and neither repeats the other. The how-tos and the answers are
+grouped by topic, questions that asked the same are merged, and the
+glossary is gone.
+
+*Implemented:* `instead`, the grouped `scenarios` and `faq` in
+`shared/i18n/help/*.ts`; `glossary` and `ideas` removed;
+`client/components/HelpPage.tsx`.
