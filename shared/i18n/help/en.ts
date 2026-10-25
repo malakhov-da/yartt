@@ -4,7 +4,7 @@ import type { Help } from './ru.ts';
 
 export const helpEn: Help = {
   title: 'How to work in yartt',
-  intro: 'yartt rests on four principles. Under each is what it replaces in a usual tracker.',
+  intro: 'yartt is built on four principles. Under each: what it gives up and what it offers instead.',
   principles: [
     {
       title: 'A result has one owner',
