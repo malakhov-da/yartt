@@ -369,10 +369,11 @@ export const helpEn: Help = {
             + 'not: one task may be needed by several, and deadlines are tied where it really is a promise.',
         },
         {
-          q: 'Why are tasks linked only by "Waits for"?',
-          a: 'Waiting means something: one task cannot end before another, and the deadlines are checked. "Related to" constrains '
-            + 'nothing and only adds arrows. Tasks are related by their tags: a click on a tag finds every task with it, and a '
-            + 'task made from another\'s links starts with its tags.',
+          q: 'How are tasks linked, and why is there no plain "related to"?',
+          a: 'In three ways. Shared tags group tasks by meaning: a click on a tag finds every task with it. A task attached to a '
+            + 'comment with # is linked with the reason why: its feed says "Mentioned in" and the task. "Waits for" links by a commitment: '
+            + 'one task cannot end before another, and the deadlines are checked. A wordless "related to" constrains nothing and '
+            + 'explains nothing: in half a year nobody remembers why it was set.',
         },
         {
           q: 'Why no reporter and assignee?',
@@ -514,7 +515,10 @@ export const helpEn: Help = {
           a: 'Such metrics teach people to play the tracker instead of working: rewarded for accurate estimates, they pad them; for '
             + 'few moves, they set deadlines with a margin; for many tasks, they split them. My team shows only what cannot be '
             + 'improved by working worse: the share of one\'s time in tasks, scores, reaction to mentions, how late the timesheet is '
-            + 'written, whether the backlog grows.',
+            + 'written, whether the backlog grows. A deadline moved the day before is often honest: the task held more work than '
+            + 'thought. A task may also be reopened by moving its deadline. So moves are not counted; what counts is whether a task '
+            + 'closed by its deadline. A move made in advance is seen by the owners of the tasks waiting for it, and a task closed '
+            + 'after its deadline passed shows to the manager in My team.',
         },
       ],
     },
