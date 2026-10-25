@@ -51,7 +51,7 @@ export const helpEn: Help = {
     'Your tasks are in Available tasks. My open: those you own or plan time on. Other open: those you take part in.',
     'Make a task: pick tags from the suggestions in the search, type your own and press "New task". There is no separate title: the tags are the title.',
     'Bring people in with "Add a participant" on the task\'s page. A participant sees the task but is not notified of comments. '
-      + 'For them to answer, mention them in a comment.',
+      + 'For them to answer, mention them in a comment with @.',
     'If you keep a timesheet, start the shift with ▶ in the top line, close it in the evening and log your time to tasks.',
   ],
   diagramsTitle: 'How it fits together',
