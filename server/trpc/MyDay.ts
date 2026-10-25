@@ -1,22 +1,24 @@
 import { AsInput } from '#shared/employee.ts';
-import { Current, CurrentInput, History, HistoryInput, TodoItem, WaitingItem } from '#shared/myDay.ts';
+import { Current, CurrentInput, History, HistoryInput, TodoInput, TodoItem, WaitingItem } from '#shared/myDay.ts';
 import * as MyDay from '../services/MyDay.ts';
 import { viewAs } from '../services/Team.ts';
 import { authedProcedure, router } from '../trpc.ts';
 
 export default router({
   /**
-   * What waits for the signed-in employee: access requests to their tasks,
-   * then open mentions of them and their tasks with comments by others
-   * since "No intervention needed", newest first. Empty is the goal.
-   * `as` — a report's, for a manager above (decision 83): without their
-   * reminders, theirs alone.
+   * What waits for the signed-in employee (decision 94): tasks by deadline,
+   * the overdue and nearest first, each with its groups — access requests,
+   * the review of their own task (comments by others, dependencies added by
+   * others, tasks it waits for done, a handover, the deadline), mentions,
+   * reminders, plans left on overdue tasks. Empty is the goal. `as` — a
+   * report's, for a manager above (decision 83): without their reminders,
+   * theirs alone. `taskId` — that task's only.
    * @throws forbidden — `as` is not under the signed-in employee.
    */
   todo: authedProcedure
-    .input(AsInput.optional())
+    .input(TodoInput.optional())
     .output(TodoItem.array())
-    .query(async ({ input, ctx }) => MyDay.todo(await viewAs(ctx.employeeId, input?.as), ctx.employeeId)),
+    .query(async ({ input, ctx }) => MyDay.todo(await viewAs(ctx.employeeId, input?.as), ctx.employeeId, input?.taskId)),
 
   /**
    * What the signed-in employee waits for from others: their access

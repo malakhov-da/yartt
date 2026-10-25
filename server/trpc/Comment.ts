@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CreateCommentInput, Feed, FeedFilter } from '#shared/comment.ts';
+import { CommentBase, CreateCommentInput, Feed, FeedFilter } from '#shared/comment.ts';
 import { Id } from '#shared/employee.ts';
 import * as Comments from '../services/Comment.ts';
 import { authedProcedure, router } from '../trpc.ts';
@@ -15,6 +15,17 @@ export default router({
     .input(z.object({ taskId: Id, filter: FeedFilter, page: z.number().int().min(1) }))
     .output(Feed)
     .query(({ input, ctx }) => Comments.list(ctx.employeeId, input.taskId, input.filter, input.page)),
+
+  /**
+   * The comments by others in the owner's task since their review, oldest
+   * first: what "No intervention needed" would take away (decision 94).
+   * @throws forbidden — not the owner.
+   * @throws not_found
+   */
+  unreviewed: authedProcedure
+    .input(z.object({ taskId: Id }))
+    .output(CommentBase.array())
+    .query(({ input, ctx }) => Comments.unreviewed(ctx.employeeId, input.taskId)),
 
   /**
    * Leaves a comment (rich text, sanitized) with files, mentions and

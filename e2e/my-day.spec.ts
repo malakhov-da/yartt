@@ -41,17 +41,29 @@ test.describe('My day', () => {
     await expect(todo.getByText('Спросить Павла')).toHaveCount(0);
   });
 
-  test('TODO: my task due tomorrow, and a task it waits for that is done', async ({ page }) => {
+  test('TODO: my task due tomorrow, and a task it waits for that is done, in one review', async ({ page }) => {
     const todo = page.locator('div.MuiPaper-root').filter({ has: page.getByRole('heading', { name: /Ждёт меня/ }) }).first();
-    await expect(todo.getByText(/^Дедлайн через \d+ (час|часа|часов)/)).toBeVisible();
-    await expect(todo.getByRole('link', { name: 'Перенести дедлайн' })).toBeVisible();
-    await expect(todo.getByRole('button', { name: 'Завершить' })).toBeVisible(); // done already — closed now
-    const done = todo.locator('.MuiStack-root').filter({ hasText: 'Готова задача, которую ждёт эта' })
-      .filter({ has: page.getByRole('button', { name: 'Принято' }) }).last();
+    const review = todo.locator('.MuiStack-root').filter({ hasText: 'Готова задача, которую ждёт эта' })
+      .filter({ has: page.getByRole('button', { name: 'Вмешательство не требуется' }) }).last();
+    await expect(review.getByText(/^Дедлайн через \d+ (час|часа|часов)/)).toBeVisible();
+    await expect(review.getByRole('link', { name: 'Перенести дедлайн' })).toBeVisible();
     // Marina closed hers; Pavel's promo is overdue and open: not done for me until he closes it (decision 93).
-    await expect(done.getByText('договор с новым поставщиком')).toBeVisible();
-    await done.getByRole('button', { name: 'Принято' }).click();
+    await expect(review.getByText('договор с новым поставщиком')).toBeVisible();
+    // An access request to the task is answered first.
+    const accept = todo.getByRole('button', { name: 'Принять' });
+    if (await accept.count()) await accept.click();
+    await review.getByRole('button', { name: 'Вмешательство не требуется' }).click();
+    await expect(page.getByRole('dialog').getByText(/готовые задачи, которые она ждёт \(\d+\), дедлайн через день/)).toBeVisible();
+    await page.getByRole('dialog').getByRole('button', { name: 'Вмешательство не требуется' }).click();
     await expect(todo.getByText('Готова задача, которую ждёт эта')).toHaveCount(0);
+  });
+
+  test('TODO: a link a participant added to my task is in its review, and the review is on top of the task too', async ({ page }) => {
+    const site = await taskId('сайт', 'новая главная к осенней кампании');
+    await page.goto(`/tasks/${site}`);
+    const block = page.getByRole('alert').filter({ hasText: 'Ждёт меня' });
+    await expect(block.getByText('Павел Орлов: теперь эта задача ждёт')).toBeVisible();
+    await expect(block.getByText('собрать отзывы клиентов для главной')).toBeVisible();
   });
 
   test('TODO: reply right from My day', async ({ page }) => {

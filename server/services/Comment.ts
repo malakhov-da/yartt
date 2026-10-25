@@ -189,6 +189,22 @@ export async function list(viewerId: number, taskId: number, filter: FeedFilter,
 }
 
 /**
+ * The comments by others in my task since my review, oldest first: the
+ * table the review opens (decision 94). The owner only.
+ */
+export async function unreviewed(viewerId: number, taskId: number): Promise<CommentBase[]> {
+  const ids = z.object({ id: z.number() }).array().parse(await sql`
+    SELECT c.id FROM comment c JOIN task k ON k.id = c.task_id
+     WHERE c.task_id = ${taskId} AND k.owner_id = ${viewerId} AND c.created_by <> ${viewerId}
+       AND c.created_at > COALESCE(k.reviewed_at, k.handed_at, '-infinity')
+     ORDER BY c.created_at, c.id
+  `).map((r) => r.id);
+  if (ids.length === 0) await sql`SELECT check_owner(${taskId}, ${viewerId})`;
+  const loaded = await load(viewerId, taskId, ids);
+  return ids.flatMap((id) => loaded.get(id) ?? []);
+}
+
+/**
  * The threads these comments are in, keyed by their first comment, and the
  * first comment of each of them: replies come under it, oldest first.
  */
@@ -218,7 +234,7 @@ async function load(viewerId: number, taskId: number, ids: number[]): Promise<Ma
     SELECT c.id, c.created_by, c.created_at, c.value, c.attachment_ids, c.attachment_names, c.reply_to_id,
            r.created_by AS reply_author, r.value AS reply_value,
            (k.owner_id = ${viewerId} AND c.created_by <> k.owner_id
-            AND (k.reviewed_at IS NULL OR c.created_at > k.reviewed_at)) IS TRUE AS is_new
+            AND c.created_at > COALESCE(k.reviewed_at, k.handed_at, '-infinity')) IS TRUE AS is_new
       FROM comment c
       JOIN task k ON k.id = c.task_id
       LEFT JOIN comment r ON r.task_id = c.task_id AND r.id = c.reply_to_id

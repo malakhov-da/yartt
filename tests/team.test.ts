@@ -42,7 +42,7 @@ describe('ownership', () => {
     await (await client(owner.id)).Task.transfer({ id, ownerId: heir.id });
     const task = await (await client(heir.id)).Task.get({ id });
     expect(task).toMatchObject({ ownerId: heir.id, access: 'owner' });
-    expect(task.details?.reviewedAt).toBeNull();
+    expect(await sql`SELECT reviewed_at, handed_at IS NOT NULL AS handed FROM task WHERE id = ${id}`).toEqual([{ reviewedAt: null, handed: true }]);
     expect(await (await client(owner.id)).Task.get({ id })).toMatchObject({ access: 'observer' });
     expect((await kinds(heir.id)).map((n) => n.kind)).toEqual(['owner_change']);
     expect(await kinds(owner.id)).toEqual([]);

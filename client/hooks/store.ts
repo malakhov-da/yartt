@@ -9,6 +9,12 @@ type AppState = {
   searchTags: Tag[] | null;
   /** Grows on every click of the bell: the TODO block scrolls into view and flashes its title. */
   todoFocus: number;
+  /**
+   * By task: up to which comment (its moment, ms) the review's table was
+   * scrolled to the end. Kept in the page only: reviewed_at is not a read
+   * receipt (decision 94).
+   */
+  reviewRead: Record<number, number>;
 };
 
 export const useStore = create<AppState>()(() => ({
@@ -16,11 +22,17 @@ export const useStore = create<AppState>()(() => ({
   info: '',
   searchTags: null,
   todoFocus: 0,
+  reviewRead: {},
 }));
 
 /** Shows the TODO block: scrolled into view, its title flashing — the bell, even when already in My day. */
 export const focusTodo = () => {
   useStore.setState((s) => ({ todoFocus: s.todoFocus + 1 }));
+};
+
+/** The new comments of a task's review are read up to this moment. */
+export const markReviewRead = (taskId: number, at: Date) => {
+  useStore.setState((s) => ({ reviewRead: { ...s.reviewRead, [taskId]: Math.max(s.reviewRead[taskId] ?? 0, at.getTime()) } }));
 };
 
 /** Opens My day with the search narrowed to these tags. */

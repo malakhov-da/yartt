@@ -52,15 +52,21 @@ test.describe('the top line', () => {
 });
 
 test.describe('My day', () => {
-  test('new comments in TODO are read in the task, and "No intervention needed" there takes it out', async ({ page }) => {
+  test('new comments in TODO are read in a table first, and "No intervention needed" takes the review out after a warning', async ({ page }) => {
     await signIn(page, 'marina@example.com');
     const item = page.locator('.MuiStack-root').filter({ hasText: /Новые комментарии: \d+, от Иван Кузнецов/ })
-      .filter({ has: page.getByRole('link', { name: 'Прочитать' }) }).last();
-    // Not from the list: the comments would be skipped unread.
-    await expect(item.getByRole('button', { name: 'Вмешательство не требуется' })).toHaveCount(0);
-    await item.getByRole('link', { name: 'Прочитать' }).click();
-    await page.getByRole('button', { name: 'Вмешательство не требуется' }).click();
-    await page.goto('/');
+      .filter({ has: page.getByRole('button', { name: 'Вмешательство не требуется' }) }).last();
+    // Not before they are read: they would be skipped unread.
+    await expect(item.getByRole('button', { name: 'Вмешательство не требуется' })).toBeDisabled();
+    await item.getByRole('button', { name: 'Прочитать' }).click();
+    const table = page.getByRole('dialog');
+    await expect(table.getByText('Пересчитал, расхождений нет.')).toBeVisible();
+    await expect(table.getByText('Прочитано всё')).toBeVisible();
+    await table.getByRole('button', { name: 'Закрыть' }).click();
+    await item.getByRole('button', { name: 'Вмешательство не требуется' }).click();
+    const confirm = page.getByRole('dialog');
+    await expect(confirm.getByText(/пропадут уведомления по этой задаче: комментарии \(\d+\)/)).toBeVisible();
+    await confirm.getByRole('button', { name: 'Вмешательство не требуется' }).click();
     await expect(page.getByText(/от Иван Кузнецов/)).toHaveCount(0);
   });
 

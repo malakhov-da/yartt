@@ -79,7 +79,7 @@ export async function renderMail(message: Message): Promise<{ subject: string; t
   if ('for' in p && p.for !== undefined) lines.push(interpolate(t.awayCopy, { name: person(p.for) }));
   if (message.taskId !== null) lines.push(interpolate(t.open, { url: `${env.PUBLIC_URL}/tasks/${message.taskId}` }));
   // The other task the message names is a link too.
-  const other = p.kind === 'finished_at_change' || p.kind === 'dependency_done' || p.kind === 'part_added'
+  const other = p.kind === 'finished_at_change' || p.kind === 'dependency_done' || p.kind === 'waits_added'
     ? { id: p.dependencyId, title: params.dependency }
     : p.kind === 'dependency_added' ? { id: p.dependentId, title: params.dependent } : null;
   if (other) lines.push(interpolate(t.openOther, { task: other.title ?? '', url: `${env.PUBLIC_URL}/tasks/${other.id}` }));

@@ -220,10 +220,8 @@ async function tagIds(names: string[], db: Sql): Promise<number[]> {
 
 /**
  * A new private task owned by its creator; tags are created as needed.
- * Priority, deadline, context and one dependency without a latest deadline come in the same
- * transaction, under the same rules as changing them later — except that a
- * task made as one's part of another (`waitedOnBy`) needs only to see that
- * one, not to own it (decision 76).
+ * Priority, deadline, context and one dependency without a latest deadline
+ * come in the same transaction, under the same rules as changing them later.
  */
 export async function create(ownerId: number, input: CreateInput): Promise<number> {
   return sql.begin(async (tx) => {
@@ -239,7 +237,7 @@ export async function create(ownerId: number, input: CreateInput): Promise<numbe
     const id = row!.id;
     if (input.deadline) await db`SELECT set_finished_at(${id}, ${input.deadline})`;
     if (input.waitsFor) await Dependencies.setIn(db, ownerId, { taskId: id, value: input.waitsFor, latestAt: null });
-    if (input.waitedOnBy) await Dependencies.addPart(db, ownerId, input.waitedOnBy, id);
+    if (input.waitedOnBy) await Dependencies.setIn(db, ownerId, { taskId: input.waitedOnBy, value: id, latestAt: null });
     for (const employeeId of new Set(input.participants ?? [])) {
       if (employeeId !== ownerId) await db`SELECT add_observer(${id}, ${employeeId}, ${ownerId})`;
     }
@@ -299,9 +297,17 @@ export async function setDeadline(actorId: number, taskId: number, deadline: Dat
   });
 }
 
-/** The owner closes the task — the only way it closes (decision 93); close_task() checks the owner. */
-export async function close(actorId: number, taskId: number): Promise<void> {
-  await sql`SELECT close_task(${taskId}, ${actorId})`;
+/**
+ * The owner closes the task — the only way it closes (decision 93);
+ * close_task() checks the owner. `reviewedUntil` — closed from the review,
+ * it takes its notices away too, up to that moment (decision 94).
+ */
+export async function close(actorId: number, taskId: number, reviewedUntil?: Date): Promise<void> {
+  await sql.begin(async (tx) => {
+    const db = tx as unknown as Sql;
+    await db`SELECT close_task(${taskId}, ${actorId})`;
+    if (reviewedUntil) await db`SELECT mark_reviewed(${taskId}, ${actorId}, ${reviewedUntil})`;
+  });
 }
 
 const OwnerRow = z.object({ ownerId: z.number().nullable(), managerId: z.number().nullable() });
@@ -309,7 +315,7 @@ const OwnerRow = z.object({ ownerId: z.number().nullable(), managerId: z.number(
 /**
  * Hands the task over. Allowed to the owner and to the owner's direct
  * manager. The new owner is told; when the manager acts, the previous owner
- * is told too. The previous owner stays an observer, reviewed_at resets and
+ * is told too. The previous owner stays an observer, reviewed_at resets, handed_at is set and
  * a private task gets the new owner as an observer (triggers).
  */
 export async function transfer(actorId: number, taskId: number, newOwnerId: number): Promise<void> {
@@ -353,8 +359,9 @@ export async function take(actorId: number, taskId: number): Promise<void> {
   });
 }
 
-export async function markReviewed(actorId: number, taskId: number): Promise<void> {
-  await sql`SELECT mark_reviewed(${taskId}, ${actorId})`;
+/** "No intervention needed" up to `until`, the newest notice shown (decision 94); none — now. */
+export async function markReviewed(actorId: number, taskId: number, until?: Date): Promise<void> {
+  await sql`SELECT mark_reviewed(${taskId}, ${actorId}, ${until ?? null})`;
 }
 
 export async function makePublic(actorId: number, taskId: number): Promise<void> {
@@ -369,11 +376,13 @@ export async function makePrivate(actorId: number, taskId: number): Promise<numb
   return row?.ids ?? [];
 }
 
-const DependencyRow = z.object({ id: z.number(), latestAt: z.date().nullable() });
+const DependencyRow = z.object({ id: z.number(), latestAt: z.date().nullable(), addedBy: z.number().nullable() });
 
-async function dependencies(viewerId: number, rows: { id: number; latestAt: Date | null }[]): Promise<Dependency[]> {
-  const byId = new Map(rows.map((r) => [r.id, r.latestAt]));
-  return (await headers(viewerId, rows.map((r) => r.id))).map((h) => ({ ...h, latestAt: byId.get(h.id) ?? null }));
+async function dependencies(viewerId: number, rows: z.infer<typeof DependencyRow>[]): Promise<Dependency[]> {
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return (await headers(viewerId, rows.map((r) => r.id))).map((h) => ({
+    ...h, latestAt: byId.get(h.id)?.latestAt ?? null, addedBy: byId.get(h.id)?.addedBy ?? null,
+  }));
 }
 
 const AccessRow = z.object({
@@ -405,37 +414,18 @@ export async function get(viewerId: number, taskId: number): Promise<TaskPage> {
     : 'none';
   if (access === 'requested' || access === 'none') return { ...header, access, details: null };
 
-  const [task] = z.object({ context: z.string().nullable(), reviewedAt: z.date().nullable() }).array().parse(await sql`
-    SELECT context, reviewed_at FROM task WHERE id = ${taskId}
-  `);
-  const authors = z.object({ createdBy: z.number(), n: z.number() }).array().parse(await sql`
-    SELECT c.created_by, count(*)::int AS n
-      FROM comment c JOIN task k ON k.id = c.task_id
-     WHERE c.task_id = ${taskId}
-       AND c.created_by IS DISTINCT FROM k.owner_id
-       AND (k.reviewed_at IS NULL OR c.created_at > k.reviewed_at)
-     GROUP BY c.created_by
-     ORDER BY min(c.created_at)
-  `);
-  const [pending] = Count.array().parse(await sql`
-    SELECT count(*)::int AS n FROM observer
-     WHERE task_id = ${taskId} AND added_at IS NULL AND deleted_at IS NULL
+  const [task] = z.object({ context: z.string().nullable() }).array().parse(await sql`
+    SELECT context FROM task WHERE id = ${taskId}
   `);
   const waitsFor = DependencyRow.array().parse(await sql`
-    SELECT value AS id, latest_at FROM dependency WHERE task_id = ${taskId}
+    SELECT value AS id, latest_at, added_by FROM dependency WHERE task_id = ${taskId}
   `);
   const waitedOnBy = DependencyRow.array().parse(await sql`
-    SELECT task_id AS id, latest_at FROM dependency WHERE value = ${taskId}
+    SELECT task_id AS id, latest_at, added_by FROM dependency WHERE value = ${taskId}
   `);
 
   const details: TaskDetails = {
     context: task!.context,
-    reviewedAt: task!.reviewedAt,
-    newComments: {
-      count: authors.reduce((sum, r) => sum + r.n, 0),
-      authorIds: authors.map((r) => r.createdBy),
-    },
-    pendingRequests: pending?.n ?? 0,
     waitsFor: await dependencies(viewerId, waitsFor),
     waitedOnBy: await dependencies(viewerId, waitedOnBy),
   };

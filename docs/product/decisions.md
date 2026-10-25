@@ -1248,7 +1248,7 @@ marked and put off right there.
 `0.4-0.5`); `Remind.move`; the `remind` item of `MyDay.todo`;
 `PutOff` in `client/components/TaskPage/Reminders.tsx`.
 
-### 74. Waiting for me groups by task; "No intervention needed" is pressed in the task
+### 74. Waiting for me groups by task; "No intervention needed" is pressed in the task — reworked by 94
 
 Waiting for me listed every event on its own, each under a line of its
 task, so a task with a mention, new comments and a reminder showed three
@@ -1292,7 +1292,7 @@ up for confirmation.
 `Dependency.noted`; the `closing`, `closed` and `done` items of
 `MyDay.todo`.
 
-### 76. The owner is whose initiative it is; a participant's part is a task of their own
+### 76. The owner is whose initiative it is; a participant's part is a task of their own — reworked by 94
 
 People read "owner" as "assignee": a task to be done by someone was
 handed to them. But the owner decides when the task is done — the doer,
@@ -1650,7 +1650,7 @@ glossary is gone.
 `shared/i18n/help/*.ts`; `glossary` and `ideas` removed;
 `client/components/HelpPage.tsx`.
 
-### 93. Only the owner closes a task; a deadline reminds
+### 93. Only the owner closes a task; a deadline reminds — reworked by 94
 
 Decision 87 made a task closed by its deadline wait for its owner's
 confirmation, and made it done for what waits for it only then. But the
@@ -1688,3 +1688,78 @@ no longer closes; `dependency_risk()`, `at_risk()`, `backlog_minutes()`,
 `0.4-0.5`); `Task.close`, `TaskHeader.closed`, the `overdue` item of
 `MyDay.todo`, the `closed` event of the feed; `late` instead of
 `expired` in `Team.summary` and `Tags.stats`.
+
+### 94. Waiting for me is tasks with groups of notices; anyone links a dependency
+
+A participant's part had two shapes. "My part" made it a task of their
+own that the owner's task waited for (decision 76), and "My plan" with
+"What is left to do" said the same within the owner's task. The button
+was "My part" for a participant and "New task" for the owner, though both
+opened the same form; and a participant could not link a task that
+already existed, even their own. Linking binds nobody to anything: it
+only says what waits for what.
+
+Now anyone who sees a task links what it waits for — an existing task
+or a new one made right there — and from its page a task of their own
+that waits for it, under "Add" and "New task", the same for everyone;
+"My part" is gone. Linking speaks for the waiting task, so it takes
+seeing that one: nobody makes a task they do not see wait. The usual
+way to take part stays a plan within the task; a task of one's own is
+for when one needs a deadline of one's own and to decide oneself when
+it is done.
+The latest deadline is still set by the owner of the waiting task alone:
+it is their commitment. A link is removed by the owner of the waiting
+task or by whoever added it. A dependency keeps who added it and when
+(`added_by`, `added_at`); the owners of both tasks, other than the one
+who added it, are notified.
+
+The other half was "No intervention needed". It put `reviewed_at` at
+now, so one press took away everything since the last one — a done
+dependency's "Noted" in Waiting for me took away comments never read,
+and whatever came while the page was open went with it. The task showed
+only the comments it would take away.
+
+Now Waiting for me is a list of tasks, and within each task groups of
+notices, one group per kind of action: access requests (approve or
+reject), mentions (answer or close), reminders (done or put off), a plan
+left on an overdue task (clear it), and the review. The review is every
+notice the owner reacts to by moving `reviewed_at`: new comments by
+others, links added by others on either side, dependencies done, the
+task handed to them, the deadline a day ahead and the deadline passed.
+The same block, the same way, is in My day and on top of the task.
+The tasks are in the order of their deadlines, the overdue and the
+nearest first, those without a deadline last; with the same deadline,
+the newer task — the higher number — first. Waiting for me was ordered
+by when each notice came, newest first (decision 87): what is most
+urgent to decide now sank under what was most recently said.
+
+New comments are one line, as before — "7 comments from …"; a click
+opens a table of all of them in full. Until the table has been scrolled
+to its end the review button is disabled and says why; this is kept in
+the page, not in the database: `reviewed_at` is not a read receipt. So
+the button is back in My day (decision 74): the table is where the
+comments are read, not the task's page. The button is "No intervention
+needed", with a warning that these notices will be gone. When the task
+is overdue it is "Finish" instead, next to "Move the deadline": finishing
+means nothing else needs the owner; while someone still has time planned
+it is disabled and names whose plans are left, and only moving the
+deadline is open. Access requests still block it.
+
+The press puts `reviewed_at` at the moment of the newest notice shown,
+not at now, never later than now, never back: whatever came later
+stays. That moment comes in milliseconds and covers its whole
+millisecond, the database keeping microseconds. The day-ahead
+warning is a notice at the deadline minus a day, so a review after it
+takes it away; the overdue one is the deadline itself, and only
+finishing or moving it takes it away. A mention of the owner is both a
+mention and a new comment. Handing a task over still resets
+`reviewed_at`, and now keeps when (`handed_at`): until the new owner
+reviews it, the handover is the first notice and only what came after
+it is new — they are not shown the task's whole history as new.
+
+*Implemented:* `dependency.added_at`, `added_by`, `task.handed_at`,
+`mark_reviewed(p_until)` (migration `0.4-0.5`); `Dependencies.set`/`remove`
+(`server/services/Dependency.ts`), `waits_added` instead of `part_added`;
+`MyDay.todo` (the `review` item, `taskId`), `Comment.unreviewed`,
+`Task.close` with `reviewedUntil`; `Review` in
+`client/components/MyDayPage/Todo.tsx`, shown in `TaskPage/Sheet.tsx` too.

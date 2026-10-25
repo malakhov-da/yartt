@@ -54,22 +54,28 @@ describe('todo', () => {
       SELECT payload FROM notification WHERE employee_id = ${employeeId} ORDER BY id
     `).map((n) => n.payload.kind);
     const todo = async (employeeId: number) =>
-      (await (await client(employeeId)).MyDay.todo()).filter((i) => ['closing', 'overdue', 'done', 'plan_left'].includes(i.kind));
+      (await (await client(employeeId)).MyDay.todo()).filter((i) => i.kind === 'review' || i.kind === 'plan_left');
 
-    // Set two days ahead, now 12 hours away: in TODO, computed — nothing is sent.
+    // Set two days ahead, now 12 hours away: in the review, computed — nothing is sent.
     await api.Task.setDeadline({ id: task, deadline: new Date(Date.now() + 12 * 3_600_000) });
     await sql`UPDATE finished_at SET entered_at = NOW() - INTERVAL '2 days' WHERE task_id = ${task}`;
-    expect(await todo(owner.id)).toMatchObject([{ kind: 'closing', task: { id: task } }]);
+    const [closing] = await todo(owner.id);
+    expect(closing).toMatchObject({ kind: 'review', task: { id: task }, deadline: { overdue: false } });
+    // A notice a day before it: a review takes it away.
+    await api.Task.markReviewed({ id: task, until: closing?.kind === 'review' ? closing.at : undefined });
+    expect(await todo(owner.id)).toEqual([]);
 
     // The deadline came: the task is overdue, still open; the owner closes it once Helper's plan is gone.
     await sql`UPDATE finished_at SET value = NOW() - INTERVAL '1 minute' WHERE task_id = ${task} AND expired_at IS NULL`;
-    expect(await todo(owner.id)).toMatchObject([{ kind: 'overdue', task: { id: task, closed: false }, plans: [{ employeeId: helper.id, minutes: 120 }] }]);
+    expect(await todo(owner.id)).toMatchObject([{
+      kind: 'review', task: { id: task, closed: false }, deadline: { overdue: true, plans: [{ employeeId: helper.id, minutes: 120 }] },
+    }]);
     expect(await todo(helper.id)).toMatchObject([{ kind: 'plan_left', task: { id: task }, minutes: 120 }]);
     expect(await todo(waiting.id)).toEqual([]);
     expect((await api.MyDay.current({ tab: 'mine', page: 1 })).items.map((t) => t.id)).toContain(task);
-    // "No intervention needed" is about the comments: it never closes the task.
+    // A review never takes an overdue task away, nor closes it: only closing or moving the deadline does.
     await api.Task.markReviewed({ id: task });
-    expect(await todo(owner.id)).toMatchObject([{ kind: 'overdue' }]);
+    expect(await todo(owner.id)).toMatchObject([{ kind: 'review', deadline: { overdue: true } }]);
     await expect(waitingApi.Task.close({ id: task })).rejects.toMatchObject({ message: 'forbidden' });
     await expect(api.Task.close({ id: task })).rejects.toMatchObject({ message: 'plans_left' });
 
@@ -81,7 +87,7 @@ describe('todo', () => {
     const [row] = await sql<{ late: boolean }[]>`
       SELECT confirmed_at > value AS late FROM finished_at WHERE task_id = ${task} AND expired_at IS NULL`;
     expect(row).toEqual({ late: true });
-    expect(await todo(waiting.id)).toMatchObject([{ kind: 'done', task: { id: dependent }, dependency: { id: task }, unread: 0 }]);
+    expect(await todo(waiting.id)).toMatchObject([{ kind: 'review', task: { id: dependent }, done: [{ task: { id: task } }] }]);
     expect(await kinds(waiting.id)).toContain('dependency_done');
     expect((await kinds(owner.id)).filter((k) => k.startsWith('deadline'))).toEqual([]);
 
@@ -107,18 +113,20 @@ describe('todo', () => {
 
     await api.Time.setLeft({ taskId: task, minutes: null });
     await api.Task.close({ id: task });
-    expect((await api.MyDay.todo()).filter((i) => i.kind === 'overdue')).toEqual([]);
-    expect((await waitingApi.MyDay.todo()).filter((i) => i.kind === 'done')).toHaveLength(1);
+    const overdue = async () => (await api.MyDay.todo()).filter((i) => i.kind === 'review' && i.deadline?.overdue);
+    const done = async () => (await waitingApi.MyDay.todo()).filter((i) => i.kind === 'review' && i.done.length > 0);
+    expect(await overdue()).toEqual([]);
+    expect(await done()).toHaveLength(1);
     expect((await api.MyDay.current({ tab: 'closed', page: 1 })).items.filter((t) => t.id === task)).toMatchObject([{ closed: true }]);
 
     // A deadline put in the past by hand does not close a task: it is overdue.
     await api.Task.setDeadline({ id: task, deadline: new Date(Date.now() - 86_400_000) });
-    expect((await api.MyDay.todo()).filter((i) => i.kind === 'overdue')).toHaveLength(1);
-    expect((await waitingApi.MyDay.todo()).filter((i) => i.kind === 'done')).toEqual([]);
+    expect(await overdue()).toHaveLength(1);
+    expect(await done()).toEqual([]);
 
     // Moved ahead: open, not overdue.
     await api.Task.setDeadline({ id: task, deadline: new Date(Date.now() + 86_400_000 * 3) });
-    expect((await api.MyDay.todo()).filter((i) => i.kind === 'overdue')).toEqual([]);
+    expect(await overdue()).toEqual([]);
     expect((await api.MyDay.current({ tab: 'closed', page: 1 })).items.filter((t) => t.id === task)).toEqual([]);
   });
 
@@ -158,13 +166,76 @@ describe('todo', () => {
     await (await client(helper.id)).Comment.create(comment(id, '<p>Two</p>'));
     await (await client(stranger.id)).Observer.request({ taskId: id });
 
-    expect(await api.MyDay.todo()).toMatchObject([
+    const items = await api.MyDay.todo();
+    expect(items).toMatchObject([
       { kind: 'request', task: { id }, employeeId: stranger.id },
-      { kind: 'review', task: { id }, count: 2, authorIds: [helper.id], pendingRequests: 1 },
+      { kind: 'review', task: { id }, comments: { count: 2, authorIds: [helper.id] }, pendingRequests: 1 },
     ]);
+    expect((await api.Comment.unreviewed({ taskId: id })).map((c) => c.html)).toEqual(['<p>One</p>', '<p>Two</p>']);
+    await expect((await client(helper.id)).Comment.unreviewed({ taskId: id })).rejects.toMatchObject({ message: 'forbidden' });
     await api.Observer.reject({ taskId: id, employeeId: stranger.id });
-    await api.Task.markReviewed({ id });
+
+    // Only what was shown is taken away: a comment that came after it stays.
+    await (await client(helper.id)).Comment.create(comment(id, '<p>Three</p>'));
+    const shown = items.find((i) => i.kind === 'review');
+    await api.Task.markReviewed({ id, until: shown?.kind === 'review' ? shown.at : undefined });
+    expect(await api.MyDay.todo()).toMatchObject([{ kind: 'review', comments: { count: 1 } }]);
+    expect((await api.Comment.unreviewed({ taskId: id })).map((c) => c.html)).toEqual(['<p>Three</p>']);
+    // Never back, never past now.
+    await api.Task.markReviewed({ id, until: new Date(0) });
+    expect(await api.MyDay.todo()).toMatchObject([{ kind: 'review', comments: { count: 1 } }]);
+    await api.Task.markReviewed({ id, until: new Date(Date.now() + 86_400_000) });
     expect(await api.MyDay.todo()).toEqual([]);
+    const [row] = await sql<{ future: boolean }[]>`SELECT reviewed_at > NOW() AS future FROM task WHERE id = ${id}`;
+    expect(row).toEqual({ future: false });
+  });
+
+  test('a link someone else adds is in the review of both owners; a handover is the new owner\'s first notice', async () => {
+    const owner = await createEmployee();
+    const other = await createEmployee();
+    const doer = await createEmployee();
+    const heir = await createEmployee();
+    const mine = await createTask(owner.id);
+    const theirs = await createTask(other.id);
+    await (await client(owner.id)).Observer.add({ taskId: mine, employeeId: doer.id });
+
+    await (await client(doer.id)).Dependency.set({ taskId: mine, value: theirs, latestAt: null });
+    expect((await (await client(owner.id)).MyDay.todo())).toMatchObject([
+      { kind: 'review', task: { id: mine }, links: [{ task: { id: theirs }, waits: true, by: doer.id }] },
+    ]);
+    expect((await (await client(other.id)).MyDay.todo())).toMatchObject([
+      { kind: 'review', task: { id: theirs }, links: [{ task: { id: mine }, waits: false, by: doer.id }] },
+    ]);
+    expect(await (await client(doer.id)).MyDay.todo()).toEqual([]);
+
+    // Handed over: the new owner sees the handover, not what came before it.
+    await (await client(owner.id)).Task.transfer({ id: mine, ownerId: heir.id });
+    const [handed] = await (await client(heir.id)).MyDay.todo();
+    expect(handed).toMatchObject({ kind: 'review', task: { id: mine }, handedAt: expect.any(Date), links: [], comments: null });
+    await (await client(heir.id)).Task.markReviewed({ id: mine, until: handed?.kind === 'review' ? handed.at : undefined });
+    expect(await (await client(heir.id)).MyDay.todo()).toEqual([]);
+  });
+
+  test('tasks by deadline, the overdue and nearest first, no deadline last; the same deadline, the newer first', async () => {
+    const owner = await createEmployee();
+    const helper = await createEmployee();
+    const api = await client(owner.id);
+    const later = await createTask(owner.id);
+    const none = await createTask(owner.id);
+    const soon = await createTask(owner.id);
+    const sameA = await createTask(owner.id);
+    const sameB = await createTask(owner.id);
+    const at = new Date(Date.now() + 5 * 86_400_000);
+    await api.Task.setDeadline({ id: later, deadline: new Date(Date.now() + 9 * 86_400_000) });
+    await api.Task.setDeadline({ id: soon, deadline: new Date(Date.now() + 2 * 86_400_000) });
+    await api.Task.setDeadline({ id: sameA, deadline: at });
+    await api.Task.setDeadline({ id: sameB, deadline: at });
+    for (const id of [later, none, soon, sameA, sameB]) {
+      await api.Observer.add({ taskId: id, employeeId: helper.id });
+      await (await client(helper.id)).Comment.create(comment(id, '<p>Hi</p>'));
+    }
+    expect((await api.MyDay.todo()).map((i) => i.task.id)).toEqual([soon, sameB, sameA, later, none]);
+    expect((await api.MyDay.todo({ taskId: sameA })).map((i) => i.task.id)).toEqual([sameA]);
   });
 });
 

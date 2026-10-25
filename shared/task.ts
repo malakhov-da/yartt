@@ -59,6 +59,8 @@ export const Dependency = TaskHeader.extend({
    * live with; NULL — no constraint. Later, or no deadline: both at risk.
    */
   latestAt: z.date().nullable(),
+  /** Who linked them: they may remove it, as may the owner of the waiting task; NULL — not known (before 0.5). */
+  addedBy: Id.nullable(),
 });
 export type Dependency = z.infer<typeof Dependency>;
 
@@ -70,12 +72,6 @@ export type Access = z.infer<typeof Access>;
 export const TaskDetails = z.object({
   /** Sanitized HTML. */
   context: z.string().nullable(),
-  /** The owner's last "No intervention needed". */
-  reviewedAt: z.date().nullable(),
-  /** Comments by others since reviewedAt: how many and who wrote them. */
-  newComments: z.object({ count: z.number().int(), authorIds: Id.array() }),
-  /** Access requests waiting for the owner. */
-  pendingRequests: z.number().int(),
   waitsFor: Dependency.array(),
   waitedOnBy: Dependency.array(),
 });
@@ -152,7 +148,7 @@ export const CreateInput = z.object({
   context: Html.nullable().optional(),
   /** The new task waits for this one (no latest deadline). */
   waitsFor: Id.optional(),
-  /** This task waits for the new one (no latest deadline); the creator must own it. */
+  /** This task waits for the new one (no latest deadline); the creator must see it. */
   waitedOnBy: Id.optional(),
   /** Brought in at once, as a participant brings people in (add_observer); each is told. */
   participants: Id.array().max(100).optional(),

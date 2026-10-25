@@ -157,12 +157,12 @@ RULES:
     without them) -> the employee.
   - finished_at set / moved / cleared -> owners of dependent tasks, once
     it settles (deadline_settles(): the worker holds it that long).
-  - a closed task confirmed by its owner (mark_reviewed) -> the owners of
-    the tasks waiting for it (dependency_done).
+  - a task closed by its owner (close_task) -> the owners of the tasks
+    waiting for it (dependency_done).
   - a new dependency -> the owner of the task waited for (with the latest
-    deadline the waiting task can live with, if set).
-  - someone''s part of a task made a task of theirs -> the owner of the
-    waiting task (part_added).
+    deadline the waiting task can live with, if set; dependency_added),
+    and the owner of the waiting task (waits_added) — but not whoever
+    added it.
   - owner change -> the new owner. If the manager initiated it — the
     previous owner too.
   - score -> the scored employee.
@@ -1109,7 +1109,7 @@ COMMENT ON COLUMN notification.payload IS
 'JSONB context. Contains kind:
   comment | mention | task_mention | remind | access_request |
   access_opened | access_closed | finished_at_change | dependency_added |
-  dependency_done | part_added |
+  dependency_done | waits_added |
   owner_change | owner_handed |
   score | invite | welcome | new_report | weekly_digest | bot_key_old.
 Payload keys are camelCase (employeeId, dependencyId, ...).
@@ -2495,8 +2495,8 @@ the API is implemented.
     - Create a task (owner = creator, tags, priority).
     - Change tag_ids / priority / context (owner only).
     - "No intervention needed" (mark_reviewed: owner only, not while an
-      access request waits). It is about the comments; it never closes
-      the task.
+      access request waits): takes away the review notices up to the
+      newest one shown (decision 94). It never closes the task.
     - Make public / private (make_public / make_private: owner only).
     - Transfer ownership (the owner or the owner''s manager).
     - Take an ownerless task (owner_id IS NULL, any observer).
@@ -2512,9 +2512,11 @@ the API is implemented.
       and the manager of an observing report).
 
   Dependencies:
-    - Add / change / remove a dependency (owner of task_id only).
-    - Create a task as one''s part of a task one sees: that task waits for
-      the new one (anyone who sees task_id; its owner is notified).
+    - Add a dependency — an existing task or one created with it (anyone
+      who sees task_id, the task that waits; the owners of both, other
+      than whoever added it, are notified).
+    - Set / change its latest deadline (owner of task_id only).
+    - Remove a dependency (owner of task_id, or whoever added it).
 
   Deadlines:
     - Set / move finished_at (set_finished_at, owner only).
@@ -2524,7 +2526,7 @@ the API is implemented.
       its passed deadline; the tasks waiting for it are done for from
       then on (dependency.done_at).
     - Take note that a task waited for is done (mark_reviewed of the
-      waiting task).
+      waiting task, or close_task with it).
 
   Time left:
     - Set / change / clear estimate_minutes for oneself (anyone who sees
@@ -2578,8 +2580,9 @@ ACCESS RULES
     - reviewed_at — owner only.
     - owner_id — the current owner or the owner''s direct manager.
     - finished_at — owner only.
-    - dependency — owner of task_id only; except a new task made as one''s
-      part of task_id, linked as it is created by anyone who sees task_id.
+    - dependency — added by anyone who sees task_id; latest_at
+      by the owner of task_id only; removed by the owner of task_id or
+      whoever added it (decision 94).
 
   Seeing a task (can_see):
     - The header (tag_ids, priority, finished_at, owner) — everyone.
@@ -2831,12 +2834,13 @@ Owners of dependent tasks are notified once the deadline settles, and
 told when the new deadline breaks the latest one their task can live
 with (dependency.latest_at).
 
-A deadline reminds its owner: from a day before it the task is in their
-"Waiting for me" ("deadline in …"), and once it passed unconfirmed it
-stays there as overdue until they close it (refused while someone still
-has time planned on it — that plan is cleared first) or move the
-deadline. Nothing is sent: "Waiting for me" is computed from these rows
-(decision 87).';
+A deadline reminds its owner: a day before it (or when set, if later) it
+is a notice of their review in "Waiting for me" ("deadline in …") until a
+review takes it away, and once it passed unconfirmed it stays there as
+overdue until they close it (refused while someone still has time planned
+on it — that plan is cleared first) or move the deadline (decision 94).
+Nothing is sent: "Waiting for me" is computed from these rows (decision
+87).';
 
 COMMENT ON COLUMN finished_at.confirmed_at IS
 'When the owner closed the task at this deadline (close_task()). Never
@@ -2852,3 +2856,138 @@ COMMENT ON COLUMN estimate_minutes.about IS
 'What they still mean to do for these minutes, in their words (decision
 88): so the owner of an overdue task knows what a plan left on it is about,
 and others what the hours are for. NULL — not said.';
+
+-- Anyone who sees a task links a dependency, and Waiting for me shows the
+-- owner what came since their review, taken away only up to what they were
+-- shown (decision 94). Dependencies added before are of unknown origin.
+
+ALTER TABLE task ADD COLUMN handed_at TIMESTAMPTZ;
+
+ALTER TABLE dependency
+    ADD COLUMN added_at TIMESTAMPTZ,
+    ADD COLUMN added_by INT REFERENCES employee(id);
+ALTER TABLE dependency ALTER COLUMN added_at SET DEFAULT NOW();
+
+CREATE OR REPLACE FUNCTION trg_task_owner_reset_review()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.reviewed_at := NULL;
+    NEW.handed_at := NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP FUNCTION mark_reviewed(INT, INT);
+
+CREATE OR REPLACE FUNCTION mark_reviewed(p_task_id INT, p_actor_id INT, p_until TIMESTAMPTZ DEFAULT NULL)
+RETURNS VOID AS $$
+BEGIN
+    PERFORM check_owner(p_task_id, p_actor_id);
+    IF EXISTS (
+        SELECT 1 FROM observer
+         WHERE task_id = p_task_id
+           AND added_at IS NULL
+           AND deleted_at IS NULL
+    ) THEN
+        RAISE EXCEPTION 'task % has access requests waiting for an answer', p_task_id
+            USING HINT = 'pending_requests',
+                  DETAIL = json_build_object('taskId', p_task_id)::text;
+    END IF;
+    -- Up to what was shown, never past now, never back (GREATEST skips NULLs).
+    -- The moment shown comes in milliseconds: it covers its whole millisecond.
+    UPDATE task
+       SET reviewed_at = GREATEST(reviewed_at, handed_at,
+                                  LEAST(COALESCE(p_until + INTERVAL '999 microseconds', NOW()), NOW()))
+     WHERE id = p_task_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON TABLE task IS
+'A task — only "what this entity is".
+
+id — SERIAL, immutable PK. All FKs and URLs use it.
+
+tag_ids — the set of tags, which is also the task "title". Stored sorted
+(trigger), so UNIQUE (tag_ids) forbids two tasks with the same set. An
+empty set, duplicates and unknown tags are forbidden.
+
+owner_id — the current owner, responsible for getting it done on time and
+well thought out. Always an observer of a private task (trigger). May be
+NULL — an ownerless task (after the owner was dismissed with no manager).
+
+PUBLIC AND PRIVATE: a task with active observers is private, one without
+them is public (see is_public(), can_see()). A new task is private: its
+owner becomes its first observer.
+
+tag_ids, priority and the deadline are the header, visible to every
+employee. context is visible to those who see the task. All of them are
+changed only by the owner.
+
+reviewed_at — when the owner last confirmed that nothing in the task
+waits for their decision ("No intervention needed", mark_reviewed()).
+Not a read receipt. What came after it is the review in the owner''s
+"Waiting for me" (decision 94). Reset to NULL when the owner changes,
+handed_at set (trigger).
+
+A task cannot be deleted (trigger). A task is closed by its owner
+(close_task(), finished_at.confirmed_at). A closed task can be commented on, have time
+logged, have its tags changed — just like an open one. "When it was
+created" is not stored — it is not a metric, to avoid gaming lead time.';
+
+COMMENT ON COLUMN task.owner_id IS
+'The current task owner, responsible for the result. Always an observer
+of a private task.
+May be NULL: an ownerless task. Then the first observer to take it
+becomes the owner.
+Ownership is transferred by the current owner or the owner''s direct
+manager. The previous owner stays an observer.
+On transfer reviewed_at is reset to NULL and handed_at set.';
+
+COMMENT ON COLUMN task.reviewed_at IS
+'When the owner last confirmed that nothing in the task waits for their
+decision: the moment of the newest notice they were shown, never later
+(decision 94). Updated only by mark_reviewed(), which is refused while an
+access request waits for an answer, and never moves back.
+The review notices are what came after it — after handed_at while NULL:
+comments by others, dependencies added by others on either side,
+dependencies done, the handover, the deadline a day ahead. An overdue
+deadline is not taken away by it: only closing or moving it.
+Reset to NULL when the owner changes.';
+
+COMMENT ON COLUMN task.handed_at IS
+'When the task last came to its current owner (trigger on owner_id).
+Until they review it (reviewed_at NULL) the handover is a notice of their
+review, and only what came after it is new to them. NULL — never handed
+over: the creator owns it.';
+
+COMMENT ON FUNCTION trg_task_owner_reset_review() IS
+'reviewed_at = NULL and handed_at = NOW() when the owner changes: the
+new owner is shown only what came after the handover (decision 94).';
+
+COMMENT ON FUNCTION mark_reviewed(INT, INT, TIMESTAMPTZ) IS
+'"No intervention needed": the owner confirms that nothing in the task
+waits for their decision. reviewed_at goes to p_until — the newest notice
+of the review they were shown — so whatever came later stays (decision
+94); NULL — now. Never later than now, never back. Refused while an
+access request waits: that is exactly something that needs the owner. It
+never closes the task — that is close_task() (decision 93).';
+
+COMMENT ON TABLE dependency IS
+'The dependency graph. task_id depends on value.
+Linking binds nobody (decision 94): anyone who sees task_id adds what it
+waits for — an existing task or a new one, made with it — and the
+owners of both other than whoever added it are notified (waits_added,
+dependency_added) and see it in their review. latest_at is the owner of
+task_id''s alone; a dependency is removed by the owner of task_id or by
+whoever added it. Checked by the application.
+Cycles are forbidden (trigger). Self-dependency is forbidden (CHECK).
+Deletion is physical. No audit.
+When finished_at of value is set, moved or cleared, owners of all
+dependent tasks are notified.';
+
+COMMENT ON COLUMN dependency.added_at IS
+'When the dependency was added. NULL — added before 0.5, not known.';
+
+COMMENT ON COLUMN dependency.added_by IS
+'Who added it: they may remove it, and its notice goes to the owners of
+both tasks but them. NULL — added before 0.5, not known.';

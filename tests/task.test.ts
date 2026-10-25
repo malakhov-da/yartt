@@ -460,7 +460,7 @@ describe('deadline changes settle', () => {
 });
 
 describe('dependencies', () => {
-  test('the owner sets them, with or without a latest deadline; cycles are refused; a broken latest deadline is a risk, not an error', async () => {
+  test('they are set with or without a latest deadline; cycles are refused; a broken latest deadline is a risk, not an error', async () => {
     const owner = await createEmployee();
     const other = await createEmployee();
     const stranger = await createEmployee();
@@ -471,7 +471,7 @@ describe('dependencies', () => {
     const day = (n: number) => new Date(Date.now() + n * 86_400_000);
 
     await expect((await client(stranger.id)).Dependency.set({ taskId: id, value: base, latestAt: null }))
-      .rejects.toMatchObject({ message: 'forbidden' });
+      .rejects.toMatchObject({ message: 'no_access' });
     await api.Dependency.set({ taskId: id, value: base, latestAt: null });
     expect((await api.Task.get({ id })).details?.waitsFor).toMatchObject([{ id: base, latestAt: null, late: [], delays: [] }]);
     expect(await notifications(other.id)).toContainEqual(expect.objectContaining({ kind: 'dependency_added', by: owner.id, hard: false }));
@@ -539,24 +539,36 @@ describe('creating with details', () => {
     expect(await sql`SELECT 1 FROM tag WHERE name = ${tag}`).toHaveLength(0);
   });
 
-  test('a participant makes their part a task of their own: the task waits for it, its owner is told and sees it done', async () => {
+  test('a participant links what the task waits for: its owner is told and sees it done; the latest deadline stays the owner\'s', async () => {
     const owner = await createEmployee();
     const doer = await createEmployee();
+    const other = await createEmployee();
     const task = await createTask(owner.id);
+    const theirs = await createTask(other.id);
     await (await client(owner.id)).Observer.add({ taskId: task, employeeId: doer.id });
     const api = await client(doer.id);
 
     const part = await api.Task.create({ tags: [`n-${randomUUID().slice(0, 8)}`], waitedOnBy: task });
     expect(await api.Task.get({ id: part })).toMatchObject({ ownerId: doer.id });
-    expect((await api.Task.get({ id: task })).details?.waitsFor.map((d) => d.id)).toEqual([part]);
-    expect(await notifications(owner.id)).toContainEqual(expect.objectContaining({ kind: 'part_added', by: doer.id, dependencyId: part }));
-    // The link stays the owner's to change: the part's owner cannot remove it.
-    await expect(api.Dependency.remove({ taskId: task, value: part })).rejects.toMatchObject({ message: 'forbidden' });
+    expect((await api.Task.get({ id: task })).details?.waitsFor).toMatchObject([{ id: part, addedBy: doer.id }]);
+    expect(await notifications(owner.id)).toContainEqual(expect.objectContaining({ kind: 'waits_added', by: doer.id, dependencyId: part }));
+
+    // An existing task too, someone else's: both owners are told; a latest deadline is not the participant's to set.
+    await expect(api.Dependency.set({ taskId: task, value: theirs, latestAt: new Date() })).rejects.toMatchObject({ message: 'forbidden' });
+    await api.Dependency.set({ taskId: task, value: theirs, latestAt: null });
+    expect(await notifications(other.id)).toContainEqual(expect.objectContaining({ kind: 'dependency_added', by: doer.id, dependentId: task }));
+    await (await client(owner.id)).Dependency.set({ taskId: task, value: theirs, latestAt: new Date(Date.now() + 86_400_000) });
+    // Linked already: nothing for the participant to change, the owner's latest deadline stays.
+    await api.Dependency.set({ taskId: task, value: theirs, latestAt: null });
+    expect((await api.Task.get({ id: task })).details?.waitsFor.find((d) => d.id === theirs)?.latestAt).not.toBeNull();
+    // Removed by whoever added it or the owner of the waiting task; nobody else.
+    await expect((await client(other.id)).Dependency.remove({ taskId: task, value: theirs })).rejects.toMatchObject({ message: 'forbidden' });
+    await api.Dependency.remove({ taskId: task, value: theirs });
 
     // Done by its owner: the owner of the waiting task sees it.
     await api.Task.close({ id: part });
-    expect((await (await client(owner.id)).MyDay.todo()).filter((i) => i.kind === 'done'))
-      .toMatchObject([{ task: { id: task }, dependency: { id: part } }]);
+    expect((await (await client(owner.id)).MyDay.todo()).filter((i) => i.kind === 'review'))
+      .toMatchObject([{ task: { id: task }, done: [{ task: { id: part } }] }]);
   });
 });
 

@@ -17,46 +17,48 @@ const MentionRow = z.object({
   createdAt: z.date(),
   value: z.string(),
 });
-const ReviewRow = z.object({
-  taskId: z.number(),
-  at: z.date(),
-  n: z.number(),
-  authorIds: z.number().array(),
-  pending: z.number(),
-});
+const CommentsRow = z.object({ taskId: z.number(), at: z.date(), n: z.number(), authorIds: z.number().array() });
 const RequestRow = z.object({ taskId: z.number(), employeeId: z.number() });
 const RemindRow = z.object({ taskId: z.number(), at: z.date(), text: z.string().nullable() });
 const DeadlineRow = z.object({
   taskId: z.number(),
   at: z.date(),
+  /** When it became a notice: the deadline itself once passed, a day before it (or when set, if later) before. */
+  noticeAt: z.date(),
   overdue: z.boolean(),
   plans: z.object({ employeeId: z.number(), minutes: z.number(), about: z.string().nullable() }).array(),
 });
-const DoneRow = z.object({ taskId: z.number(), value: z.number(), at: z.date(), unread: z.number() });
+const LinkRow = z.object({ taskId: z.number(), other: z.number(), waits: z.boolean(), by: z.number(), at: z.date() });
+const DoneRow = z.object({ taskId: z.number(), value: z.number(), at: z.date() });
+const HandedRow = z.object({ taskId: z.number(), at: z.date().nullable(), unreviewed: z.boolean(), pending: z.number() });
 const PlanRow = z.object({ taskId: z.number(), at: z.date(), minutes: z.number(), about: z.string().nullable() });
 
-/** Comments by others in my task since I last looked at it. */
-const unread = (me: number) => sql`
-  (SELECT count(*)::int FROM comment c
-    WHERE c.task_id = k.id AND c.created_by <> ${me} AND (k.reviewed_at IS NULL OR c.created_at > k.reviewed_at))`;
+/** Since when the owner of task `k` has not reviewed it: what came after is their review (decision 94). */
+const since = () => sql`COALESCE(k.reviewed_at, k.handed_at, '-infinity')`;
+
+/** Groups of one task in the order they are shown: what blocks the review first. */
+const ORDER: TodoItem['kind'][] = ['request', 'review', 'mention', 'remind', 'plan_left'];
 
 /**
- * What waits for my reaction: access requests to my tasks first (they have
- * no time and block "No intervention needed"), then open mentions of me, my
- * tasks with new comments by others, my reminders that came due, my open
- * tasks whose deadline comes within a day or has passed (overdue, decision
- * 93), overdue tasks with my time still planned on them, and tasks mine
- * wait for that are done since I looked at mine, newest first (decision 87).
- * All of it is computed from the data: nothing is marked as sent.
- * `viewerId` — a manager looking at it on the employee's page: then the
- * employee's reminders, theirs alone, are left out, and so are mentions in
- * tasks the manager does not see.
+ * What waits for my reaction (decision 94): tasks, each with its groups —
+ * access requests to my tasks, the review of my tasks (what came since I
+ * last looked: comments by others, dependencies added by others, tasks
+ * mine waits for done, a task handed to me, its deadline a day ahead or
+ * passed), open mentions of me, my reminders that came due, and overdue
+ * tasks with my time still planned on them. The tasks go by deadline, the
+ * overdue and the nearest first, those without one or closed last; the same
+ * deadline, the newer task first. All of it is computed from the data:
+ * nothing is marked as sent. `viewerId` — a manager looking at it on the
+ * employee's page: then the employee's reminders, theirs alone, are left
+ * out, and so are mentions in tasks the manager does not see. `taskId` —
+ * that task's only, for its page.
  */
-export async function todo(me: number, viewerId: number = me): Promise<TodoItem[]> {
+export async function todo(me: number, viewerId: number = me, taskId?: number): Promise<TodoItem[]> {
+  const only = (column: ReturnType<typeof since>) => (taskId === undefined ? sql`` : sql`AND ${column} = ${taskId}`);
   const requests = RequestRow.array().parse(await sql`
     SELECT o.task_id, o.value AS employee_id
       FROM observer o JOIN task k ON k.id = o.task_id
-     WHERE k.owner_id = ${me} AND o.added_at IS NULL AND o.deleted_at IS NULL
+     WHERE k.owner_id = ${me} AND o.added_at IS NULL AND o.deleted_at IS NULL ${only(sql`k.id`)}
      ORDER BY o.id DESC
   `);
   // A mention in a task I no longer see cannot be answered: it is not shown.
@@ -65,55 +67,113 @@ export async function todo(me: number, viewerId: number = me): Promise<TodoItem[
       FROM mention m
       JOIN comment c ON c.task_id = m.task_id AND c.id = m.comment_id
      WHERE m.value = ${me} AND m.closed_at IS NULL AND can_see(m.task_id, ${me}) AND can_see(m.task_id, ${viewerId})
+       ${only(sql`m.task_id`)}
+     ORDER BY c.created_at DESC
   `);
   const answers = await mentionReplies(mentions.map((m) => ({ taskId: m.taskId, commentId: m.commentId, employeeId: me })));
-  const reviews = ReviewRow.array().parse(await sql`
+
+  // The review of my tasks: each kind of notice since I last looked.
+  const comments = CommentsRow.array().parse(await sql`
     SELECT k.id AS task_id, max(c.created_at) AS at, count(*)::int AS n,
-           array_agg(c.created_by ORDER BY c.created_at) AS author_ids,
+           array_agg(c.created_by ORDER BY c.created_at) AS author_ids
+      FROM task k JOIN comment c ON c.task_id = k.id
+     WHERE k.owner_id = ${me} AND c.created_by <> ${me} AND c.created_at > ${since()} ${only(sql`k.id`)}
+     GROUP BY k.id
+  `);
+  const links = LinkRow.array().parse(await sql`
+    SELECT k.id AS task_id, d.value AS other, TRUE AS waits, d.added_by AS by, d.added_at AS at
+      FROM task k JOIN dependency d ON d.task_id = k.id
+     WHERE k.owner_id = ${me} AND d.added_by <> ${me} AND d.added_at > ${since()} ${only(sql`k.id`)}
+    UNION ALL
+    SELECT k.id, d.task_id, FALSE, d.added_by, d.added_at
+      FROM task k JOIN dependency d ON d.value = k.id
+     WHERE k.owner_id = ${me} AND d.added_by <> ${me} AND d.added_at > ${since()} ${only(sql`k.id`)}
+     ORDER BY at
+  `);
+  // Done by someone else — closed by its owner: what I closed myself I know of.
+  const done = DoneRow.array().parse(await sql`
+    SELECT k.id AS task_id, d.value, d.done_at AS at
+      FROM dependency d JOIN task k ON k.id = d.task_id JOIN task v ON v.id = d.value
+     WHERE k.owner_id = ${me} AND d.done_at IS NOT NULL AND v.owner_id IS DISTINCT FROM ${me}
+       AND d.done_at > ${since()} ${only(sql`k.id`)}
+     ORDER BY d.done_at
+  `);
+  // A deadline reminds, it never closes (decision 93): a day ahead, until a
+  // review after that, then overdue until the owner closes the task or moves it.
+  const deadlines = DeadlineRow.array().parse(await sql`
+    SELECT task_id, at, notice_at, overdue, plans FROM (
+      SELECT f.task_id, f.value AS at, f.value <= NOW() AS overdue,
+             CASE WHEN f.value <= NOW() THEN f.value ELSE GREATEST(f.value - INTERVAL '1 day', f.entered_at) END AS notice_at,
+             ${since()} AS since,
+             COALESCE((SELECT json_agg(json_build_object('employeeId', e."by", 'minutes', e.value, 'about', e.about) ORDER BY e.entered_at)
+                         FROM estimate_minutes e WHERE e.task_id = k.id AND e.expired_at IS NULL), '[]') AS plans
+        FROM task k JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
+       WHERE k.owner_id = ${me} AND f.confirmed_at IS NULL ${only(sql`k.id`)}
+         AND (f.value <= NOW() OR (f.value <= NOW() + INTERVAL '1 day' AND f.value - f.entered_at > INTERVAL '1 minute'))
+    ) t
+     WHERE overdue OR notice_at > since
+  `);
+  // Every task of mine with a notice: whether it came to me unreviewed, and the requests that block the review.
+  const reviewed = [...new Set([...comments, ...links, ...done, ...deadlines].map((r) => r.taskId))];
+  const handed = HandedRow.array().parse(await sql`
+    SELECT k.id AS task_id, k.handed_at AS at, k.reviewed_at IS NULL AS unreviewed,
            (SELECT count(*)::int FROM observer o
              WHERE o.task_id = k.id AND o.added_at IS NULL AND o.deleted_at IS NULL) AS pending
-      FROM task k JOIN comment c ON c.task_id = k.id
-     WHERE k.owner_id = ${me} AND c.created_by <> ${me}
-       AND (k.reviewed_at IS NULL OR c.created_at > k.reviewed_at)
-     GROUP BY k.id
+      FROM task k
+     WHERE k.owner_id = ${me} ${only(sql`k.id`)}
+       AND (k.id = ANY(${reviewed}) OR (k.reviewed_at IS NULL AND k.handed_at IS NOT NULL))
   `);
 
   // Leaving a task deletes its reminders: a due one is on a task I see.
   const reminds = viewerId !== me ? [] : RemindRow.array().parse(await sql`
-    SELECT task_id, at, value AS text FROM remind WHERE employee_id = ${me} AND sent_at IS NOT NULL
-  `);
-
-  // A deadline reminds, it never closes (decision 93): a day ahead, then
-  // overdue until the owner closes the task or moves the deadline.
-  const deadlines = DeadlineRow.array().parse(await sql`
-    SELECT f.task_id, f.value AS at, f.value <= NOW() AS overdue,
-           COALESCE((SELECT json_agg(json_build_object('employeeId', e."by", 'minutes', e.value, 'about', e.about) ORDER BY e.entered_at)
-                       FROM estimate_minutes e WHERE e.task_id = k.id AND e.expired_at IS NULL), '[]') AS plans
-      FROM task k JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
-     WHERE k.owner_id = ${me} AND f.confirmed_at IS NULL
-       AND (f.value <= NOW() OR (f.value <= NOW() + INTERVAL '1 day' AND f.value - f.entered_at > INTERVAL '1 minute'))
+    SELECT task_id, at, value AS text FROM remind WHERE employee_id = ${me} AND sent_at IS NOT NULL ${only(sql`task_id`)}
+     ORDER BY at
   `);
   // Overdue, yet my time is still planned on it: its owner closes it only once it is cleared.
   const plansLeft = PlanRow.array().parse(await sql`
     SELECT e.task_id, f.value AS at, e.value AS minutes, e.about
       FROM estimate_minutes e JOIN finished_at f ON f.task_id = e.task_id AND f.expired_at IS NULL
-     WHERE e."by" = ${me} AND e.expired_at IS NULL AND f.value <= NOW() AND f.confirmed_at IS NULL
-  `);
-  // Done by someone else — closed by its owner — since I looked at mine: what I closed myself I know of.
-  const done = DoneRow.array().parse(await sql`
-    SELECT d.task_id, d.value, d.done_at AS at, ${unread(me)} AS unread
-      FROM dependency d JOIN task k ON k.id = d.task_id JOIN task v ON v.id = d.value
-     WHERE k.owner_id = ${me} AND d.done_at IS NOT NULL AND v.owner_id IS DISTINCT FROM ${me}
-       AND (k.reviewed_at IS NULL OR d.done_at > k.reviewed_at)
+     WHERE e."by" = ${me} AND e.expired_at IS NULL AND f.value <= NOW() AND f.confirmed_at IS NULL ${only(sql`e.task_id`)}
   `);
 
   const ids = [...new Set([
-    ...[...requests, ...mentions, ...reviews, ...reminds, ...deadlines, ...plansLeft, ...done].map((r) => r.taskId),
+    ...[...requests, ...mentions, ...handed, ...reminds, ...plansLeft].map((r) => r.taskId),
+    ...links.map((l) => l.other),
     ...done.map((d) => d.value),
   ])];
   const tasks = new Map((await headers(me, ids)).map((h) => [h.id, h]));
 
-  const timed: (TodoItem & { at: Date })[] = [
+  const items: TodoItem[] = [
+    ...requests.flatMap((r) => {
+      const task = tasks.get(r.taskId);
+      return task ? [{ kind: 'request' as const, task, employeeId: r.employeeId }] : [];
+    }),
+    ...handed.flatMap((h): TodoItem[] => {
+      const task = tasks.get(h.taskId);
+      if (!task) return [];
+      const c = comments.find((r) => r.taskId === h.taskId);
+      const deadline = deadlines.find((r) => r.taskId === h.taskId);
+      const review = {
+        comments: c ? { count: c.n, authorIds: [...new Set(c.authorIds)], at: c.at } : null,
+        handedAt: h.unreviewed ? h.at : null,
+        links: links.filter((l) => l.taskId === h.taskId).flatMap((l) => {
+          const other = tasks.get(l.other);
+          return other ? [{ task: other, waits: l.waits, by: l.by, at: l.at }] : [];
+        }),
+        done: done.filter((d) => d.taskId === h.taskId).flatMap((d) => {
+          const other = tasks.get(d.value);
+          return other ? [{ task: other, at: d.at }] : [];
+        }),
+        deadline: deadline ? { at: deadline.at, overdue: deadline.overdue, plans: deadline.plans } : null,
+      };
+      const moments = [
+        review.comments?.at, review.handedAt, deadline?.noticeAt,
+        ...review.links.map((l) => l.at), ...review.done.map((d) => d.at),
+      ].filter((d) => d instanceof Date);
+      if (moments.length === 0) return [];
+      const at = new Date(Math.max(...moments.map((d) => d.getTime())));
+      return [{ kind: 'review', task, at, ...review, pendingRequests: h.pending }];
+    }),
     ...mentions.flatMap((m) => {
       const task = tasks.get(m.taskId);
       return task
@@ -124,46 +184,24 @@ export async function todo(me: number, viewerId: number = me): Promise<TodoItem[
           }]
         : [];
     }),
-    ...reviews.flatMap((r) => {
-      const task = tasks.get(r.taskId);
-      return task
-        ? [{
-            kind: 'review' as const, task, at: r.at, count: r.n, authorIds: [...new Set(r.authorIds)],
-            pendingRequests: r.pending,
-          }]
-        : [];
-    }),
     ...reminds.flatMap((r) => {
       const task = tasks.get(r.taskId);
       return task ? [{ kind: 'remind' as const, task, at: r.at, text: r.text }] : [];
-    }),
-    ...deadlines.flatMap((r) => {
-      const task = tasks.get(r.taskId);
-      if (!task) return [];
-      const item: TodoItem = r.overdue
-        ? { kind: 'overdue', task, at: r.at, plans: r.plans }
-        : { kind: 'closing', task, at: r.at };
-      return [item];
     }),
     ...plansLeft.flatMap((r) => {
       const task = tasks.get(r.taskId);
       return task ? [{ kind: 'plan_left' as const, task, at: r.at, minutes: r.minutes, about: r.about }] : [];
     }),
-    ...done.flatMap((r) => {
-      const task = tasks.get(r.taskId);
-      const dependency = tasks.get(r.value);
-      return task && dependency ? [{ kind: 'done' as const, task, dependency, at: r.at, unread: r.unread }] : [];
-    }),
   ];
-  timed.sort((a, b) => b.at.getTime() - a.at.getTime());
-
-  return [
-    ...requests.flatMap((r) => {
-      const task = tasks.get(r.taskId);
-      return task ? [{ kind: 'request' as const, task, employeeId: r.employeeId }] : [];
-    }),
-    ...timed,
-  ];
+  // By deadline, the overdue and the nearest first; no deadline or closed last; then the newer task.
+  const urgency = (t: TodoItem['task']) => (t.deadline === null || t.closed ? Infinity : t.deadline.getTime());
+  return items
+    .map((item, i) => ({ item, i }))
+    .sort((a, b) => urgency(a.item.task) - urgency(b.item.task)
+      || b.item.task.id - a.item.task.id
+      || ORDER.indexOf(a.item.kind) - ORDER.indexOf(b.item.kind)
+      || a.i - b.i)
+    .map((x) => x.item);
 }
 
 const MyMentionRow = z.object({

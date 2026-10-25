@@ -51,8 +51,9 @@ In this order after stage 6 (S — a day, M — a few days, L — a week or more
   reached the person; any mention is answered in the comments
   (decision 9).
 - An assignee, or an author apart from the owner — the owner is whose
-  initiative it is; the doer is a participant with their part
-  (decision 76).
+  initiative it is; the doer is a participant who plans their hours in
+  the task, or makes a task of their own the task waits for (decisions
+  76, 94).
 - Hour budgets that refuse time over the limit — a line to keep to,
   with everyone's plans in the forecast (decisions 69, 91).
 - Links between tasks other than "waits for" — tasks are related by

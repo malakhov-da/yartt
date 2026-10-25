@@ -19,15 +19,45 @@ export const TodoMention = z.object({
 });
 export type TodoMention = z.infer<typeof TodoMention>;
 
-/** My task with comments by others since my last "No intervention needed" (decision 16). */
+/** Time planned on a task, someone's own (estimate_minutes). */
+export const PlanLeft = z.object({ employeeId: Id, minutes: z.number().int(), about: z.string().nullable() });
+export type PlanLeft = z.infer<typeof PlanLeft>;
+
+/** A dependency someone else added on my task, since my review. */
+export const ReviewLink = z.object({
+  /** The other task. */
+  task: TaskHeader,
+  /** true — my task waits for it; false — it waits for mine. */
+  waits: z.boolean(),
+  by: Id,
+  at: z.date(),
+});
+export type ReviewLink = z.infer<typeof ReviewLink>;
+
+/**
+ * What in my task came since my review (decision 94): each notice is taken
+ * away by moving reviewed_at past it — "No intervention needed", or
+ * "Finish" when the task is overdue. Only what was shown is taken away:
+ * the button sends `at`.
+ */
 export const TodoReview = z.object({
   kind: z.literal('review'),
   task: TaskHeader,
-  /** The latest of those comments. */
+  /** The newest notice: reviewed_at goes up to it. */
   at: z.date(),
-  count: z.number().int(),
-  /** Authors in the order they first wrote. */
-  authorIds: Id.array(),
+  /** Comments by others: how many, the authors in the order they first wrote, the newest one's moment; NULL — none. */
+  comments: z.object({ count: z.number().int(), authorIds: Id.array(), at: z.date() }).nullable(),
+  /** The task came to me then, and I have not reviewed it since; NULL — not a notice. */
+  handedAt: z.date().nullable(),
+  links: ReviewLink.array(),
+  /** Tasks mine waits for that their owners closed. */
+  done: z.object({ task: TaskHeader, at: z.date() }).array(),
+  /**
+   * The deadline within a day — a notice — or passed: overdue, it stays
+   * until I close the task or move the deadline (decision 93); closed only
+   * once nobody has time planned on it. NULL — neither.
+   */
+  deadline: z.object({ at: z.date(), overdue: z.boolean(), plans: PlanLeft.array() }).nullable(),
   /** "No intervention needed" waits for these to be answered. */
   pendingRequests: z.number().int(),
 });
@@ -51,49 +81,6 @@ export const TodoRemind = z.object({
 });
 export type TodoRemind = z.infer<typeof TodoRemind>;
 
-/** My open task's deadline comes within a day: close it if the work is done, move the deadline if not. */
-export const TodoClosing = z.object({
-  kind: z.literal('closing'),
-  task: TaskHeader,
-  /** The deadline. */
-  at: z.date(),
-});
-export type TodoClosing = z.infer<typeof TodoClosing>;
-
-/** Time planned on a task, someone's own (estimate_minutes). */
-export const PlanLeft = z.object({ employeeId: Id, minutes: z.number().int(), about: z.string().nullable() });
-export type PlanLeft = z.infer<typeof PlanLeft>;
-
-/**
- * My task is overdue: its deadline passed and I have not closed it
- * (decision 93). It stays here until I close it or move the deadline;
- * closed only once nobody has time planned on it.
- */
-export const TodoOverdue = z.object({
-  kind: z.literal('overdue'),
-  task: TaskHeader,
-  /** The deadline it missed. */
-  at: z.date(),
-  /** Whose plans are still on it: each clears their own first. */
-  plans: PlanLeft.array(),
-});
-export type TodoOverdue = z.infer<typeof TodoOverdue>;
-
-/**
- * A task my task waits for is done — its owner closed it — since
- * I last looked at mine: "No intervention needed" takes note.
- */
-export const TodoDone = z.object({
-  kind: z.literal('done'),
-  /** My waiting task. */
-  task: TaskHeader,
-  dependency: TaskHeader,
-  at: z.date(),
-  /** Comments by others in my task I have not looked at: noted in the task then, not here. */
-  unread: z.number().int(),
-});
-export type TodoDone = z.infer<typeof TodoDone>;
-
 /** An overdue task with my time still planned on it: cleared, its owner can close it. */
 export const TodoPlanLeft = z.object({
   kind: z.literal('plan_left'),
@@ -106,9 +93,11 @@ export const TodoPlanLeft = z.object({
 });
 export type TodoPlanLeft = z.infer<typeof TodoPlanLeft>;
 
-export const TodoItem = z.discriminatedUnion('kind', [
-  TodoMention, TodoReview, TodoRequest, TodoRemind, TodoClosing, TodoOverdue, TodoDone, TodoPlanLeft,
-]);
+/** `as` — a report's (decision 83); `taskId` — one task's, for its page. */
+export const TodoInput = z.object({ as: As, taskId: Id.optional() });
+export type TodoInput = z.infer<typeof TodoInput>;
+
+export const TodoItem = z.discriminatedUnion('kind', [TodoMention, TodoReview, TodoRequest, TodoRemind, TodoPlanLeft]);
 export type TodoItem = z.infer<typeof TodoItem>;
 
 /** My access request to someone's task, not answered yet. */

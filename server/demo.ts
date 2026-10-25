@@ -252,6 +252,11 @@ export async function seedDemo(lang: DemoLanguage): Promise<void> {
   await P.Task.setDeadline({ id: auth, deadline: daysAhead(7) });
   await P.Dependency.set({ taskId: auth, value: site, latestAt: daysAhead(2) });
 
+  // 7a. Pavel takes part in my site and needs a deadline of his own for the reviews: he makes a task of
+  // his own the site waits for (decision 94) — a new link in my review.
+  const reviews = await P.Task.create({ tags: tags.reviews, deadline: daysAhead(2), waitedOnBy: site });
+  await P.Time.setLeft({ taskId: reviews, minutes: 180 });
+
   // 8. Sergey's task goes to Marina when he is dismissed. He worked on it before leaving (20 days
   // ago, below), so all of it is dated three weeks back: a comment is never changed, it is written so.
   const laptops = await S.Task.create({ tags: tags.laptops });

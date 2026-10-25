@@ -63,7 +63,7 @@ export const helpEn: Help = {
       ownerDoes: ['decides when the task is done', 'sets and moves the deadline', 'removes participants not needed', 'answers for the result'],
       participant: 'Participants',
       participantWho: 'Those brought into the task',
-      participantDoes: ['comment and answer mentions', 'bring others in', 'plan their time and log hours', 'take a big part into a task of their own — "My part"'],
+      participantDoes: ['comment and answer mentions', 'bring others in', 'plan their time and log hours', 'make a task of their own when they need a deadline of their own'],
       manager: 'Managers',
       managerWho: 'Added by themselves, up the chain',
       managerDoes: ['see the tasks of their people', 'may hand over a report\'s task', 'stay while their person is in the task'],
@@ -81,15 +81,16 @@ export const helpEn: Help = {
       finish: 'A task can be finished at any step. Before its deadline the deadline becomes "now"; after it, it stays as it was, so a late close shows.',
     },
     part: {
-      title: 'My part: a task of your own within someone else\'s initiative',
+      title: 'A task of your own within someone else\'s initiative',
       main: 'The owner\'s task',
       mainOwner: 'owner — Emily',
       waits: 'waits for',
-      sub: 'My part',
+      sub: 'Jack\'s task',
       subOwner: 'owner — Jack',
       steps: [
-        'Jack takes part in Emily\'s task. His part is big, so he presses "My part" under "Waits for".',
-        'The new task is Jack\'s: he describes what he will do and decides when it is done. Emily\'s task now waits for it.',
+        'Jack takes part in Emily\'s task. Usually he plans his hours right in it and says in the plan what he will do.',
+        'When Jack needs a deadline of his own and to decide himself when the work is done, he presses "New task" under '
+          + '"Waits for". The new task is his, and Emily\'s task waits for it.',
         'Jack closed his task. Emily\'s Waiting for me says "A task this one waits for is done".',
       ],
     },
@@ -125,12 +126,14 @@ export const helpEn: Help = {
         {
           title: 'Work through Waiting for me',
           steps: [
-            'Everything that needs your reaction sits under the line of its task.',
+            'Everything that needs your reaction sits under the line of its task. The tasks go by deadline: the overdue and the nearest on top.',
             'A mention: reply and press "Done".',
-            'New comments on your task: "Read" opens it. Nothing needs your decision? Press "No intervention needed" there.',
             'An access request to your task: approve or reject it.',
-            'A task yours waits for has closed: mark it "Noted". An email comes too.',
-            'Your task\'s deadline is near or has passed: what to do is under "Close a task".',
+            'Whatever is new in your task is one block: comments, new links, tasks it waits for that are done, the task handed '
+              + 'to you and its deadline a day ahead. The same block is on top of the task\'s page.',
+            'Open the new comments with "Read" and scroll them to the end. If nothing is needed of you, press "No intervention '
+              + 'needed": what you saw goes away, whatever came later stays.',
+            'Your task\'s deadline has passed: what to do is under "Close a task".',
             'Waiting for others, below, is the other way round: your requests and mentions waiting for others. The longest waiting '
               + 'on top; a request can be withdrawn right there.',
           ],
@@ -207,6 +210,8 @@ export const helpEn: Help = {
             'When the deadline passes and the task is not finished, it is overdue. It stays in My open with its date in red, and '
               + 'Waiting for me keeps a reminder: finish the task or move the deadline.',
             'It can be finished once nobody has time planned on it. Whoever does gets "Clear my plan" in Waiting for me.',
+            'In Waiting for me an overdue task has "Finish" in place of "No intervention needed": it closes the task and takes '
+              + 'its notices away, so read the new comments first.',
             'A moved deadline opens a closed task again. Closed tasks are in the Closed tab, the most recent first.',
             'Changes of the deadline within a minute count as one: owners of dependent tasks are told once it has stood for a minute.',
           ],
@@ -234,12 +239,15 @@ export const helpEn: Help = {
           title: 'Link tasks',
           steps: [
             'On a task\'s page, "Waits for" is what it cannot be finished without, "Waited on by" is who needs it. A task is found by tags or number.',
-            'Links in "Waits for" are added by the owner. A participant adds there only a new task of their own, with "My part" (see the diagram above).',
+            'Anyone who sees the task adds a link: any task to "Waits for", one of their own to "Waited on by" — an existing one, '
+              + 'or a new one with "New task". A link is removed by the owner of the waiting task or by whoever added it.',
+            'A participant needs a task of their own when they need a deadline of their own. If hours in this task are enough, '
+              + 'they plan them in it (see the diagram above).',
             'A latest deadline is the moment the task waited for must not finish after. The owner of the waiting task sets it by '
               + 'clicking "needed by …" or "no latest deadline" on the link\'s line. Without one the link only shows the order.',
             'Nothing is forbidden. When the task waited for is late or has no deadline, the link\'s line is highlighted '
               + 'and both tasks are "At risk".',
-            'The owner of the task waited for is told of a new link; the owner of the waiting one, of every move of its deadline.',
+            'The owners of both tasks are told of a new link; the owner of the waiting one, also of every move of the other\'s deadline.',
           ],
         },
       ],
@@ -255,7 +263,8 @@ export const helpEn: Help = {
             'Need an answer or an action? Mention the person (@) and say what is needed. The request lands in their Waiting for me '
               + 'and is closed by their reply and "Done".',
             'Only those in the task can be mentioned; in a public task, anyone. Add the others first.',
-            'A lot of work? They make a task of their own with "My part".',
+            'A participant plans their hours in this task. If they need a deadline of their own, they make a task of their own '
+              + 'with "New task" under "Waits for" on the task\'s page.',
           ],
         },
         {
@@ -362,7 +371,7 @@ export const helpEn: Help = {
           q: 'Why are tasks linked only by "Waits for"?',
           a: 'Waiting means something: one task cannot end before another, and the deadlines are checked. "Related to" constrains '
             + 'nothing and only adds arrows. Tasks are related by their tags: a click on a tag finds every task with it, and a '
-            + 'follow-up task or "My part" starts with the original\'s tags.',
+            + 'task made from another\'s links starts with its tags.',
         },
         {
           q: 'Why no reporter and assignee?',
@@ -427,8 +436,8 @@ export const helpEn: Help = {
         {
           q: 'How does "Done" differ from "No intervention needed"?',
           a: '"Done" closes a mention: whoever was mentioned presses it after replying. "No intervention needed" is pressed by the '
-            + 'owner once they have read the new comments and decided nothing is needed of them. It sits in the task next to the '
-            + 'comments, not in Waiting for me, so comments are never skipped unread.',
+            + 'owner once they have gone through what is new in their task and decided nothing is needed of them. It opens only '
+            + 'once the new comments are read, and takes away only what was on the screen, so nothing is skipped unread.',
         },
         {
           q: "Why do managers see their reports' tasks?",

@@ -39,7 +39,25 @@ waits for me, what I wait for, my tasks — and my days beside them; below,
 folded to a line each until opened (and remembered open), my team, the
 tags, the hour budgets and the bots (decision 83):
 
-- **TODO** — what waits for my reaction, newest first:
+- **TODO** — what waits for my reaction: tasks, by deadline — the
+  overdue and the nearest first, those without one or closed last, the
+  same deadline the newer task first — and under the line of each task its
+  groups, one per kind of action (decision 94):
+  - access requests to my task: approve or reject;
+  - the review of my task — everything that came since I last looked,
+    which I answer by "No intervention needed": comments by others, one
+    line "New comments: 7, from …" with "Read" that opens them all in a
+    table, in full; links others added on either side ("Pavel: this task
+    now waits for" and the task); tasks it waits for that their owners
+    closed; the task handed to me; its deadline a day ahead ("Deadline in
+    5 hours", with "Move the deadline") or passed ("Overdue", with whose
+    plans are left). One button for the whole group: "No intervention
+    needed", after a warning naming what will go away; on an overdue task
+    "Finish" in its place, disabled while someone has time planned on it.
+    Disabled until the table of new comments was scrolled to its end
+    (kept in the page, not the database), and while an access request
+    waits. It takes away what was shown — up to its newest notice — so
+    whatever came later stays;
   - mentions of me that are still open. A mention closes only explicitly
     ("Done"): a reply alone does not mean the request is handled — but
     "Done" needs a reply: until I reply to the mentioning comment
@@ -48,30 +66,15 @@ tags, the hour budgets and the bots (decision 83):
     inside the mention ("My reply: …"), oldest first. This is
     the only way a task I merely take part in gets here — its other comments
     stay quiet;
-  - my own tasks with comments by others since I last confirmed that no
-    intervention is needed (decision 16);
-  - access requests to my tasks;
   - my reminders that came due — "Reminder since …", something to do from
     then on, not overdue: each waits with its text until I mark it done
     or put it off — in an hour, tomorrow, on Monday, before the
     deadline or at a moment I pick (decision 73);
-  - my tasks that close by their deadline within a day — "Closes by
-    itself in 5 hours", with "Finish" (done already — closed now) and
-    "Move the deadline" — and, once closed by a
-    deadline, "Closed by its deadline" with "Confirm" or "Open again"
-    while I have not looked at it since, whose plans are still on it, and
-    "Confirm" only once they are cleared (decision 87);
-  - closed tasks with my time still planned on them, with "Clear my plan";
-  - tasks mine wait for that are done — their owners confirmed them —
-    since I looked at mine, with "Noted" ("No intervention needed" of
-    mine; "Read" while comments wait there).
-  The items of one task are under one line of it, the tasks in the order
-  of their first item. Each item has its action right there: done, reply,
-  approve or reject, remove or put off, confirm, noted. New comments have "Read", which
-  opens the task: "No intervention needed" is pressed there, never from
-  the list, so that comments are not waved off unread (decision 74). When TODO is empty, the screen says so — that is the
-  goal. Days of my reports waiting for a score are not here: scoring is
-  never required, it lives on the employee's page.
+  - overdue tasks with my time still planned on them, with "Clear my plan".
+  The same block, the same way, is on top of the task's page. Each item
+  has its action right there. When TODO is empty, the screen says so —
+  that is the goal. Days of my reports waiting for a score are not here:
+  scoring is never required, it lives on the employee's page.
 - **Waiting for others** — a list of its own under TODO, shown only when
   there is something: my access requests the owner has not answered yet,
   with "Withdraw", and my open mentions of people — whom, when, the
@@ -184,12 +187,11 @@ Left, top to bottom:
   the tags (the "title", in my own tag order), the owner with avatar, priority, deadline, and whether the task
   is public or private. The owner edits them in place and has "Finish"
   (the deadline becomes now).
-- **Needs the owner:** when others have commented since the owner's last
-  check, the owner sees "Since your check on <date>: N comments from …"
-  and "No intervention needed". Pressing it is a statement — "I read
-  this, nothing here waits for my decision" — not "I have seen it"
-  (decision 16). The new comments are marked in the feed. The button is
-  disabled while an access request waits for an answer.
+- **Waiting for me:** what of TODO is in this task, the same block as in
+  My day — for the owner the review with "No intervention needed".
+  Pressing it is a statement — "I read this, nothing here waits for my
+  decision" — not "I have seen it" (decisions 16, 94). The new comments
+  are marked in the feed.
 - **Context:** the owner's description, edited in place. It follows from
   the comments, so it keeps no history of its own; neither do the owner,
   priority and tags — they are the task's state, not its story.
@@ -203,13 +205,16 @@ Left, top to bottom:
   avatar. The latest deadline is on every line — "needed by …", or "no
   latest deadline" — and is the waiting task's owner's: in Waits for they
   change it by clicking it, edited in place of the line; for everyone
-  else its hint names who may change it (decision 76). A participant
-  has **My part** under Waits for: a new task of their own, which this
-  one waits for from its creation. Resolved dependencies stay in the list, struck through, so the
-  history of what blocked the task is not lost.
-  **New task** next to each list opens the new-task form tied to this
-  task: one this task waits for (the owner only), or one that waits for
-  it (anyone who sees it — the new task is theirs).
+  else its hint names who may change it (decision 76). Resolved
+  dependencies stay in the list, struck through, so the history of what
+  blocked the task is not lost. **Add** and **New task** are next to each
+  list for anyone who sees the task (decision 94): in Waits for any task
+  this one waits for, in Waited on by one of my own that waits for it; the
+  latest deadline is offered only to the owner of the waiting task. For a
+  participant, the hint of New task in Waits for says when a task of
+  their own is needed — a deadline of their own — and that otherwise a
+  plan here is enough. A line is removed by the owner of the waiting task
+  or by whoever linked it.
 - **Feed**, newest first; the composer on top is a rich text editor
   (mui-tiptap): images are pasted, dropped or picked and shown in the
   text; other files become attachments; people and tasks are attached

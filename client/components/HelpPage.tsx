@@ -39,7 +39,7 @@ function Fold(p: { title: string; children: ReactNode }) {
  * The guide (`/help`, decision 62), over My day like a task, in the order a
  * newcomer needs it (decisions 80, 92): the principles, each with the usual
  * things it replaces, five steps for the first day, diagrams of
- * the screen, the roles, a task's life and "My part", how to do the usual
+ * the screen, the roles, a task's life and a task of one's own, how to do the usual
  * things and why the unusual rules are so, both by topic — in the person's language, written for it,
  * not translated word by word.
  */

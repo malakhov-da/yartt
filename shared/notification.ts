@@ -20,8 +20,8 @@ export const NotificationPayload = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('access_closed'), by: Id, ...Copy }),
   /** The deadline of a task mine waits for changed; `late` — it is now later than mine can live with, or gone. */
   z.object({ kind: z.literal('finished_at_change'), dependencyId: Id, late: z.boolean().optional(), ...Copy }),
-  /** Someone made their part of my task a task of theirs (`dependencyId`): mine waits for it. */
-  z.object({ kind: z.literal('part_added'), by: Id, dependencyId: Id, ...Copy }),
+  /** Someone made my task wait for `dependencyId` (decision 94). */
+  z.object({ kind: z.literal('waits_added'), by: Id, dependencyId: Id, ...Copy }),
   /** Someone's task now waits for mine; `hard` — it has a latest deadline for mine (the name is kept for webhooks). */
   z.object({ kind: z.literal('dependency_added'), by: Id, dependentId: Id, hard: z.boolean(), ...Copy }),
   /** My task closes by its deadline within a day; `deadline` — when, ISO. */

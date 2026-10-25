@@ -25,6 +25,7 @@ const ru = {
     hiring: ['найм', 'закрыть вакансию бэкенд-разработчика'],
     budget: ['финансы', 'бюджет на 2026 год'],
     auth: ['сайт', 'api', 'перевести форму заявки на новый api'],
+    reviews: ['сайт', 'собрать отзывы клиентов для главной'],
     laptops: ['закупки', 'ноутбуки для новых сотрудников'],
     support: 'поддержка',
     ticket: (n: number) => `тикет ${n}: ${[
@@ -100,6 +101,7 @@ const en: typeof ru = {
     hiring: ['hiring', 'fill the backend developer vacancy'],
     budget: ['finance', 'budget for 2026'],
     auth: ['website', 'api', 'move the request form to the new api'],
+    reviews: ['website', 'gather customer reviews for the homepage'],
     laptops: ['purchasing', 'laptops for new hires'],
     support: 'support',
     ticket: (n: number) => `ticket ${n}: ${[

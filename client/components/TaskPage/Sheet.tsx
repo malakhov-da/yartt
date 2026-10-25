@@ -2,7 +2,7 @@ import { Check, Edit, Lock, Public } from '@mui/icons-material';
 import {
   Alert, Box, Button, Chip, IconButton, MenuItem, Paper, Stack, TextField, Tooltip, Typography,
 } from '@mui/material';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TagPart } from '#shared/tags.ts';
@@ -10,7 +10,7 @@ import { PRIORITIES, type Priority, type TaskDetails, type TaskPage } from '#sha
 import { useFormat } from '#client/hooks/format.ts';
 import { useDraft } from '#client/hooks/drafts.ts';
 import { useMe } from '#client/hooks/me.ts';
-import { useEmployees, useTaskRefresh } from '#client/hooks/task.ts';
+import { POLL_MS, useEmployees, useTaskRefresh } from '#client/hooks/task.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import EmployeeAvatar from '../App/EmployeeAvatar.tsx';
 import TagInput, { useTitle } from '../App/TagInput.tsx';
@@ -22,6 +22,7 @@ import RiskChip from './RiskChip.tsx';
 import Dependencies from './Dependencies.tsx';
 import TransferDialog from './TransferDialog.tsx';
 import TakenLink from '../App/TakenLink.tsx';
+import { TodoList } from '../MyDayPage/Todo.tsx';
 
 const label = { fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'text.secondary' } as const;
 
@@ -32,7 +33,7 @@ function localInput(date: Date): string {
 }
 
 /**
- * Header, "needs the owner", context and dependencies — one sheet. The owner
+ * Header, what waits for me here, context and dependencies — one sheet. The owner
  * edits in place; everyone else reads (decision 15). Tags and context being
  * edited are drafts: leaving the page keeps them until Save or Cancel.
  */
@@ -56,7 +57,7 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
 
   const update = useMutation(trpc.Task.update.mutationOptions({ onSuccess: refresh }));
   const setDeadline = useMutation(trpc.Task.setDeadline.mutationOptions({ onSuccess: refresh }));
-  const markReviewed = useMutation(trpc.Task.markReviewed.mutationOptions({ onSuccess: refresh }));
+  const todo = useQuery(trpc.MyDay.todo.queryOptions({ taskId: task.id }, { refetchInterval: POLL_MS }));
   const close = useMutation(trpc.Task.close.mutationOptions({ onSuccess: refresh }));
   const take = useMutation(trpc.Task.take.mutationOptions({ onSuccess: refresh }));
 
@@ -77,7 +78,6 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
     ? t('task.deadlineHint', { date: format.dateTime(task.deadline), relative: format.relative(task.deadline) })
     : t('task.deadlineNoneHint');
 
-  const names = (ids: number[]) => ids.map((id) => employees.get(id)?.fullName ?? `#${id}`).join(', ');
 
   return (
     <Paper sx={{ p: { xs: 2, sm: 3 }, display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -188,34 +188,13 @@ export default function (p: { task: TaskPage & { details: TaskDetails } }) {
         )}
       </Stack>
 
-      {isOwner && d.newComments.count > 0 && (
-        <Alert
-          severity="warning"
-          variant="outlined"
-          icon={false}
-          action={
-            <Tooltip title={d.pendingRequests > 0 ? t('task.review.requestsFirst') : ''}>
-              <span>
-                <Button
-                  color="inherit"
-                  variant="outlined"
-                  disabled={d.pendingRequests > 0 || markReviewed.isPending}
-                  onClick={() => markReviewed.mutate({ id: task.id })}
-                >
-                  {t('task.review.button')}
-                </Button>
-              </span>
-            </Tooltip>
-          }
-        >
-          <Typography sx={{ fontWeight: 500 }}>
-            {d.reviewedAt
-              ? t('task.review.title', { since: format.dateTime(d.reviewedAt), count: d.newComments.count, authors: names(d.newComments.authorIds) })
-              : t('task.review.titleNever', { count: d.newComments.count, authors: names(d.newComments.authorIds) })}
-          </Typography>
-          <Typography variant="body2">
-            {d.pendingRequests > 0 ? t('task.review.requestsFirst') : t('task.review.hint')}
-          </Typography>
+      {todo.data && todo.data.length > 0 && (
+        // What waits for me here, the same as in My day (decision 94).
+        <Alert severity="warning" variant="outlined" icon={false} sx={{ '& .MuiAlert-message': { width: '100%' } }}>
+          <Stack spacing={1}>
+            <Typography sx={label}>{t('myDay.todo.title')}</Typography>
+            <TodoList items={todo.data} inTask />
+          </Stack>
         </Alert>
       )}
 

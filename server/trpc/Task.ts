@@ -58,8 +58,8 @@ export default router({
   /**
    * Creates a private task owned by the signed-in employee; new tags are
    * created. Priority, deadline, context and a dependency without a latest deadline — the new
-   * task waits for `waitsFor`, or `waitedOnBy` (a task the creator sees: the
-   * new one is their part of it, decision 76) waits for it — may come at
+   * task waits for `waitsFor`, or `waitedOnBy` (a task the creator sees,
+   * decision 94) waits for it — may come at
    * once, and the `participants` brought in, each told. Returns its id.
    * @throws tag_set_taken — a task with this set of tags exists.
    * @throws no_access — the creator does not see `waitedOnBy`.
@@ -101,15 +101,18 @@ export default router({
    * The owner closes the task — the only way a task closes (decision 93).
    * An overdue one is closed at the deadline it missed, any other now; the
    * tasks waiting for it are done for from then on, their owners notified.
-   * A closed task is left as it is.
+   * A closed task is left as it is. `reviewedUntil` — closed from the
+   * review in Waiting for me: its notices up to that moment, the newest
+   * shown, are taken away too (decision 94).
    * @throws forbidden — not the owner.
    * @throws plans_left — someone still has time planned on it.
+   * @throws pending_requests — `reviewedUntil` while access requests wait.
    */
   close: authedProcedure
     .meta({ bot: 'task' })
-    .input(z.object({ id: Id }))
+    .input(z.object({ id: Id, reviewedUntil: z.date().optional() }))
     .output(z.void())
-    .mutation(({ input, ctx }) => Tasks.close(ctx.employeeId, input.id)),
+    .mutation(({ input, ctx }) => Tasks.close(ctx.employeeId, input.id, input.reviewedUntil)),
 
   /**
    * Hands the task over to another employee. The owner or the owner's
@@ -136,15 +139,17 @@ export default router({
 
   /**
    * "No intervention needed": the owner confirms nothing in the task waits
-   * for their decision. It is about the comments and never closes the task.
+   * for their decision. Takes away the notices of the review up to `until`
+   * — the newest one shown — so whatever came later stays (decision 94);
+   * left out, up to now. Never closes the task.
    * @throws forbidden — not the owner.
    * @throws pending_requests — answer the access requests first.
    */
   markReviewed: authedProcedure
     .meta({ bot: 'task' })
-    .input(z.object({ id: Id }))
+    .input(z.object({ id: Id, until: z.date().optional() }))
     .output(z.void())
-    .mutation(({ input, ctx }) => Tasks.markReviewed(ctx.employeeId, input.id)),
+    .mutation(({ input, ctx }) => Tasks.markReviewed(ctx.employeeId, input.id, input.until)),
 
   /**
    * The owner makes the task public: every observer row closes, everyone

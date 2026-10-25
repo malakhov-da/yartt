@@ -1,16 +1,20 @@
-import { AlternateEmail, ChatBubbleOutline, EventBusy, HourglassEmpty, LockOpen, NotificationsActive, TaskAlt } from '@mui/icons-material';
-import { Box, Button, Paper, Stack, Tooltip, Typography } from '@mui/material';
+import { AlternateEmail, ChatBubbleOutline, EventBusy, HourglassEmpty, Link as LinkIcon, LockOpen, NotificationsActive, SwapHoriz, TaskAlt } from '@mui/icons-material';
+import {
+  Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Paper, Stack, Table, TableBody, TableCell,
+  TableHead, TableRow, Tooltip, Typography,
+} from '@mui/material';
 import { keyframes } from '@mui/material/styles';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
-import type { TodoItem } from '#shared/myDay.ts';
+import type { TodoItem, TodoReview } from '#shared/myDay.ts';
 import { useFormat } from '#client/hooks/format.ts';
 import { POLL_MS, useEmployees, usePronoun, useTaskRefresh } from '#client/hooks/task.ts';
-import { useStore } from '#client/hooks/store.ts';
+import { markReviewRead, useStore } from '#client/hooks/store.ts';
 import { useTRPC } from '#client/hooks/trpc.ts';
 import { useViewAs } from '#client/hooks/viewAs.ts';
+import RichView from '../App/RichView.tsx';
 import Composer from '../TaskPage/Composer.tsx';
 import MentionReply from '../TaskPage/MentionReply.tsx';
 import { PutOff } from '../TaskPage/Reminders.tsx';
@@ -72,20 +76,23 @@ export default function () {
 }
 
 /**
- * The items under their tasks. `readOnly` — someone else's, on their page
- * for a manager: what waits for them, without their buttons or the hints
- * meant for them.
+ * The items under their tasks (decision 94). `readOnly` — someone else's,
+ * on their page for a manager: what waits for them, without their buttons
+ * or the hints meant for them. `inTask` — on the task's own page, without
+ * its line.
  */
-export function TodoList(p: { items: TodoItem[]; readOnly?: boolean }) {
+export function TodoList(p: { items: TodoItem[]; readOnly?: boolean; inTask?: boolean }) {
   return groups(p.items).map((group) => (
     <Stack key={group.task.id} spacing={1}>
-      <TaskLine task={group.task} />
-      {group.items.map((item) => <Item key={key(item)} item={item} readOnly={p.readOnly} />)}
+      {!p.inTask && <TaskLine task={group.task} />}
+      {group.items.map((item) => (item.kind === 'review'
+        ? <Review key={key(item)} item={item} readOnly={p.readOnly} />
+        : <Item key={key(item)} item={item} readOnly={p.readOnly} />))}
     </Stack>
   ));
 }
 
-/** Items of one task together, under one line of it: the tasks in the order their first item comes. */
+/** Items of one task together, under one line of it: the tasks in the order the server put them, by deadline. */
 function groups(items: TodoItem[]): { task: TodoItem['task']; items: TodoItem[] }[] {
   const byTask = new Map<number, { task: TodoItem['task']; items: TodoItem[] }>();
   for (const item of items) {
@@ -100,11 +107,223 @@ const key = (item: TodoItem) =>
   item.kind === 'mention' ? `m${item.task.id}-${item.commentId}`
   : item.kind === 'request' ? `r${item.task.id}-${item.employeeId}`
   : item.kind === 'remind' ? `t${item.task.id}-${item.at.getTime()}`
-  : item.kind === 'done' ? `d${item.task.id}-${item.dependency.id}`
-  : item.kind === 'closing' || item.kind === 'overdue' || item.kind === 'plan_left' ? `${item.kind}${item.task.id}`
+  : item.kind === 'plan_left' ? `${item.kind}${item.task.id}`
   : `v${item.task.id}`;
 
-function Item(p: { item: TodoItem; readOnly?: boolean }) {
+/** One line of a group: its icon, what it says, and its buttons unless read only. */
+function Line(p: { icon: React.ReactNode; children: React.ReactNode; actions?: React.ReactNode; readOnly?: boolean }) {
+  return (
+    <Stack direction="row" sx={{ alignItems: 'flex-start', pl: 1.25, gap: 1, flexWrap: 'wrap' }}>
+      <Box sx={{ color: 'text.secondary', pt: 0.25 }}>{p.icon}</Box>
+      <Box sx={{ flex: '1 1 220px', minWidth: 0 }}>{p.children}</Box>
+      {!p.readOnly && p.actions && <Stack direction="row" spacing={1} sx={{ flexShrink: 0, ml: 'auto' }}>{p.actions}</Stack>}
+    </Stack>
+  );
+}
+
+/**
+ * The review of my task (decision 94): every notice since I last looked,
+ * and one button that takes them away — up to the newest shown, so what
+ * comes later stays. "No intervention needed", after a warning; "Finish"
+ * when the task is overdue. The new comments are read in a table first.
+ */
+function Review(p: { item: TodoReview; readOnly?: boolean }) {
+  const { t } = useTranslation();
+  const trpc = useTRPC();
+  const format = useFormat();
+  const employees = useEmployees();
+  const refresh = useTaskRefresh();
+  const [table, setTable] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const readUntil = useStore((s) => s.reviewRead[p.item.task.id]);
+  const name = (id: number) => employees.get(id)?.fullName ?? `#${id}`;
+  const reviewed = useMutation(trpc.Task.markReviewed.mutationOptions({ onSuccess: refresh }));
+  const finish = useMutation(trpc.Task.close.mutationOptions({ onSuccess: refresh }));
+
+  const { item } = p;
+  const { deadline } = item;
+  const overdue = deadline?.overdue === true;
+  const read = item.comments === null || (readUntil ?? 0) >= item.comments.at.getTime();
+  const blocked = item.pendingRequests > 0 ? t('task.review.requestsFirst')
+    : !read ? t('task.review.readFirst')
+    : overdue && deadline.plans.length > 0 ? t('myDay.todo.closeAfterPlans')
+    : '';
+  const what = [
+    item.comments && t('task.review.comments', { count: item.comments.count }),
+    item.links.length > 0 && t('task.review.links', { count: item.links.length }),
+    item.done.length > 0 && t('task.review.done', { count: item.done.length }),
+    item.handedAt && t('task.review.handed'),
+    deadline && !overdue && t('task.review.closing'),
+  ].filter(Boolean).join(', ');
+  const moveDeadline = (
+    <Button size="small" component={Link} to={`/tasks/${item.task.id}`}>{t('myDay.todo.moveDeadline')}</Button>
+  );
+
+  return (
+    <Stack spacing={1}>
+      {item.handedAt && (
+        <Line icon={<SwapHoriz fontSize="small" />} readOnly={p.readOnly}>
+          <Typography variant="body2">{t('myDay.todo.handed')} · {format.relative(item.handedAt)}</Typography>
+        </Line>
+      )}
+      {deadline && (
+        <Line icon={<EventBusy fontSize="small" color={overdue ? 'error' : 'warning'} />} readOnly={p.readOnly} actions={moveDeadline}>
+          <Typography variant="body2">
+            {t(overdue ? 'myDay.todo.overdue' : 'myDay.todo.closing', { time: format.relative(deadline.at), at: format.dateTime(deadline.at) })}
+          </Typography>
+          {deadline.plans.length > 0 && (
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              {t('myDay.todo.plansLeft', {
+                plans: deadline.plans
+                  .map((x) => t('myDay.todo.planOf', { name: name(x.employeeId), time: format.minutes(x.minutes) }) + (x.about ? ` («${x.about}»)` : ''))
+                  .join(', '),
+              })}
+            </Typography>
+          )}
+          {!p.readOnly && (
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              {t(overdue ? 'myDay.todo.overdueHint' : 'myDay.todo.closingHint')}
+            </Typography>
+          )}
+        </Line>
+      )}
+      {item.links.map((l) => (
+        <Line key={`${l.waits}${l.task.id}`} icon={<LinkIcon fontSize="small" />} readOnly={p.readOnly}>
+          <Typography variant="body2">
+            {t(l.waits ? 'myDay.todo.linkWaits' : 'myDay.todo.linkWaitedOnBy', { name: name(l.by) })} · {format.relative(l.at)}
+          </Typography>
+          <TaskLine task={l.task} dense />
+        </Line>
+      ))}
+      {item.done.map((d) => (
+        <Line key={d.task.id} icon={<TaskAlt fontSize="small" color="success" />} readOnly={p.readOnly}>
+          <Typography variant="body2">{t('myDay.todo.done')} · {format.relative(d.at)}</Typography>
+          <TaskLine task={d.task} dense />
+        </Line>
+      ))}
+      {item.comments && (
+        <Line
+          icon={<ChatBubbleOutline fontSize="small" />}
+          readOnly={p.readOnly}
+          actions={<Button size="small" variant={read ? 'text' : 'outlined'} onClick={() => setTable(true)}>{t('myDay.todo.read')}</Button>}
+        >
+          <Typography variant="body2">
+            {t('myDay.todo.review', { count: item.comments.count, authors: item.comments.authorIds.map(name).join(', ') })}
+            {' · '}{format.relative(item.comments.at)}
+          </Typography>
+        </Line>
+      )}
+      {!p.readOnly && (
+        <Stack direction="row" sx={{ justifyContent: 'flex-end' }}>
+          <Tooltip title={blocked}>
+            <span>
+              {overdue ? (
+                <Button size="small" variant="contained" disabled={blocked !== '' || finish.isPending}
+                  onClick={() => finish.mutate({ id: item.task.id, reviewedUntil: item.at })}>
+                  {t('task.finish')}
+                </Button>
+              ) : (
+                <Button size="small" variant="contained" disabled={blocked !== '' || reviewed.isPending} onClick={() => setConfirm(true)}>
+                  {t('task.review.button')}
+                </Button>
+              )}
+            </span>
+          </Tooltip>
+        </Stack>
+      )}
+      {table && item.comments && (
+        <ReviewComments taskId={item.task.id} onClose={() => setTable(false)} />
+      )}
+      <Dialog open={confirm} onClose={() => setConfirm(false)}>
+        <DialogTitle>{t('task.review.confirmTitle')}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>{t('task.review.confirm', { list: what })}</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button color="inherit" onClick={() => setConfirm(false)}>{t('common.cancel')}</Button>
+          <Button
+            variant="contained"
+            disabled={reviewed.isPending}
+            onClick={() => { setConfirm(false); reviewed.mutate({ id: item.task.id, until: item.at }); }}
+          >
+            {t('task.review.button')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Stack>
+  );
+}
+
+/**
+ * The new comments of my task in full, oldest first. Scrolled to the end,
+ * they count as read up to the last one, and the review's button opens.
+ */
+function ReviewComments(p: { taskId: number; onClose: () => void }) {
+  const { t } = useTranslation();
+  const trpc = useTRPC();
+  const format = useFormat();
+  const employees = useEmployees();
+  const comments = useQuery(trpc.Comment.unreviewed.queryOptions({ taskId: p.taskId }));
+  const end = useRef<HTMLDivElement>(null);
+  const [atEnd, setAtEnd] = useState(false);
+  const last = comments.data?.at(-1)?.at;
+
+  useEffect(() => {
+    if (!end.current || !last) return;
+    const seen = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting) return;
+      setAtEnd(true);
+      markReviewRead(p.taskId, last);
+    });
+    seen.observe(end.current);
+    return () => seen.disconnect();
+  }, [p.taskId, last]);
+
+  return (
+    <Dialog open onClose={p.onClose} maxWidth="md" fullWidth scroll="paper">
+      <DialogTitle>{t('task.review.table')}</DialogTitle>
+      <DialogContent dividers sx={{ p: 0 }}>
+        <Table size="small" stickyHeader>
+          <TableHead>
+            <TableRow>
+              <TableCell>{t('task.review.who')}</TableCell>
+              <TableCell>{t('task.review.when')}</TableCell>
+              <TableCell sx={{ width: '100%' }}>{t('task.review.text')}</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {(comments.data ?? []).map((c) => (
+              <TableRow key={c.id} sx={{ verticalAlign: 'top' }}>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>{employees.get(c.authorId)?.fullName ?? `#${c.authorId}`}</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{format.dateTime(c.at)}</TableCell>
+                <TableCell>
+                  {c.replyTo && (
+                    <Typography variant="body2" sx={{ px: 1, py: 0.25, mb: 0.5, borderRadius: 1, bgcolor: 'action.selected', color: 'text.secondary' }}>
+                      {employees.get(c.replyTo.authorId)?.fullName}: {c.replyTo.excerpt}
+                    </Typography>
+                  )}
+                  <RichView html={c.html} />
+                  {c.files.length > 0 && (
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>{c.files.map((f) => f.name).join(', ')}</Typography>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        <Box ref={end} sx={{ height: 1 }} />
+      </DialogContent>
+      <DialogActions>
+        <Typography variant="body2" sx={{ color: 'text.secondary', mr: 'auto', pl: 1 }}>
+          {atEnd ? t('task.review.readAll') : t('task.review.scrollDown')}
+        </Typography>
+        <Button onClick={p.onClose}>{t('common.close')}</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+function Item(p: { item: Exclude<TodoItem, TodoReview>; readOnly?: boolean }) {
   const { t } = useTranslation();
   const trpc = useTRPC();
   const format = useFormat();
@@ -118,12 +337,7 @@ function Item(p: { item: TodoItem; readOnly?: boolean }) {
   const approve = useMutation(trpc.Observer.approve.mutationOptions({ onSuccess: refresh }));
   const reject = useMutation(trpc.Observer.reject.mutationOptions({ onSuccess: refresh }));
   const removeRemind = useMutation(trpc.Remind.remove.mutationOptions({ onSuccess: refresh }));
-  const reviewed = useMutation(trpc.Task.markReviewed.mutationOptions({ onSuccess: refresh }));
   const clearPlan = useMutation(trpc.Time.setLeft.mutationOptions({ onSuccess: refresh }));
-  const finish = useMutation(trpc.Task.close.mutationOptions({ onSuccess: refresh }));
-  const openTask = (label: string) => (
-    <Button size="small" component={Link} to={`/tasks/${item.task.id}`}>{label}</Button>
-  );
 
   const { item } = p;
   let icon, text, actions;
@@ -160,20 +374,6 @@ function Item(p: { item: TodoItem; readOnly?: boolean }) {
         </Tooltip>
       </>
     );
-  } else if (item.kind === 'review') {
-    icon = <ChatBubbleOutline fontSize="small" />;
-    text = (
-      <>
-        <Typography variant="body2">
-          {t('myDay.todo.review', { count: item.count, authors: item.authorIds.map(name).join(', ') })} · {format.relative(item.at)}
-        </Typography>
-        {!p.readOnly && <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.todo.reviewHint')}</Typography>}
-      </>
-    );
-    // "No intervention needed" lives in the task only: pressed here, it would skip comments nobody read.
-    actions = (
-      <Button size="small" variant="outlined" component={Link} to={`/tasks/${item.task.id}`}>{t('myDay.todo.read')}</Button>
-    );
   } else if (item.kind === 'remind') {
     icon = <NotificationsActive fontSize="small" />;
     text = (
@@ -191,49 +391,6 @@ function Item(p: { item: TodoItem; readOnly?: boolean }) {
         </Button>
       </>
     );
-  } else if (item.kind === 'closing') {
-    icon = <EventBusy fontSize="small" color="warning" />;
-    text = (
-      <>
-        <Typography variant="body2">{t('myDay.todo.closing', { time: format.relative(item.at), at: format.dateTime(item.at) })}</Typography>
-        {!p.readOnly && <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.todo.closingHint')}</Typography>}
-      </>
-    );
-    // Done already: closed now, before the deadline.
-    actions = (
-      <>
-        {openTask(t('myDay.todo.moveDeadline'))}
-        <Button size="small" variant="contained" disabled={finish.isPending} onClick={() => finish.mutate({ id: item.task.id })}>
-          {t('task.finish')}
-        </Button>
-      </>
-    );
-  } else if (item.kind === 'overdue') {
-    icon = <EventBusy fontSize="small" color="error" />;
-    const plans = item.plans
-      .map((x) => t('myDay.todo.planOf', { name: name(x.employeeId), time: format.minutes(x.minutes) }) + (x.about ? ` («${x.about}»)` : ''))
-      .join(', ');
-    text = (
-      <>
-        <Typography variant="body2">{t('myDay.todo.overdue', { time: format.relative(item.at), at: format.dateTime(item.at) })}</Typography>
-        {plans && <Typography variant="body2" sx={{ color: 'text.secondary' }}>{t('myDay.todo.plansLeft', { plans })}</Typography>}
-        {!p.readOnly && <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('myDay.todo.overdueHint')}</Typography>}
-      </>
-    );
-    // It stays open until closed here or the deadline is moved (decision 93); work still planned is cleared first.
-    actions = (
-      <>
-        {openTask(t('myDay.todo.moveDeadline'))}
-        <Tooltip title={item.plans.length ? t('myDay.todo.closeAfterPlans') : ''}>
-          <span>
-            <Button size="small" variant="contained" disabled={item.plans.length > 0 || finish.isPending}
-              onClick={() => finish.mutate({ id: item.task.id })}>
-              {t('task.finish')}
-            </Button>
-          </span>
-        </Tooltip>
-      </>
-    );
   } else if (item.kind === 'plan_left') {
     icon = <HourglassEmpty fontSize="small" />;
     text = (
@@ -247,22 +404,6 @@ function Item(p: { item: TodoItem; readOnly?: boolean }) {
       <Button size="small" variant="contained" disabled={clearPlan.isPending}
         onClick={() => clearPlan.mutate({ taskId: item.task.id, minutes: null })}>
         {t('myDay.todo.clearPlan')}
-      </Button>
-    );
-  } else if (item.kind === 'done') {
-    icon = <TaskAlt fontSize="small" color="success" />;
-    text = (
-      <>
-        <Typography variant="body2">{t('myDay.todo.done')} · {format.relative(item.at)}</Typography>
-        <TaskLine task={item.dependency} dense />
-      </>
-    );
-    // Taking note is "No intervention needed" of my task: with comments nobody read, in the task.
-    actions = item.unread > 0 ? (
-      <Button size="small" variant="outlined" component={Link} to={`/tasks/${item.task.id}`}>{t('myDay.todo.read')}</Button>
-    ) : (
-      <Button size="small" variant="outlined" disabled={reviewed.isPending} onClick={() => reviewed.mutate({ id: item.task.id })}>
-        {t('myDay.todo.noted')}
       </Button>
     );
   } else {
@@ -283,11 +424,7 @@ function Item(p: { item: TodoItem; readOnly?: boolean }) {
 
   return (
     <Stack spacing={1}>
-      <Stack direction="row" sx={{ alignItems: 'flex-start', pl: 1.25, gap: 1, flexWrap: 'wrap' }}>
-        <Box sx={{ color: 'text.secondary', pt: 0.25 }}>{icon}</Box>
-        <Box sx={{ flex: '1 1 220px', minWidth: 0 }}>{text}</Box>
-        {!p.readOnly && <Stack direction="row" spacing={1} sx={{ flexShrink: 0, ml: 'auto' }}>{actions}</Stack>}
-      </Stack>
+      <Line icon={icon} actions={actions} readOnly={p.readOnly}>{text}</Line>
       {replying && item.kind === 'mention' && (
         <Composer
           taskId={item.task.id}
