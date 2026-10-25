@@ -39,7 +39,8 @@ waits for me, what I wait for, my tasks — and my days beside them; below,
 folded to a line each until opened (and remembered open), my team, the
 tags, the hour budgets and the bots (decision 83):
 
-- **TODO** — what waits for my reaction: tasks, by deadline — the
+- **TODO** — what waits for my reaction, counted in tasks, here and on
+  the bell: tasks, by deadline — the
   overdue and the nearest first, those without one or closed last, the
   same deadline the newer task first — and under the line of each task its
   groups, one per kind of action (decision 94):
@@ -55,8 +56,8 @@ tags, the hour budgets and the bots (decision 83):
     needed", after a warning naming what will go away; on an overdue task
     "Finish" in its place, disabled while someone has time planned on it.
     Disabled until the table of new comments was scrolled to its end
-    (kept in the page, not the database), and while an access request
-    waits. It takes away what was shown — up to its newest notice — so
+    (kept in the page, not the database); access requests, a group of
+    their own, do not hold it up and stay. It takes away what was shown — up to its newest notice — so
     whatever came later stays. A task handed to me and not accepted yet
     shows only "The task was handed to you" with "Accept"; accepted, what
     came after the handover is its review;

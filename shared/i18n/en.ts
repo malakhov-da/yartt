@@ -443,7 +443,6 @@ export const en: Translation = {
     edit: 'Edit',
     review: {
       button: 'No intervention needed',
-      requestsFirst: 'Answer the access requests first',
       readFirst: 'Read the new comments first: press "Read" and scroll them to the end',
       confirmTitle: 'No intervention needed?',
       confirm: 'These notices of the task leave Waiting for me: {{list}}. Whatever comes later stays.',
@@ -854,7 +853,6 @@ export const en: Translation = {
     unknown_tag: 'Unknown tag.',
     no_access: 'Task #{{taskId}} is private: ask its owner for access.',
     task_public: 'Task #{{taskId}} is public: it has no participants and no requests.',
-    pending_requests: 'Answer the access requests to task #{{taskId}} first.',
     plans_left: 'Task #{{taskId}} cannot be closed: time is still planned on it — {{count}}. The plans are cleared first, each by its own person.',
     tag_in_use: 'Tag #{{tagId}} is used by tasks and cannot be deleted.',
     immutable_row: 'This record cannot be changed or deleted — it is kept forever.',

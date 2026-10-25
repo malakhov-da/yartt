@@ -38,7 +38,8 @@ export default function () {
     return () => clearInterval(timer);
   }, []);
 
-  const count = todo.data?.length ?? 0;
+  // Tasks, not items: Waiting for me is tasks, each with its groups (decision 94).
+  const count = new Set(todo.data?.map((item) => item.task.id)).size;
   const outbox = useOutbox();
   const online = useSyncExternalStore(
     (notify) => {

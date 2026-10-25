@@ -30,7 +30,7 @@ const DeadlineRow = z.object({
 });
 const LinkRow = z.object({ taskId: z.number(), other: z.number(), waits: z.boolean(), by: z.number(), at: z.date() });
 const DoneRow = z.object({ taskId: z.number(), value: z.number(), at: z.date() });
-const HandedRow = z.object({ taskId: z.number(), at: z.date().nullable(), unreviewed: z.boolean(), pending: z.number() });
+const HandedRow = z.object({ taskId: z.number(), at: z.date().nullable(), unreviewed: z.boolean() });
 const PlanRow = z.object({ taskId: z.number(), at: z.date(), minutes: z.number(), about: z.string().nullable() });
 
 /** Since when the owner of task `k` has not reviewed it: what came after is their review (decision 94). */
@@ -113,12 +113,10 @@ export async function todo(me: number, viewerId: number = me, taskId?: number): 
     ) t
      WHERE overdue OR notice_at > since
   `);
-  // Every task of mine with a notice: whether it came to me unreviewed, and the requests that block the review.
+  // Every task of mine with a notice, and whether it came to me and I have not accepted it.
   const reviewed = [...new Set([...comments, ...links, ...done, ...deadlines].map((r) => r.taskId))];
   const handed = HandedRow.array().parse(await sql`
-    SELECT k.id AS task_id, k.handed_at AS at, k.reviewed_at IS NULL AS unreviewed,
-           (SELECT count(*)::int FROM observer o
-             WHERE o.task_id = k.id AND o.added_at IS NULL AND o.deleted_at IS NULL) AS pending
+    SELECT k.id AS task_id, k.handed_at AS at, k.reviewed_at IS NULL AS unreviewed
       FROM task k
      WHERE k.owner_id = ${me} ${only(sql`k.id`)}
        AND (k.id = ANY(${reviewed}) OR (k.reviewed_at IS NULL AND k.handed_at IS NOT NULL))
@@ -154,7 +152,7 @@ export async function todo(me: number, viewerId: number = me, taskId?: number): 
       // Handed to me and not accepted yet: the handover alone, accepted by one press.
       if (h.unreviewed && h.at) {
         return [{
-          kind: 'review', task, at: h.at, comments: null, handedAt: h.at, links: [], done: [], deadline: null, pendingRequests: h.pending,
+          kind: 'review', task, at: h.at, comments: null, handedAt: h.at, links: [], done: [], deadline: null,
         }];
       }
       const c = comments.find((r) => r.taskId === h.taskId);
@@ -178,7 +176,7 @@ export async function todo(me: number, viewerId: number = me, taskId?: number): 
       ].filter((d) => d instanceof Date);
       if (moments.length === 0) return [];
       const at = new Date(Math.max(...moments.map((d) => d.getTime())));
-      return [{ kind: 'review', task, at, ...review, pendingRequests: h.pending }];
+      return [{ kind: 'review', task, at, ...review }];
     }),
     ...mentions.flatMap((m) => {
       const task = tasks.get(m.taskId);

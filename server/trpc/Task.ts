@@ -106,7 +106,6 @@ export default router({
    * shown, are taken away too (decision 94).
    * @throws forbidden — not the owner.
    * @throws plans_left — someone still has time planned on it.
-   * @throws pending_requests — `reviewedUntil` while access requests wait.
    */
   close: authedProcedure
     .meta({ bot: 'task' })
@@ -142,8 +141,8 @@ export default router({
    * for their decision. Takes away the notices of the review up to `until`
    * — the newest one shown — so whatever came later stays (decision 94);
    * left out, up to now. Never closes the task.
+   * Access requests stay: they are answered apart.
    * @throws forbidden — not the owner.
-   * @throws pending_requests — answer the access requests first.
    */
   markReviewed: authedProcedure
     .meta({ bot: 'task' })

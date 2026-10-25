@@ -65,7 +65,7 @@ export default function () {
         }}
       >
         {readOnly ? t('myDay.todo.titleOf', pronoun(as)) : t('myDay.todo.title')}
-        {todo.data && todo.data.length > 0 && ` · ${todo.data.length}`}
+        {todo.data && todo.data.length > 0 && ` · ${new Set(todo.data.map((item) => item.task.id)).size}`}
       </Typography>
       {todo.data?.length === 0 && (
         <Typography sx={{ color: 'text.secondary', textAlign: 'center', py: 2 }}>{t('myDay.empty')}</Typography>
@@ -145,8 +145,7 @@ function Review(p: { item: TodoReview; readOnly?: boolean }) {
   const { deadline } = item;
   const overdue = deadline?.overdue === true;
   const read = item.comments === null || (readUntil ?? 0) >= item.comments.at.getTime();
-  const blocked = item.pendingRequests > 0 ? t('task.review.requestsFirst')
-    : !read ? t('task.review.readFirst')
+  const blocked = !read ? t('task.review.readFirst')
     : overdue && deadline.plans.length > 0 ? t('myDay.todo.closeAfterPlans')
     : '';
   const what = [

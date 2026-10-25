@@ -157,7 +157,7 @@ describe('todo', () => {
     expect(await api.MyDay.todo()).toEqual([]);
   });
 
-  test('my task with comments by others until "No intervention needed"; requests first', async () => {
+  test('my task with comments by others until "No intervention needed"; requests first, answered apart', async () => {
     const owner = await createEmployee();
     const helper = await createEmployee();
     const stranger = await createEmployee();
@@ -173,17 +173,18 @@ describe('todo', () => {
     const items = await api.MyDay.todo();
     expect(items).toMatchObject([
       { kind: 'request', task: { id }, employeeId: stranger.id },
-      { kind: 'review', task: { id }, comments: { count: 2, authorIds: [helper.id] }, pendingRequests: 1 },
+      { kind: 'review', task: { id }, comments: { count: 2, authorIds: [helper.id] } },
     ]);
     expect((await api.Comment.unreviewed({ taskId: id })).map((c) => c.html)).toEqual(['<p>One</p>', '<p>Two</p>']);
     await expect((await client(helper.id)).Comment.unreviewed({ taskId: id })).rejects.toMatchObject({ message: 'forbidden' });
-    await api.Observer.reject({ taskId: id, employeeId: stranger.id });
 
     // Only what was shown is taken away: a comment that came after it stays.
     await (await client(helper.id)).Comment.create(comment(id, '<p>Three</p>'));
     const shown = items.find((i) => i.kind === 'review');
     await api.Task.markReviewed({ id, until: shown?.kind === 'review' ? shown.at : undefined });
-    expect(await api.MyDay.todo()).toMatchObject([{ kind: 'review', comments: { count: 1 } }]);
+    // The request is a group of its own: the review does not wait for it, nor take it away.
+    expect(await api.MyDay.todo()).toMatchObject([{ kind: 'request' }, { kind: 'review', comments: { count: 1 } }]);
+    await api.Observer.reject({ taskId: id, employeeId: stranger.id });
     expect((await api.Comment.unreviewed({ taskId: id })).map((c) => c.html)).toEqual(['<p>Three</p>']);
     // Never back, never past now.
     await api.Task.markReviewed({ id, until: new Date(0) });

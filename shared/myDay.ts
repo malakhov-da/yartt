@@ -61,8 +61,6 @@ export const TodoReview = z.object({
    * once nobody has time planned on it. NULL — neither.
    */
   deadline: z.object({ at: z.date(), overdue: z.boolean(), plans: PlanLeft.array() }).nullable(),
-  /** "No intervention needed" waits for these to be answered. */
-  pendingRequests: z.number().int(),
 });
 export type TodoReview = z.infer<typeof TodoReview>;
 

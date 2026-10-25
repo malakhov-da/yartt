@@ -384,9 +384,10 @@ the API is implemented.
   Tasks:
     - Create a task (owner = creator, tags, priority).
     - Change tag_ids / priority / context (owner only).
-    - "No intervention needed" (mark_reviewed: owner only, not while an
-      access request waits): takes away the review notices up to the
-      newest one shown (decision 94). It never closes the task.
+    - "No intervention needed" (mark_reviewed: owner only): takes away
+      the review notices up to the newest one shown (decision 94). Access
+      requests are a group of their own and stay. It never closes the
+      task.
     - Make public / private (make_public / make_private: owner only).
     - Transfer ownership (the owner or the owner''s manager).
     - Take an ownerless task (owner_id IS NULL, any observer).
@@ -1432,8 +1433,7 @@ from the HTML; keeps them from the attachment cleanup.';
 COMMENT ON COLUMN task.reviewed_at IS
 'When the owner last confirmed that nothing in the task waits for their
 decision: the moment of the newest notice they were shown, never later
-(decision 94). Updated only by mark_reviewed(), which is refused while an
-access request waits for an answer, and never moves back.
+(decision 94). Updated only by mark_reviewed(); never moves back.
 The review notices are what came after it: comments by others,
 dependencies added by others on either side, dependencies done, the
 deadline a day ahead. Handed over and not accepted yet (NULL, handed_at
@@ -4566,16 +4566,6 @@ BEGIN
     IF FOUND THEN
         RETURN;
     END IF;
-    IF EXISTS (
-        SELECT 1 FROM observer
-         WHERE task_id = p_task_id
-           AND added_at IS NULL
-           AND deleted_at IS NULL
-    ) THEN
-        RAISE EXCEPTION 'task % has access requests waiting for an answer', p_task_id
-            USING HINT = 'pending_requests',
-                  DETAIL = json_build_object('taskId', p_task_id)::text;
-    END IF;
     -- Up to what was shown, never past now, never back (GREATEST skips NULLs).
     -- The moment shown comes in milliseconds: it covers its whole millisecond.
     UPDATE task
@@ -4589,12 +4579,11 @@ COMMENT ON FUNCTION mark_reviewed(INT, INT, TIMESTAMPTZ) IS
 '"No intervention needed": the owner confirms that nothing in the task
 waits for their decision. reviewed_at goes to p_until — the newest notice
 of the review they were shown — so whatever came later stays (decision
-94); NULL — now. Never later than now, never back. Refused while an
-access request waits: that is exactly something that needs the owner. A
-task handed over and not accepted yet (reviewed_at NULL, handed_at set)
-is accepted instead: reviewed_at goes to handed_at, whatever p_until, and
-requests do not block it. It never closes the task — that is
-close_task() (decision 93).';
+94); NULL — now. Never later than now, never back. Access requests do
+not hold it up: they are a group of their own, answered apart, and stay.
+A task handed over and not accepted yet (reviewed_at NULL, handed_at
+set) is accepted instead: reviewed_at goes to handed_at, whatever
+p_until. It never closes the task — that is close_task() (decision 93).';
 
 
 CREATE OR REPLACE FUNCTION close_task(p_task_id INT, p_actor_id INT)

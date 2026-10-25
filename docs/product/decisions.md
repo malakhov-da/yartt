@@ -1743,7 +1743,11 @@ needed", with a warning that these notices will be gone. When the task
 is overdue it is "Finish" instead, next to "Move the deadline": finishing
 means nothing else needs the owner; while someone still has time planned
 it is disabled and names whose plans are left, and only moving the
-deadline is open. Access requests still block it.
+deadline is open. Access requests do not block it: they used to, when
+the button spoke for the whole task, but now they are a group of their
+own, answered apart, and a review neither waits for them nor takes them
+away. Waiting for me, and the bell, count tasks, not items: a review of
+ten notices and a single mention were one item each.
 
 The press puts `reviewed_at` at the moment of the newest notice shown,
 not at now, never later than now, never back: whatever came later
@@ -1756,8 +1760,8 @@ mention and a new comment. Handing a task over still resets
 `reviewed_at`, and now keeps when (`handed_at`). Until the new owner
 accepts it, their review is the handover alone, with "Accept": not the
 task's whole history as new, and nothing to read before it is theirs.
-Accepting puts `reviewed_at` at the handover, and access requests do not
-hold it up; what came after it is the review from then on.
+Accepting puts `reviewed_at` at the handover; what came after it is the
+review from then on.
 
 *Implemented:* `dependency.added_at`, `added_by`, `task.handed_at`,
 `mark_reviewed(p_until)` (migration `0.4-0.5`); `Dependencies.set`/`remove`

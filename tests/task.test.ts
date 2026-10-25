@@ -114,7 +114,8 @@ describe('access', () => {
     expect(await askerApi.Task.get({ id })).toMatchObject({ access: 'requested' });
     await askerApi.Observer.withdraw({ taskId: id });
     await askerApi.Observer.request({ taskId: id });
-    await expect(ownerApi.Task.markReviewed({ id })).rejects.toMatchObject({ message: 'pending_requests' });
+    // A request is answered apart: it does not hold the review up, and stays (decision 94).
+    await ownerApi.Task.markReviewed({ id });
     expect((await ownerApi.Observer.list({ taskId: id, page: 1 })).requests).toEqual([{ employeeId: asker.id }]);
 
     await ownerApi.Observer.reject({ taskId: id, employeeId: asker.id });
