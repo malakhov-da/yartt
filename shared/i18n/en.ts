@@ -294,8 +294,8 @@ export const en: Translation = {
     noDependency: 'Without this link',
     similar: 'Similar tasks',
     participants: 'Participants',
-    participantsHint: 'Whom to bring in at once: a participant sees the task and may start their own part of it, while you stay '
-      + 'the owner. They are not notified of comments — for an answer, mention them in a comment.',
+    participantsHint: 'Whom to bring in at once. A participant sees the task and plans their hours in it, while you stay '
+      + 'the owner. They get no notice of comments: for an answer, mention them in a comment with @.',
     create: 'Create task',
   },
   taskHint: {

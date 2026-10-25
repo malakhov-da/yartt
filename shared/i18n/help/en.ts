@@ -190,7 +190,7 @@ export const helpEn: Help = {
               + 'forgive typos. Until the task is saved, a new tag is dashed: you see it is new and can remove it.',
             'The task exists already? A link to it appears under the field, with similar tasks carrying the same tags below. Look before starting a new one.',
             'Press "New task" in the block\'s title row to open the new task. Add a priority, a deadline and a description.',
-            'A task for someone else stays yours: bring them in under "Participants" in the form, and they start their own part themselves.',
+            'A task for someone else stays yours: bring them in under "Participants" in the form, and they plan their hours in it.',
             'A follow-up task is created from the page of the original, under "Waits for" or "Waited on by". It gets the original\'s tags.',
           ],
         },
