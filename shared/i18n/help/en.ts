@@ -4,7 +4,7 @@ import type { Help } from './ru.ts';
 
 export const helpEn: Help = {
   title: 'How to work in yartt',
-  intro: 'yartt stands on four principles. Each drops something usual and puts in its place something that bends further.',
+  intro: 'yartt rests on four principles. Under each is what it replaces in a usual tracker.',
   principles: [
     {
       title: 'A result has one owner',
@@ -87,7 +87,7 @@ export const helpEn: Help = {
       subOwner: 'owner — Jack',
       steps: [
         'Jack takes part in Emily\'s task. His part is big, so he presses "My part" under "Waits for".',
-        'The new task is Jack\'s: he describes it within his bounds and decides when it is done. Emily\'s task now waits for it.',
+        'The new task is Jack\'s: he describes what he will do and decides when it is done. Emily\'s task now waits for it.',
         'Jack closed his task. Emily\'s Waiting for me says "A task this one waits for is done".',
       ],
     },
@@ -315,7 +315,7 @@ export const helpEn: Help = {
           ],
         },
         {
-          title: 'Keep a direction within an hour budget',
+          title: 'Stay within an hour budget',
           steps: [
             'The Hour budgets block → New budget: tags, a period and how many hours you and your reports may spend on them. '
               + 'A task counts when it carries all those tags.',
