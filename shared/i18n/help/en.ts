@@ -37,7 +37,9 @@ export const helpEn: Help = {
       title: 'The figures tell the truth',
       text: 'The tracker forbids nothing, so there is no reason to fool it. The timesheet and scores are optional, and when kept, they show the work, not zeal.',
       instead: [
-        { usual: 'Percent done', yartt: '"5h → 3h"', text: 'How much everyone has logged and still plans: hours measure the amount of work, not people.' },
+        { usual: 'Percent done', yartt: '"5h → 3h"', text: 'How much everyone has logged and still plans. An experienced '
+          + 'person\'s hour costs more, so the simple part of the work goes to a junior. Shared out that way, the total depends '
+          + 'on the task, not on who did it.' },
         { usual: 'Scoring results', yartt: 'Scoring the day\'s decisions', text: 'A task\'s result also depends on plans and chance, so it does not always tell much. The day\'s decisions depend on '
           + 'the person: were the priorities right, was help asked for in time.' },
       ],
@@ -464,9 +466,11 @@ export const helpEn: Help = {
         },
         {
           q: 'Why do a task\'s hours add up, while people are not compared by hours?',
-          a: 'Hours on a task or a tag are the amount of work. When tasks go by level, the simple ones to juniors and the hard ones to '
-            + 'seniors, a task takes about the same time whoever fit for it does it. So a task and a tag show how much was logged '
-            + 'in all and how much is still planned. But more hours is not more done, so My team shows shares of each one\'s own '
+          a: 'The total of hours describes the task itself. Any work has a simple part a junior can be given and a hard part '
+            + 'that needs someone experienced. When the work is shared out sensibly, the total hardly depends on who did it. '
+            + 'An experienced person would get through the routine a little faster, but giving it to them does not pay: their '
+            + 'hour costs much more. How to share work out among people is the manager\'s call, and a task of its own. People, '
+            + 'though, are not compared by hours: more hours is not more done. My team compares them by shares of their own '
             + 'time, scores and counts.',
         },
         {
