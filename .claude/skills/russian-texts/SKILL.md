@@ -45,6 +45,9 @@ Russian.
 
 - The interface's words only: владелец, участник, тег, дедлайн, «Ждёт меня».
   A button or tab is named exactly as on screen, in «ёлочках».
+- An action is described by where it is done, not by a keyboard symbol:
+  «упомяните его в комментарии», not «упомяните его через @». A symbol is
+  given only where the text explains how to type it («@ упоминает участника»).
 - Pronouns agree with what they replace. Check «те», «там», «который» against
   the noun: «На вкладке «Мои открытые» задачи, где вы владелец, на вкладке
   «Остальные открытые» там, где вы участник».
