@@ -4,11 +4,41 @@ import type { Help } from './ru.ts';
 
 export const helpEn: Help = {
   title: 'How to work in yartt',
-  intro: [
-    'In yartt every task has one owner: they decide when it is done and answer for its deadline. Only those invited see '
-      + 'a task; each does their part in it and logs their own time.',
-    'The day starts with Waiting for me: everything that needs your reaction. Once it is cleared, you work in your tasks: '
-      + 'comment, bring people in, move deadlines.',
+  intro: 'yartt stands on four principles. Each drops something usual and puts in its place something that bends further.',
+  principles: [
+    {
+      title: 'A result has one owner',
+      text: 'When two people answer for a task, nobody does. So a task has one owner, and its deadline is their promise, not a wish.',
+      instead: [
+        { usual: 'A reporter and an assignee', yartt: 'An owner and participants', text: 'The owner decides when the task is done. Participants work in it but do not close it.' },
+        { usual: 'Statuses', yartt: 'A deadline', text: 'A task is open until its deadline and closes by itself when it comes.' },
+      ],
+    },
+    {
+      title: 'Seen by those invited',
+      text: 'A task may hold salaries, clients, people. Access to it is given by people, by name, not by a title or a project membership.',
+      instead: [
+        { usual: 'Access to a whole project', yartt: 'An invitation to the task', text: 'A task is seen by its participants and their managers. Everyone else sees its tags, priority and deadline: they can find it and ask for access.' },
+        { usual: 'Roles and admins', yartt: 'Relationships', text: 'Rights come from owning a task, taking part in it and being someone\'s direct manager.' },
+      ],
+    },
+    {
+      title: 'Links, not a hierarchy',
+      text: 'Work does not fit a tree: a task touches several directions at once and may be needed by several others.',
+      instead: [
+        { usual: 'A title', yartt: 'A set of tags', text: '"website · homepage · banner". The set is unique and the suggestions offer existing tags, so the same thing gets the same name.' },
+        { usual: 'A project', yartt: 'A shared tag', text: 'A task can be in several "projects" at once. A new tag appears when it is needed.' },
+        { usual: 'A subtask', yartt: 'A "Waits for" link', text: 'One task can be needed by several. A latest deadline shows where a promise is at risk.' },
+      ],
+    },
+    {
+      title: 'The figures tell the truth',
+      text: 'The tracker forbids nothing, so there is no reason to fool it. The timesheet and scores are optional, and when kept, they show the work, not zeal.',
+      instead: [
+        { usual: 'Percent done', yartt: '"5h → 3h"', text: 'How much everyone has logged and still plans: hours measure the amount of work, not people.' },
+        { usual: 'Scoring results', yartt: 'Scoring the day\'s decisions', text: 'Were the priorities right, was help asked for in time. A task\'s result also depends on plans and chance.' },
+      ],
+    },
   ],
   quickStartTitle: 'Your first day: five steps',
   quickStart: [
@@ -71,49 +101,6 @@ export const helpEn: Help = {
       side: { title: 'Timesheet', text: 'shifts, time entries and activity, today and the day before' },
     },
   },
-  insteadTitle: 'What is not here, and what instead',
-  instead: [
-    {
-      usual: 'A title',
-      yartt: 'A set of tags',
-      text: '"website · homepage · banner". The set is unique and the suggestions offer existing tags, so the same thing gets the same name.',
-    },
-    {
-      usual: 'A project',
-      yartt: 'A shared tag',
-      text: 'A task can be in several "projects" at once. A new tag appears when it is needed.',
-    },
-    {
-      usual: 'A subtask',
-      yartt: 'A "Waits for" link',
-      text: 'One task can be needed by several. A latest deadline shows where a promise is at risk.',
-    },
-    {
-      usual: 'A reporter and an assignee',
-      yartt: 'An owner and participants',
-      text: 'One answers for the result and decides when the task is done. The others work in it but do not close it.',
-    },
-    {
-      usual: 'Access to a whole project',
-      yartt: 'Access by invitation',
-      text: 'A task is seen by its participants and their managers. Everyone else sees its tags, priority and deadline: they can find it and ask for access.',
-    },
-    {
-      usual: 'Statuses',
-      yartt: 'A deadline',
-      text: 'A task is open until its deadline and closes by itself when it comes.',
-    },
-    {
-      usual: 'Percent done',
-      yartt: '"5h → 3h"',
-      text: 'How much all participants have logged and how much they still plan.',
-    },
-    {
-      usual: 'Roles and admins',
-      yartt: 'Relationships',
-      text: 'Rights come from owning a task, taking part in it and being someone\'s direct manager.',
-    },
-  ],
   scenariosTitle: 'How to',
   scenarios: [
     {

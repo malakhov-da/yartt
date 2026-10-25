@@ -1634,12 +1634,13 @@ how-tos; mentions and "My part" in five places each. A reader met the
 same idea in different words and could not tell which was the rule. The
 glossary only repeated the diagrams and the how-tos in fewer words.
 
-Now every idea has one home. The guide opens by saying what yartt has,
-not what it lacks: one owner per task, access by invitation, the day
-started from Waiting for me. Right under it, "What is not here, and what
-instead" sets each construct yartt drops against what takes its place
-— a title against a set of tags, a subtask against "Waits for", statuses
-against a deadline — in one line each, so a missing thing is never named
+Now every idea has one home. The guide opens with the philosophy, four
+principles in two sentences each: a result has one owner, a task is
+seen by those invited, links rather than a hierarchy, figures that tell
+the truth. Under each, the usual things it replaces stand against what
+takes their place — statuses against a deadline, a subtask against
+"Waits for", percent done against "5h → 3h" — in one line each, so a
+principle is never left abstract and a missing thing is never named
 without its replacement. The diagrams say who does what; the how-tos
 say how, the answers say why, and neither repeats the other. The how-tos and the answers are
 grouped by topic, questions that asked the same are merged, and the
