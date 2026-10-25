@@ -4,6 +4,7 @@ import {
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { forecast } from '#shared/tagLimit.ts';
 import { useDraft } from '#client/hooks/drafts.ts';
 import { parseMinutes, today, useFormat } from '#client/hooks/format.ts';
 import { useTaskRefresh } from '#client/hooks/task.ts';
@@ -109,7 +110,7 @@ export default function (p: { taskId: number }) {
               <Stack direction="row" sx={{ gap: 0.5, flexWrap: 'wrap' }}>
                 {limit.tags.map((tag) => <TagChip key={tag.id} size="small" tag={tag} />)}
               </Stack>
-              <LimitFigures limit={limit} forecast={limit.forecastMinutes - (mine.data?.leftMinutes ?? 0) + (minutes ?? 0)} />
+              <LimitFigures limit={limit} forecast={forecast(limit, limit.leftMinutes - (mine.data?.leftMinutes ?? 0) + (minutes ?? 0))} />
             </Stack>
           ))}
         </DialogContent>

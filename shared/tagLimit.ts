@@ -33,7 +33,13 @@ export const TagLimit = z.object({
   spentMinutes: z.number().int(),
   /** Left in their plans on those tasks still open. */
   leftMinutes: z.number().int(),
-  /** What it will come to: spent and planned; once the period is over, what was spent. */
+  /**
+   * What its people get through on those tasks by its end at their pace —
+   * what they logged on them in the last 28 days, per day, times its days
+   * left, today included; 0 once it is over; NULL — nothing logged in those 28 days, no pace to go by.
+   */
+  aheadMinutes: z.number().int().nullable(),
+  /** What it will come to: spent, and of the plans what fits in the time left (forecast()). */
   forecastMinutes: z.number().int(),
   /** The days from its start to today or its end, and what had been spent by each of them. */
   days: Day.array(),
@@ -44,6 +50,15 @@ export const TagLimit = z.object({
   includesMe: z.boolean(),
 });
 export type TagLimit = z.infer<typeof TagLimit>;
+
+/**
+ * The forecast of a limit with the given plans left (decision 91): spent,
+ * and of the plans what its people get through by its end at their pace.
+ * A plan for a year is not all spent in a half-year; without a pace, all
+ * of it counts.
+ */
+export const forecast = (l: { spentMinutes: number; aheadMinutes: number | null }, leftMinutes: number) =>
+  l.spentMinutes + (l.aheadMinutes === null ? leftMinutes : Math.min(leftMinutes, l.aheadMinutes));
 
 /** A version of a limit: what it was and when it stopped being so. */
 export const TagLimitVersion = z.object({

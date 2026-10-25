@@ -24,7 +24,8 @@ describe('tag limits', () => {
     const id = await leadApi.TagLimit.set({ replaces: null, tagIds: [tag!.id], startsOn: today, endsOn: today, minutes: 150 });
     const [mine] = (await leadApi.TagLimit.list()).current;
     expect(mine).toMatchObject({
-      id, employeeId: lead.id, minutes: 150, spentMinutes: 120, leftMinutes: 60, forecastMinutes: 180,
+      // The pace: 120 minutes in 28 days, for the one day left — of the plan, 4 minutes fit.
+      id, employeeId: lead.id, minutes: 150, spentMinutes: 120, leftMinutes: 60, aheadMinutes: 4, forecastMinutes: 124,
       days: [today], cumulative: [120], changed: false,
     });
     // The dev sees the lead's limit — it counts their hours; a stranger does not.
@@ -45,5 +46,32 @@ describe('tag limits', () => {
 
     await leadApi.TagLimit.remove({ id: next });
     expect(await leadApi.TagLimit.list()).toMatchObject({ current: [], removed: [{ id: next, minutes: 300 }] });
+  });
+
+  test('the forecast counts of the plans what fits in the period at the pace of the last 28 days', async () => {
+    const lead = await createEmployee();
+    const api = await client(lead.id);
+    const plus = (day: string, days: number) => new Date(Date.parse(`${day}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+    const tagOf = async (name: string) => (await sql<{ id: number }[]>`SELECT id FROM tag WHERE name = ${name}`)[0]!.id;
+    const today = (await api.MyDay.history({ page: 1 })).today;
+    const paced = `pace-${randomUUID().slice(0, 8)}`;
+    const fresh = `fresh-${randomUUID().slice(0, 8)}`;
+    const task = await api.Task.create({ tags: [paced] });
+    await api.Time.set({ taskId: task, day: plus(today, -10), minutes: 280 }); // 10 minutes a day
+    await api.Time.setLeft({ taskId: task, minutes: 6000 });
+    const other = await api.Task.create({ tags: [fresh] });
+    await api.Time.setLeft({ taskId: other, minutes: 6000 });
+
+    // Ten days from today at 10 a day: 100 of the 6000 planned fit; logged before the period is not in it.
+    await api.TagLimit.set({ replaces: null, tagIds: [await tagOf(paced)], startsOn: today, endsOn: plus(today, 9), minutes: 600 });
+    // Nothing logged in 28 days: no pace to go by, all the plans count.
+    await api.TagLimit.set({ replaces: null, tagIds: [await tagOf(fresh)], startsOn: today, endsOn: plus(today, 9), minutes: 600 });
+    const byTag = new Map((await api.TagLimit.list()).current.map((l) => [l.tags[0]!.name, l]));
+    expect(byTag.get(paced)).toMatchObject({ spentMinutes: 0, leftMinutes: 6000, aheadMinutes: 100, forecastMinutes: 100 });
+    expect(byTag.get(fresh)).toMatchObject({ spentMinutes: 0, leftMinutes: 6000, aheadMinutes: null, forecastMinutes: 6000 });
+
+    // A plan smaller than the pace counts in full: the work ends with it.
+    await api.Time.setLeft({ taskId: task, minutes: 30 });
+    expect((await api.TagLimit.forTask({ taskId: task }))[0]).toMatchObject({ aheadMinutes: 100, forecastMinutes: 30 });
   });
 });

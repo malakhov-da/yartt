@@ -367,7 +367,7 @@ export const en: Translation = {
 
   tagLimits: {
     title: 'Hour budgets',
-    hint: 'How many hours you and your reports may spend on the tasks with a set of tags in a period. A task counts when it carries all the budget\'s tags; a task under several budgets counts in each. The forecast is what was logged plus what is still planned. Nothing is forbidden or sent: it is a guide for planning. Seen by you, your managers and your reports.',
+    hint: 'How many hours you and your reports may spend on the tasks with a set of tags in a period. A task counts when it carries all the budget\'s tags; a task under several budgets counts in each. The forecast is what was logged plus what of the plans fits before the end of the period at the pace of the last 28 days. Nothing is forbidden or sent: it is a guide for planning. Seen by you, your managers and your reports.',
     create: 'New budget',
     empty: 'No budgets. Set one on a rubric to see how much it takes and how much is still planned.',
     tags: 'Tags',
@@ -385,6 +385,7 @@ export const en: Translation = {
     unfold: 'Show the chart and the history',
     fold: 'Hide',
     planned: 'Still in plans on open tasks: {{left}}',
+    ahead: 'at the pace of the last 28 days, by the end of the period — {{ahead}}',
     spentLine: 'Logged, running total',
     limitLine: 'Budget',
     history: 'History',

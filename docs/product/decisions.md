@@ -1598,3 +1598,30 @@ never returns the manager themselves, `notify()` goes round a ring of
 the away once, `dismiss_employee()` leaves the last of a pair without a
 manager (migration `0.4-0.5`); the code `manager_cycle` became
 `manager_self`.
+
+### 91. A budget's forecast counts only what fits in its period
+
+A budget's forecast was what had been logged plus everyone's plans on
+its tasks. A plan has no date, though: 20 hours on a direction may be
+meant for the whole year, and a half-year budget counted all of them as
+spent within it — so a budget that would be kept showed as overrun, and
+nothing could bring it in line short of cutting the plans.
+
+Now the forecast is what was logged, plus of the plans what its people
+get through before the period ends at their pace: what they logged on
+its tasks in the last 28 days, per day, times the days left. A plan
+bigger than that pace allows goes past the period and does not count;
+a smaller one counts in full — the work ends with it rather than going
+on at the pace. A new plan in the plan dialog still moves the forecast
+while it fits.
+
+The pace is of the last 28 days, not since the period began: one busy
+first day would otherwise make a half-year budget look overrun, and a
+period not begun yet would have no pace at all. With nothing logged in
+those 28 days there is no pace to go by, and all the plans count, as
+before. Spreading plans by their tasks' deadlines was considered and
+left out: it assumes work goes evenly to the deadline and needs each
+person's load to cap it, while the pace is a fact anyone can check.
+
+*Implemented:* `TagLimit.aheadMinutes`, `forecast()` in
+`shared/tagLimit.ts`; `TagLimit.list`, `.forTask`.

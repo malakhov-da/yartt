@@ -52,7 +52,8 @@ type Draft = { replaces: number | null; tags: Tag[]; input: string; startsOn: st
  * Limits of hours on tag combinations (decision 69): anyone sets them for
  * a fixed period, for themselves and everyone under them; they are seen
  * by who set them, their managers and their people. A line: the tags, the
- * period, spent of the limit, the forecast — spent and still planned —
+ * period, spent of the limit, the forecast — spent and of the plans what
+ * fits in the time left at the pace of the last 28 days (decision 91) —
  * and, unfolded, the spending day by day against the limit and every
  * version. A change is a new version, the old one kept; nothing is
  * forbidden and nothing is sent: it is a line to keep to.
@@ -208,6 +209,7 @@ function Line(p: { limit: TagLimit; mine: boolean; onEdit?: () => void }) {
         <Stack spacing={1.5} sx={{ px: 2, pb: 1.5 }}>
           <Typography variant="caption" sx={{ color: 'text.secondary' }}>
             {t('tagLimits.planned', { left: format.minutes(l.leftMinutes) })}
+            {l.aheadMinutes !== null && l.endsOn >= today() && ` · ${t('tagLimits.ahead', { ahead: format.minutes(l.aheadMinutes) })}`}
           </Typography>
           <TeamChart
             days={l.days}

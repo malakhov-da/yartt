@@ -330,7 +330,8 @@ export const helpEn: Help = {
       steps: [
         'The Hour budgets block in My day → New budget: tags, a period and how many hours you and your reports may spend on them. '
           + 'A task counts when it carries all those tags.',
-        'A line shows how much of the budget is logged and the forecast — logged plus still planned; unfolded, the running total '
+        'A line shows how much of the budget is logged and the forecast — logged plus what of the plans fits before the end of the '
+          + 'period at the pace of the last 28 days: a plan for a year does not all go into a half-year budget; unfolded, the running total '
           + 'against the budget and the history of changes.',
         'When you set My plan on a task under a budget, you see the forecast it would make. Nothing is forbidden — it is a guide.',
         'Changing a budget makes a new version, the old one stays in the history. Your managers and your reports see it.',
@@ -481,7 +482,7 @@ export const helpEn: Help = {
     {
       q: 'Why does an hour budget forbid nothing?',
       a: 'A budget is a guide: it helps notice in time that something went off plan and needs correcting. Its forecast is what '
-        + 'was logged plus what everyone still plans on its tasks, so an overrun shows in the plan dialog, before the hours are '
+        + 'was logged plus what of everyone\'s plans on its tasks fits before its end, so an overrun shows in the plan dialog, before the hours are '
         + 'spent. A ban would not make the work smaller: the time would be logged elsewhere, and the figures would stop being true. '
         + 'What to spend hours on beyond a budget is for people to decide, not a counter.',
     },

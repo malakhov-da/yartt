@@ -54,7 +54,7 @@ In this order after stage 6 (S — a day, M — a few days, L — a week or more
   initiative it is; the doer is a participant with their part
   (decision 76).
 - Hour budgets that refuse time over the limit — a line to keep to,
-  with everyone's plans in the forecast (decision 69).
+  with everyone's plans in the forecast (decisions 69, 91).
 - Links between tasks other than "waits for" — tasks are related by
   their tags (decision 56).
 - Scoring criteria built into the product, and metrics of estimate

@@ -1,13 +1,17 @@
 import { z } from 'zod';
 import type { TagLimitInput, TagLimits } from '#shared/tagLimit.ts';
-import { TagLimit, TagLimitVersion } from '#shared/tagLimit.ts';
+import { forecast, TagLimit, TagLimitVersion } from '#shared/tagLimit.ts';
 import { Tag } from '#shared/task.ts';
 import { AppError } from '../errors.ts';
 import { sql } from '../pg.ts';
 
-const LimitRow = TagLimit.omit({ tags: true, days: true, cumulative: true }).extend({
+const LimitRow = TagLimit.omit({ tags: true, days: true, cumulative: true, aheadMinutes: true, forecastMinutes: true }).extend({
   tagIds: z.number().array(),
   today: z.string(),
+  /** Logged on its tasks by its people in the last 28 days, today included. */
+  paceMinutes: z.number().int(),
+  /** Days of the period still ahead, today included. */
+  daysAhead: z.number().int(),
 });
 const VersionRow = TagLimitVersion.omit({ tags: true }).extend({ tagIds: z.number().array() });
 const DayRow = z.object({ id: z.number(), day: z.string(), minutes: z.number() });
@@ -29,7 +33,8 @@ const plus = (day: string, days: number) => new Date(Date.parse(`${day}T00:00:00
  * The current limits the viewer sees (can_see_tag_limit) — optionally only
  * those a task falls under — each with what its people (who set it and
  * everyone under them) logged in the period on the tasks carrying all its
- * tags, what they still plan on those open, the forecast, and the spending
+ * tags, what they still plan on those open, what they get through by its
+ * end at their pace of the last 28 days, the forecast, and the spending
  * day by day.
  */
 async function current(viewerId: number, taskId: number | null): Promise<TagLimit[]> {
@@ -48,7 +53,7 @@ async function current(viewerId: number, taskId: number | null): Promise<TagLimi
     SELECT l.id, l.employee_id, l.tag_ids, l.starts_on::text, l.ends_on::text, l.minutes, l.created_at,
            EXISTS (SELECT 1 FROM tag_limit p WHERE p.replaced_by = l.id) AS changed,
            EXISTS (SELECT 1 FROM people WHERE people.id = l.id AND people.person = ${viewerId}) AS includes_me,
-           local_today(${viewerId})::text AS today,
+           t.today::text AS today,
            (SELECT COALESCE(sum(s.value), 0) FROM spent_minutes s JOIN task k ON k.id = s.task_id
              WHERE k.tag_ids @> l.tag_ids AND s.day BETWEEN l.starts_on AND l.ends_on
                AND s."by" IN (SELECT person FROM people WHERE people.id = l.id))::int AS spent_minutes,
@@ -56,8 +61,11 @@ async function current(viewerId: number, taskId: number | null): Promise<TagLimi
               LEFT JOIN finished_at f ON f.task_id = k.id AND f.expired_at IS NULL
              WHERE e.expired_at IS NULL AND k.tag_ids @> l.tag_ids AND (f.value IS NULL OR f.value > NOW())
                AND e."by" IN (SELECT person FROM people WHERE people.id = l.id))::int AS left_minutes,
-           0 AS forecast_minutes
-      FROM l
+           (SELECT COALESCE(sum(s.value), 0) FROM spent_minutes s JOIN task k ON k.id = s.task_id
+             WHERE k.tag_ids @> l.tag_ids AND s.day > t.today - 28 AND s.day <= t.today
+               AND s."by" IN (SELECT person FROM people WHERE people.id = l.id))::int AS pace_minutes,
+           GREATEST(0, l.ends_on - GREATEST(t.today, l.starts_on) + 1) AS days_ahead
+      FROM l, LATERAL (SELECT local_today(${viewerId}) AS today) t
      ORDER BY l.ends_on, l.id
   `);
   const daily = DayRow.array().parse(await sql`
@@ -69,17 +77,19 @@ async function current(viewerId: number, taskId: number | null): Promise<TagLimi
      GROUP BY l.id, s.day
   `);
   const tags = await tagMap(viewerId, [...new Set(rows.flatMap((r) => r.tagIds))]);
-  return rows.map(({ tagIds, today, ...r }) => {
+  return rows.map(({ tagIds, today, paceMinutes, daysAhead, ...r }) => {
     const last = r.endsOn < today ? r.endsOn : today;
     const days: string[] = [];
     for (let d = r.startsOn; d <= last; d = plus(d, 1)) days.push(d);
     let sum = 0;
     const cumulative = days.map((day) => (sum += daily.find((x) => x.id === r.id && x.day === day)?.minutes ?? 0));
+    // Once the period is over nothing more counts: what was spent is what it came to.
+    const aheadMinutes = daysAhead === 0 ? 0 : paceMinutes === 0 ? null : Math.round((paceMinutes / 28) * daysAhead);
     return {
       ...r,
       tags: tagIds.flatMap((id) => tags.get(id) ?? []),
-      // Once the period is over nothing more counts: what was spent is what it came to.
-      forecastMinutes: r.endsOn < today ? r.spentMinutes : r.spentMinutes + r.leftMinutes,
+      aheadMinutes,
+      forecastMinutes: forecast({ spentMinutes: r.spentMinutes, aheadMinutes }, r.leftMinutes),
       days,
       cumulative,
     };
