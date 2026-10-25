@@ -14,6 +14,9 @@ the specification; read it before any work.
 - Everything is in English: code, comments, `db.sql`, documentation,
   commit messages.
 - The only exception is user-facing translations: `shared/i18n/<locale>.ts`.
+- Russian user-facing text is written, not translated from the English
+  docs: follow `.claude/skills/russian-texts/SKILL.md` and its proofreading
+  pass before every commit that touches it.
 
 ## Delivery
 
