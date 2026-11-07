@@ -39,7 +39,11 @@ export const en: Translation = {
   },
   away: {
     set: 'I’ll be away…',
-    title: 'I’m away — back at work on:',
+    title: 'I’ll be away. Back at work:',
+    starts: 'The absence starts at once, today.',
+    other: 'Or another day',
+    span: 'Away through {{last}}, back at work on {{day}}.',
+    spanToday: 'Away today only, back at work on {{day}}.',
     until: 'Back {{day}}',
     hint: 'While you are away, notifications are copied to your manager. Click to change',
     tomorrow: 'Tomorrow',
@@ -286,7 +290,7 @@ export const en: Translation = {
   newTask: {
     title: 'New task',
     tags: 'Tags',
-    tagsHint: 'The title is a set of tags: pick the ones that fit from the suggestions; text left unpicked becomes a new tag.',
+    tagsHint: 'The title is a set of tags: rubrics from the suggestions and a phrase of what is to be done, like "website · homepage · change the banner". Text left unpicked becomes a new tag.',
     priority: 'Priority',
     waitsFor: 'Will wait for',
     waitedOnBy: 'Will be waited on by',
@@ -404,6 +408,7 @@ export const en: Translation = {
   },
   title: {
     taken: 'A task with this title exists: #{{id}}',
+    takenBlocks: 'No two tasks share a title: add a tag to tell them apart.',
     pickFirst: 'The tag “{{name}}” exists — pick it from the suggestions',
     create: 'Create the task “{{title}}”',
   },
@@ -590,6 +595,7 @@ export const en: Translation = {
       limit: 'Set a latest deadline',
       latest: 'Latest deadline of #{{dependency}}',
       freeHelp: 'Without a latest deadline it only shows that #{{dependent}} waits for #{{dependency}}. The owner of #{{dependency}} is notified.',
+      afterOwn: 'This is later than the deadline of #{{dependent}} itself ({{deadline}}): if #{{dependency}} is done by then, #{{dependent}} is already late.',
       limitHelp: '#{{dependency}} must not finish later than this, or #{{dependent}} will not make it. If the deadline of #{{dependency}} is later or not set, both tasks are at risk. Moving deadlines is not forbidden: the owner of #{{dependent}} is told of every move.',
     },
     transfer: {
@@ -962,6 +968,7 @@ export const en: Translation = {
     avatarUpload: 'Upload a photo',
     avatarChange: 'Change the photo',
     avatarDelete: 'Remove',
+    avatarUnreadable: 'This picture could not be read. A photo in JPEG, PNG or WebP will do.',
     pronoun: 'Pronoun',
     pronounHint: 'Picks verb forms in languages that have them. Leave it empty for a team bot.',
     theme: 'Appearance',
